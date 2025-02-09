@@ -1,0 +1,308 @@
+import {Where} from './where.js';
+import {Visitor} from './visitor.js';
+
+// --------------------------------------------------------------------------- 
+
+export abstract class Node {
+  where: Where;
+  
+  constructor(where: Where) {
+    this.where = where;
+  }
+
+  abstract visit<P, R>(visitor: Visitor<P, R>, payload: P): R;
+}
+
+export abstract class Statement extends Node {
+  constructor(where: Where) {
+    super(where);
+  }
+}
+
+export class Block extends Node {
+  statements: Statement[];
+
+  constructor(statements: Statement[], where: Where) {
+    super(where);
+    this.statements = statements;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitBlock(this, payload);
+  }
+}
+
+export abstract class Expression extends Node {
+  precedence: number;
+
+  constructor(where: Where) {
+    super(where);
+    this.precedence = 0;
+  }
+}
+
+// --------------------------------------------------------------------------- 
+// Statements
+// ----------------------------------------------------------------------------
+
+export class Assignment extends Statement {
+  leftNode: Node;
+  rightNode: Node;
+
+  constructor(leftNode: Node, rightNode: Node, where: Where) {
+    super(where);
+    this.leftNode = leftNode;
+    this.rightNode = rightNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitAssignment(this, payload);
+  }
+}
+
+export class Variable extends Expression {
+  identifier: string;
+
+  constructor(identifier: string, where: Where) {
+    super(where);
+    this.identifier = identifier;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitVariable(this, payload);
+  }
+}
+
+export class Print extends Statement {
+  operandNode: Node;
+
+  constructor(operandNode: Node, where: Where) {
+    super(where);
+    this.operandNode = operandNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitPrint(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
+// Primitives
+// --------------------------------------------------------------------------- 
+
+export abstract class Primitive<T> extends Expression {
+  rawValue: T;
+
+  constructor(rawValue: T, where: Where) {
+    super(where);
+    this.rawValue = rawValue;
+  }
+}
+
+export class Integer extends Primitive<number> {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitInteger(this, payload);
+  }
+}
+
+export class Float extends Primitive<number> {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitFloat(this, payload);
+  }
+}
+
+export class String extends Primitive<string> {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitString(this, payload);
+  }
+}
+
+export class Boolean extends Primitive<boolean> {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitBoolean(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
+// Unary Operators
+// --------------------------------------------------------------------------- 
+
+export abstract class UnaryOperator extends Expression {
+  operandNode: Node;
+
+  constructor(operandNode: Node, where: Where) {
+    super(where);
+    this.operandNode = operandNode;
+  }
+}
+
+export class LogicalNegate extends UnaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitLogicalNegate(this, payload);
+  }
+}
+
+export class ArithmeticNegate extends UnaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitArithmeticNegate(this, payload);
+  }
+}
+
+export class BitwiseNegate extends UnaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitBitwiseNegate(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
+// Binary Operators
+// --------------------------------------------------------------------------- 
+
+export abstract class BinaryOperator extends Expression {
+  leftNode: Node;
+  rightNode: Node;
+
+  constructor(leftNode: Node, rightNode: Node, where: Where) {
+    super(where);
+    this.leftNode = leftNode;
+    this.rightNode = rightNode;
+  }
+}
+
+export class Add extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitAdd(this, payload);
+  }
+}
+
+export class Subtract extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitSubtract(this, payload);
+  }
+}
+
+export class Multiply extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitMultiply(this, payload);
+  }
+}
+
+export class Divide extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitDivide(this, payload);
+  }
+}
+
+export class Remainder extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitRemainder(this, payload);
+  }
+}
+
+export class Power extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitPower(this, payload);
+  }
+}
+
+export class LessThan extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitLessThan(this, payload);
+  }
+}
+
+export class GreaterThan extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitGreaterThan(this, payload);
+  }
+}
+
+export class LessThanOrEqual extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitLessThanOrEqual(this, payload);
+  }
+}
+
+export class GreaterThanOrEqual extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitGreaterThanOrEqual(this, payload);
+  }
+}
+
+export class Equal extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitEqual(this, payload);
+  }
+}
+
+export class NotEqual extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitNotEqual(this, payload);
+  }
+}
+
+export class LogicalAnd extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitLogicalAnd(this, payload);
+  }
+}
+
+export class LogicalOr extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitLogicalOr(this, payload);
+  }
+}
+
+export class BitwiseAnd extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitBitwiseAnd(this, payload);
+  }
+}
+
+export class BitwiseOr extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitBitwiseOr(this, payload);
+  }
+}
+
+export class Xor extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitXor(this, payload);
+  }
+}
+
+export class LeftShift extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitLeftShift(this, payload);
+  }
+}
+
+export class RightShift extends BinaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitRightShift(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
+// Control Flow
+// ---------------------------------------------------------------------------
+
+export class If extends Statement {
+  conditionNode: Node;
+  thenBlock: Block;
+  elseBlock: Block | null;
+
+  constructor(conditionNode: Node, thenBlock: Block, elseBlock: Block | null, where: Where) {
+    super(where);
+    this.conditionNode = conditionNode;
+    this.thenBlock = thenBlock;
+    this.elseBlock = elseBlock;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitIf(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
+
