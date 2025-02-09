@@ -185,7 +185,7 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitAssignment(node: ast.Assignment, formatter: Formatter): string {
-    return `${node.leftNode.visit(this, formatter)} = ${node.rightNode.visit(this, formatter)}\n`;
+    return `${node.leftNode.visit(this, formatter)} = ${node.rightNode.visit(this, formatter)}`;
   }
 
   visitVariable(node: ast.Variable, _formatter: Formatter): string {
@@ -194,22 +194,29 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
 
   visitBlock(node: ast.Block, formatter: Formatter): string {
     return node.statements.map(statement => {
-      return `${formatter.indentation.repeat(formatter.nestingLevel)}${statement.visit(this, formatter)}`;
+      return `${formatter.indentation.repeat(formatter.nestingLevel)}${statement.visit(this, formatter)}\n`;
     }).join('');
   }
 
   visitPrint(node: ast.Print, formatter: Formatter): string {
-    return `print(${node.operandNode.visit(this, formatter)})\n`;
+    return `print(${node.operandNode.visit(this, formatter)})`;
   }
 
   visitIf(node: ast.If, formatter: Formatter): string {
     let text = `if (${node.conditionNode.visit(this, formatter)}) {\n`;
     text += node.thenBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     if (node.elseBlock) {
-      text += `} else {\n`;
+      text += `${formatter.indentation.repeat(formatter.nestingLevel)}} else {\n`;
       text += node.elseBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     }
-    text += `}\n`;
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+    return text;
+  }
+
+  visitWhile(node: ast.While, formatter: Formatter): string {
+    let text = `while (${node.conditionNode.visit(this, formatter)}) {\n`;
+    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
     return text;
   }
 

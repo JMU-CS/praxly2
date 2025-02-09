@@ -21,6 +21,74 @@ class PraxlyParser extends Parser {
     }
   }
 
+  statement(): ast.Node {
+    // check for for, return, class, function definition
+    let statement;
+
+    if (this.has(TokenType.If)) {
+      statement = this.ifStatement();
+    } else if (this.has(TokenType.While)) {
+      statement = this.whileStatement();
+    } else if (this.has(TokenType.Print)) {
+      statement = this.printStatement();
+    } else {
+      statement = this.otherStatement();
+    }
+
+    if (this.has(TokenType.Linebreak)) {
+      this.advance();
+    } else if (!this.has(TokenType.EndOfSource)) {
+      throw new WhereError(`A statement has stray text: \`${this.tokens[this.i].where.text(this.source)}\`.`, this.tokens[this.i].where);
+    }
+
+    return statement;
+  }
+
+  ifStatement(): ast.Node {
+    const ifToken = this.advance();
+    const conditionNode = this.parenthesizedExpression(ifToken.where, "An if statement's condition").node;
+
+    this.skipLinebreaks();
+    const thenBlock = this.curlyBlock();
+    this.skipLinebreaks();
+
+    if (this.has(TokenType.Else)) {
+      this.advance();
+      const elseBlock = this.curlyBlock();
+      return new ast.If(conditionNode, thenBlock, elseBlock, Where.enclose(ifToken.where, elseBlock.where));
+    } else {
+      return new ast.If(conditionNode, thenBlock, null, Where.enclose(ifToken.where, thenBlock.where));
+    }
+  }
+
+  whileStatement(): ast.Node {
+    const whileToken = this.advance();
+    const conditionNode = this.parenthesizedExpression(whileToken.where, "A while statement's condition").node;
+
+    this.skipLinebreaks();
+    const body = this.curlyBlock();
+    this.skipLinebreaks();
+
+    return new ast.While(conditionNode, body, Where.enclose(whileToken.where, body.where));
+  }
+
+  printStatement(): ast.Node {
+    const printToken = this.advance();
+    const parameter = this.parenthesizedExpression(printToken.where, 'A print\'s parameter');
+    return new ast.Print(parameter.node, Where.enclose(printToken.where, parameter.where));
+  }
+
+  otherStatement(): ast.Node {
+    const expression = this.expression();
+    if (this.has(TokenType.Equal)) {
+      this.advance();
+      const rightExpression = this.expression();
+      return new ast.Assignment(expression, rightExpression, Where.enclose(expression.where, rightExpression.where));
+    } else {
+      return expression;
+    }
+  }
+
   curlyBlock(): ast.Block {
     if (!this.has(TokenType.LeftCurly)) {
       throw new Error('Blocks must be enclosed in curly braces.');
@@ -42,66 +110,23 @@ class PraxlyParser extends Parser {
     return new ast.Block(statements, Where.enclose(leftCurlyToken.where, rightCurlyToken.where));
   }
 
-  statement(): ast.Node {
-    // check for while, for, return, class, function definition
-    let statement;
-
-    if (this.has(TokenType.If)) {
-      const ifToken = this.advance();
-
-      if (!this.has(TokenType.LeftParenthesis)) {
-        throw new WhereError('A condition must be enclosed in parentheses.', ifToken.where);
-      }
-      this.advance(); // eat (
-
-      const conditionNode = this.expression();
-
-      if (!this.has(TokenType.RightParenthesis)) {
-        throw new WhereError('A condition must be enclosed in parentheses.', Where.enclose(ifToken.where, conditionNode.where));
-      }
-      this.advance(); // eat )
-
-      this.skipLinebreaks();
-      const thenBlock = this.curlyBlock();
-      this.skipLinebreaks();
-
-      if (this.has(TokenType.Else)) {
-        this.advance();
-        const elseBlock = this.curlyBlock();
-        return new ast.If(conditionNode, thenBlock, elseBlock, Where.enclose(ifToken.where, elseBlock.where));
-      } else {
-        return new ast.If(conditionNode, thenBlock, null, Where.enclose(ifToken.where, thenBlock.where));
-      }
-    } else if (this.has(TokenType.Print)) {
-      const printToken = this.advance();
-      if (!this.has(TokenType.LeftParenthesis)) {
-        throw new WhereError('A print statement must have left and right parentheses.', printToken.where);
-      }
-      this.advance(); // eat (
-      const operandNode = this.expression();
-      if (!this.has(TokenType.RightParenthesis)) {
-        throw new WhereError('A print statement must have left and right parentheses.', Where.enclose(printToken.where, operandNode.where));
-      }
-      const rightToken = this.advance(); // eat )
-      return new ast.Print(operandNode, Where.enclose(printToken.where, rightToken.where));
-    } else {
-      const expression = this.expression();
-      if (this.has(TokenType.Equal)) {
-        this.advance();
-        const rightExpression = this.expression();
-        statement = new ast.Assignment(expression, rightExpression, Where.enclose(expression.where, rightExpression.where));
-      } else {
-        statement = expression;
-      }
+  parenthesizedExpression(predecessorWhere: Where, prefix: string) {
+    if (!this.has(TokenType.LeftParenthesis)) {
+      throw new WhereError(`${prefix} must be enclosed in parentheses.`, predecessorWhere);
     }
+    const leftToken = this.advance(); // eat (
 
-    if (this.has(TokenType.Linebreak)) {
-      this.advance();
-    } else if (!this.has(TokenType.EndOfSource)) {
-      throw new WhereError(`A statement has stray text: \`${this.tokens[this.i].where.text(this.source)}\`.`, this.tokens[this.i].where);
+    const node = this.expression();
+
+    if (!this.has(TokenType.RightParenthesis)) {
+      throw new WhereError(`${prefix} must be enclosed in parentheses.`, Where.enclose(predecessorWhere, node.where));
     }
+    const rightToken = this.advance(); // eat )
 
-    return statement;
+    return {
+      node,
+      where: Where.enclose(leftToken.where, rightToken.where),
+    };
   }
 
   expression() {

@@ -35,5 +35,6 @@ export abstract class Visitor<P, R> {
   abstract visitBlock(node: ast.Block, payload: P): R;
   abstract visitPrint(node: ast.Print, payload: P): R;
   abstract visitIf(node: ast.If, payload: P): R;
+  abstract visitWhile(node: ast.While, payload: P): R;
 
 }

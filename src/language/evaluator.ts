@@ -392,5 +392,17 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     return new VoidFruit();
   }
 
+  visitWhile(node: ast.While, runtime: Runtime): Fruit {
+    const fruit = node.conditionNode.visit(this, runtime);
+    if (fruit instanceof BooleanFruit) {
+      if (fruit.value) {
+        node.body.visit(this, runtime);
+      }
+    } else {
+      throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+    }
+    return new VoidFruit();
+  }
+
   // --------------------------------------------------------------------------
 }

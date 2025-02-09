@@ -20,9 +20,9 @@ export abstract class Statement extends Node {
 }
 
 export class Block extends Node {
-  statements: Statement[];
+  statements: (Statement|Expression)[];
 
-  constructor(statements: Statement[], where: Where) {
+  constructor(statements: (Statement|Expression)[], where: Where) {
     super(where);
     this.statements = statements;
   }
@@ -301,6 +301,21 @@ export class If extends Statement {
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
     return visitor.visitIf(this, payload);
+  }
+}
+
+export class While extends Statement {
+  conditionNode: Node;
+  body: Block;
+
+  constructor(conditionNode: Node, body: Block, where: Where) {
+    super(where);
+    this.conditionNode = conditionNode;
+    this.body = body;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitWhile(this, payload);
   }
 }
 

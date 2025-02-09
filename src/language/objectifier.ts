@@ -191,5 +191,14 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
+  visitWhile(node: ast.While, payload: Object): Object {
+    return {
+      type: 'while',
+      conditionNode: node.conditionNode.visit(this, payload),
+      body: node.body.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   // --------------------------------------------------------------------------
 }
