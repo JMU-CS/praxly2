@@ -13,7 +13,11 @@ export abstract class Parser {
   }
 
   has(type: TokenType) {
-    return this.i < this.source.length && this.tokens[this.i].type == type;
+    return this.i < this.source.length && this.tokens[this.i].type === type;
+  }
+
+  hasOtherwise(type: TokenType) {
+    return this.i < this.source.length && this.tokens[this.i].type !== type && this.tokens[this.i].type !== TokenType.EndOfSource;
   }
 
   hasAhead(type: TokenType, offset: number) {

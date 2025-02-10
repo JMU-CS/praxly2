@@ -31,10 +31,13 @@ export abstract class Visitor<P, R> {
   abstract visitRightShift(node: ast.RightShift, payload: P): R;
 
   abstract visitAssignment(node: ast.Assignment, payload: P): R;
+  abstract visitDeclaration(node: ast.Declaration, payload: P): R;
   abstract visitVariable(node: ast.Variable, payload: P): R;
   abstract visitBlock(node: ast.Block, payload: P): R;
   abstract visitPrint(node: ast.Print, payload: P): R;
   abstract visitIf(node: ast.If, payload: P): R;
   abstract visitWhile(node: ast.While, payload: P): R;
 
+  abstract visitFunctionDefinition(node: ast.FunctionDefinition, payload: P): R;
+  abstract visitFunctionCall(node: ast.FunctionCall, payload: P): R;
 }

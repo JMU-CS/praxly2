@@ -19,6 +19,8 @@ function initialize() {
   }
 
   runButton.addEventListener('click', () => {
+    outputPanel.innerText = '';
+
     const source = editor.value;
 
     localStorage.setItem('latest-source', source);
@@ -35,9 +37,18 @@ function initialize() {
     });
     sourcePanel.innerText = generatedSource;
 
-    const runtime = new Runtime();
-    ast.visit(new Evaluator(praxlySymbolMap), runtime);
-    outputPanel.innerText = runtime.stdout;
+    try {
+      const runtime = new Runtime();
+      ast.visit(new Evaluator(praxlySymbolMap), runtime);
+      outputPanel.innerText = Runtime.stdout;
+    } catch (e) {
+      if (e instanceof Error) {
+        const message = e.message.replaceAll(/`(.*?)`/g, '<var>$1</var>');
+        const p = document.createElement('p');
+        p.innerHTML = message;
+        outputPanel.appendChild(p);
+      }
+    }
   });
 }
 

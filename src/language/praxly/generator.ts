@@ -188,6 +188,14 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
     return `${node.leftNode.visit(this, formatter)} = ${node.rightNode.visit(this, formatter)}`;
   }
 
+  visitDeclaration(node: ast.Declaration, formatter: Formatter): string {
+    let text = `${node.variableType} ${node.identifier}`;
+    if (node.rightNode) {
+      text += ` = ${node.rightNode.visit(this, formatter)}`;
+    }
+    return text;
+  }
+
   visitVariable(node: ast.Variable, _formatter: Formatter): string {
     return node.identifier;
   }
@@ -218,6 +226,17 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
     return text;
+  }
+
+  visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
+    let text = `function ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')}) {\n`;
+    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+    return text;
+  }
+
+  visitFunctionCall(node: ast.FunctionCall, formatter: Formatter): string {
+    return `${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
   }
 
   // --------------------------------------------------------------------------

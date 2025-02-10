@@ -9,6 +9,8 @@ class PraxlyLexer extends Lexer {
       this.lexNumber();
     } else if (this.accept("\n")) {
       this.emitToken(TokenType.Linebreak);
+    } else if (this.accept(',')) {
+      this.emitToken(TokenType.Comma);
     } else if (this.accept('+')) {
       this.emitToken(TokenType.Plus);
     } else if (this.accept('/')) {
@@ -102,6 +104,8 @@ class PraxlyLexer extends Lexer {
       this.emitToken(TokenType.For);
     } else if (text === 'while') {
       this.emitToken(TokenType.While);
+    } else if (text === 'function') {
+      this.emitToken(TokenType.Function);
     } else if (text === 'if') {
       this.emitToken(TokenType.If);
     } else if (text === 'else') {

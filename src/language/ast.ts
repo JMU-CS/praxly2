@@ -60,6 +60,23 @@ export class Assignment extends Statement {
   }
 }
 
+export class Declaration extends Statement {
+  identifier: string;
+  variableType: string;
+  rightNode: Node | null;
+
+  constructor(identifier: string, variableType: string, rightNode: Node | null, where: Where) {
+    super(where);
+    this.identifier = identifier;
+    this.variableType = variableType;
+    this.rightNode = rightNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitDeclaration(this, payload);
+  }
+}
+
 export class Variable extends Expression {
   identifier: string;
 
@@ -316,6 +333,52 @@ export class While extends Statement {
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
     return visitor.visitWhile(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
+// Functions
+// --------------------------------------------------------------------------- 
+
+export class Formal {
+  identifier: string;
+  type: string;
+
+  constructor(identifier: string, type: string) {
+    this.identifier = identifier;
+    this.type = type;
+  }
+}
+
+export class FunctionDefinition extends Statement {
+  identifier: string;
+  formals: Formal[];
+  body: Block;
+
+  constructor(identifier: string, formals: Formal[], body: Block, where: Where) {
+    super(where);
+    this.identifier = identifier;
+    this.formals = formals;
+    this.body = body;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitFunctionDefinition(this, payload);
+  }
+}
+
+export class FunctionCall extends Expression {
+  identifier: string;
+  actuals: Expression[];
+
+  constructor(identifier: string, actuals: Expression[], where: Where) {
+    super(where);
+    this.identifier = identifier;
+    this.actuals = actuals;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitFunctionCall(this, payload);
   }
 }
 

@@ -5,23 +5,85 @@ import {WhereError} from '../error.js';
 import * as ast from '../ast.js';
 
 class PraxlyParser extends Parser {
-  parse(): ast.Node {
+  parse(): ast.Block {
     const statements = [];
     this.skipLinebreaks();
     while (!this.has(TokenType.EndOfSource)) {
-      statements.push(this.statement());
+      statements.push(this.topLevelStatement());
       this.skipLinebreaks();
     }
     if (statements.length === 0) {
       return new ast.Block(statements, new Where(0, 0));
-    } else if (statements.length === 1) {
-      return statements[0];
     } else {
       return new ast.Block(statements, Where.enclose(statements[0].where, statements[statements.length - 1].where));
     }
   }
 
-  statement(): ast.Node {
+  topLevelStatement(): ast.Statement | ast.Expression {
+    if (this.has(TokenType.Function)) {
+      const defineNode = this.functionDefinition();
+      this.statementLinebreak();
+      return defineNode;
+    } else {
+      return this.statement();
+    }
+  }
+
+  functionDefinition(): ast.FunctionDefinition {
+    const functionToken = this.advance();
+
+    if (!this.has(TokenType.Identifier)) {
+      throw new WhereError(`The function's name is missing.`, functionToken.where);
+    }
+    const identifierToken = this.advance() as TextToken;
+
+    if (!this.has(TokenType.LeftParenthesis)) {
+      throw new WhereError(`A function's parameters must be enclosed in parentheses.`, Where.enclose(functionToken.where, identifierToken.where));
+    }
+    const leftToken = this.advance(); // eat (
+    let latestToken = leftToken;
+
+    const formals = [];
+    if (this.has(TokenType.Identifier)) {
+      const typeToken = this.advance() as TextToken;
+      if (!this.has(TokenType.Identifier)) {
+        throw new WhereError("A parameter must have both the type and the name.", typeToken.where);
+      }
+      const identifierToken = this.advance() as TextToken;
+      latestToken = identifierToken;
+      formals.push(new ast.Formal(identifierToken.text, typeToken.text));
+      while (this.has(TokenType.Comma)) {
+        this.advance();
+        const typeToken = this.advance() as TextToken;
+        if (!this.has(TokenType.Identifier)) {
+          throw new WhereError("A parameter must have both the type and the name.", typeToken.where);
+        }
+        const identifierToken = this.advance() as TextToken;
+        latestToken = identifierToken;
+        formals.push(new ast.Formal(identifierToken.text, typeToken.text));
+      }
+    } 
+
+    if (!this.has(TokenType.RightParenthesis)) {
+      throw new WhereError(`A function's parameter must be enclosed in parentheses.`, Where.enclose(functionToken.where, latestToken.where));
+    }
+    const rightToken = this.advance(); // eat )
+
+    this.skipLinebreaks();
+    const body = this.curlyBlock();
+
+    return new ast.FunctionDefinition(identifierToken.text, formals, body, Where.enclose(functionToken.where, body.where));
+  }
+
+  statementLinebreak() {
+    if (this.has(TokenType.Linebreak)) {
+      this.advance();
+    } else if (!this.has(TokenType.EndOfSource)) {
+      throw new WhereError(`A statement has stray text: \`${this.tokens[this.i].where.text(this.source)}\`.`, this.tokens[this.i].where);
+    }
+  } 
+
+  statement(): ast.Statement | ast.Expression {
     // check for for, return, class, function definition
     let statement;
 
@@ -31,20 +93,30 @@ class PraxlyParser extends Parser {
       statement = this.whileStatement();
     } else if (this.has(TokenType.Print)) {
       statement = this.printStatement();
+    } else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Identifier, 1)) {
+      statement = this.declaration();
     } else {
       statement = this.otherStatement();
     }
 
-    if (this.has(TokenType.Linebreak)) {
-      this.advance();
-    } else if (!this.has(TokenType.EndOfSource)) {
-      throw new WhereError(`A statement has stray text: \`${this.tokens[this.i].where.text(this.source)}\`.`, this.tokens[this.i].where);
-    }
-
+    this.statementLinebreak();
     return statement;
   }
 
-  ifStatement(): ast.Node {
+  declaration() {
+    const typeToken = this.advance() as TextToken;
+    const identifierToken = this.advance() as TextToken;
+
+    if (this.has(TokenType.Equal)) {
+      this.advance();
+      const rightNode = this.expression();
+      return new ast.Declaration(identifierToken.text, typeToken.text, rightNode, Where.enclose(typeToken.where, rightNode.where));
+    } else {
+      return new ast.Declaration(identifierToken.text, typeToken.text, null, Where.enclose(typeToken.where, identifierToken.where));
+    }
+  }
+
+  ifStatement(): ast.Statement {
     const ifToken = this.advance();
     const conditionNode = this.parenthesizedExpression(ifToken.where, "An if statement's condition").node;
 
@@ -61,7 +133,7 @@ class PraxlyParser extends Parser {
     }
   }
 
-  whileStatement(): ast.Node {
+  whileStatement(): ast.Statement {
     const whileToken = this.advance();
     const conditionNode = this.parenthesizedExpression(whileToken.where, "A while statement's condition").node;
 
@@ -72,13 +144,13 @@ class PraxlyParser extends Parser {
     return new ast.While(conditionNode, body, Where.enclose(whileToken.where, body.where));
   }
 
-  printStatement(): ast.Node {
+  printStatement(): ast.Statement {
     const printToken = this.advance();
     const parameter = this.parenthesizedExpression(printToken.where, 'A print\'s parameter');
     return new ast.Print(parameter.node, Where.enclose(printToken.where, parameter.where));
   }
 
-  otherStatement(): ast.Node {
+  otherStatement(): ast.Statement | ast.Expression {
     const expression = this.expression();
     if (this.has(TokenType.Equal)) {
       this.advance();
@@ -129,11 +201,11 @@ class PraxlyParser extends Parser {
     };
   }
 
-  expression() {
+  expression(): ast.Expression {
     return this.bitwiseOr();
   }
 
-  bitwiseOr(): ast.Node {
+  bitwiseOr(): ast.Expression {
     let leftNode = this.xor();
     while (this.has(TokenType.Pipe)) {
       const operatorToken = this.advance();
@@ -143,7 +215,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  xor(): ast.Node {
+  xor(): ast.Expression {
     let leftNode = this.bitwiseAnd();
     while (this.has(TokenType.Circumflex)) {
       const operatorToken = this.advance();
@@ -153,7 +225,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  bitwiseAnd(): ast.Node {
+  bitwiseAnd(): ast.Expression {
     let leftNode = this.equality();
     while (this.has(TokenType.Ampersand)) {
       const operatorToken = this.advance();
@@ -163,7 +235,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  equality(): ast.Node {
+  equality(): ast.Expression {
     let leftNode = this.relational();
     while (this.has(TokenType.DoubleEqual) || this.has(TokenType.NotEqual)) {
       const operatorToken = this.advance();
@@ -177,7 +249,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  relational(): ast.Node {
+  relational(): ast.Expression {
     let leftNode = this.shift();
     while (this.has(TokenType.LessThan) || this.has(TokenType.GreaterThan) || this.has(TokenType.LessThanOrEqual) || this.has(TokenType.GreaterThanOrEqual)) {
       const operatorToken = this.advance();
@@ -195,7 +267,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  shift(): ast.Node {
+  shift(): ast.Expression {
     let leftNode = this.logicalOr();
     while (this.has(TokenType.DoubleLessThan) || this.has(TokenType.DoubleGreaterThan)) {
       const operatorToken = this.advance();
@@ -209,7 +281,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  logicalOr(): ast.Node {
+  logicalOr(): ast.Expression {
     let leftNode = this.logicalAnd();
     while (this.has(TokenType.DoublePipe)) {
       const operatorToken = this.advance();
@@ -219,7 +291,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  logicalAnd(): ast.Node {
+  logicalAnd(): ast.Expression {
     let leftNode = this.additive();
     while (this.has(TokenType.DoubleAmpersand)) {
       const operatorToken = this.advance();
@@ -229,7 +301,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  additive(): ast.Node {
+  additive(): ast.Expression {
     let leftNode = this.multiplicative();
     while (this.has(TokenType.Plus) || this.has(TokenType.Hyphen)) {
       const operatorToken = this.advance();
@@ -243,7 +315,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  multiplicative(): ast.Node {
+  multiplicative(): ast.Expression {
     let leftNode = this.power();
     while (this.has(TokenType.Asterisk) || this.has(TokenType.ForwardSlash) || this.has(TokenType.Percent)) {
       const operatorToken = this.advance();
@@ -259,7 +331,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  power(): ast.Node {
+  power(): ast.Expression {
     let leftNode = this.unary();
     if (this.has(TokenType.DoubleAsterisk)) {
       const operatorToken = this.advance();
@@ -269,7 +341,7 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
-  unary(): ast.Node {
+  unary(): ast.Expression {
     if (this.has(TokenType.Bang)) {
       const operatorToken = this.advance();
       const operandNode = this.unary();
@@ -287,7 +359,32 @@ class PraxlyParser extends Parser {
     }
   }
 
-  apex(): ast.Node {
+  variable() {
+    const identifierToken = this.advance() as TextToken;
+    if (this.has(TokenType.LeftParenthesis)) {
+      const leftToken = this.advance();
+      let latestWhere = leftToken.where;
+      const actuals = [];
+      if (this.hasOtherwise(TokenType.RightParenthesis)) {
+        actuals.push(this.expression());
+        while (this.has(TokenType.Comma)) {
+          this.advance();
+          actuals.push(this.expression());
+        }
+        latestWhere = actuals[actuals.length - 1].where;
+      }
+      if (this.has(TokenType.RightParenthesis)) {
+        const rightToken = this.advance();
+        return new ast.FunctionCall(identifierToken.text, actuals, Where.enclose(identifierToken.where, rightToken.where));
+      } else {
+        throw new WhereError("A function call's parameters must be enclosed in parentheses.", Where.enclose(identifierToken.where, latestWhere));
+      }
+    } else {
+      return new ast.Variable(identifierToken.text, identifierToken.where);
+    }
+  }
+
+  apex(): ast.Expression {
     if (this.has(TokenType.Integer)) {
       const token = this.advance() as TextToken;
       return new ast.Integer(parseInt(token.text), token.where);
@@ -301,8 +398,7 @@ class PraxlyParser extends Parser {
       const token = this.advance() as TextToken;
       return new ast.Boolean(token.text == 'true', token.where);
     } else if (this.has(TokenType.Identifier)) {
-      const token = this.advance() as TextToken;
-      return new ast.Variable(token.text, token.where);
+      return this.variable();
     } else if (this.has(TokenType.LeftParenthesis)) {
       const leftParenthesisToken = this.advance();
       const expression = this.expression();

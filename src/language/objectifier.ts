@@ -157,6 +157,16 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
+  visitDeclaration(node: ast.Declaration, payload: Object): Object {
+    return {
+      type: 'declaration',
+      identifier: node.identifier,
+      variableType: node.variableType,
+      rightNode: node.rightNode?.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   visitVariable(node: ast.Variable, _payload: Object): Object {
     return {
       type: 'variable',
@@ -196,6 +206,31 @@ export class Objectifier extends Visitor<Object, Object> {
       type: 'while',
       conditionNode: node.conditionNode.visit(this, payload),
       body: node.body.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // Functions
+  // --------------------------------------------------------------------------
+
+  visitFunctionDefinition(node: ast.FunctionDefinition, payload: Object): Object {
+    return {
+      type: 'function-definition',
+      identifier: node.identifier,
+      formals: node.formals.map(formal => ({
+        identifier: formal.identifier,
+      })),
+      body: node.body.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitFunctionCall(node: ast.FunctionCall, payload: Object): Object {
+    return {
+      type: 'function-call',
+      identifier: node.identifier,
+      actuals: node.actuals.map(actual => actual.visit(this, payload)),
       where: {start: node.where.start, end: node.where.end},
     };
   }

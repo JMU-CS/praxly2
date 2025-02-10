@@ -55,12 +55,17 @@ export abstract class Lexer {
       (this.hasAlphabetic() || this.hasDigit());
   }
 
+  skipWhitespace() {
+    while (this.has(' ')) {
+      this.abandon();
+    }
+  }
+
   lex(): Token[] {
+    this.skipWhitespace();
     while (this.i < this.source.length) {
-      while (this.has(' ')) {
-        this.abandon();
-      }
       this.lexToken();
+      this.skipWhitespace();
     }
 
     this.emitToken(TokenType.EndOfSource);

@@ -1,40 +1,104 @@
 import * as ast from './ast.js';
 import {Visitor} from './visitor.js';
 import {WhereError} from './error.js';
+import {Where} from './where.js';
 import type {NodeClass, SymbolMap} from './symbol-map.js';
 
-abstract class Fruit {}
+abstract class Fruit {
+  type: string;
+
+  constructor(type: string) {
+    this.type = type;
+  }
+}
 
 class PrimitiveFruit<T> extends Fruit {
   value: T;
 
-  constructor(value: T) {
-    super();
+  constructor(type: string, value: T) {
+    super(type);
     this.value = value;
   }
 }
 
-class IntegerFruit extends PrimitiveFruit<number> {}
-class FloatFruit extends PrimitiveFruit<number> {}
-class StringFruit extends PrimitiveFruit<string> {}
-class BooleanFruit extends PrimitiveFruit<boolean> {}
-class VoidFruit extends Fruit {}
+class IntegerFruit extends PrimitiveFruit<number> {
+  constructor(value: number) {
+    super('int', value);
+  }
+}
+
+class FloatFruit extends PrimitiveFruit<number> {
+  constructor(value: number) {
+    super('float', value);
+  }
+}
+
+class StringFruit extends PrimitiveFruit<string> {
+  constructor(value: string) {
+    super('string', value);
+  }
+}
+
+class BooleanFruit extends PrimitiveFruit<boolean> {
+  constructor(value: boolean) {
+    super('boolean', value);
+  }
+}
+
+class VoidFruit extends Fruit {
+  constructor() {
+    super('void');
+  }
+}
+
+class Lambda {
+  formals: ast.Formal[];
+  body: ast.Block;
+
+  constructor(formals: ast.Formal[], body: ast.Block) {
+    this.formals = formals;
+    this.body = body;
+  }
+}
+
+class VariableCell {
+  type: string;
+  fruit: Fruit | null;
+
+  constructor(type: string) {
+    this.type = type;
+    this.fruit = null;
+  }
+}
 
 export class Runtime {
-  bindings: Map<string, Fruit>;
-  stdout: string;
+  variableBindings: Map<string, VariableCell>;
+  functionBindings: Map<string, Lambda>;
+  static stdout: string = '';
 
   constructor() {
-    this.bindings = new Map();
-    this.stdout = '';
+    this.variableBindings = new Map();
+    this.functionBindings = new Map();
+  }
+
+  declareVariable(identifier: string, type: string) {
+    this.variableBindings.set(identifier, new VariableCell(type));
   }
 
   setVariable(identifier: string, fruit: Fruit) {
-    this.bindings.set(identifier, fruit);
+    this.variableBindings.get(identifier)!.fruit = fruit;
   }
 
-  getVariable(identifier: string): Fruit | undefined {
-    return this.bindings.get(identifier);
+  getVariable(identifier: string): VariableCell | undefined {
+    return this.variableBindings.get(identifier);
+  }
+
+  setFunction(identifier: string, lambda: Lambda) {
+    this.functionBindings.set(identifier, lambda);
+  }
+
+  getFunction(identifier: string): Lambda | undefined {
+    return this.functionBindings.get(identifier);
   }
 }
 
@@ -339,25 +403,57 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   // Variables
   // --------------------------------------------------------------------------
 
+  assignVariable(label: string, where: Where, identifier: string, fruit: Fruit, runtime: Runtime) {
+    const cell = runtime.getVariable(identifier);
+    if (cell) {
+      if (fruit.type === cell.type) {
+        cell.fruit = fruit;
+      } else {
+        throw new WhereError(`${label} \`${identifier}\` has type \`${cell.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
+      }
+    } else {
+      throw new WhereError(`${label} \`${identifier}\` is undeclared.`, where);
+    }
+  }
+
   visitAssignment(node: ast.Assignment, runtime: Runtime): Fruit {
     const rightFruit = node.rightNode.visit(this, runtime);
 
     // Don't evaluate left-hand side because that does an rvalue lookup.
     if (node.leftNode instanceof ast.Variable) {
-      runtime.setVariable(node.leftNode.identifier, rightFruit);
+      const identifier = node.leftNode.identifier;
+      this.assignVariable('Variable', node.where, identifier, rightFruit, runtime);
     }
 
-    // TODO: How do I typecheck variable assignments? I need a record of declared types.
+    return new VoidFruit();
+  }
+
+  visitDeclaration(node: ast.Declaration, runtime: Runtime): Fruit {
+    let cell = runtime.getVariable(node.identifier);
+    if (cell) {
+      throw new WhereError(`Variable \`${node.identifier}\` is already declared.`, node.where);
+    }
+
+    runtime.declareVariable(node.identifier, node.variableType);
+
+    if (node.rightNode) {
+      const rightFruit = node.rightNode.visit(this, runtime);
+      this.assignVariable('Variable', node.where, node.identifier, rightFruit, runtime);
+    }
 
     return new VoidFruit();
   }
 
   visitVariable(node: ast.Variable, runtime: Runtime): Fruit {
-    const fruit = runtime.getVariable(node.identifier);
-    if (fruit) {
-      return fruit;
+    const cell = runtime.getVariable(node.identifier);
+    if (cell) {
+      if (cell.fruit) {
+        return cell.fruit;
+      } else {
+        throw new WhereError(`Variable ${node.identifier} is uninitialized.`, node.where);
+      }
     } else {
-      throw new WhereError(`Variable ${node.identifier} is unknown.`, node.where);
+      throw new WhereError(`Variable ${node.identifier} is undeclared.`, node.where);
     }
   }
 
@@ -371,7 +467,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitPrint(node: ast.Print, runtime: Runtime): Fruit {
     const fruit = node.operandNode.visit(this, runtime);
     if (fruit instanceof IntegerFruit || fruit instanceof FloatFruit || fruit instanceof StringFruit || fruit instanceof BooleanFruit) {
-      runtime.stdout += fruit.value + "\n";
+      Runtime.stdout += fruit.value + "\n";
     } else {
       throw new WhereError('Only values may be printed.', node.where);
     }
@@ -393,13 +489,48 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   }
 
   visitWhile(node: ast.While, runtime: Runtime): Fruit {
-    const fruit = node.conditionNode.visit(this, runtime);
-    if (fruit instanceof BooleanFruit) {
-      if (fruit.value) {
-        node.body.visit(this, runtime);
+    let isTerminated = false;
+    while (!isTerminated) {
+      const fruit = node.conditionNode.visit(this, runtime);
+      if (fruit instanceof BooleanFruit) {
+        if (fruit.value) {
+          node.body.visit(this, runtime);
+        } else {
+          isTerminated = true;
+        }
+      } else {
+        throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
       }
+    }
+    return new VoidFruit();
+  }
+
+  // --------------------------------------------------------------------------
+  // Functions
+  // --------------------------------------------------------------------------
+
+  visitFunctionDefinition(node: ast.FunctionDefinition, runtime: Runtime): Fruit {
+    runtime.functionBindings.set(node.identifier, new Lambda(node.formals, node.body));
+    return new VoidFruit();
+  }
+
+  visitFunctionCall(node: ast.FunctionCall, runtime: Runtime): Fruit {
+    const lambda = runtime.functionBindings.get(node.identifier);
+    if (lambda) {
+      if (node.actuals.length !== lambda.formals.length) {
+        throw new WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
+      }
+
+      const newRuntime = new Runtime();
+      for (let [i, formal] of lambda.formals.entries()) {
+        newRuntime.declareVariable(formal.identifier, formal.type);
+        const fruit = node.actuals[i].visit(this, runtime);
+        this.assignVariable('Parameter', node.actuals[i].where, formal.identifier, fruit, newRuntime);
+      }
+
+      lambda.body.visit(this, newRuntime);
     } else {
-      throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+      throw new WhereError(`Function ${node.identifier} is not defined.`, node.where);
     }
     return new VoidFruit();
   }
