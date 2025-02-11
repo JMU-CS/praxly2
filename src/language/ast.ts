@@ -33,11 +33,8 @@ export class Block extends Node {
 }
 
 export abstract class Expression extends Node {
-  precedence: number;
-
   constructor(where: Where) {
     super(where);
-    this.precedence = 0;
   }
 }
 
@@ -353,12 +350,14 @@ export class Formal {
 export class FunctionDefinition extends Statement {
   identifier: string;
   formals: Formal[];
+  returnType: string;
   body: Block;
 
-  constructor(identifier: string, formals: Formal[], body: Block, where: Where) {
+  constructor(identifier: string, formals: Formal[], returnType: string, body: Block, where: Where) {
     super(where);
     this.identifier = identifier;
     this.formals = formals;
+    this.returnType = returnType;
     this.body = body;
   }
 
@@ -379,6 +378,32 @@ export class FunctionCall extends Expression {
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
     return visitor.visitFunctionCall(this, payload);
+  }
+}
+
+export class Return extends Statement {
+  operandNode: Expression | null;
+
+  constructor(operandNode: Expression | null, where: Where) {
+    super(where);
+    this.operandNode = operandNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitReturn(this, payload);
+  }
+}
+
+export class LineComment extends Statement {
+  text: string;
+
+  constructor(text: string, where: Where) {
+    super(where);
+    this.text = text;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitLineComment(this, payload);
   }
 }
 

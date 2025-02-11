@@ -1,6 +1,6 @@
 import * as ast from './ast.js';
 import {Visitor} from './visitor.js';
-import {WhereError} from './error.js';
+import {WhereError} from './exception.js';
 import {Where} from './where.js';
 import type {NodeClass, SymbolMap} from './symbol-map.js';
 
@@ -53,11 +53,15 @@ class VoidFruit extends Fruit {
 
 class Lambda {
   formals: ast.Formal[];
+  returnType: string;
   body: ast.Block;
+  where: Where;
 
-  constructor(formals: ast.Formal[], body: ast.Block) {
+  constructor(formals: ast.Formal[], returnType: string, body: ast.Block, where: Where) {
     this.formals = formals;
+    this.returnType = returnType;
     this.body = body;
+    this.where = where;
   }
 }
 
@@ -99,6 +103,26 @@ export class Runtime {
 
   getFunction(identifier: string): Lambda | undefined {
     return this.functionBindings.get(identifier);
+  }
+}
+
+class ReturnSomethingException extends Error {
+  fruit: Fruit;
+  returnWhere: Where;
+
+  constructor(fruit: Fruit, returnWhere: Where) {
+    super();
+    this.fruit = fruit;
+    this.returnWhere = returnWhere;
+  }
+}
+
+class ReturnNothingException extends Error {
+  returnWhere: Where;
+
+  constructor(returnWhere: Where) {
+    super();
+    this.returnWhere = returnWhere;
   }
 }
 
@@ -329,7 +353,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         }
       }
     }
-    throw new WhereError(`${this.symbol(ast.LogicalAnd)} can only be applied to booleans.`, node.where);
+    throw new WhereError(`\`${this.symbol(ast.LogicalAnd)}\` can only be applied to booleans.`, node.where);
   }
 
   visitLogicalOr(node: ast.LogicalOr, runtime: Runtime): Fruit {
@@ -344,7 +368,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         }
       }
     }
-    throw new WhereError(`${this.symbol(ast.LogicalOr)} can only be applied to booleans.`, node.where);
+    throw new WhereError(`\`${this.symbol(ast.LogicalOr)}\` can only be applied to booleans.`, node.where);
   }
 
   visitBitwiseAnd(node: ast.BitwiseAnd, runtime: Runtime): Fruit {
@@ -510,7 +534,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   // --------------------------------------------------------------------------
 
   visitFunctionDefinition(node: ast.FunctionDefinition, runtime: Runtime): Fruit {
-    runtime.functionBindings.set(node.identifier, new Lambda(node.formals, node.body));
+    runtime.functionBindings.set(node.identifier, new Lambda(node.formals, node.returnType, node.body, node.where));
     return new VoidFruit();
   }
 
@@ -528,10 +552,49 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         this.assignVariable('Parameter', node.actuals[i].where, formal.identifier, fruit, newRuntime);
       }
 
-      lambda.body.visit(this, newRuntime);
+      let fruit;
+      try {
+        lambda.body.visit(this, newRuntime);
+        if (lambda.returnType !== 'void') {
+          throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It didn't return anything.`, lambda.where);
+        }
+        fruit = new VoidFruit();
+      } catch (e) {
+        if (e instanceof ReturnSomethingException) {
+          if (lambda.returnType === 'void') {
+            throw new WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
+          } else if (lambda.returnType !== e.fruit.type) {
+            throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
+          } else {
+            fruit = e.fruit;
+          }
+        } else if (e instanceof ReturnNothingException) {
+          if (lambda.returnType !== 'void') {
+            throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned nothing.`, e.returnWhere);
+          } else {
+            fruit = new VoidFruit();
+          }
+        } else {
+          throw e;
+        }
+      }
+
+      return fruit;
     } else {
       throw new WhereError(`Function ${node.identifier} is not defined.`, node.where);
     }
+  }
+
+  visitReturn(node: ast.Return, runtime: Runtime): Fruit {
+    if (node.operandNode) {
+      const fruit = node.operandNode.visit(this, runtime);
+      throw new ReturnSomethingException(fruit, node.where);
+    } else {
+      throw new ReturnNothingException(node.where);
+    }
+  }
+
+  visitLineComment(_node: ast.LineComment, _runtime: Runtime): Fruit {
     return new VoidFruit();
   }
 

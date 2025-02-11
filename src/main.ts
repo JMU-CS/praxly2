@@ -25,19 +25,20 @@ function initialize() {
 
     localStorage.setItem('latest-source', source);
 
-    const tokens = lexPraxly(source);
-    const ast = parsePraxly(tokens, source);
-
-    const object = ast.visit(new Objectifier(), {});
-    treePanel.innerText = JSON.stringify(object, null, 2);
-
-    const generatedSource = ast.visit(new PraxlyGenerator(), {
-      nestingLevel: 0,
-      indentation: '  ',
-    });
-    sourcePanel.innerText = generatedSource;
-
     try {
+      Runtime.stdout = '';
+      const tokens = lexPraxly(source);
+      const ast = parsePraxly(tokens, source);
+
+      const object = ast.visit(new Objectifier(), {});
+      treePanel.innerText = JSON.stringify(object, null, 2);
+
+      const generatedSource = ast.visit(new PraxlyGenerator(), {
+        nestingLevel: 0,
+        indentation: '  ',
+      });
+      sourcePanel.innerText = generatedSource;
+
       const runtime = new Runtime();
       ast.visit(new Evaluator(praxlySymbolMap), runtime);
       outputPanel.innerText = Runtime.stdout;

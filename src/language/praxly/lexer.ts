@@ -14,7 +14,17 @@ class PraxlyLexer extends Lexer {
     } else if (this.accept('+')) {
       this.emitToken(TokenType.Plus);
     } else if (this.accept('/')) {
-      this.emitToken(TokenType.ForwardSlash);
+      if (this.accept('/')) {
+        this.accept(' ');
+        let text = '';
+        while (this.hasOtherwise("\n")) {
+          text += this.source[this.i];
+          this.advance();
+        }
+        this.emitTextToken(TokenType.LineComment, text);
+      } else {
+        this.emitToken(TokenType.ForwardSlash);
+      }
     } else if (this.accept('%')) {
       this.emitToken(TokenType.Percent);
     } else if (this.accept('(')) {
@@ -112,6 +122,14 @@ class PraxlyLexer extends Lexer {
       this.emitToken(TokenType.Else);
     } else if (text === 'return') {
       this.emitToken(TokenType.Return);
+    } else if (text === 'and') {
+      this.emitToken(TokenType.And);
+    } else if (text === 'or') {
+      this.emitToken(TokenType.Or);
+    } else if (text === 'not') {
+      this.emitToken(TokenType.Not);
+    } else if (text === 'end') {
+      this.emitToken(TokenType.End);
     } else if (text === 'print') {
       this.emitToken(TokenType.Print);
     } else {

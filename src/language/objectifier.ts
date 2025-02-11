@@ -235,5 +235,21 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
+  visitReturn(node: ast.Return, payload: Object): Object {
+    return {
+      type: 'return',
+      operandNode: node.operandNode?.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitLineComment(node: ast.LineComment, _payload: Object): Object {
+    return {
+      type: 'line-comment',
+      text: node.text,
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   // --------------------------------------------------------------------------
 }

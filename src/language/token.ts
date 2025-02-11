@@ -1,6 +1,7 @@
 import {Where} from './where.js';
 
 export enum TokenType {
+  And,
   Asterisk,
   Ampersand,
   Bang,
@@ -11,11 +12,13 @@ export enum TokenType {
   Comma,
   DoubleAmpersand,
   DoubleAsterisk,
-  DoubleLessThan,
   DoubleEqual,
+  DoubleForwardSlash,
   DoubleGreaterThan,
+  DoubleLessThan,
   DoublePipe,
   Else,
+  End,
   EndOfSource,
   Equal,
   Float,
@@ -34,7 +37,10 @@ export enum TokenType {
   LessThan,
   LessThanOrEqual,
   Linebreak,
+  LineComment,
+  Not,
   NotEqual,
+  Or,
   Percent,
   Period,
   Pipe,

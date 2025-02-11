@@ -40,4 +40,6 @@ export abstract class Visitor<P, R> {
 
   abstract visitFunctionDefinition(node: ast.FunctionDefinition, payload: P): R;
   abstract visitFunctionCall(node: ast.FunctionCall, payload: P): R;
+  abstract visitReturn(node: ast.Return, payload: P): R;
+  abstract visitLineComment(node: ast.LineComment, payload: P): R;
 }

@@ -53,7 +53,7 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
   }
 
   visitLogicalNegate(node: ast.LogicalNegate, formatter: Formatter): string {
-    return this.visitUnaryOperator(node, formatter, '!');
+    return this.visitUnaryOperator(node, formatter, 'not ');
   }
 
   visitArithmeticNegate(node: ast.ArithmeticNegate, formatter: Formatter): string {
@@ -153,11 +153,11 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
   }
 
   visitLogicalAnd(node: ast.LogicalAnd, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '&&');
+    return this.visitBinaryOperator(node, formatter, 'and');
   }
 
   visitLogicalOr(node: ast.LogicalAnd, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '||');
+    return this.visitBinaryOperator(node, formatter, 'or');
   }
 
   visitBitwiseAnd(node: ast.BitwiseAnd, formatter: Formatter): string {
@@ -211,32 +211,44 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
   }
 
   visitIf(node: ast.If, formatter: Formatter): string {
-    let text = `if (${node.conditionNode.visit(this, formatter)}) {\n`;
+    let text = `if (${node.conditionNode.visit(this, formatter)})\n`;
     text += node.thenBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     if (node.elseBlock) {
-      text += `${formatter.indentation.repeat(formatter.nestingLevel)}} else {\n`;
+      text += `${formatter.indentation.repeat(formatter.nestingLevel)}else\n`;
       text += node.elseBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     }
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end if`;
     return text;
   }
 
   visitWhile(node: ast.While, formatter: Formatter): string {
-    let text = `while (${node.conditionNode.visit(this, formatter)}) {\n`;
+    let text = `while (${node.conditionNode.visit(this, formatter)})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end while`;
     return text;
   }
 
   visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
-    let text = `function ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')}) {\n`;
+    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
     return text;
   }
 
   visitFunctionCall(node: ast.FunctionCall, formatter: Formatter): string {
     return `${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
+  }
+
+  visitReturn(node: ast.Return, formatter: Formatter): string {
+    let text = `return`;
+    if (node.operandNode) {
+      text += ` ${node.operandNode.visit(this, formatter)}`;
+    }
+    return text;
+  }
+
+  visitLineComment(node: ast.LineComment, _formatter: Formatter): string {
+    return `// ${node.text}\n`;
   }
 
   // --------------------------------------------------------------------------
