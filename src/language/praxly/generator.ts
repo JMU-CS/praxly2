@@ -242,10 +242,14 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
     return text;
   }
 
+  visitBlockAsSequence(node: ast.Block, formatter: Formatter): string {
+    return node.statements.map(statement => statement.visit(this, formatter)).join(', ');
+  }
+
   visitFor(node: ast.For, formatter: Formatter): string {
-    let text = `for (${node.initializationBlock.visit(this, formatter)}; ${node.conditionNode.visit(this, formatter)}; ${node.incrementBlock.visit(this, formatter)})\n`;
+    let text = `for (${node.initializationNode?.visit(this, formatter) ?? ''}; ${node.conditionNode.visit(this, formatter)}; ${this.visitBlockAsSequence(node.incrementBlock, formatter)})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end for`;
     return text;
   }
 
@@ -270,6 +274,42 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
 
   visitLineComment(node: ast.LineComment, _formatter: Formatter): string {
     return `// ${node.text}`;
+  }
+
+  // --------------------------------------------------------------------------
+  // Arrays
+  // --------------------------------------------------------------------------
+
+  visitArrayLiteral(node: ast.ArrayLiteral, formatter: Formatter): string {
+    return `{${node.elementNodes.map(elementNode => elementNode.visit(this, formatter)).join(', ')}}`;
+  }
+
+  visitArrayDeclaration(node: ast.ArrayDeclaration, formatter: Formatter): string {
+    return this.visitDeclaration(node, formatter);
+  }
+
+  visitArraySubscript(node: ast.ArraySubscript, formatter: Formatter): string {
+    let operandPrecedence = precedence.get(node.arrayNode.constructor);
+    let nodePrecedence = precedence.get(node.constructor);
+
+    let text = node.arrayNode.visit(this, formatter);
+    if (operandPrecedence < nodePrecedence) {
+      text = `(${text})`;
+    }
+    text += `[${node.indexNode.visit(this, formatter)}]`;
+    return text;
+  }
+
+  visitArrayLength(node: ast.ArrayLength, formatter: Formatter): string {
+    let operandPrecedence = precedence.get(node.arrayNode.constructor);
+    let nodePrecedence = precedence.get(node.constructor);
+
+    let text = node.arrayNode.visit(this, formatter);
+    if (operandPrecedence < nodePrecedence) {
+      text = `(${text})`;
+    }
+    text += '.length';
+    return text;
   }
 
   // --------------------------------------------------------------------------

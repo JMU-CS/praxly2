@@ -24,6 +24,10 @@ class PraxlyLexer extends Lexer {
       this.lexLinebreak();
     } else if (this.accept(',')) {
       this.emitToken(TokenType.Comma);
+    } else if (this.accept('.')) {
+      this.emitToken(TokenType.Period);
+    } else if (this.accept(';')) {
+      this.emitToken(TokenType.Semicolon);
     } else if (this.accept('+')) {
       this.emitToken(TokenType.Plus);
     } else if (this.accept('%')) {
@@ -32,6 +36,10 @@ class PraxlyLexer extends Lexer {
       this.emitToken(TokenType.LeftParenthesis);
     } else if (this.accept(')')) {
       this.emitToken(TokenType.RightParenthesis);
+    } else if (this.accept('[')) {
+      this.emitToken(TokenType.LeftBracket);
+    } else if (this.accept(']')) {
+      this.emitToken(TokenType.RightBracket);
     } else if (this.accept('{')) {
       this.emitToken(TokenType.LeftCurly);
     } else if (this.accept('}')) {

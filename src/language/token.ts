@@ -43,6 +43,7 @@ export enum TokenType {
   LineComment,
   Not,
   NotEqual,
+  Null,
   Or,
   Percent,
   Period,

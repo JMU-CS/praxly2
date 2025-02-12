@@ -45,4 +45,9 @@ export abstract class Visitor<P, R> {
   abstract visitFunctionCall(node: ast.FunctionCall, payload: P): R;
   abstract visitReturn(node: ast.Return, payload: P): R;
   abstract visitLineComment(node: ast.LineComment, payload: P): R;
+
+  abstract visitArrayLiteral(node: ast.ArrayLiteral, payload: P): R;
+  abstract visitArrayDeclaration(node: ast.ArrayDeclaration, payload: P): R;
+  abstract visitArraySubscript(node: ast.ArraySubscript, payload: P): R;
+  abstract visitArrayLength(node: ast.ArrayLength, payload: P): R;
 }

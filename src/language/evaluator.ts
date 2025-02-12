@@ -10,14 +10,24 @@ abstract class Fruit {
   constructor(type: string) {
     this.type = type;
   }
+
+  abstract toString(): string;
 }
 
-class PrimitiveFruit<T> extends Fruit {
+interface ToStringable {
+  toString: () => string;
+}
+
+class PrimitiveFruit<T extends ToStringable> extends Fruit {
   value: T;
 
   constructor(type: string, value: T) {
     super(type);
     this.value = value;
+  }
+
+  toString(): string {
+    return this.value.toString();
   }
 }
 
@@ -45,9 +55,23 @@ class BooleanFruit extends PrimitiveFruit<boolean> {
   }
 }
 
+class ArrayFruit extends PrimitiveFruit<Fruit[]> {
+  constructor(type: string, value: Fruit[]) {
+    super(type, value);
+  }
+
+  toString(): string {
+    return `{${this.value.map(element => element.toString()).join(', ')}}`;
+  }
+}
+
 class VoidFruit extends Fruit {
   constructor() {
     super('void');
+  }
+
+  toString(): string {
+    return 'void';
   }
 }
 
@@ -78,11 +102,21 @@ class VariableCell {
 export class Runtime {
   variableBindings: Map<string, VariableCell>;
   functionBindings: Map<string, Lambda>;
+  expectedType: string | null;
   static stdout: string = '';
 
-  constructor() {
-    this.variableBindings = new Map();
-    this.functionBindings = new Map();
+  constructor(variableBindings: Map<string, VariableCell>, functionBindings: Map<string, Lambda>, expectedType: string | null = null) {
+    this.variableBindings = variableBindings;
+    this.functionBindings = functionBindings;
+    this.expectedType = expectedType;
+  }
+
+  static new() {
+    return new Runtime(new Map(), new Map(), null);
+  }
+
+  shallowClone() {
+    return new Runtime(this.variableBindings, this.functionBindings, this.expectedType);
   }
 
   declareVariable(identifier: string, type: string) {
@@ -490,8 +524,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitPrint(node: ast.Print, runtime: Runtime): Fruit {
     const fruit = node.operandNode.visit(this, runtime);
-    if (fruit instanceof IntegerFruit || fruit instanceof FloatFruit || fruit instanceof StringFruit || fruit instanceof BooleanFruit) {
-      Runtime.stdout += fruit.value + "\n";
+    if (fruit instanceof IntegerFruit || fruit instanceof FloatFruit || fruit instanceof StringFruit || fruit instanceof BooleanFruit || fruit instanceof ArrayFruit) {
+      Runtime.stdout += fruit.toString() + "\n";
     } else {
       throw new WhereError('Only values may be printed.', node.where);
     }
@@ -561,15 +595,15 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     return new VoidFruit();
   }
 
-  visitFor(node: ast.For, runtime: Runtime): Fruit {
+  visitFor(node: ast.For, _runtime: Runtime): Fruit {
     let isTerminated = false;
-    const newRuntime = new Runtime();
-    node.initializationBlock.visit(this, newRuntime);
+    const newRuntime = Runtime.new();
+    node.initializationNode?.visit(this, newRuntime);
     while (!isTerminated) {
       const fruit = node.conditionNode.visit(this, newRuntime);
       if (fruit instanceof BooleanFruit) {
         if (fruit.value) {
-          node.body.visit(this, runtime);
+          node.body.visit(this, newRuntime);
           node.incrementBlock.visit(this, newRuntime);
         } else {
           isTerminated = true;
@@ -597,7 +631,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         throw new WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
       }
 
-      const newRuntime = new Runtime();
+      const newRuntime = Runtime.new();
       for (let [i, formal] of lambda.formals.entries()) {
         newRuntime.declareVariable(formal.identifier, formal.type);
         const fruit = node.actuals[i].visit(this, runtime);
@@ -648,6 +682,61 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitLineComment(_node: ast.LineComment, _runtime: Runtime): Fruit {
     return new VoidFruit();
+  }
+
+  // --------------------------------------------------------------------------
+  // Arrays
+  // --------------------------------------------------------------------------
+
+  visitArrayLiteral(node: ast.ArrayLiteral, runtime: Runtime): Fruit {
+    if (!runtime.expectedType) {
+      throw new WhereError("An array literal is an unexpected place. It must be part of an array declaration.", node.where);
+    }
+
+    const elementType = runtime.expectedType.substring(0, runtime.expectedType.length - 2);
+    const newRuntime = runtime.shallowClone();
+    newRuntime.expectedType = elementType;
+
+    const elementFruits = node.elementNodes.map(elementNode => elementNode.visit(this, newRuntime));
+    const badIndex = elementFruits.findIndex(elementFruit => elementFruit.type !== elementType);
+    if (badIndex >= 0) {
+      throw new WhereError(`An array element has the wrong type. It must have type \`${runtime.expectedType!}\`.`, node.elementNodes[badIndex].where);
+    }
+    return new ArrayFruit(`${runtime.expectedType}`, elementFruits);
+  }
+
+  visitArrayDeclaration(node: ast.ArrayDeclaration, runtime: Runtime): Fruit {
+    // The array literal needs to know what type its elements should have. We
+    // pass the element type through the runtime.
+    const newRuntime = runtime.shallowClone();
+    newRuntime.expectedType = node.variableType;
+    return this.visitDeclaration(node, newRuntime);
+  }
+
+  visitArraySubscript(node: ast.ArraySubscript, runtime: Runtime): Fruit {
+    const hostFruit = node.arrayNode.visit(this, runtime);
+    if (!(hostFruit instanceof ArrayFruit)) {
+      throw new WhereError(`The index operator cannot be applied to a value of type \`${hostFruit.type}\`.`, node.where);
+    }
+
+    const indexFruit = node.indexNode.visit(this, runtime);
+    if (!(indexFruit instanceof IntegerFruit)) {
+      throw new WhereError(`An index must be an integer.`, node.indexNode.where);
+    }
+
+    if (0 <= indexFruit.value && indexFruit.value < hostFruit.value.length) {
+      return hostFruit.value[indexFruit.value];
+    } else {
+      throw new WhereError(`This array has ${hostFruit.value.length} element${hostFruit.value.length === 1 ? '' : 's'}. Index ${indexFruit.value} is out of bounds.`, node.indexNode.where);
+    }
+  }
+
+  visitArrayLength(node: ast.ArraySubscript, runtime: Runtime): Fruit {
+    const hostFruit = node.arrayNode.visit(this, runtime);
+    if (!(hostFruit instanceof ArrayFruit)) {
+      throw new WhereError(`A value of type \`${hostFruit.type}\` does not have a \`length\` property.`, node.where);
+    }
+    return new IntegerFruit(hostFruit.value.length);
   }
 
   // --------------------------------------------------------------------------

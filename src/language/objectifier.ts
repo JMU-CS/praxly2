@@ -159,7 +159,7 @@ export class Objectifier extends Visitor<Object, Object> {
 
   visitDeclaration(node: ast.Declaration, payload: Object): Object {
     return {
-      type: 'declaration',
+      type: 'scalar-declaration',
       identifier: node.identifier,
       variableType: node.variableType,
       rightNode: node.rightNode?.visit(this, payload),
@@ -231,7 +231,7 @@ export class Objectifier extends Visitor<Object, Object> {
   visitFor(node: ast.For, payload: Object): Object {
     return {
       type: 'for',
-      initializationBlock: node.initializationBlock.visit(this, payload),
+      initializationNode: node.initializationNode?.visit(this, payload),
       conditionNode: node.conditionNode.visit(this, payload),
       incrementBlock: node.incrementBlock.visit(this, payload),
       body: node.body.visit(this, payload),
@@ -276,6 +276,45 @@ export class Objectifier extends Visitor<Object, Object> {
     return {
       type: 'line-comment',
       text: node.text,
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // Arrays
+  // --------------------------------------------------------------------------
+
+  visitArrayLiteral(node: ast.ArrayLiteral, payload: Object): Object {
+    return {
+      type: 'array-literal',
+      elementNodes: node.elementNodes.map(elementNode => elementNode.visit(this, payload)),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitArrayDeclaration(node: ast.ArrayDeclaration, payload: Object): Object {
+    return {
+      type: 'array-declaration',
+      identifier: node.identifier,
+      variableType: node.variableType,
+      rightNode: node.rightNode!.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitArraySubscript(node: ast.ArraySubscript, payload: Object): Object {
+    return {
+      type: 'array-subscript',
+      arrayNode: node.arrayNode.visit(this, payload),
+      indexNode: node.indexNode.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitArrayLength(node: ast.ArrayLength, payload: Object): Object {
+    return {
+      type: 'array-length',
+      arrayNode: node.arrayNode.visit(this, payload),
       where: {start: node.where.start, end: node.where.end},
     };
   }

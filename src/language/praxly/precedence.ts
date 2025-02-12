@@ -12,7 +12,8 @@ enum Level {
   Additive,
   Multiplicative,
   Exponential,
-  Unary,
+  PrefixUnary,
+  PostfixUnary,
   Apex,
 }
 
@@ -45,9 +46,12 @@ precedence.set(ast.Remainder, Level.Multiplicative);
 
 precedence.set(ast.Power, Level.Exponential);
 
-precedence.set(ast.LogicalNegate, Level.Unary);
-precedence.set(ast.ArithmeticNegate, Level.Unary);
-precedence.set(ast.BitwiseNegate, Level.Unary);
+precedence.set(ast.LogicalNegate, Level.PrefixUnary);
+precedence.set(ast.ArithmeticNegate, Level.PrefixUnary);
+precedence.set(ast.BitwiseNegate, Level.PrefixUnary);
+
+precedence.set(ast.ArraySubscript, Level.PostfixUnary);
+precedence.set(ast.ArrayLength, Level.PostfixUnary);
 
 precedence.set(ast.Integer, Level.Apex);
 precedence.set(ast.Float, Level.Apex);
@@ -72,5 +76,6 @@ associativity.set(Level.LogicalAnd, Associativity.Left);
 associativity.set(Level.Additive, Associativity.Left);
 associativity.set(Level.Multiplicative, Associativity.Left);
 associativity.set(Level.Exponential, Associativity.Right);
-associativity.set(Level.Unary, Associativity.Right);
+associativity.set(Level.PrefixUnary, Associativity.Right);
+associativity.set(Level.PostfixUnary, Associativity.Left);
 associativity.set(Level.Apex, Associativity.None);

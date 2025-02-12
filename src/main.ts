@@ -40,7 +40,7 @@ function initialize() {
       });
       sourcePanel.innerText = generatedSource;
 
-      const runtime = new Runtime();
+      const runtime = Runtime.new();
       ast.visit(new Evaluator(praxlySymbolMap), runtime);
       outputPanel.innerText = Runtime.stdout;
     } catch (e) {

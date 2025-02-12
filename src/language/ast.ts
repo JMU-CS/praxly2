@@ -364,14 +364,14 @@ export class RepeatUntil extends Statement {
 }
 
 export class For extends Statement {
-  initializationBlock: Block;
+  initializationNode: Statement | Expression | null;
   conditionNode: Node;
   incrementBlock: Block;
   body: Block;
 
-  constructor(initializationBlock: Block, conditionNode: Node, incrementBlock: Block, body: Block, where: Where) {
+  constructor(initializationNode: Statement | Expression | null, conditionNode: Node, incrementBlock: Block, body: Block, where: Where) {
     super(where);
-    this.initializationBlock = initializationBlock;
+    this.initializationNode = initializationNode;
     this.conditionNode = conditionNode;
     this.incrementBlock = incrementBlock;
     this.body = body;
@@ -453,6 +453,61 @@ export class LineComment extends Statement {
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
     return visitor.visitLineComment(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
+// Arrays
+// --------------------------------------------------------------------------- 
+
+export class ArrayLiteral extends Expression {
+  elementNodes: Expression[];
+
+  constructor(elementNodes: Expression[], where: Where) {
+    super(where);
+    this.elementNodes = elementNodes;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitArrayLiteral(this, payload);
+  }
+}
+
+export class ArrayDeclaration extends Declaration {
+  constructor(identifier: string, variableType: string, rightNode: Expression, where: Where) {
+    super(identifier, variableType, rightNode, where);
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitArrayDeclaration(this, payload);
+  }
+}
+
+export class ArraySubscript extends Statement {
+  arrayNode: Expression;
+  indexNode: Expression;
+
+  constructor(arrayNode: Expression, indexNode: Expression, where: Where) {
+    super(where);
+    this.arrayNode = arrayNode;
+    this.indexNode = indexNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitArraySubscript(this, payload);
+  }
+}
+
+export class ArrayLength extends Statement {
+  arrayNode: Expression;
+
+  constructor(arrayNode: Expression, where: Where) {
+    super(where);
+    this.arrayNode = arrayNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitArrayLength(this, payload);
   }
 }
 
