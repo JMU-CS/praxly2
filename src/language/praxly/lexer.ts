@@ -1,30 +1,31 @@
 import {Lexer} from '../lexer.js';
 import {TokenType} from '../token.js';
+import {Where} from '../where.js';
+import {WhereError} from '../exception.js';
 
 class PraxlyLexer extends Lexer {
+  indents: string[];
+
+  constructor(source: string) {
+    super(source);
+    this.indents = [''];
+  }
+
+  initialize() {
+    this.lexIndent();
+  }
+
   lexToken() {
-    if (this.has(' ')) {
+    if (this.has(' ') || this.has("\r")) {
       this.abandon();
     } else if (this.hasDigit()) {
       this.lexNumber();
     } else if (this.accept("\n")) {
-      this.emitToken(TokenType.Linebreak);
+      this.lexLinebreak();
     } else if (this.accept(',')) {
       this.emitToken(TokenType.Comma);
     } else if (this.accept('+')) {
       this.emitToken(TokenType.Plus);
-    } else if (this.accept('/')) {
-      if (this.accept('/')) {
-        this.accept(' ');
-        let text = '';
-        while (this.hasOtherwise("\n")) {
-          text += this.source[this.i];
-          this.advance();
-        }
-        this.emitTextToken(TokenType.LineComment, text);
-      } else {
-        this.emitToken(TokenType.ForwardSlash);
-      }
     } else if (this.accept('%')) {
       this.emitToken(TokenType.Percent);
     } else if (this.accept('(')) {
@@ -39,6 +40,10 @@ class PraxlyLexer extends Lexer {
       this.emitToken(TokenType.Tilde);
     } else if (this.accept('^')) {
       this.emitToken(TokenType.Circumflex);
+    } else if (this.has('"')) {
+      this.lexString();
+    } else if (this.hasAlphabetic()) {
+      this.lexIdentifier();
     } else if (this.accept('*')) {
       if (this.accept('*')) {
         this.emitToken(TokenType.DoubleAsterisk);
@@ -85,10 +90,18 @@ class PraxlyLexer extends Lexer {
       } else {
         this.emitToken(TokenType.GreaterThan);
       }
-    } else if (this.has('"')) {
-      this.lexString();
-    } else if (this.hasAlphabetic()) {
-      this.lexIdentifier();
+    } else if (this.accept('/')) {
+      if (this.accept('/')) {
+        this.accept(' ');
+        let text = '';
+        while (this.hasOtherwise("\n")) {
+          text += this.source[this.i];
+          this.advance();
+        }
+        this.emitTextToken(TokenType.LineComment, text);
+      } else {
+        this.emitToken(TokenType.ForwardSlash);
+      }
     } else if (this.has('-')) {
       if (this.hasDigitAhead(1)) {
         this.lexNumber();
@@ -97,7 +110,50 @@ class PraxlyLexer extends Lexer {
         this.emitToken(TokenType.Hyphen);
       }
     } else {
-      throw new Error(`unexpected character: ${this.source[this.i]}`);
+      throw new WhereError(`The program contains an unexpected character: \`${this.source[this.i]}\`.`, new Where(this.i, this.i + 1));
+    }
+  }
+
+  lexLinebreak() {
+    this.emitToken(TokenType.Linebreak);
+    if (this.i < this.source.length) {
+      this.lexIndent();
+    }
+  }
+
+  lexIndent() {
+    let indent = '';
+
+    // First gobble up all the whitespace there is.
+    while (this.has(' ') || this.has("\t")) {
+      indent += this.source[this.i];
+      this.advance();
+    }
+
+    // If the whole line is whitespace, we do not give it any influence over
+    // the indentation.
+    if (indent.length > 0 && (this.i === this.source.length || this.has("\r") || this.has("\n"))) {
+      this.abandon();
+    }
+
+    // Issue an indent token only if the indent extends the previous indent.
+    else if (indent.length > 0 && indent.length > this.indents[this.indents.length - 1].length && indent.startsWith(this.indents[this.indents.length - 1])) {
+      this.indents.push(indent);
+      this.emitToken(TokenType.Indent);
+    }
+
+    else {
+      // Pop indents until match. If no match, issue error.
+      while (this.indents.length > 1 &&
+             this.indents[this.indents.length - 1].startsWith(indent) &&
+             this.indents[this.indents.length - 1] !== indent) {
+        this.indents.pop();
+        this.emitToken(TokenType.Unindent);
+      }
+
+      if (this.indents[this.indents.length - 1] !== indent) {
+        throw new WhereError('A line is not indented like the line above it.', new Where(this.start, this.i));
+      }
     }
   }
 
@@ -108,30 +164,8 @@ class PraxlyLexer extends Lexer {
       this.advance();
     }
 
-    if (text === 'true' || text === 'false') {
-      this.emitTextToken(TokenType.Boolean, text);
-    } else if (text === 'for') {
-      this.emitToken(TokenType.For);
-    } else if (text === 'while') {
-      this.emitToken(TokenType.While);
-    } else if (text === 'function') {
-      this.emitToken(TokenType.Function);
-    } else if (text === 'if') {
-      this.emitToken(TokenType.If);
-    } else if (text === 'else') {
-      this.emitToken(TokenType.Else);
-    } else if (text === 'return') {
-      this.emitToken(TokenType.Return);
-    } else if (text === 'and') {
-      this.emitToken(TokenType.And);
-    } else if (text === 'or') {
-      this.emitToken(TokenType.Or);
-    } else if (text === 'not') {
-      this.emitToken(TokenType.Not);
-    } else if (text === 'end') {
-      this.emitToken(TokenType.End);
-    } else if (text === 'print') {
-      this.emitToken(TokenType.Print);
+    if (Lexer.keywords.hasOwnProperty(text)) {
+      this.emitToken(Lexer.keywords[text]);
     } else {
       this.emitTextToken(TokenType.Identifier, text);
     }

@@ -210,6 +210,35 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
+  visitDoWhile(node: ast.DoWhile, payload: Object): Object {
+    return {
+      type: 'do-while',
+      body: node.body.visit(this, payload),
+      conditionNode: node.conditionNode.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitRepeatUntil(node: ast.RepeatUntil, payload: Object): Object {
+    return {
+      type: 'repeat-until',
+      body: node.body.visit(this, payload),
+      conditionNode: node.conditionNode.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitFor(node: ast.For, payload: Object): Object {
+    return {
+      type: 'for',
+      initializationBlock: node.initializationBlock.visit(this, payload),
+      conditionNode: node.conditionNode.visit(this, payload),
+      incrementBlock: node.incrementBlock.visit(this, payload),
+      body: node.body.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   // --------------------------------------------------------------------------
   // Functions
   // --------------------------------------------------------------------------

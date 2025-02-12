@@ -37,6 +37,9 @@ export abstract class Visitor<P, R> {
   abstract visitPrint(node: ast.Print, payload: P): R;
   abstract visitIf(node: ast.If, payload: P): R;
   abstract visitWhile(node: ast.While, payload: P): R;
+  abstract visitDoWhile(node: ast.DoWhile, payload: P): R;
+  abstract visitRepeatUntil(node: ast.RepeatUntil, payload: P): R;
+  abstract visitFor(node: ast.RepeatUntil, payload: P): R;
 
   abstract visitFunctionDefinition(node: ast.FunctionDefinition, payload: P): R;
   abstract visitFunctionCall(node: ast.FunctionCall, payload: P): R;

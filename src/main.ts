@@ -4,6 +4,7 @@ import {PraxlyGenerator} from './language/praxly/generator.js';
 import {Objectifier} from './language/objectifier.js';
 import {Runtime, Evaluator} from './language/evaluator.js';
 import {praxlySymbolMap} from './language/praxly/symbol-map.js';
+import {WhereError} from './language/exception.js';
 import * as ast from './language/ast.js';
 
 function initialize() {
@@ -48,6 +49,10 @@ function initialize() {
         const p = document.createElement('p');
         p.innerHTML = message;
         outputPanel.appendChild(p);
+        console.error(e);
+        if (e instanceof WhereError) {
+          console.error(e.where);
+        }
       }
     }
   });

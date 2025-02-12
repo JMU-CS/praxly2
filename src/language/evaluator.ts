@@ -529,6 +529,58 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     return new VoidFruit();
   }
 
+  visitDoWhile(node: ast.DoWhile, runtime: Runtime): Fruit {
+    let isTerminated = false;
+    while (!isTerminated) {
+      node.body.visit(this, runtime);
+      const fruit = node.conditionNode.visit(this, runtime);
+      if (fruit instanceof BooleanFruit) {
+        if (!fruit.value) {
+          isTerminated = true;
+        }
+      } else {
+        throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+      }
+    }
+    return new VoidFruit();
+  }
+
+  visitRepeatUntil(node: ast.RepeatUntil, runtime: Runtime): Fruit {
+    let isTerminated = false;
+    while (!isTerminated) {
+      node.body.visit(this, runtime);
+      const fruit = node.conditionNode.visit(this, runtime);
+      if (fruit instanceof BooleanFruit) {
+        if (fruit.value) {
+          isTerminated = true;
+        }
+      } else {
+        throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+      }
+    }
+    return new VoidFruit();
+  }
+
+  visitFor(node: ast.For, runtime: Runtime): Fruit {
+    let isTerminated = false;
+    const newRuntime = new Runtime();
+    node.initializationBlock.visit(this, newRuntime);
+    while (!isTerminated) {
+      const fruit = node.conditionNode.visit(this, newRuntime);
+      if (fruit instanceof BooleanFruit) {
+        if (fruit.value) {
+          node.body.visit(this, runtime);
+          node.incrementBlock.visit(this, newRuntime);
+        } else {
+          isTerminated = true;
+        }
+      } else {
+        throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+      }
+    }
+    return new VoidFruit();
+  }
+
   // --------------------------------------------------------------------------
   // Functions
   // --------------------------------------------------------------------------

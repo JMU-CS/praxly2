@@ -62,29 +62,43 @@ class PraxlyParser extends Parser {
     }
     const rightToken = this.advance(); // eat )
 
-    if (!this.has(TokenType.Linebreak)) {
-      throw new WhereError('A linebreak is missing. A function\'s block must start on the line after the condition.', rightToken.where);
-    }
-    const linebreakToken = this.advance();
-
-    this.skipLinebreaks();
-    const statements = [];
-    while (!this.has(TokenType.End)) {
-      const statement = this.statement(true); 
-      statements.push(statement);
-      this.skipLinebreaks();
-    }
+    const block = this.indentedBlock(true, 'function definition', Where.enclose(returnTypeToken.where, rightToken.where), TokenType.End);
 
     if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Identifier, 1) || (this.tokens[this.i + 1] as TextToken).text !== identifierToken.text) {
-      let endWhere = statements.length > 0 ? statements[statements.length - 1].where : rightToken.where;
-      throw new WhereError(`The function must be closed with \`end ${identifierToken.text}\`.`, Where.enclose(returnTypeToken.where, endWhere));
+      throw new WhereError(`The function must be closed with \`end ${identifierToken.text}\`.`, block.where);
     }
     this.advance();
     const endToken = this.advance();
 
-    const body = new ast.Block(statements, Where.enclose(linebreakToken.where, endToken.where));
+    return new ast.FunctionDefinition(identifierToken.text, formals, returnTypeToken.text, block, Where.enclose(returnTypeToken.where, block.where));
+  }
 
-    return new ast.FunctionDefinition(identifierToken.text, formals, returnTypeToken.text, body, Where.enclose(returnTypeToken.where, body.where));
+  indentedBlock(isInFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, ...endTokenTypes: TokenType[]) {
+    // contextLabel: for loop, while loop, do loop, else branch, if statement, function definition
+
+    if (!this.has(TokenType.Linebreak)) {
+      throw new WhereError(`A linebreak is missing after the header of this ${contextLabel}.`, contextWhere);
+    }
+    this.advance();
+
+    let statements = [];
+    if (this.has(TokenType.Indent)) {
+      const indentToken = this.advance();
+      while (!this.has(TokenType.Unindent)) {
+        const statement = this.statement(isInFunctionDefinition);
+        statements.push(statement);
+      }
+
+      if (!this.has(TokenType.Unindent)) {
+        throw new WhereError(`The block in this ${contextLabel} doesn't end.`, contextWhere);
+      }
+      this.advance();
+    } else if (!this.hasAny(...endTokenTypes)) {
+      throw new WhereError(`The block in this ${contextLabel} is not indented.`, contextWhere);
+    }
+
+    const blockWhere = statements.length > 0 ? Where.enclose(statements[0].where, statements[statements.length - 1].where) : contextWhere;
+    return new ast.Block(statements, blockWhere);
   }
 
   statementLinebreak() {
@@ -103,6 +117,10 @@ class PraxlyParser extends Parser {
       statement = this.ifStatement(isInFunctionDefinition);
     } else if (this.has(TokenType.While)) {
       statement = this.whileStatement(isInFunctionDefinition);
+    } else if (this.has(TokenType.Do)) {
+      statement = this.doStatement(isInFunctionDefinition);
+    } else if (this.has(TokenType.Repeat)) {
+      statement = this.repeatStatement(isInFunctionDefinition);
     } else if (this.has(TokenType.Print)) {
       statement = this.printStatement();
     } else if (this.has(TokenType.LineComment)) {
@@ -151,59 +169,16 @@ class PraxlyParser extends Parser {
   ifStatement(isInFunctionDefinition: boolean): ast.Statement {
     const ifToken = this.advance();
     const conditionNode = this.parenthesizedExpression(ifToken.where, "An if statement's condition").node;
-    let lastWhere = conditionNode.where;
-
-    if (!this.has(TokenType.Linebreak)) {
-      throw new WhereError('A linebreak is missing. An if statement\'s then-block must start on the line after the condition.', conditionNode.where);
-    }
-    const thenLinebreakToken = this.advance();
-
-    this.skipLinebreaks();
-    const thenStatements = [];
-    while (this.hasOtherwise(TokenType.End) && this.hasOtherwise(TokenType.Else)) {
-      const statement = this.statement(isInFunctionDefinition); 
-      thenStatements.push(statement);
-      this.skipLinebreaks();
-    }
-
-    let thenWhere;
-    if (thenStatements.length > 0) {
-      thenWhere = Where.enclose(thenStatements[0].where, thenStatements[thenStatements.length - 1].where);
-      lastWhere = thenWhere;
-    } else {
-      thenWhere = new Where(-1, -1);
-    }
-    const thenBlock = new ast.Block(thenStatements, thenWhere);
+    const thenBlock = this.indentedBlock(isInFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
 
     let elseBlock = null;
     if (this.has(TokenType.Else)) {
       const elseToken = this.advance();
-
-      if (!this.has(TokenType.Linebreak)) {
-        throw new WhereError('A linebreak is missing. An if statement\'s else-block must start on the line after \`else`\.', elseToken.where);
-      }
-      const elseLinebreakToken = this.advance();
-
-      this.skipLinebreaks();
-      const elseStatements = [];
-      while (this.hasOtherwise(TokenType.End)) {
-        const statement = this.statement(isInFunctionDefinition); 
-        elseStatements.push(statement);
-        this.skipLinebreaks();
-      }
-
-      let elseWhere;
-      if (elseStatements.length > 0) {
-        elseWhere = Where.enclose(elseStatements[0].where, elseStatements[elseStatements.length - 1].where);
-        lastWhere = elseWhere;
-      } else {
-        elseWhere = new Where(-1, -1);
-      }
-      const elseBlock = new ast.Block(elseStatements, elseWhere);
+      elseBlock = this.indentedBlock(isInFunctionDefinition, 'else branch', elseToken.where, TokenType.End);
     }
 
     if (!this.has(TokenType.End) || !this.hasAhead(TokenType.If, 1)) {
-      throw new WhereError(`The if statement must be closed with \`end if\`.`, Where.enclose(ifToken.where, lastWhere));
+      throw new WhereError(`The if statement must be closed with \`end if\`.`, Where.enclose(ifToken.where, elseBlock ? elseBlock.where : thenBlock.where));
     }
     this.advance();
     const endToken = this.advance();
@@ -215,30 +190,43 @@ class PraxlyParser extends Parser {
     const whileToken = this.advance();
     const conditionNode = this.parenthesizedExpression(whileToken.where, "A while statement's condition").node;
 
-    if (!this.has(TokenType.Linebreak)) {
-      throw new WhereError('A linebreak is missing. A while loop\'s block must start on the line after the condition.', conditionNode.where);
-    }
-    const linebreakToken = this.advance();
-
-    this.skipLinebreaks();
-    const statements = [];
-    while (!this.has(TokenType.End)) {
-      const statement = this.statement(isInFunctionDefinition); 
-      statements.push(statement);
-      this.skipLinebreaks();
-    }
+    const block = this.indentedBlock(isInFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where), TokenType.End);
 
     if (!this.has(TokenType.End) || !this.hasAhead(TokenType.While, 1)) {
-      let endWhere = statements.length > 0 ? statements[statements.length - 1].where : conditionNode.where;
-      throw new WhereError(`The loop must be closed with \`end while\`.`, Where.enclose(whileToken.where, endWhere));
+      throw new WhereError(`The loop must be closed with \`end while\`.`, block.where);
     }
     this.advance();
     const endToken = this.advance();
 
-    const body = new ast.Block(statements, Where.enclose(linebreakToken.where, endToken.where));
-    this.skipLinebreaks();
+    return new ast.While(conditionNode, block, Where.enclose(whileToken.where, block.where));
+  }
 
-    return new ast.While(conditionNode, body, Where.enclose(whileToken.where, body.where));
+  doStatement(isInFunctionDefinition: boolean): ast.Statement {
+    const doToken = this.advance();
+    const block = this.indentedBlock(isInFunctionDefinition, 'do-while loop', doToken.where, TokenType.While);
+
+    if (!this.has(TokenType.While)) {
+      throw new WhereError(`The loop must be closed with \`while\` and a condition.`, block.where);
+    }
+    const whileToken = this.advance(); // eat while
+
+    const conditionNode = this.parenthesizedExpression(whileToken.where, "A do loop's condition").node;
+
+    return new ast.DoWhile(block, conditionNode, Where.enclose(doToken.where, conditionNode.where));
+  }
+
+  repeatStatement(isInFunctionDefinition: boolean): ast.Statement {
+    const repeatToken = this.advance();
+    const block = this.indentedBlock(isInFunctionDefinition, 'repeat-until loop', repeatToken.where, TokenType.Until);
+
+    if (!this.has(TokenType.Until)) {
+      throw new WhereError(`The loop must be closed with \`until\` and a condition.`, block.where);
+    }
+    const untilToken = this.advance(); // eat while
+
+    const conditionNode = this.parenthesizedExpression(repeatToken.where, "A repeat loop's condition").node;
+
+    return new ast.RepeatUntil(block, conditionNode, Where.enclose(repeatToken.where, conditionNode.where));
   }
 
   printStatement(): ast.Statement {
@@ -470,9 +458,12 @@ class PraxlyParser extends Parser {
     } else if (this.has(TokenType.String)) {
       const token = this.advance() as TextToken;
       return new ast.String(token.text, token.where);
-    } else if (this.has(TokenType.Boolean)) {
-      const token = this.advance() as TextToken;
-      return new ast.Boolean(token.text == 'true', token.where);
+    } else if (this.has(TokenType.True)) {
+      const token = this.advance();
+      return new ast.Boolean(true, token.where);
+    } else if (this.has(TokenType.False)) {
+      const token = this.advance();
+      return new ast.Boolean(false, token.where);
     } else if (this.has(TokenType.Identifier)) {
       return this.variable();
     } else if (this.has(TokenType.LeftParenthesis)) {

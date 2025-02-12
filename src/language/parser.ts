@@ -16,6 +16,10 @@ export abstract class Parser {
     return this.i < this.source.length && this.tokens[this.i].type === type;
   }
 
+  hasAny(...types: TokenType[]) {
+    return this.i < this.source.length && types.some(type => this.tokens[this.i].type === type);
+  }
+
   hasOtherwise(type: TokenType) {
     return this.i < this.source.length && this.tokens[this.i].type !== type && this.tokens[this.i].type !== TokenType.EndOfSource;
   }

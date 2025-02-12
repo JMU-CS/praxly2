@@ -62,10 +62,9 @@ export abstract class Lexer {
   }
 
   lex(): Token[] {
-    this.skipWhitespace();
+    this.initialize();
     while (this.i < this.source.length) {
       this.lexToken();
-      this.skipWhitespace();
     }
 
     this.emitToken(TokenType.EndOfSource);
@@ -138,5 +137,22 @@ export abstract class Lexer {
     }
   }
 
+  abstract initialize(): void;
   abstract lexToken(): void;
+
+  static keywords: {[index: string]: TokenType} = {
+    and: TokenType.And,
+    do: TokenType.Do,
+    else: TokenType.Else,
+    end: TokenType.End,
+    for: TokenType.For,
+    if: TokenType.If,
+    not: TokenType.Not,
+    or: TokenType.Or,
+    print: TokenType.Print,
+    repeat: TokenType.Repeat,
+    return: TokenType.Return,
+    until: TokenType.Until,
+    while: TokenType.While,
+  };
 }

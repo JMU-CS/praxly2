@@ -228,6 +228,27 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
     return text;
   }
 
+  visitDoWhile(node: ast.DoWhile, formatter: Formatter): string {
+    let text = "do\n";
+    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}while (${node.conditionNode.visit(this, formatter)})`;
+    return text;
+  }
+
+  visitRepeatUntil(node: ast.RepeatUntil, formatter: Formatter): string {
+    let text = "repeat\n";
+    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}unless (${node.conditionNode.visit(this, formatter)})`;
+    return text;
+  }
+
+  visitFor(node: ast.For, formatter: Formatter): string {
+    let text = `for (${node.initializationBlock.visit(this, formatter)}; ${node.conditionNode.visit(this, formatter)}; ${node.incrementBlock.visit(this, formatter)})\n`;
+    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+    return text;
+  }
+
   visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
     let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
@@ -248,7 +269,7 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
   }
 
   visitLineComment(node: ast.LineComment, _formatter: Formatter): string {
-    return `// ${node.text}\n`;
+    return `// ${node.text}`;
   }
 
   // --------------------------------------------------------------------------

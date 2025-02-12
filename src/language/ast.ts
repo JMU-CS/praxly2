@@ -333,6 +333,55 @@ export class While extends Statement {
   }
 }
 
+export class DoWhile extends Statement {
+  body: Block;
+  conditionNode: Node;
+
+  constructor(body: Block, conditionNode: Node, where: Where) {
+    super(where);
+    this.body = body;
+    this.conditionNode = conditionNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitDoWhile(this, payload);
+  }
+}
+
+export class RepeatUntil extends Statement {
+  body: Block;
+  conditionNode: Node;
+
+  constructor(body: Block, conditionNode: Node, where: Where) {
+    super(where);
+    this.body = body;
+    this.conditionNode = conditionNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitRepeatUntil(this, payload);
+  }
+}
+
+export class For extends Statement {
+  initializationBlock: Block;
+  conditionNode: Node;
+  incrementBlock: Block;
+  body: Block;
+
+  constructor(initializationBlock: Block, conditionNode: Node, incrementBlock: Block, body: Block, where: Where) {
+    super(where);
+    this.initializationBlock = initializationBlock;
+    this.conditionNode = conditionNode;
+    this.incrementBlock = incrementBlock;
+    this.body = body;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitFor(this, payload);
+  }
+}
+
 // --------------------------------------------------------------------------- 
 // Functions
 // --------------------------------------------------------------------------- 
