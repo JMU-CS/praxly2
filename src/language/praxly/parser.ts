@@ -135,7 +135,7 @@ class PraxlyParser extends Parser {
       } else {
         statement = this.uninitializedDeclaration();
       }
-    } else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.LeftBracket, 1)) {
+    } else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.LeftBracket, 1) && this.hasAhead(TokenType.RightBracket, 2)) {
       statement = this.arrayDeclaration();
     } else if (this.has(TokenType.Return)) {
       statement = this.returnStatement(inFunctionDefinition);

@@ -313,4 +313,45 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
   }
 
   // --------------------------------------------------------------------------
+  // Classes
+  // --------------------------------------------------------------------------
+
+  visitClassDefinition(node: ast.ClassDefinition, formatter: Formatter): string {
+    let text = `class ${node.identifier}`;
+    if (node.superclass) {
+      text += ` extends ${node.superclass}`;
+    }
+    text += "\n";
+
+    text += node.instanceVariableDeclarations.map(declaration => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${declaration.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('');
+    
+    if (node.instanceVariableDeclarations.length > 0 && node.methodDefinitions.length > 0) {
+      text += "\n";
+    }
+
+    text += node.methodDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 2})}\n`).join('\n');
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end class ${node.identifier}`;
+
+    return text;
+  }
+
+  visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, _formatter: Formatter): string {
+    let text = '';
+    if (node.visibility === ast.Visibility.Public) {
+      text += `public `;
+    } else if (node.visibility === ast.Visibility.Private) {
+      text += `private `;
+    }
+    text += `${node.variableType} ${node.identifier}`;
+    return text;
+  }
+
+  visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {
+    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
+    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
+    return text;
+  }
+
+  // --------------------------------------------------------------------------
 }

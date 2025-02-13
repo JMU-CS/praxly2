@@ -3,6 +3,23 @@ import {Visitor} from './visitor.js';
 
 // --------------------------------------------------------------------------- 
 
+export class Formal {
+  identifier: string;
+  type: string;
+
+  constructor(identifier: string, type: string) {
+    this.identifier = identifier;
+    this.type = type;
+  }
+}
+
+export enum Visibility {
+  Public,
+  Private,
+}
+
+// --------------------------------------------------------------------------- 
+
 export abstract class Node {
   where: Where;
   
@@ -386,16 +403,6 @@ export class For extends Statement {
 // Functions
 // --------------------------------------------------------------------------- 
 
-export class Formal {
-  identifier: string;
-  type: string;
-
-  constructor(identifier: string, type: string) {
-    this.identifier = identifier;
-    this.type = type;
-  }
-}
-
 export class FunctionDefinition extends Statement {
   identifier: string;
   formals: Formal[];
@@ -508,6 +515,67 @@ export class ArrayLength extends Statement {
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
     return visitor.visitArrayLength(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
+// Classes
+// --------------------------------------------------------------------------- 
+
+export class ClassDefinition extends Statement {
+  identifier: string;
+  superclass: string | null;
+  instanceVariableDeclarations: InstanceVariableDeclaration[];
+  methodDefinitions: MethodDefinition[];
+
+  constructor(identifier: string, superclass: string, instanceVariableDeclarations: InstanceVariableDeclaration[], methodDefinitions: MethodDefinition[], where: Where) {
+    super(where);
+    this.identifier = identifier;
+    this.superclass = superclass;
+    this.instanceVariableDeclarations = instanceVariableDeclarations;
+    this.methodDefinitions = methodDefinitions;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitClassDefinition(this, payload);
+  }
+}
+
+export class InstanceVariableDeclaration extends Statement {
+  identifier: string;
+  variableType: string;
+  visibility: Visibility | null;
+
+  constructor(identifier: string, variableType: string, visibility: Visibility | null, where: Where) {
+    super(where);
+    this.identifier = identifier;
+    this.variableType = variableType;
+    this.visibility = visibility;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitInstanceVariableDeclaration(this, payload);
+  }
+}
+
+export class MethodDefinition extends Statement {
+  identifier: string;
+  formals: Formal[];
+  returnType: string;
+  body: Block;
+  visibility: Visibility | null;
+
+  constructor(identifier: string, formals: Formal[], returnType: string, body: Block, visibility: Visibility | null, where: Where) {
+    super(where);
+    this.identifier = identifier;
+    this.formals = formals;
+    this.returnType = returnType;
+    this.body = body;
+    this.visibility = visibility;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitMethodDefinition(this, payload);
   }
 }
 

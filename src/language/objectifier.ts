@@ -249,7 +249,9 @@ export class Objectifier extends Visitor<Object, Object> {
       identifier: node.identifier,
       formals: node.formals.map(formal => ({
         identifier: formal.identifier,
+        type: formal.type,
       })),
+      returnType: node.returnType,
       body: node.body.visit(this, payload),
       where: {start: node.where.start, end: node.where.end},
     };
@@ -315,6 +317,44 @@ export class Objectifier extends Visitor<Object, Object> {
     return {
       type: 'array-length',
       arrayNode: node.arrayNode.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // Classes
+  // --------------------------------------------------------------------------
+
+  visitClassDefinition(node: ast.ClassDefinition, payload: Object): Object {
+    return {
+      type: 'class-definition',
+      identifier: node.identifier,
+      instanceVariableDeclarations: node.instanceVariableDeclarations.map(declaration => declaration.visit(this, payload)),
+      methodDefinitions: node.methodDefinitions.map(definition => definition.visit(this, payload)),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, _payload: Object): Object {
+    return {
+      type: 'instance-variable-declaration',
+      identifier: node.identifier,
+      variableType: node.variableType,
+      visibility: node.visibility,
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitMethodDefinition(node: ast.MethodDefinition, payload: Object): Object {
+    return {
+      type: 'method-definition',
+      identifier: node.identifier,
+      formals: node.formals.map(formal => ({
+        identifier: formal.identifier,
+        type: formal.type,
+      })),
+      returnType: node.returnType,
+      body: node.body.visit(this, payload),
       where: {start: node.where.start, end: node.where.end},
     };
   }

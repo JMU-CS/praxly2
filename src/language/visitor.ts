@@ -50,4 +50,8 @@ export abstract class Visitor<P, R> {
   abstract visitArrayDeclaration(node: ast.ArrayDeclaration, payload: P): R;
   abstract visitArraySubscript(node: ast.ArraySubscript, payload: P): R;
   abstract visitArrayLength(node: ast.ArrayLength, payload: P): R;
+
+  abstract visitClassDefinition(node: ast.ClassDefinition, payload: P): R;
+  abstract visitMethodDefinition(node: ast.MethodDefinition, payload: P): R;
+  abstract visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, payload: P): R;
 }

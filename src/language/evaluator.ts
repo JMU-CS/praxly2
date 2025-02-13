@@ -65,6 +65,16 @@ class ArrayFruit extends PrimitiveFruit<Fruit[]> {
   }
 }
 
+class ObjectFruit extends PrimitiveFruit<Map<string, Fruit>> {
+  constructor(type: string, value: Map<string, Fruit>) {
+    super(type, value);
+  }
+
+  toString(): string {
+    return `{${Array.from(this.value, ([identifier, fruit]) => `${identifier}: ${fruit.toString()}`).join(', ')}}`;
+  }
+}
+
 class VoidFruit extends Fruit {
   constructor() {
     super('void');
@@ -75,7 +85,17 @@ class VoidFruit extends Fruit {
   }
 }
 
-class Lambda {
+class VariableEntry {
+  type: string;
+  fruit: Fruit | null;
+
+  constructor(type: string) {
+    this.type = type;
+    this.fruit = null;
+  }
+}
+
+class LambdaEntry {
   formals: ast.Formal[];
   returnType: string;
   body: ast.Block;
@@ -89,53 +109,78 @@ class Lambda {
   }
 }
 
-class VariableCell {
-  type: string;
-  fruit: Fruit | null;
+class MethodEntry extends LambdaEntry {
+  visibility: ast.Visibility;
 
-  constructor(type: string) {
+  constructor(formals: ast.Formal[], returnType: string, body: ast.Block, visibility: ast.Visibility, where: Where) {
+    super(formals, returnType, body, where);
+    this.visibility = visibility;
+  }
+}
+
+class InstanceVariable {
+  type: string;
+  visibility: ast.Visibility;
+
+  constructor(type: string, visibility: ast.Visibility) {
     this.type = type;
-    this.fruit = null;
+    this.visibility = visibility;
+  }
+}
+
+class ClassEntry {
+  superclass: string | null;
+  instanceVariables: Map<string, InstanceVariable>;
+  instanceMethods: Map<string, LambdaEntry>;
+  where: Where;
+
+  constructor(superclass: string | null, instanceVariables: Map<string, InstanceVariable>, instanceMethods: Map<string, LambdaEntry>, where: Where) {
+    this.superclass = superclass;
+    this.instanceVariables = instanceVariables;
+    this.instanceMethods = instanceMethods;
+    this.where = where;
   }
 }
 
 export class Runtime {
-  variableBindings: Map<string, VariableCell>;
-  functionBindings: Map<string, Lambda>;
+  variableBindings: Map<string, VariableEntry>;
+  functionBindings: Map<string, LambdaEntry>;
+  classBindings: Map<string, ClassEntry>;
   expectedType: string | null;
   static stdout: string = '';
 
-  constructor(variableBindings: Map<string, VariableCell>, functionBindings: Map<string, Lambda>, expectedType: string | null = null) {
+  constructor(variableBindings: Map<string, VariableEntry>, functionBindings: Map<string, LambdaEntry>, classBindings: Map<string, ClassEntry>, expectedType: string | null = null) {
     this.variableBindings = variableBindings;
     this.functionBindings = functionBindings;
+    this.classBindings = classBindings;
     this.expectedType = expectedType;
   }
 
   static new() {
-    return new Runtime(new Map(), new Map(), null);
+    return new Runtime(new Map(), new Map(), new Map(), null);
   }
 
   shallowClone() {
-    return new Runtime(this.variableBindings, this.functionBindings, this.expectedType);
+    return new Runtime(this.variableBindings, this.functionBindings, this.classBindings, this.expectedType);
   }
 
   declareVariable(identifier: string, type: string) {
-    this.variableBindings.set(identifier, new VariableCell(type));
+    this.variableBindings.set(identifier, new VariableEntry(type));
   }
 
   setVariable(identifier: string, fruit: Fruit) {
     this.variableBindings.get(identifier)!.fruit = fruit;
   }
 
-  getVariable(identifier: string): VariableCell | undefined {
+  getVariable(identifier: string): VariableEntry | undefined {
     return this.variableBindings.get(identifier);
   }
 
-  setFunction(identifier: string, lambda: Lambda) {
+  setFunction(identifier: string, lambda: LambdaEntry) {
     this.functionBindings.set(identifier, lambda);
   }
 
-  getFunction(identifier: string): Lambda | undefined {
+  getFunction(identifier: string): LambdaEntry | undefined {
     return this.functionBindings.get(identifier);
   }
 }
@@ -481,6 +526,22 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (node.leftNode instanceof ast.Variable) {
       const identifier = node.leftNode.identifier;
       this.assignVariable('Variable', node.where, identifier, rightFruit, runtime);
+    } else if (node.leftNode instanceof ast.ArraySubscript) {
+      const hostFruit = node.leftNode.arrayNode.visit(this, runtime);
+      if (!(hostFruit instanceof ArrayFruit)) {
+        throw new WhereError(`The index operator cannot be applied to a value of type \`${hostFruit.type}\`.`, node.leftNode.where);
+      }
+
+      const indexFruit = node.leftNode.indexNode.visit(this, runtime);
+      if (!(indexFruit instanceof IntegerFruit)) {
+        throw new WhereError(`An index must be an integer.`, node.leftNode.indexNode.where);
+      }
+
+      if (0 <= indexFruit.value && indexFruit.value < hostFruit.value.length) {
+        hostFruit.value[indexFruit.value] = rightFruit;
+      } else {
+        throw new WhereError(`This array has ${hostFruit.value.length} element${hostFruit.value.length === 1 ? '' : 's'}. Index ${indexFruit.value} is out of bounds.`, node.leftNode.indexNode.where);
+      }
     }
 
     return new VoidFruit();
@@ -620,7 +681,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   // --------------------------------------------------------------------------
 
   visitFunctionDefinition(node: ast.FunctionDefinition, runtime: Runtime): Fruit {
-    runtime.functionBindings.set(node.identifier, new Lambda(node.formals, node.returnType, node.body, node.where));
+    runtime.functionBindings.set(node.identifier, new LambdaEntry(node.formals, node.returnType, node.body, node.where));
     return new VoidFruit();
   }
 
@@ -737,6 +798,22 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       throw new WhereError(`A value of type \`${hostFruit.type}\` does not have a \`length\` property.`, node.where);
     }
     return new IntegerFruit(hostFruit.value.length);
+  }
+
+  // --------------------------------------------------------------------------
+  // Classes
+  // --------------------------------------------------------------------------
+
+  visitClassDefinition(_node: ast.ClassDefinition, _runtime: Runtime): Fruit {
+    return new VoidFruit();
+  }
+
+  visitInstanceVariableDeclaration(_node: ast.InstanceVariableDeclaration, _runtime: Runtime): Fruit {
+    return new VoidFruit();
+  }
+
+  visitMethodDefinition(_node: ast.MethodDefinition, _runtime: Runtime): Fruit {
+    return new VoidFruit();
   }
 
   // --------------------------------------------------------------------------
