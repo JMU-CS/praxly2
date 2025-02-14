@@ -30,6 +30,7 @@ export abstract class Visitor<P, R> {
   abstract visitLeftShift(node: ast.LeftShift, payload: P): R;
   abstract visitRightShift(node: ast.RightShift, payload: P): R;
 
+  abstract visitBlank(node: ast.Blank, payload: P): R;
   abstract visitAssignment(node: ast.Assignment, payload: P): R;
   abstract visitDeclaration(node: ast.Declaration, payload: P): R;
   abstract visitVariable(node: ast.Variable, payload: P): R;
@@ -49,9 +50,11 @@ export abstract class Visitor<P, R> {
   abstract visitArrayLiteral(node: ast.ArrayLiteral, payload: P): R;
   abstract visitArrayDeclaration(node: ast.ArrayDeclaration, payload: P): R;
   abstract visitArraySubscript(node: ast.ArraySubscript, payload: P): R;
-  abstract visitArrayLength(node: ast.ArrayLength, payload: P): R;
+  abstract visitMember(node: ast.Member, payload: P): R;
 
   abstract visitClassDefinition(node: ast.ClassDefinition, payload: P): R;
   abstract visitMethodDefinition(node: ast.MethodDefinition, payload: P): R;
+  abstract visitMethodCall(node: ast.MethodCall, payload: P): R;
   abstract visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, payload: P): R;
+  abstract visitInstantiation(node: ast.Instantiation, payload: P): R;
 }

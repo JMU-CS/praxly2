@@ -1,5 +1,6 @@
 import {TokenType, Token} from './token.js';
 import * as ast from './ast.js';
+import {Where} from './where.js';
 
 export abstract class Parser {
   source: string;
@@ -34,9 +35,18 @@ export abstract class Parser {
   }
 
   skipLinebreaks() {
+    let n = 0;
+    let where = null;
     while (this.has(TokenType.Linebreak)) {
-      this.advance();
+      const token = this.advance();
+      if (where) {
+        where.end = token.where.end;
+      } else {
+        where = new Where(token.where.start, token.where.end);
+      } 
+      n += 1;
     }
+    return {n, where};
   }
 
   abstract parse(): ast.Node;

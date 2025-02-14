@@ -59,6 +59,19 @@ export abstract class Expression extends Node {
 // Statements
 // ----------------------------------------------------------------------------
 
+export class Blank extends Statement {
+  count: number;
+
+  constructor(count: number, where: Where) {
+    super(where);
+    this.count = count;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitBlank(this, payload);
+  }
+}
+
 export class Assignment extends Statement {
   leftNode: Node;
   rightNode: Node;
@@ -505,16 +518,18 @@ export class ArraySubscript extends Statement {
   }
 }
 
-export class ArrayLength extends Statement {
-  arrayNode: Expression;
+export class Member extends Statement {
+  receiverNode: Expression;
+  identifier: string;
 
-  constructor(arrayNode: Expression, where: Where) {
+  constructor(receiverNode: Expression, identifier: string, where: Where) {
     super(where);
-    this.arrayNode = arrayNode;
+    this.receiverNode = receiverNode;
+    this.identifier = identifier;
   }
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
-    return visitor.visitArrayLength(this, payload);
+    return visitor.visitMember(this, payload);
   }
 }
 
@@ -528,7 +543,7 @@ export class ClassDefinition extends Statement {
   instanceVariableDeclarations: InstanceVariableDeclaration[];
   methodDefinitions: MethodDefinition[];
 
-  constructor(identifier: string, superclass: string, instanceVariableDeclarations: InstanceVariableDeclaration[], methodDefinitions: MethodDefinition[], where: Where) {
+  constructor(identifier: string, superclass: string | null, instanceVariableDeclarations: InstanceVariableDeclaration[], methodDefinitions: MethodDefinition[], where: Where) {
     super(where);
     this.identifier = identifier;
     this.superclass = superclass;
@@ -576,6 +591,36 @@ export class MethodDefinition extends Statement {
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
     return visitor.visitMethodDefinition(this, payload);
+  }
+}
+
+export class Instantiation extends Expression {
+  identifier: string;
+
+  constructor(identifier: string, where: Where) {
+    super(where);
+    this.identifier = identifier;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitInstantiation(this, payload);
+  }
+}
+
+export class MethodCall extends Expression {
+  receiverNode: Expression;
+  identifier: string;
+  actuals: Expression[];
+
+  constructor(receiverNode: Expression, identifier: string, actuals: Expression[], where: Where) {
+    super(where);
+    this.receiverNode = receiverNode;
+    this.identifier = identifier;
+    this.actuals = actuals;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitMethodCall(this, payload);
   }
 }
 

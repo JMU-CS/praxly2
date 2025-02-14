@@ -14,6 +14,7 @@ enum Level {
   Exponential,
   PrefixUnary,
   PostfixUnary,
+  Instantiation,
   Apex,
 }
 
@@ -51,7 +52,7 @@ precedence.set(ast.ArithmeticNegate, Level.PrefixUnary);
 precedence.set(ast.BitwiseNegate, Level.PrefixUnary);
 
 precedence.set(ast.ArraySubscript, Level.PostfixUnary);
-precedence.set(ast.ArrayLength, Level.PostfixUnary);
+precedence.set(ast.Member, Level.PostfixUnary);
 
 precedence.set(ast.Integer, Level.Apex);
 precedence.set(ast.Float, Level.Apex);
@@ -78,4 +79,5 @@ associativity.set(Level.Multiplicative, Associativity.Left);
 associativity.set(Level.Exponential, Associativity.Right);
 associativity.set(Level.PrefixUnary, Associativity.Right);
 associativity.set(Level.PostfixUnary, Associativity.Left);
+associativity.set(Level.Instantiation, Associativity.None);
 associativity.set(Level.Apex, Associativity.None);

@@ -184,6 +184,10 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
   // Variables
   // --------------------------------------------------------------------------
 
+  visitBlank(node: ast.Blank, _formatter: Formatter): string {
+    return "\n".repeat(node.count);
+  }
+
   visitAssignment(node: ast.Assignment, formatter: Formatter): string {
     return `${node.leftNode.visit(this, formatter)} = ${node.rightNode.visit(this, formatter)}`;
   }
@@ -300,15 +304,15 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
     return text;
   }
 
-  visitArrayLength(node: ast.ArrayLength, formatter: Formatter): string {
-    let operandPrecedence = precedence.get(node.arrayNode.constructor);
+  visitMember(node: ast.Member, formatter: Formatter): string {
+    let operandPrecedence = precedence.get(node.receiverNode.constructor);
     let nodePrecedence = precedence.get(node.constructor);
 
-    let text = node.arrayNode.visit(this, formatter);
+    let text = node.receiverNode.visit(this, formatter);
     if (operandPrecedence < nodePrecedence) {
       text = `(${text})`;
     }
-    text += '.length';
+    text += `.${node.identifier}`;
     return text;
   }
 
@@ -329,7 +333,7 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
       text += "\n";
     }
 
-    text += node.methodDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 2})}\n`).join('\n');
+    text += node.methodDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('\n');
     text += `${formatter.indentation.repeat(formatter.nestingLevel)}end class ${node.identifier}`;
 
     return text;
@@ -351,6 +355,15 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
     return text;
+  }
+
+  visitInstantiation(node: ast.Instantiation, _formatter: Formatter): string {
+    return `new ${node.identifier}`;
+  }
+
+  visitMethodCall(node: ast.MethodCall, formatter: Formatter): string {
+    // TODO: parenthesize receiver maybe
+    return `${node.receiverNode.visit(this, formatter)}.${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
   }
 
   // --------------------------------------------------------------------------

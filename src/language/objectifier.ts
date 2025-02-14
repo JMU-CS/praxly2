@@ -148,6 +148,14 @@ export class Objectifier extends Visitor<Object, Object> {
   // Variables
   // --------------------------------------------------------------------------
 
+  visitBlank(node: ast.Blank, _payload: Object): Object {
+    return {
+      type: 'blank',
+      count: node.count,
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   visitAssignment(node: ast.Assignment, payload: Object): Object {
     return {
       type: 'assignment',
@@ -313,10 +321,11 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
-  visitArrayLength(node: ast.ArrayLength, payload: Object): Object {
+  visitMember(node: ast.Member, payload: Object): Object {
     return {
-      type: 'array-length',
-      arrayNode: node.arrayNode.visit(this, payload),
+      type: 'member',
+      receiverNode: node.receiverNode.visit(this, payload),
+      identifier: node.identifier,
       where: {start: node.where.start, end: node.where.end},
     };
   }
@@ -355,6 +364,24 @@ export class Objectifier extends Visitor<Object, Object> {
       })),
       returnType: node.returnType,
       body: node.body.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitInstantiation(node: ast.Instantiation, _payload: Object): Object {
+    return {
+      type: 'instantiation',
+      identifier: node.identifier,
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitMethodCall(node: ast.MethodCall, payload: Object): Object {
+    return {
+      type: 'method-call',
+      receiverNode: node.receiverNode.visit(this, payload),
+      identifier: node.identifier,
+      actuals: node.actuals.map(actual => actual.visit(this, payload)),
       where: {start: node.where.start, end: node.where.end},
     };
   }

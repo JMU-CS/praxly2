@@ -11,10 +11,16 @@ class PraxlyParser extends Parser {
 
   parse(): ast.Block {
     const statements = [];
-    this.skipLinebreaks();
+    let blank = this.skipLinebreaks();
+    if (blank.n > 0) {
+      statements.push(new ast.Blank(blank.n, blank.where!));
+    }
     while (!this.has(TokenType.EndOfSource)) {
       statements.push(this.topLevelStatement());
-      this.skipLinebreaks();
+      let blank = this.skipLinebreaks();
+      if (blank.n > 0) {
+        statements.push(new ast.Blank(blank.n, blank.where!));
+      }
     }
     if (statements.length === 0) {
       return new ast.Block(statements, new Where(0, 0));
@@ -28,13 +34,108 @@ class PraxlyParser extends Parser {
       const defineNode = this.functionDefinition();
       this.statementLinebreak();
       return defineNode;
+    } else if (this.has(TokenType.Class)) {
+      const defineNode = this.classDefinition();
+      this.statementLinebreak();
+      return defineNode;
     } else {
       return this.statement(false);
     }
   }
 
-  functionDefinition(): ast.FunctionDefinition {
-    const returnTypeToken = this.advance() as TextToken;
+  classDefinition(): ast.ClassDefinition {
+    const classToken = this.advance() as TextToken;
+
+    if (!this.has(TokenType.Identifier)) {
+      throw new WhereError("The class name is missing.", classToken.where);
+    }
+    const classIdentifierToken = this.advance() as TextToken;
+    let lastWhere = classIdentifierToken.where;
+
+    let superclass = null;
+    if (this.has(TokenType.Extends)) {
+      const extendsToken = this.advance();
+      if (!this.has(TokenType.Identifier)) {
+        throw new WhereError("The superclass name is missing.", extendsToken.where);
+      }
+      const superclassToken = this.advance() as TextToken;
+      lastWhere = superclassToken.where;
+      superclass = superclassToken.text;
+    }
+
+    if (!this.has(TokenType.Linebreak)) {
+      throw new WhereError("A linebreak is missing after this class header.", Where.enclose(classToken.where, lastWhere));
+    }
+    this.advance(); // eat linebreak
+
+    this.skipLinebreaks();
+
+    const instanceVariableDeclarations: ast.InstanceVariableDeclaration[] = [];
+    const methodDefinitions: ast.MethodDefinition[] = [];
+
+    if (this.has(TokenType.Indent)) {
+      this.advance(); // eat indent
+
+      while (this.hasOtherwise(TokenType.Unindent)) {
+        let visibility = null;
+        let firstWhere = null;
+        if (this.has(TokenType.Public) || this.has(TokenType.Private)) {
+          const visibilityToken = this.advance(); // eat public/private
+          visibility = visibilityToken.type === TokenType.Public ? ast.Visibility.Public : ast.Visibility.Private;
+          lastWhere = visibilityToken.where;
+          firstWhere = visibilityToken.where;
+        }
+
+        if (!this.has(TokenType.Identifier)) {
+          throw new WhereError("A type is missing.", lastWhere);
+        }
+        const scalarTypeToken = this.advance() as TextToken;
+        firstWhere = firstWhere ?? scalarTypeToken.where;
+        let type = scalarTypeToken.text;
+        while (this.has(TokenType.LeftBracket)) {
+          const leftToken = this.advance(); // eat [
+          if (!this.has(TokenType.RightBracket)) {
+            throw new WhereError("This [ is missing its ].", leftToken.where);
+          }
+          const rightToken = this.advance(); // eat ]
+          lastWhere = rightToken.where;
+          type += '[]';
+        }
+
+        if (!this.has(TokenType.Identifier)) {
+          throw new WhereError("A name is missing after this type.", lastWhere);
+        }
+
+        if (this.hasAhead(TokenType.LeftParenthesis, 1)) {
+          const core = this.subroutineCore('method', Where.enclose(scalarTypeToken.where, lastWhere));
+          const declaration = new ast.MethodDefinition(core.identifier, core.formals, type, core.block, visibility, Where.enclose(firstWhere, core.block.where));
+          methodDefinitions.push(declaration);
+        } else {
+          const memberIdentifierToken = this.advance() as TextToken;
+          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, type, visibility, Where.enclose(firstWhere, memberIdentifierToken.where));
+          instanceVariableDeclarations.push(declaration);
+        }
+
+        this.skipLinebreaks();
+      }
+
+      if (!this.has(TokenType.Unindent)) {
+        throw new WhereError("The class must be closed.", lastWhere);
+      }
+      this.advance();
+    }
+
+    if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Class, 1) || !this.hasAhead(TokenType.Identifier, 2) || (this.tokens[this.i + 2] as TextToken).text !== classIdentifierToken.text) {
+      throw new WhereError(`The class must be closed with \`end class ${classIdentifierToken.text}\`.`, Where.enclose(classToken.where, lastWhere));
+    }
+    this.advance();
+    this.advance();
+    const endToken = this.advance();
+
+    return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, methodDefinitions, Where.enclose(classToken.where, endToken.where));
+  }
+
+  subroutineCore(context: string, firstWhere: Where) {
     const identifierToken = this.advance() as TextToken;
 
     const leftToken = this.advance(); // eat (
@@ -53,7 +154,7 @@ class PraxlyParser extends Parser {
         this.advance();
         const typeToken = this.advance() as TextToken;
         if (!this.has(TokenType.Identifier)) {
-          throw new WhereError("A parameter must have both a type and a name.", typeToken.where);
+          throw new WhereError(`A ${context} must have both a type and a name.`, typeToken.where);
         }
         const identifierToken = this.advance() as TextToken;
         latestToken = identifierToken;
@@ -62,19 +163,29 @@ class PraxlyParser extends Parser {
     } 
 
     if (!this.has(TokenType.RightParenthesis)) {
-      throw new WhereError(`A function's parameter must be enclosed in parentheses.`, Where.enclose(returnTypeToken.where, latestToken.where));
+      throw new WhereError(`A ${context}'s parameter must be enclosed in parentheses.`, Where.enclose(firstWhere, latestToken.where));
     }
     const rightToken = this.advance(); // eat )
 
-    const block = this.indentedBlock(true, 'function definition', Where.enclose(returnTypeToken.where, rightToken.where), TokenType.End);
+    const block = this.indentedBlock(true, 'function definition', Where.enclose(firstWhere, rightToken.where), TokenType.End);
 
     if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Identifier, 1) || (this.tokens[this.i + 1] as TextToken).text !== identifierToken.text) {
-      throw new WhereError(`The function must be closed with \`end ${identifierToken.text}\`.`, block.where);
+      throw new WhereError(`The ${context} must be closed with \`end ${identifierToken.text}\`.`, block.where);
     }
     this.advance();
     const endToken = this.advance();
 
-    return new ast.FunctionDefinition(identifierToken.text, formals, returnTypeToken.text, block, Where.enclose(returnTypeToken.where, block.where));
+    return {
+      identifier: identifierToken.text,
+      formals,
+      block,
+    };
+  }
+
+  functionDefinition(): ast.FunctionDefinition {
+    const returnTypeToken = this.advance() as TextToken;
+    const core = this.subroutineCore('function', returnTypeToken.where);
+    return new ast.FunctionDefinition(core.identifier, core.formals, returnTypeToken.text, core.block, Where.enclose(returnTypeToken.where, core.block.where));
   }
 
   indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, ...endTokenTypes: TokenType[]) {
@@ -545,7 +656,7 @@ class PraxlyParser extends Parser {
   }
 
   postfixUnary(): ast.Expression {
-    let leftNode = this.apex();
+    let leftNode = this.instantiate();
     while (this.hasAny(TokenType.LeftBracket, TokenType.Period)) {
       const operatorToken = this.advance();
       if (operatorToken.type === TokenType.LeftBracket) {
@@ -558,10 +669,11 @@ class PraxlyParser extends Parser {
       } else {
         if (this.has(TokenType.Identifier)) {
           const propertyToken = this.advance() as TextToken;
-          if (propertyToken.text === 'length') {
-            leftNode = new ast.ArrayLength(leftNode, Where.enclose(leftNode.where, propertyToken.where));
+          if (this.has(TokenType.LeftParenthesis)) {
+            const actualsPayload = this.actuals('method', propertyToken.where);
+            leftNode = new ast.MethodCall(leftNode, propertyToken.text, actualsPayload.actuals, Where.enclose(leftNode.where, actualsPayload.where));
           } else {
-            throw new WhereError("The only legal property is `length`.", propertyToken.where);
+            leftNode = new ast.Member(leftNode, propertyToken.text, Where.enclose(leftNode.where, propertyToken.where));
           }
         } else {
           throw new WhereError("The property name after `.` is missing.", operatorToken.where);
@@ -571,26 +683,46 @@ class PraxlyParser extends Parser {
     return leftNode;
   }
 
+  instantiate() {
+    if (this.has(TokenType.New)) {
+      const newToken = this.advance();
+      if (!this.has(TokenType.Identifier)) {
+        throw new WhereError("A class name is missing after `new`.", newToken.where);
+      }
+      const identifierToken = this.advance() as TextToken;
+      return new ast.Instantiation(identifierToken.text, Where.enclose(newToken.where, identifierToken.where));
+    } else {
+      return this.apex();
+    }
+  }
+
+  actuals(context: string, firstWhere: Where) {
+    const leftToken = this.advance();
+    let lastWhere = leftToken.where;
+    const actuals = [];
+    if (this.hasOtherwise(TokenType.RightParenthesis)) {
+      actuals.push(this.expression());
+      while (this.has(TokenType.Comma)) {
+        this.advance();
+        actuals.push(this.expression());
+      }
+      lastWhere = actuals[actuals.length - 1].where;
+    }
+    if (!this.has(TokenType.RightParenthesis)) {
+      throw new WhereError(`A ${context} call's parameters must be enclosed in parentheses.`, Where.enclose(firstWhere, lastWhere));
+    }
+    const rightToken = this.advance();
+    return {
+      actuals,
+      where: Where.enclose(firstWhere, rightToken.where),
+    };
+  }
+
   variable() {
     const identifierToken = this.advance() as TextToken;
     if (this.has(TokenType.LeftParenthesis)) {
-      const leftToken = this.advance();
-      let latestWhere = leftToken.where;
-      const actuals = [];
-      if (this.hasOtherwise(TokenType.RightParenthesis)) {
-        actuals.push(this.expression());
-        while (this.has(TokenType.Comma)) {
-          this.advance();
-          actuals.push(this.expression());
-        }
-        latestWhere = actuals[actuals.length - 1].where;
-      }
-      if (this.has(TokenType.RightParenthesis)) {
-        const rightToken = this.advance();
-        return new ast.FunctionCall(identifierToken.text, actuals, Where.enclose(identifierToken.where, rightToken.where));
-      } else {
-        throw new WhereError("A function call's parameters must be enclosed in parentheses.", Where.enclose(identifierToken.where, latestWhere));
-      }
+      const actualsPayload = this.actuals('function', identifierToken.where);
+      return new ast.FunctionCall(identifierToken.text, actualsPayload.actuals, Where.enclose(identifierToken.where, actualsPayload.where));
     } else {
       return new ast.Variable(identifierToken.text, identifierToken.where);
     }
