@@ -3,7 +3,7 @@ import {TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {WhereError} from '../exception.js';
 
-class PraxlyLexer extends Lexer {
+class PraxisLexer extends Lexer {
   indents: string[];
 
   constructor(source: string) {
@@ -180,6 +180,6 @@ class PraxlyLexer extends Lexer {
   }
 }
 
-export function lexPraxly(source: string) {
-  return new PraxlyLexer(source).lex();
+export function lexPraxis(source: string) {
+  return new PraxisLexer(source).lex();
 }

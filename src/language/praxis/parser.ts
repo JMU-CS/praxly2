@@ -4,7 +4,7 @@ import {Where} from '../where.js';
 import {WhereError} from '../exception.js';
 import * as ast from '../ast.js';
 
-class PraxlyParser extends Parser {
+class PraxisParser extends Parser {
   hasTwoIdentifiers() {
     return this.has(TokenType.Identifier) && this.hasAhead(TokenType.Identifier, 1);
   }
@@ -766,6 +766,6 @@ class PraxlyParser extends Parser {
   }
 }
 
-export function parsePraxly(tokens: Token[], source: string) {
-  return new PraxlyParser(tokens, source).parse();
+export function parsePraxis(tokens: Token[], source: string) {
+  return new PraxisParser(tokens, source).parse();
 }

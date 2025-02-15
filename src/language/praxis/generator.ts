@@ -11,7 +11,7 @@ type Formatter = {
   indentation: string,
 };
 
-export class PraxlyGenerator extends Visitor<Formatter, string> {
+export class PraxisGenerator extends Visitor<Formatter, string> {
 
   // --------------------------------------------------------------------------
   // Primitives
@@ -184,10 +184,6 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
   // Variables
   // --------------------------------------------------------------------------
 
-  visitBlank(node: ast.Blank, _formatter: Formatter): string {
-    return "\n".repeat(node.count);
-  }
-
   visitAssignment(node: ast.Assignment, formatter: Formatter): string {
     return `${node.leftNode.visit(this, formatter)} = ${node.rightNode.visit(this, formatter)}`;
   }
@@ -274,6 +270,16 @@ export class PraxlyGenerator extends Visitor<Formatter, string> {
       text += ` ${node.operandNode.visit(this, formatter)}`;
     }
     return text;
+  }
+
+  // --------------------------------------------------------------------------
+  // Weirdos
+  // --------------------------------------------------------------------------
+
+  visitBlank(node: ast.Blank, _formatter: Formatter): string {
+    // The containing block puts a linebreak after every statement, so we shave
+    // one off the count.
+    return "\n".repeat(node.count - 1);
   }
 
   visitLineComment(node: ast.LineComment, _formatter: Formatter): string {
