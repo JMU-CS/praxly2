@@ -6,23 +6,37 @@ import {Runtime, Evaluator} from './language/evaluator.js';
 import {praxisSymbolMap} from './language/praxis/symbol-map.js';
 import {WhereError} from './language/exception.js';
 import * as ast from './language/ast.js';
+import {EditorView, basicSetup} from 'codemirror';
+import {EditorSelection} from '@codemirror/state';
 
 function initialize() {
   const runButton = document.getElementById('run-button') as HTMLInputElement;
-  const editor = document.getElementById('editor') as HTMLInputElement;
   const treePanel = document.getElementById('tree-panel') as HTMLElement;
   const outputPanel = document.getElementById('output-panel') as HTMLElement;
   const sourcePanel = document.getElementById('source-panel') as HTMLElement;
 
+  const editor = document.getElementById('editor')!;
+  const editorView = new EditorView({
+    parent: editor,
+    doc: '',
+    extensions: [basicSetup],
+  });
+
   const latestSource = localStorage.getItem('latest-source');
   if (latestSource) {
-    editor.value = latestSource;
+    editorView.focus();
+    editorView.dispatch({
+      changes: {from: 0, to: editorView.state.doc.length, insert: latestSource},
+    });
+    // editorView.dispatch({
+      // selection: EditorSelection.range(0, 5),
+    // });
   }
 
   runButton.addEventListener('click', () => {
     outputPanel.innerText = '';
 
-    const source = editor.value;
+    const source = editorView.state.doc.toString();
 
     localStorage.setItem('latest-source', source);
 
@@ -45,14 +59,25 @@ function initialize() {
       outputPanel.innerText = Runtime.stdout;
     } catch (e) {
       if (e instanceof Error) {
-        const message = e.message.replaceAll(/`(.*?)`/g, '<var>$1</var>');
-        const p = document.createElement('p');
-        p.innerHTML = message;
-        outputPanel.appendChild(p);
-        console.error(e);
         if (e instanceof WhereError) {
+          const button = document.createElement('button');
+          button.classList.add('jump-button');
+          const lineNumber = editorView.state.doc.lineAt(e.where.start).number;
+          button.innerText = `Line ${lineNumber}`;
+          button.addEventListener('click', () => {
+            editorView.dispatch({
+              selection: EditorSelection.range(e.where.start, e.where.end),
+            });
+          });
+          outputPanel.appendChild(button);
           console.error(e.where);
         }
+
+        const message = e.message.replaceAll(/`(.*?)`/g, '<var>$1</var>');
+        const span = document.createElement('span');
+        span.innerHTML = `: ${message}`;
+        outputPanel.appendChild(span);
+        // console.error(e);
       }
     }
   });

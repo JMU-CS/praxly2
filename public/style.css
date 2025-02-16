@@ -15,6 +15,10 @@
   flex-basis: 0;
 }
 
+#editor {
+  overflow: scroll;
+}
+
 #tree-panel, #source-panel, #output-panel {
   padding: 10px;
   font-family: monospace;
@@ -44,4 +48,21 @@ var {
   color: blue;
   font-weight: bold;
   font-style: normal;
+}
+
+.jump-button {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: rebeccapurple;
+  font-weight: bold;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.jump-button:active {
+  color: orange;
 }
