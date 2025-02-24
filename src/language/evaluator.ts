@@ -19,8 +19,8 @@ class Type {
     return this.text;
   }
 
-  makeFruit(value: any): Fruit {
-    return new Fruit(this, value);
+  serializeValue(value: any): string {
+    return value.toString();
   }
 
   static Integer = new Type('int');
@@ -46,19 +46,12 @@ class ArrayType extends Type {
     this.elementType = elementType;
   }
 
-  makeFruit(value: any): Fruit {
-    return new ArrayFruit(this, value);
+  serializeValue(value: any): string {
+    return `{${(value as Fruit[]).map(element => element.type.serializeValue(element.value)).join(', ')}}`;
   }
 }
 
 class ObjectType extends Type {
-  makeFruit(value: any): Fruit {
-    return new ObjectFruit(this, value);
-  }
-}
-
-interface ToStringable {
-  toString: () => string;
 }
 
 class Fruit {
@@ -72,18 +65,6 @@ class Fruit {
 
   toString(): string {
     return this.value.toString();
-  }
-}
-
-class ArrayFruit extends Fruit {
-  toString(): string {
-    return `{${(this.value as any[]).map(element => element.toString()).join(', ')}}`;
-  }
-}
-
-class ObjectFruit extends Fruit {
-  toString(): string {
-    return `{${Array.from(this.value, ([identifier, fruit]) => `${identifier}: ${fruit.toString()}`).join(', ')}}`;
   }
 }
 
@@ -664,7 +645,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       if (entry.value === null) {
         throw new WhereError(`Variable ${node.identifier} is uninitialized.`, node.where);
       } else {
-        return entry.type.makeFruit(entry.value);
+        return new Fruit(entry.type, entry.value);
       }
     } else {
       throw new WhereError(`Variable ${node.identifier} is undeclared.`, node.where);
@@ -686,7 +667,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         fruit.type.equals(Type.Boolean) ||
         fruit.type instanceof ArrayType ||
         fruit.type instanceof ObjectType) {
-      Runtime.stdout += fruit.toString() + "\n";
+      Runtime.stdout += fruit.type.serializeValue(fruit.value) + "\n";
     } else {
       throw new WhereError('Only values may be printed.', node.where);
     }
@@ -872,7 +853,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       throw new WhereError(`An array element has the wrong type. It must have type \`${elementType}\`.`, node.elementNodes[badIndex].where);
     }
 
-    return new ArrayFruit(new ArrayType(elementType), elementFruits);
+    return new Fruit(new ArrayType(elementType), elementFruits);
   }
 
   visitArrayDeclaration(node: ast.ArrayDeclaration, runtime: Runtime): Fruit {
@@ -973,7 +954,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (!classFruit) {
       throw new WhereError(`Class ${node.identifier} is not defined.`, node.where);
     }
-    return new ObjectFruit(new ObjectType(node.identifier), new Map(Array.from(classFruit.instanceVariableEntries, ([identifier, fruit]) => [identifier, new Fruit(fruit.type, null)])));
+    return new Fruit(new ObjectType(node.identifier), new Map(Array.from(classFruit.instanceVariableEntries, ([identifier, fruit]) => [identifier, new Fruit(fruit.type, null)])));
   }
 
   visitCall(_context: string, node: ast.MethodCall | ast.FunctionCall, subroutineFruit: MethodEntry | FunctionEntry, runtime: Runtime) {
