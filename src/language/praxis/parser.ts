@@ -556,7 +556,7 @@ class PraxisParser extends Parser {
     while (this.has(TokenType.DoubleEqual) || this.has(TokenType.NotEqual)) {
       const operatorToken = this.advance();
       const rightNode = this.relational();
-      if (operatorToken.type === TokenType.Equal) {
+      if (operatorToken.type === TokenType.DoubleEqual) {
         leftNode = new ast.Equal(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
       } else {
         leftNode = new ast.NotEqual(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));

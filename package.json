@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "npm run build && npx mocha",
+    "retest": "npx mocha",
     "parser": "npx lezer-generator src/language/praxis/lezer.grammar > build/language/praxis/lezer-parser.js && echo \"import {LRParser} from \\\"@lezer/lr\\\"\n\nexport declare const parser: LRParser;\" > build/language/praxis/lezer-parser.d.ts"
   },
   "devDependencies": {

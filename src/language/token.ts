@@ -5,7 +5,6 @@ export enum TokenType {
   Asterisk,
   Ampersand,
   Bang,
-  BangEqual,
   Boolean,
   Character,
   Class,

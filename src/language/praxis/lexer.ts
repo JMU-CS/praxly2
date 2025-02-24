@@ -68,7 +68,7 @@ class PraxisLexer extends Lexer {
       }
     } else if (this.accept('!')) {
       if (this.accept('=')) {
-        this.emitToken(TokenType.BangEqual);
+        this.emitToken(TokenType.NotEqual);
       } else {
         this.emitToken(TokenType.Bang);
       }

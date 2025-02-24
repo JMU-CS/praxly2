@@ -37,6 +37,43 @@ describe('Praxis Expression Generation and Evaluation', () => {
       serialization: 'not not true',
       evaluation: new Fruit(Type.Boolean, true),
     },
+    {
+      source: '6 < 7',
+      serialization: '6 < 7',
+      evaluation: new Fruit(Type.Boolean, true),
+    },
+    {
+      source: '"blink" == "blank"',
+      serialization: '"blink" == "blank"',
+      evaluation: new Fruit(Type.Boolean, false),
+    },
+    {
+      source: '"blink" != "blank"',
+      serialization: '"blink" != "blank"',
+      evaluation: new Fruit(Type.Boolean, true),
+    },
+    {
+      // not (a OP b) vs (not a) OP b
+      //
+      // a  b  NOT a  a AND b  a OR b  NOT (a AND b)  NOT (a OR b)  (NOT a) AND b
+      // T  T    F       T       T     F              F             F
+      // T  F    F       F       T     T              F             F
+      // F  T    T       F       T     T              F             T
+      // F  F    T       F       F     T              T             F
+      source: 'not false and true',
+      serialization: 'not false and true',
+      evaluation: new Fruit(Type.Boolean, true),
+    },
+    {
+      source: 'not false and false',
+      serialization: 'not false and false',
+      evaluation: new Fruit(Type.Boolean, false),
+    },
+    {
+      source: '7 / 3',
+      serialization: '7 / 3',
+      evaluation: new Fruit(Type.Integer, 2),
+    },
   ];
 
   for (let sample of samples) {
@@ -48,7 +85,7 @@ describe('Praxis Expression Generation and Evaluation', () => {
         nestingLevel: 0,
         indentation: '  ',
       });
-      it(`should serialize to ${generatedSource}`, () => assert.equal(generatedSource, sample.serialization));
+      it(`should serialize to ${sample.serialization}`, () => assert.equal(generatedSource, sample.serialization));
 
       const runtime = Runtime.new();
       const fruit = ast.visit(new Evaluator(praxisSymbolMap), runtime);
