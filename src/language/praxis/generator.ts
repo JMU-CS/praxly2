@@ -25,8 +25,12 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
     return this.visitPrimitive<number>(node, formatter);
   }
 
-  visitFloat(node: ast.Float, formatter: Formatter): string {
-    return this.visitPrimitive<number>(node, formatter);
+  visitFloat(node: ast.Float, _formatter: Formatter): string {
+    const floatFormatter = new Intl.NumberFormat('en-US', { 
+      minimumIntegerDigits: 1, 
+      minimumFractionDigits: 1 
+    });
+    return floatFormatter.format(node.rawValue);
   }
 
   visitBoolean(node: ast.Boolean, formatter: Formatter): string {

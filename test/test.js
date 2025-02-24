@@ -74,6 +74,31 @@ describe('Praxis Expression Generation and Evaluation', () => {
       serialization: '7 / 3',
       evaluation: new Fruit(Type.Integer, 2),
     },
+    {
+      source: '7.0 / 4',
+      serialization: '7.0 / 4',
+      evaluation: new Fruit(Type.Float, 1.75),
+    },
+    {
+      source: '10.5 / 0.5',
+      serialization: '10.5 / 0.5',
+      evaluation: new Fruit(Type.Float, 21.0),
+    },
+    {
+      source: '5 + 2 * 3.0',
+      serialization: '5 + 2 * 3.0',
+      evaluation: new Fruit(Type.Float, 11.0),
+    },
+    {
+      source: '5 + 2 * 3.0',
+      serialization: '5 + 2 * 3.0',
+      evaluation: new Fruit(Type.Float, 11.0),
+    },
+    {
+      source: '-2 % 5',
+      serialization: '-2 % 5',
+      evaluation: new Fruit(Type.Integer, 3),
+    },
   ];
 
   for (let sample of samples) {
@@ -106,6 +131,21 @@ describe('Praxis Program Generation and Output', () => {
       serialization: "print 7 * (3 + 1)\n",
       output: "28\n",
     },
+    {
+      source: `int[] xs = {12, 103, 88}
+print xs
+print xs[0]
+print xs[1]
+print xs[2]
+print xs.length
+`,
+      output: `{12, 103, 88}
+12
+103
+88
+3
+`,
+    },
   ];
 
   for (let sample of samples) {
@@ -117,7 +157,8 @@ describe('Praxis Program Generation and Output', () => {
         nestingLevel: 0,
         indentation: '  ',
       });
-      it(`should serialize to\n${generatedSource}`, () => assert.equal(generatedSource, sample.serialization));
+      const expectedSerialization = sample.serialization ?? sample.source;
+      it(`should serialize to\n${expectedSerialization}`, () => assert.equal(generatedSource, expectedSerialization));
 
       Runtime.stdout = '';
       const runtime = Runtime.new();
