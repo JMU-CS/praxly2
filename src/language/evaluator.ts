@@ -4,7 +4,7 @@ import {WhereError} from './exception.js';
 import {Where} from './where.js';
 import type {NodeClass, SymbolMap} from './symbol-map.js';
 
-class Type {
+export class Type {
   text: string;
 
   constructor(text: string) {
@@ -38,7 +38,7 @@ const typeMap: {[index: string]: Type} = {
   'String': Type.String,
 };
 
-class ArrayType extends Type {
+export class ArrayType extends Type {
   elementType: Type;
 
   constructor(elementType: Type) {
@@ -51,10 +51,10 @@ class ArrayType extends Type {
   }
 }
 
-class ObjectType extends Type {
+export class ObjectType extends Type {
 }
 
-class Fruit {
+export class Fruit {
   type: Type;
   value: any;
 
