@@ -1,10 +1,11 @@
+import assert from 'node:assert';
 import {lexPraxis} from '../build/language/praxis/lexer.js';
 import {parsePraxis} from '../build/language/praxis/parser.js';
 import {PraxisGenerator} from '../build/language/praxis/generator.js';
 import {Runtime, Evaluator, Fruit, Type} from '../build/language/evaluator.js';
 import {praxisSymbolMap} from '../build/language/praxis/symbol-map.js';
 
-test('Praxis Serialization and Output', () => {
+describe('Praxis Serialization and Output', () => {
   const samples = [
     {
       source: 'print 5 + 1',
@@ -19,18 +20,21 @@ test('Praxis Serialization and Output', () => {
   ];
 
   for (let sample of samples) {
-    const tokens = lexPraxis(sample.source);
-    const ast = parsePraxis(tokens, sample.source);
+    describe(sample.source, () => {
+      const tokens = lexPraxis(sample.source);
+      const ast = parsePraxis(tokens, sample.source);
 
-    const generatedSource = ast.visit(new PraxisGenerator(), {
-      nestingLevel: 0,
-      indentation: '  ',
+      const generatedSource = ast.visit(new PraxisGenerator(), {
+        nestingLevel: 0,
+        indentation: '  ',
+      });
+      it(`should serialize to\n${generatedSource}`, () => assert.equal(generatedSource, sample.serialization));
+
+      Runtime.stdout = '';
+      const runtime = Runtime.new();
+      ast.visit(new Evaluator(praxisSymbolMap), runtime);
+      const stdout = Runtime.stdout;
+      it(`should output\n${sample.output}`, () => assert.equal(stdout, sample.output));
     });
-    expect(generatedSource).toBe(sample.serialization);
-
-    Runtime.stdout = '';
-    const runtime = Runtime.new();
-    ast.visit(new Evaluator(praxisSymbolMap), runtime);
-    expect(Runtime.stdout).toBe(sample.output);
   }
 });
