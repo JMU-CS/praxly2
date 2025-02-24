@@ -41,13 +41,13 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
   // Unary Operators
   // --------------------------------------------------------------------------
 
-  visitUnaryOperator(node: ast.UnaryOperator, formatter: Formatter, _operator: string): string {
+  visitUnaryOperator(node: ast.UnaryOperator, formatter: Formatter, operator: string): string {
     let operandPrecedence = precedence.get(node.operandNode.constructor);
     let nodePrecedence = precedence.get(node.constructor);
 
-    let text = '';
+    let text = operator;
     let operandText = node.operandNode.visit(this, formatter);
-    text = `(${operandText})`;
+    text += `${operandText}`;
 
     return text;
   }

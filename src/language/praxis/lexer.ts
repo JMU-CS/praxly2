@@ -59,11 +59,7 @@ class PraxisLexer extends Lexer {
         this.emitToken(TokenType.Asterisk);
       }
     } else if (this.accept('&')) {
-      if (this.accept('&')) {
-        this.emitToken(TokenType.DoubleAmpersand);
-      } else {
-        this.emitToken(TokenType.Ampersand);
-      }
+      this.emitToken(TokenType.Ampersand);
     } else if (this.accept('|')) {
       if (this.accept('|')) {
         this.emitToken(TokenType.DoublePipe);

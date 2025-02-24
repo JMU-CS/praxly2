@@ -770,3 +770,7 @@ class PraxisParser extends Parser {
 export function parsePraxis(tokens: Token[], source: string) {
   return new PraxisParser(tokens, source).parse();
 }
+
+export function parsePraxisExpression(tokens: Token[], source: string) {
+  return new PraxisParser(tokens, source).expression();
+}
