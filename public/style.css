@@ -17,6 +17,12 @@
 
 #editor {
   overflow: scroll;
+  display: flex;
+  flex-direction: column;
+}
+
+.cm-editor {
+  flex-grow: 1;
 }
 
 #tree-panel, #source-panel, #output-panel {

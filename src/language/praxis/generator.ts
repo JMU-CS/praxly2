@@ -207,7 +207,7 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
   }
 
   visitPrint(node: ast.Print, formatter: Formatter): string {
-    return `print(${node.operandNode.visit(this, formatter)})`;
+    return `print ${node.operandNode.visit(this, formatter)}`;
   }
 
   visitIf(node: ast.If, formatter: Formatter): string {

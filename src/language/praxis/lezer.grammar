@@ -1,0 +1,103 @@
+@precedence {
+  multiplicative @left,
+  additive @left, 
+  shift @left,
+  relational @left
+}
+
+@top Program { (topLevelStatement linebreak)* }
+
+@skip { space | LineComment }
+
+topLevelStatement {
+  statement
+}
+
+block {
+  Block { (statement linebreak)* }
+}
+
+statement {
+  Declaration |
+  For { For LeftParenthesis statement Semicolon expression Semicolon statement RightParenthesis linebreak block End For} |
+  Print { Print expression } |
+  If { If LeftParenthesis expression RightParenthesis linebreak block (Else linebreak block)? End If } |
+  While { While LeftParenthesis expression RightParenthesis linebreak block End While } |
+  Class { Class Identifier linebreak block End Class } |
+  Return { Return expression } |
+  Assignment { Identifier Equal expression }
+}
+
+Declaration {
+  initialized { type Identifier Equal expression } |
+  uninitialized { type Identifier }
+}
+
+type {
+  Type { Identifier }
+}
+
+expression {
+  BinaryExpression | apex
+}
+
+BinaryExpression {
+  expression !relational LessThan expression |
+  expression !relational GreaterThan expression |
+  expression !shift DoubleLessThan expression |
+  expression !shift DoubleGreaterThan expression |
+  expression !multiplicative Asterisk expression |
+  expression !multiplicative ForwardSlash expression |
+  expression !multiplicative Percent expression |
+  expression !additive Plus expression
+}
+
+apex {
+  Call { Identifier LeftParenthesis (expression (comma expression)*)? RightParenthesis } |
+  Identifier |
+  Boolean |
+  String |
+  Integer |
+  LeftParenthesis expression RightParenthesis
+}
+
+@tokens {
+  Integer { "-"? $[0-9]+ }
+  Identifier { $[a-zA-Z_]$[a-zA-Z0-9_]* }
+  Print { "print" }
+  Boolean { "true" | "false" }
+  For { "for" }
+  Class { "class" }
+  While { "while" }
+  If { "if" }
+  Else { "else" }
+  Return { "return" }
+  End { "end" }
+  Semicolon { ";" }
+  DoubleLessThan { "<<" }
+  DoubleGreaterThan { ">>" }
+  LessThan { "<" }
+  GreaterThan { ">" }
+  Plus { "+" }
+  Equal { "=" }
+  Asterisk { "*" }
+  Percent { "%" }
+  ForwardSlash { "/" }
+  LeftParenthesis { "(" }
+  RightParenthesis { ")" }
+  comma { "," }
+  linebreak { $[\r]? $[\n] }
+
+  String { '"' (!["\\] | "\\" _)* '"' }
+
+  LineComment { "//" ![\n]* }
+
+  space { $[ \t]+ }
+
+  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Identifier }
+  @precedence { DoubleLessThan, LessThan }
+  @precedence { DoubleGreaterThan, GreaterThan }
+  @precedence { LineComment, ForwardSlash }
+}
+
+// @detectDelim

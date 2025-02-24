@@ -463,8 +463,8 @@ class PraxisParser extends Parser {
 
   printStatement(): ast.Statement {
     const printToken = this.advance();
-    const parameter = this.parenthesizedExpression(printToken.where, 'A print\'s parameter');
-    return new ast.Print(parameter.node, Where.enclose(printToken.where, parameter.where));
+    const parameterNode = this.expression();
+    return new ast.Print(parameterNode, Where.enclose(printToken.where, parameterNode.where));
   }
 
   otherStatement(): ast.Statement | ast.Expression {
@@ -754,7 +754,8 @@ class PraxisParser extends Parser {
       if (!this.has(TokenType.RightParenthesis)) {
         throw new WhereError('A right parenthesis is missing.', Where.enclose(leftParenthesisToken.where, expression.where));
       }
-      this.advance();
+      const rightToken = this.advance(); // eat )
+      expression.where = Where.enclose(expression.where, rightToken.where);
       return expression;
     } else {
       if (this.i < this.tokens.length) {

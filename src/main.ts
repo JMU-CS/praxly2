@@ -8,6 +8,9 @@ import {WhereError} from './language/exception.js';
 import * as ast from './language/ast.js';
 import {EditorView, basicSetup} from 'codemirror';
 import {EditorSelection} from '@codemirror/state';
+import {praxis} from './language/praxis/highlighter.js';
+import {vsCodeDark} from '@fsegurai/codemirror-theme-vscode-dark';
+import {praxlyTheme} from './praxly-theme.js';
 
 function initialize() {
   const runButton = document.getElementById('run-button') as HTMLInputElement;
@@ -19,7 +22,7 @@ function initialize() {
   const editorView = new EditorView({
     parent: editor,
     doc: '',
-    extensions: [basicSetup],
+    extensions: [basicSetup, praxis(), praxlyTheme],
   });
 
   const latestSource = localStorage.getItem('latest-source');
@@ -28,9 +31,6 @@ function initialize() {
     editorView.dispatch({
       changes: {from: 0, to: editorView.state.doc.length, insert: latestSource},
     });
-    // editorView.dispatch({
-      // selection: EditorSelection.range(0, 5),
-    // });
   }
 
   runButton.addEventListener('click', () => {

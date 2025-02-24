@@ -6,13 +6,19 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepare": "rollup -c",
+    "parser": "npm x lezer-generator src/language/praxis/lezer.grammar > build/language/praxis/lezer-parser.js && echo \"import {LRParser} from \\\"@lezer/lr\\\"\n\nexport declare const parser: LRParser;\" > build/language/praxis/lezer-parser.d.ts"
   },
   "devDependencies": {
     "typescript": "~5.7.2",
     "vite": "^6.1.0"
   },
   "dependencies": {
+    "@codemirror/lang-lezer": "github:codemirror/lang-lezer",
+    "@fsegurai/codemirror-theme-vscode-dark": "^6.1.2",
+    "@lezer/generator": "^1.7.2",
+    "@lezer/lr": "^1.4.2",
     "codemirror": "^6.0.1",
     "vite-plugin-checker": "^0.8.0"
   }
