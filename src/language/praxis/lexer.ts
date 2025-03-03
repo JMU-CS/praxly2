@@ -48,6 +48,16 @@ class PraxisLexer extends Lexer {
       this.emitToken(TokenType.Tilde);
     } else if (this.accept('^')) {
       this.emitToken(TokenType.Circumflex);
+    } else if (this.accept('\u2264')) {
+      this.emitToken(TokenType.LessThanOrEqual);
+    } else if (this.accept('\u2265')) {
+      this.emitToken(TokenType.GreaterThanOrEqual);
+    } else if (this.accept('\u2260')) { // ≠
+      this.emitToken(TokenType.NotEqual);
+    } else if (this.accept('\u2b60')) {
+      this.emitToken(TokenType.Equal);
+    } else if (this.accept('\u2190')) {
+      this.emitToken(TokenType.Equal);
     } else if (this.has('"')) {
       this.lexString();
     } else if (this.hasAlphabetic()) {

@@ -155,6 +155,12 @@ export class Float extends Primitive<number> {
   }
 }
 
+export class Double extends Primitive<number> {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitDouble(this, payload);
+  }
+}
+
 export class String extends Primitive<string> {
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
     return visitor.visitString(this, payload);

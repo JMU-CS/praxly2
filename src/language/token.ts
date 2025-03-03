@@ -11,6 +11,7 @@ export enum TokenType {
   Circumflex,
   Comma,
   Do,
+  Double,
   DoubleAmpersand,
   DoubleAsterisk,
   DoubleEqual,

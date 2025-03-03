@@ -735,6 +735,9 @@ class PraxisParser extends Parser {
     } else if (this.has(TokenType.Float)) {
       const token = this.advance() as TextToken;
       return new ast.Float(parseFloat(token.text), token.where);
+    } else if (this.has(TokenType.Double)) {
+      const token = this.advance() as TextToken;
+      return new ast.Double(parseFloat(token.text), token.where);
     } else if (this.has(TokenType.String)) {
       const token = this.advance() as TextToken;
       return new ast.String(token.text, token.where);

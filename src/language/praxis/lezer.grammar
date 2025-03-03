@@ -41,9 +41,12 @@ expression {
   BinaryExpression | apex
 }
 
+// expression !relational GreaterThan expression |
+// expression !relational LessThanOrEqual expression |
+// expression !relational GreaterThanOrEqual expression |
+
 BinaryExpression {
-  expression !relational LessThan expression |
-  expression !relational GreaterThan expression |
+  expression !relational ( LessThan | GreaterThan | LessThanOrEqual | GreaterThanOrEqual ) expression |
   expression !shift DoubleLessThan expression |
   expression !shift DoubleGreaterThan expression |
   expression !multiplicative Asterisk expression |
@@ -77,9 +80,11 @@ apex {
   DoubleLessThan { "<<" }
   DoubleGreaterThan { ">>" }
   LessThan { "<" }
+  LessThanOrEqual { "<=" | "≤" }
   GreaterThan { ">" }
+  GreaterThanOrEqual { ">=" | "≥" }
   Plus { "+" }
-  Equal { "=" }
+  Equal { "=" | "←" | "⭠" }
   Asterisk { "*" }
   Percent { "%" }
   ForwardSlash { "/" }

@@ -23,6 +23,10 @@ export class Objectifier extends Visitor<Object, Object> {
     return this.visitPrimitive<number>(node, payload, 'float');
   }
 
+  visitDouble(node: ast.Double, payload: Object): Object {
+    return this.visitPrimitive<number>(node, payload, 'double');
+  }
+
   visitBoolean(node: ast.Boolean, payload: Object): Object {
     return this.visitPrimitive<boolean>(node, payload, 'boolean');
   }

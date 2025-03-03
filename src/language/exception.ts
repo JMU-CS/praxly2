@@ -8,3 +8,9 @@ export class WhereError extends Error {
     this.where = where;
   }
 }
+
+// export class UnlocatedError extends Error {
+  // constructor(message: string) {
+    // super(message);
+  // }
+// }

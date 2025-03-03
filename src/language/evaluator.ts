@@ -15,6 +15,10 @@ export class Type {
     return this.text === that.text;
   }
 
+  covers(that: Type): boolean {
+    return this.text === that.text;
+  }
+
   toString(): string {
     return this.text;
   }
@@ -25,14 +29,16 @@ export class Type {
 
   static Integer = new Type('int');
   static Float = new Type('float');
+  static Double = new Type('double');
   static Void = new Type('void');
   static Boolean = new Type('boolean');
-  static String = new Type('string');
+  static String = new Type('String');
 }
 
 const typeMap: {[index: string]: Type} = {
   'int': Type.Integer,
   'float': Type.Float,
+  'double': Type.Double,
   'void': Type.Void,
   'boolean': Type.Boolean,
   'String': Type.String,
@@ -53,6 +59,22 @@ export class ArrayType extends Type {
 
 export class ObjectType extends Type {
 }
+
+export class UnionType extends Type {
+  options: Type[];
+
+  constructor(options: Type[]) {
+    super(`(${options.map(option => option.text).join(' | ')})`);
+    this.options = options;
+  }
+
+  covers(that: Type): boolean {
+    // TODO: cover other union type
+    return this.options.some(option => option.covers(that));
+  }
+}
+
+const NumberType = new UnionType([Type.Double, Type.Float, Type.Integer]);
 
 export class Fruit {
   type: Type;
@@ -87,7 +109,7 @@ abstract class FunctionEntry {
     this.returnType = returnType;
   }
 
-  abstract call(evaluator: Evaluator, runtime: Runtime): Fruit;
+  abstract call(evaluator: Evaluator, runtime: Runtime, where: Where): Fruit;
 }
 
 class FunctionFruit extends FunctionEntry {
@@ -100,18 +122,202 @@ class FunctionFruit extends FunctionEntry {
     this.where = where;
   }
 
-  call(evaluator: Evaluator, runtime: Runtime): Fruit {
+  call(evaluator: Evaluator, runtime: Runtime, _where: Where): Fruit {
     return this.body.visit(evaluator, runtime);
   }
 }
 
-class FooFunctionEntry extends FunctionEntry {
+class MinimumFunctionEntry extends FunctionEntry {
   constructor() {
-    super([], Type.Integer);
+    super([
+      new FormalEntry('a', NumberType),
+      new FormalEntry('b', NumberType),
+    ], NumberType);
   }
 
-  call(_evaluator: Evaluator, _runtime: Runtime): Fruit {
-    throw new ReturnSomethingException(new Fruit(Type.Integer, 17), new Where(0, 0));
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const a = runtime.variableBindings.get('a')!;
+    const b = runtime.variableBindings.get('b')!;
+    if (a.type.covers(Type.Double) && b.type.covers(Type.Double)) {
+      const newValue = Math.min(a.value as number, b.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
+    } else if (a.type.covers(Type.Float) && b.type.covers(Type.Float)) {
+      const newValue = Math.min(a.value as number, b.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
+    } else if (a.type.covers(Type.Integer) && b.type.covers(Type.Integer)) {
+      const newValue = Math.min(a.value as number, b.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
+    } else {
+      throw new WhereError("The arguments to `min` must be of the same type.", where);
+    }
+  }
+}
+
+class MaximumFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([
+      new FormalEntry('a', NumberType),
+      new FormalEntry('b', NumberType),
+    ], NumberType);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const a = runtime.variableBindings.get('a')!;
+    const b = runtime.variableBindings.get('b')!;
+    if (a.type.covers(Type.Double) && b.type.covers(Type.Double)) {
+      const newValue = Math.max(a.value as number, b.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
+    } else if (a.type.covers(Type.Float) && b.type.covers(Type.Float)) {
+      const newValue = Math.max(a.value as number, b.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
+    } else if (a.type.covers(Type.Integer) && b.type.covers(Type.Integer)) {
+      const newValue = Math.max(a.value as number, b.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
+    } else {
+      throw new WhereError("The arguments to `max` must be of the same type.", where);
+    }
+  }
+}
+
+class AbsoluteValueFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([
+      new FormalEntry('x', NumberType),
+    ], NumberType);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const x = runtime.variableBindings.get('x')!;
+    if (x.type.covers(Type.Double)) {
+      const newValue = Math.abs(x.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
+    } else if (x.type.covers(Type.Float)) {
+      const newValue = Math.abs(x.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
+    } else if (x.type.covers(Type.Integer)) {
+      const newValue = Math.abs(x.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
+    } else {
+      throw new WhereError("The argument to `abs` must be a number.", where);
+    }
+  }
+}
+
+class LogFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([
+      new FormalEntry('x', NumberType),
+    ], NumberType);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const x = runtime.variableBindings.get('x')!;
+    if (x.type.covers(Type.Double)) {
+      const newValue = Math.log(x.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
+    } else if (x.type.covers(Type.Float)) {
+      const newValue = Math.log(x.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
+    } else if (x.type.covers(Type.Integer)) {
+      const newValue = Math.log(x.value as number);
+      // TODO: what should the return type be?
+      throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
+    } else {
+      throw new WhereError("The argument to `log` must be a number.", where);
+    }
+  }
+}
+
+class SquareRootFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([
+      new FormalEntry('x', NumberType),
+    ], NumberType);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const x = runtime.variableBindings.get('x')!;
+    if (x.type.covers(Type.Double)) {
+      const newValue = Math.sqrt(x.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
+    } else if (x.type.covers(Type.Float)) {
+      const newValue = Math.sqrt(x.value as number);
+      throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
+    } else if (x.type.covers(Type.Integer)) {
+      const newValue = Math.sqrt(x.value as number);
+      // TODO: what should the return type be?
+      throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
+    } else {
+      throw new WhereError("The argument to `sqrt` must be a number.", where);
+    }
+  }
+}
+
+class IntCastFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([
+      new FormalEntry('x', new UnionType([Type.Double, Type.Float, Type.Integer, Type.String])),
+    ], Type.Integer);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const variable = runtime.variableBindings.get('x')!;
+    let newValue: any;
+    if (variable.type.covers(Type.Double) || variable.type.covers(Type.Float)) {
+      newValue = Math.trunc(variable.value as number);
+    } else if (variable.type.covers(Type.Integer)) {
+      newValue = variable.value as number;
+    } else {
+      newValue = Number(variable.value);
+      if (Number.isNaN(newValue)) {
+        throw new WhereError(`The value \`"${variable.value}"\` cannot be converted to an integer.`, where);
+      }
+    }
+    throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
+  }
+}
+
+class FloatCastFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([
+      new FormalEntry('x', new UnionType([Type.Double, Type.Float, Type.Integer, Type.String])),
+    ], Type.Float);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const variable = runtime.variableBindings.get('x')!;
+    let newValue: any;
+    if (variable.type.covers(Type.Double) || variable.type.covers(Type.Float) || variable.type.covers(Type.Integer)) {
+      newValue = variable.value as number;
+    } else {
+      newValue = Number(variable.value);
+      if (Number.isNaN(newValue)) {
+        throw new WhereError(`The value \`"${variable.value}"\` cannot be converted to a float.`, where);
+      }
+    }
+    throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
+  }
+}
+
+class DoubleCastFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([
+      new FormalEntry('x', new UnionType([Type.Double, Type.Float, Type.Integer, Type.String])),
+    ], Type.Double);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const variable = runtime.variableBindings.get('x')!;
+    let newValue: any;
+    if (variable.type.covers(Type.Double) || variable.type.covers(Type.Float) || variable.type.covers(Type.Integer)) {
+      newValue = variable.value as number;
+    } else {
+      newValue = Number(variable.value);
+      if (Number.isNaN(newValue)) {
+        throw new WhereError(`The value \`"${variable.value}"\` cannot be converted to a double.`, where);
+      }
+    }
+    throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
   }
 }
 
@@ -126,7 +332,7 @@ abstract class MethodEntry {
     this.visibility = visibility;
   }
 
-  abstract call(evaluator: Evaluator, runtime: Runtime): Fruit;
+  abstract call(evaluator: Evaluator, runtime: Runtime, where: Where): Fruit;
 }
 
 class MethodFruit extends MethodEntry {
@@ -139,7 +345,7 @@ class MethodFruit extends MethodEntry {
     this.where = where;
   }
 
-  call(evaluator: Evaluator, runtime: Runtime): Fruit {
+  call(evaluator: Evaluator, runtime: Runtime, _where: Where): Fruit {
     return this.body.visit(evaluator, runtime);
   }
 }
@@ -199,7 +405,14 @@ export class Runtime {
 
   static new() {
     const runtime = new Runtime(new Map(), new Map(), new Map(), null, null);
-    runtime.setFunction('randomInt', new FooFunctionEntry());
+    runtime.setFunction('int', new IntCastFunctionEntry());
+    runtime.setFunction('float', new FloatCastFunctionEntry());
+    runtime.setFunction('double', new DoubleCastFunctionEntry());
+    runtime.setFunction('min', new MinimumFunctionEntry());
+    runtime.setFunction('max', new MaximumFunctionEntry());
+    runtime.setFunction('abs', new AbsoluteValueFunctionEntry());
+    runtime.setFunction('log', new LogFunctionEntry());
+    runtime.setFunction('sqrt', new SquareRootFunctionEntry());
     return runtime;
   }
 
@@ -272,6 +485,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     return new Fruit(Type.Float, node.rawValue);
   }
 
+  visitDouble(node: ast.Double, _runtime: Runtime): Fruit {
+    return new Fruit(Type.Double, node.rawValue);
+  }
+
   visitBoolean(node: ast.Boolean, _runtime: Runtime): Fruit {
     return new Fruit(Type.Boolean, node.rawValue);
   }
@@ -295,9 +512,9 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitArithmeticNegate(node: ast.ArithmeticNegate, runtime: Runtime): Fruit {
     const operandFruit = node.operandNode.visit(this, runtime);
-    if (operandFruit.type.equals(Type.Integer)) {
+    if (operandFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, -operandFruit.value);
-    } else if (operandFruit.type.equals(Type.Integer)) {
+    } else if (operandFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Float, operandFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.ArithmeticNegate)} can only be applied to numbers.`, node.where);
@@ -306,7 +523,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitBitwiseNegate(node: ast.BitwiseNegate, runtime: Runtime): Fruit {
     const operandFruit = node.operandNode.visit(this, runtime);
-    if (operandFruit.type.equals(Type.Integer)) {
+    if (operandFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, ~operandFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.BitwiseNegate)} can only be applied to integers.`, node.where);
@@ -320,10 +537,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitAdd(node: ast.Add, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value + rightFruit.value);
-    } else if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float)) &&
-               (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float))) {
+    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
+               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
       return new Fruit(Type.Float, leftFruit.value + rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Add)} can only be applied to numbers.`, node.where);
@@ -333,10 +550,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitSubtract(node: ast.Subtract, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value - rightFruit.value);
-    } else if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float)) &&
-               (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float))) {
+    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
+               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
       return new Fruit(Type.Float, leftFruit.value - rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Subtract)} can only be applied to numbers.`, node.where);
@@ -346,10 +563,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitMultiply(node: ast.Multiply, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value * rightFruit.value);
-    } else if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float)) &&
-               (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float))) {
+    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
+               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
       return new Fruit(Type.Float, leftFruit.value * rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Multiply)} can only be applied to numbers.`, node.where);
@@ -359,10 +576,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitDivide(node: ast.Divide, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, Math.trunc(leftFruit.value / rightFruit.value));
-    } else if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float)) &&
-               (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float))) {
+    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
+               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
       return new Fruit(Type.Float, leftFruit.value / rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Divide)} can only be applied to numbers.`, node.where);
@@ -372,7 +589,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitRemainder(node: ast.Remainder, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       // Do remainder rather than modulus. They differ in how they handle
       // negative numbers.
       return new Fruit(Type.Integer, leftFruit.value - rightFruit.value * (Math.floor(leftFruit.value / rightFruit.value)));
@@ -384,10 +601,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitPower(node: ast.Power, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value ** rightFruit.value);
-    } else if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float)) &&
-               (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float))) {
+    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
+               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
       return new Fruit(Type.Float, leftFruit.value ** rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Power)} can only be applied to numbers.`, node.where);
@@ -397,8 +614,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitLessThan(node: ast.LessThan, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float)) &&
-        (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float))) {
+    if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
+        (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
       return new Fruit(Type.Boolean, leftFruit.value < rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.LessThan)} can only be applied to numbers.`, node.where);
@@ -408,8 +625,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitGreaterThan(node: ast.GreaterThan, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float)) &&
-        (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float))) {
+    if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
+        (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
       return new Fruit(Type.Boolean, leftFruit.value > rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.GreaterThan)} can only be applied to numbers.`, node.where);
@@ -419,8 +636,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitLessThanOrEqual(node: ast.LessThanOrEqual, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float)) &&
-        (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float))) {
+    if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
+        (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
       return new Fruit(Type.Boolean, leftFruit.value <= rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.LessThanOrEqual)} can only be applied to numbers.`, node.where);
@@ -430,8 +647,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitGreaterThanOrEqual(node: ast.GreaterThanOrEqual, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float)) &&
-        (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float))) {
+    if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
+        (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
       return new Fruit(Type.Boolean, leftFruit.value >= rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.GreaterThanOrEqual)} can only be applied to numbers.`, node.where);
@@ -443,8 +660,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const rightFruit = node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
       throw new WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
-    } else if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float) || leftFruit.type.equals(Type.String) || leftFruit.type.equals(Type.Boolean)) &&
-               (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float) || rightFruit.type.equals(Type.String) || rightFruit.type.equals(Type.Boolean))) {
+    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float) || leftFruit.type.covers(Type.String) || leftFruit.type.covers(Type.Boolean)) &&
+               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float) || rightFruit.type.covers(Type.String) || rightFruit.type.covers(Type.Boolean))) {
       return new Fruit(Type.Boolean, leftFruit.value === rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
@@ -456,8 +673,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const rightFruit = node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
       throw new WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
-    } else if ((leftFruit.type.equals(Type.Integer) || leftFruit.type.equals(Type.Float) || leftFruit.type.equals(Type.String) || leftFruit.type.equals(Type.Boolean)) &&
-               (rightFruit.type.equals(Type.Integer) || rightFruit.type.equals(Type.Float) || rightFruit.type.equals(Type.String) || rightFruit.type.equals(Type.Boolean))) {
+    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float) || leftFruit.type.covers(Type.String) || leftFruit.type.covers(Type.Boolean)) &&
+               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float) || rightFruit.type.covers(Type.String) || rightFruit.type.covers(Type.Boolean))) {
       return new Fruit(Type.Boolean, leftFruit.value !== rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
@@ -466,12 +683,12 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitLogicalAnd(node: ast.LogicalAnd, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Boolean)) {
+    if (leftFruit.type.covers(Type.Boolean)) {
       if (!leftFruit.value) {
         return new Fruit(Type.Boolean, false);
       } else {
         const rightFruit = node.rightNode.visit(this, runtime);
-        if (rightFruit.type.equals(Type.Boolean)) {
+        if (rightFruit.type.covers(Type.Boolean)) {
           return rightFruit;
         }
       }
@@ -481,12 +698,12 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitLogicalOr(node: ast.LogicalOr, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Boolean)) {
+    if (leftFruit.type.covers(Type.Boolean)) {
       if (leftFruit.value) {
         return new Fruit(Type.Boolean, true);
       } else {
         const rightFruit = node.rightNode.visit(this, runtime);
-        if (rightFruit.type.equals(Type.Boolean)) {
+        if (rightFruit.type.covers(Type.Boolean)) {
           return rightFruit;
         }
       }
@@ -497,7 +714,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitBitwiseAnd(node: ast.BitwiseAnd, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value & rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.BitwiseAnd)} can only be applied to integers.`, node.where);
@@ -507,7 +724,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitBitwiseOr(node: ast.BitwiseOr, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value | rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.BitwiseOr)} can only be applied to integers.`, node.where);
@@ -517,9 +734,9 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitXor(node: ast.Xor, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value ^ rightFruit.value);
-    } else if (leftFruit.type.equals(Type.Boolean) && rightFruit.type.equals(Type.Boolean)) {
+    } else if (leftFruit.type.covers(Type.Boolean) && rightFruit.type.covers(Type.Boolean)) {
       return new Fruit(Type.Boolean, leftFruit.value !== rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Xor)} can only be applied to integers or booleans.`, node.where);
@@ -529,7 +746,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitLeftShift(node: ast.LeftShift, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value << rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.LeftShift)} can only be applied to integers.`, node.where);
@@ -539,7 +756,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitRightShift(node: ast.RightShift, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (leftFruit.type.equals(Type.Integer) && rightFruit.type.equals(Type.Integer)) {
+    if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value >> rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.RightShift)} can only be applied to integers.`, node.where);
@@ -553,7 +770,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   assignVariable(label: string, where: Where, identifier: string, fruit: Fruit, runtime: Runtime) {
     const oldFruit = runtime.getVariable(identifier);
     if (oldFruit) {
-      if (fruit.type.equals(oldFruit.type)) {
+      if (oldFruit.type.covers(fruit.type)) {
         runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
       } else {
         throw new WhereError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
@@ -581,7 +798,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       }
 
       const indexFruit = node.leftNode.indexNode.visit(this, runtime);
-      if (!(indexFruit.type.equals(Type.Integer))) {
+      if (!(indexFruit.type.covers(Type.Integer))) {
         throw new WhereError(`An index must be an integer.`, node.leftNode.indexNode.where);
       }
 
@@ -661,10 +878,11 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitPrint(node: ast.Print, runtime: Runtime): Fruit {
     const fruit = node.operandNode.visit(this, runtime);
-    if (fruit.type.equals(Type.Integer) ||
-        fruit.type.equals(Type.Float) ||
-        fruit.type.equals(Type.String) ||
-        fruit.type.equals(Type.Boolean) ||
+    if (fruit.type.covers(Type.Integer) ||
+        fruit.type.covers(Type.Float) ||
+        fruit.type.covers(Type.Double) ||
+        fruit.type.covers(Type.String) ||
+        fruit.type.covers(Type.Boolean) ||
         fruit.type instanceof ArrayType ||
         fruit.type instanceof ObjectType) {
       Runtime.stdout += fruit.type.serializeValue(fruit.value) + "\n";
@@ -676,7 +894,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitIf(node: ast.If, runtime: Runtime): Fruit {
     const fruit = node.conditionNode.visit(this, runtime);
-    if (fruit.type.equals(Type.Boolean)) {
+    if (fruit.type.covers(Type.Boolean)) {
       if (fruit.value) {
         node.thenBlock.visit(this, runtime);
       } else if (node.elseBlock) {
@@ -692,7 +910,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     let isTerminated = false;
     while (!isTerminated) {
       const fruit = node.conditionNode.visit(this, runtime);
-      if (fruit.type.equals(Type.Boolean)) {
+      if (fruit.type.covers(Type.Boolean)) {
         if (fruit.value) {
           node.body.visit(this, runtime);
         } else {
@@ -710,7 +928,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     while (!isTerminated) {
       node.body.visit(this, runtime);
       const fruit = node.conditionNode.visit(this, runtime);
-      if (fruit.type.equals(Type.Boolean)) {
+      if (fruit.type.covers(Type.Boolean)) {
         if (!fruit.value) {
           isTerminated = true;
         }
@@ -726,7 +944,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     while (!isTerminated) {
       node.body.visit(this, runtime);
       const fruit = node.conditionNode.visit(this, runtime);
-      if (fruit.type.equals(Type.Boolean)) {
+      if (fruit.type.covers(Type.Boolean)) {
         if (fruit.value) {
           isTerminated = true;
         }
@@ -743,7 +961,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     node.initializationNode?.visit(this, newRuntime);
     while (!isTerminated) {
       const fruit = node.conditionNode.visit(this, newRuntime);
-      if (fruit.type.equals(Type.Boolean)) {
+      if (fruit.type.covers(Type.Boolean)) {
         if (fruit.value) {
           node.body.visit(this, newRuntime);
           node.incrementBlock.visit(this, newRuntime);
@@ -787,24 +1005,24 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
       let fruit;
       try {
-        lambda.call(this, newRuntime);
+        lambda.call(this, newRuntime, node.where);
         if (lambda instanceof FunctionFruit) {
-          if (!lambda.returnType.equals(Type.Void)) {
+          if (!lambda.returnType.covers(Type.Void)) {
             throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It didn't return anything.`, lambda.where);
           }
         }
         fruit = new Fruit(Type.Void);
       } catch (e) {
         if (e instanceof ReturnSomethingException) {
-          if (lambda.returnType.equals(Type.Void)) {
+          if (lambda.returnType.covers(Type.Void)) {
             throw new WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
-          } else if (lambda.returnType !== e.fruit.type) {
+          } else if (!lambda.returnType.covers(e.fruit.type)) {
             throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
           } else {
             fruit = e.fruit;
           }
         } else if (e instanceof ReturnNothingException) {
-          if (!(lambda.returnType.equals(Type.Void))) {
+          if (!(lambda.returnType.covers(Type.Void))) {
             throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned nothing.`, e.returnWhere);
           } else {
             fruit = new Fruit(Type.Void);
@@ -816,7 +1034,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
       return fruit;
     } else {
-      throw new WhereError(`Function ${node.identifier} is not defined.`, node.where);
+      throw new WhereError(`Function \`${node.identifier}\` is not defined.`, node.where);
     }
   }
 
@@ -848,7 +1066,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     newRuntime.expectedType = elementType;
     const elementFruits = node.elementNodes.map(elementNode => elementNode.visit(this, newRuntime));
 
-    const badIndex = elementFruits.findIndex(elementFruit => !elementFruit.type.equals(elementType));
+    const badIndex = elementFruits.findIndex(elementFruit => !elementFruit.type.covers(elementType));
     if (badIndex >= 0) {
       throw new WhereError(`An array element has the wrong type. It must have type \`${elementType}\`.`, node.elementNodes[badIndex].where);
     }
@@ -871,7 +1089,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     }
 
     const indexFruit = node.indexNode.visit(this, runtime);
-    if (!(indexFruit.type.equals(Type.Integer))) {
+    if (!(indexFruit.type.covers(Type.Integer))) {
       throw new WhereError(`An index must be an integer.`, node.indexNode.where);
     }
 
@@ -971,16 +1189,16 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
     let fruit;
     try {
-      subroutineFruit.call(this, newRuntime);
+      subroutineFruit.call(this, newRuntime, node.where);
       if (subroutineFruit instanceof FunctionFruit) {
-        if (!subroutineFruit.returnType.equals(Type.Void)) {
+        if (!subroutineFruit.returnType.covers(Type.Void)) {
           throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It didn't return anything.`, subroutineFruit.where);
         }
       }
       fruit = new Fruit(Type.Void);
     } catch (e) {
       if (e instanceof ReturnSomethingException) {
-        if (subroutineFruit.returnType.equals(Type.Void)) {
+        if (subroutineFruit.returnType.covers(Type.Void)) {
           throw new WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
         } else if (subroutineFruit.returnType !== e.fruit.type) {
           throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
@@ -988,7 +1206,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
           fruit = e.fruit;
         }
       } else if (e instanceof ReturnNothingException) {
-        if (!subroutineFruit.returnType.equals(Type.Void)) {
+        if (!subroutineFruit.returnType.covers(Type.Void)) {
           throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned nothing.`, e.returnWhere);
         } else {
           fruit = new Fruit(Type.Void);

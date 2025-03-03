@@ -11,6 +11,15 @@ type Formatter = {
   indentation: string,
 };
 
+// Unicode has several left arrows:
+// ← (\u2190)
+// ⭠ (\u2b60)
+// The second one tends to be easier to read.
+const LEFT_ARROW = "\u2b60";
+const NOT_EQUAL = "\u2260";
+const LESS_THAN_OR_EQUAL = "\u2264";
+const GREATER_THAN_OR_EQUAL = "\u2265";
+
 export class PraxisGenerator extends Visitor<Formatter, string> {
 
   // --------------------------------------------------------------------------
@@ -26,6 +35,14 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
   }
 
   visitFloat(node: ast.Float, _formatter: Formatter): string {
+    const floatFormatter = new Intl.NumberFormat('en-US', { 
+      minimumIntegerDigits: 1, 
+      minimumFractionDigits: 1 
+    });
+    return floatFormatter.format(node.rawValue);
+  }
+
+  visitDouble(node: ast.Double, _formatter: Formatter): string {
     const floatFormatter = new Intl.NumberFormat('en-US', { 
       minimumIntegerDigits: 1, 
       minimumFractionDigits: 1 
@@ -141,11 +158,11 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
   }
 
   visitLessThanOrEqual(node: ast.LessThanOrEqual, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '<=');
+    return this.visitBinaryOperator(node, formatter, LESS_THAN_OR_EQUAL);
   }
 
   visitGreaterThanOrEqual(node: ast.GreaterThanOrEqual, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '>=');
+    return this.visitBinaryOperator(node, formatter, GREATER_THAN_OR_EQUAL);
   }
 
   visitEqual(node: ast.Equal, formatter: Formatter): string {
@@ -153,7 +170,7 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
   }
 
   visitNotEqual(node: ast.NotEqual, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '!=');
+    return this.visitBinaryOperator(node, formatter, NOT_EQUAL);
   }
 
   visitLogicalAnd(node: ast.LogicalAnd, formatter: Formatter): string {
@@ -189,13 +206,13 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitAssignment(node: ast.Assignment, formatter: Formatter): string {
-    return `${node.leftNode.visit(this, formatter)} = ${node.rightNode.visit(this, formatter)}`;
+    return `${node.leftNode.visit(this, formatter)} ${LEFT_ARROW} ${node.rightNode.visit(this, formatter)}`;
   }
 
   visitDeclaration(node: ast.Declaration, formatter: Formatter): string {
     let text = `${node.variableType} ${node.identifier}`;
     if (node.rightNode) {
-      text += ` = ${node.rightNode.visit(this, formatter)}`;
+      text += ` ${LEFT_ARROW} ${node.rightNode.visit(this, formatter)}`;
     }
     return text;
   }

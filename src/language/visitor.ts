@@ -4,6 +4,7 @@ export abstract class Visitor<P, R> {
   // Primitives
   abstract visitInteger(node: ast.Integer, payload: P): R;
   abstract visitFloat(node: ast.Float, payload: P): R;
+  abstract visitDouble(node: ast.Double, payload: P): R;
   abstract visitBoolean(node: ast.Boolean, payload: P): R;
   abstract visitString(node: ast.String, payload: P): R;
 
