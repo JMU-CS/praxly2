@@ -22,6 +22,7 @@
     "@lezer/lr": "^1.4.2",
     "codemirror": "^6.0.1",
     "mocha": "^11.1.0",
+    "pure-rand": "^7.0.1",
     "vite-plugin-checker": "^0.8.0"
   }
 }

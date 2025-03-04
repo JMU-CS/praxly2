@@ -1,4 +1,5 @@
 import * as ast from './ast.js';
+import prand from 'pure-rand';
 import {Visitor} from './visitor.js';
 import {WhereError} from './exception.js';
 import {Where} from './where.js';
@@ -124,6 +125,51 @@ class FunctionFruit extends FunctionEntry {
 
   call(evaluator: Evaluator, runtime: Runtime, _where: Where): Fruit {
     return this.body.visit(evaluator, runtime);
+  }
+}
+
+class RandomSeedFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([
+      new FormalEntry('seed', Type.Integer),
+    ], NumberType);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const seed = runtime.variableBindings.get('seed')!;
+    runtime.globalRuntime.seedRng(seed.value as number);
+    throw new ReturnNothingException(where);
+  }
+}
+
+class RandomFloatFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([], Type.Float);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    // Pure-rand only generates integers. That's strange. We'll generate an
+    // integer in a range and normalize it.
+    const max = 2e9;
+    const x = prand.unsafeUniformIntDistribution(0, max - 1, runtime.globalRuntime.rng) / max;
+    throw new ReturnSomethingException(new Fruit(Type.Float, x), where);
+  }
+}
+
+class RandomIntegerFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([
+      new FormalEntry('max', Type.Integer),
+    ], Type.Integer);
+  }
+
+  call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
+    const max = runtime.variableBindings.get('max')!.value as number;
+    if (max < 1) {
+      throw new WhereError(`The \`max\` parameter given to \`randomInt\` must be at least 1.`, where);
+    }
+    const x = prand.unsafeUniformIntDistribution(0, max - 1, runtime.globalRuntime.rng);
+    throw new ReturnSomethingException(new Fruit(Type.Integer, x), where);
   }
 }
 
@@ -393,7 +439,7 @@ export class Runtime {
   classBindings: Map<string, ClassEntry>;
   expectedType: Type | null;
   classFruit: ClassEntry | null;
-  static stdout: string = '';
+  globalRuntime!: GlobalRuntime;
 
   constructor(variableBindings: Map<string, VariableEntry>, functionBindings: Map<string, FunctionEntry>, classBindings: Map<string, ClassEntry>, expectedType: Type | null, classFruit: ClassEntry | null) {
     this.variableBindings = variableBindings;
@@ -403,21 +449,14 @@ export class Runtime {
     this.classFruit = classFruit;
   }
 
-  static new() {
-    const runtime = new Runtime(new Map(), new Map(), new Map(), null, null);
-    runtime.setFunction('int', new IntCastFunctionEntry());
-    runtime.setFunction('float', new FloatCastFunctionEntry());
-    runtime.setFunction('double', new DoubleCastFunctionEntry());
-    runtime.setFunction('min', new MinimumFunctionEntry());
-    runtime.setFunction('max', new MaximumFunctionEntry());
-    runtime.setFunction('abs', new AbsoluteValueFunctionEntry());
-    runtime.setFunction('log', new LogFunctionEntry());
-    runtime.setFunction('sqrt', new SquareRootFunctionEntry());
-    return runtime;
-  }
-
   shallowClone() {
     return new Runtime(this.variableBindings, this.functionBindings, this.classBindings, this.expectedType, this.classFruit);
+  }
+
+  child() {
+    const newRuntime = new Runtime(new Map(), new Map(), new Map(), this.expectedType, this.classFruit);
+    newRuntime.globalRuntime = this.globalRuntime;
+    return newRuntime;
   }
 
   declareVariable(identifier: string, type: Type) {
@@ -438,6 +477,37 @@ export class Runtime {
 
   getFunction(identifier: string): FunctionEntry | undefined {
     return this.functionBindings.get(identifier);
+  }
+}
+
+export class GlobalRuntime extends Runtime {
+  seed!: number;
+  rng!: any;
+  stdout: string;
+
+  constructor() {
+    super(new Map(), new Map(), new Map(), null, null);
+    this.globalRuntime = this;
+    this.stdout = '';
+
+    this.setFunction('int', new IntCastFunctionEntry());
+    this.setFunction('float', new FloatCastFunctionEntry());
+    this.setFunction('double', new DoubleCastFunctionEntry());
+    this.setFunction('min', new MinimumFunctionEntry());
+    this.setFunction('max', new MaximumFunctionEntry());
+    this.setFunction('abs', new AbsoluteValueFunctionEntry());
+    this.setFunction('log', new LogFunctionEntry());
+    this.setFunction('sqrt', new SquareRootFunctionEntry());
+    this.setFunction('randomSeed', new RandomSeedFunctionEntry());
+    this.setFunction('random', new RandomFloatFunctionEntry());
+    this.setFunction('randomInt', new RandomIntegerFunctionEntry());
+
+    this.seedRng(Date.now() ^ (Math.random() * 0x100000000));
+  }
+
+  seedRng(seed: number) {
+    this.seed = seed;
+    this.rng = prand.xoroshiro128plus(seed);
   }
 }
 
@@ -565,8 +635,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const rightFruit = node.rightNode.visit(this, runtime);
     if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, leftFruit.value * rightFruit.value);
-    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
-               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
+    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float) || leftFruit.type.covers(Type.Double)) &&
+               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float) || rightFruit.type.covers(Type.Double))) {
       return new Fruit(Type.Float, leftFruit.value * rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Multiply)} can only be applied to numbers.`, node.where);
@@ -578,8 +648,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const rightFruit = node.rightNode.visit(this, runtime);
     if (leftFruit.type.covers(Type.Integer) && rightFruit.type.covers(Type.Integer)) {
       return new Fruit(Type.Integer, Math.trunc(leftFruit.value / rightFruit.value));
-    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float)) &&
-               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float))) {
+    } else if ((leftFruit.type.covers(Type.Integer) || leftFruit.type.covers(Type.Float) || leftFruit.type.covers(Type.Double)) &&
+               (rightFruit.type.covers(Type.Integer) || rightFruit.type.covers(Type.Float) || rightFruit.type.covers(Type.Double))) {
       return new Fruit(Type.Float, leftFruit.value / rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Divide)} can only be applied to numbers.`, node.where);
@@ -885,8 +955,9 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         fruit.type.covers(Type.Boolean) ||
         fruit.type instanceof ArrayType ||
         fruit.type instanceof ObjectType) {
-      Runtime.stdout += fruit.type.serializeValue(fruit.value) + "\n";
+      runtime.globalRuntime.stdout += fruit.type.serializeValue(fruit.value) + "\n";
     } else {
+      console.log("fruit.type:", fruit.type);
       throw new WhereError('Only values may be printed.', node.where);
     }
     return new Fruit(Type.Void);
@@ -955,9 +1026,9 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     return new Fruit(Type.Void);
   }
 
-  visitFor(node: ast.For, _runtime: Runtime): Fruit {
+  visitFor(node: ast.For, runtime: Runtime): Fruit {
     let isTerminated = false;
-    const newRuntime = Runtime.new();
+    const newRuntime = runtime.child();
     node.initializationNode?.visit(this, newRuntime);
     while (!isTerminated) {
       const fruit = node.conditionNode.visit(this, newRuntime);
@@ -990,13 +1061,14 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   }
 
   visitFunctionCall(node: ast.FunctionCall, runtime: Runtime): Fruit {
-    const lambda = runtime.functionBindings.get(node.identifier);
+    // TODO: allow nested functions?
+    const lambda = runtime.globalRuntime.functionBindings.get(node.identifier);
     if (lambda) {
       if (node.actuals.length !== lambda.formals.length) {
         throw new WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
       }
 
-      const newRuntime = Runtime.new();
+      const newRuntime = runtime.child();
       for (let [i, formal] of lambda.formals.entries()) {
         newRuntime.declareVariable(formal.identifier, formal.type);
         const fruit = node.actuals[i].visit(this, runtime);
@@ -1180,7 +1252,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       throw new WhereError(`Function \`${node.identifier}\` expects ${subroutineFruit.formals.length} parameter${subroutineFruit.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
     }
 
-    const newRuntime = Runtime.new();
+    const newRuntime = runtime.child();
     for (let [i, formal] of subroutineFruit.formals.entries()) {
       newRuntime.declareVariable(formal.identifier, formal.type);
       const fruit = node.actuals[i].visit(this, runtime);

@@ -2,7 +2,7 @@ import {lexPraxis} from './language/praxis/lexer.js';
 import {parsePraxis} from './language/praxis/parser.js';
 import {PraxisGenerator} from './language/praxis/generator.js';
 import {Objectifier} from './language/objectifier.js';
-import {Runtime, Evaluator} from './language/evaluator.js';
+import {GlobalRuntime, Evaluator} from './language/evaluator.js';
 import {praxisSymbolMap} from './language/praxis/symbol-map.js';
 import {WhereError} from './language/exception.js';
 import * as ast from './language/ast.js';
@@ -41,7 +41,6 @@ function initialize() {
     localStorage.setItem('latest-source', source);
 
     try {
-      Runtime.stdout = '';
       const tokens = lexPraxis(source);
       const ast = parsePraxis(tokens, source);
 
@@ -54,9 +53,9 @@ function initialize() {
       });
       sourcePanel.innerText = generatedSource;
 
-      const runtime = Runtime.new();
+      const runtime = new GlobalRuntime();
       ast.visit(new Evaluator(praxisSymbolMap), runtime);
-      outputPanel.innerText = Runtime.stdout;
+      outputPanel.innerText = runtime.stdout;
     } catch (e) {
       if (e instanceof Error) {
         if (e instanceof WhereError) {

@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import {lexPraxis} from '../build/language/praxis/lexer.js';
 import {parsePraxis, parsePraxisExpression} from '../build/language/praxis/parser.js';
 import {PraxisGenerator} from '../build/language/praxis/generator.js';
-import {Runtime, Evaluator, Fruit, Type} from '../build/language/evaluator.js';
+import {GlobalRuntime, Evaluator, Fruit, Type} from '../build/language/evaluator.js';
 import {praxisSymbolMap} from '../build/language/praxis/symbol-map.js';
 
 describe('Praxis Expression Generation and Evaluation', () => {
@@ -49,7 +49,7 @@ describe('Praxis Expression Generation and Evaluation', () => {
     },
     {
       source: '"blink" != "blank"',
-      serialization: '"blink" != "blank"',
+      serialization: '"blink" ≠ "blank"',
       evaluation: new Fruit(Type.Boolean, true),
     },
     {
@@ -112,7 +112,7 @@ describe('Praxis Expression Generation and Evaluation', () => {
       });
       it(`should serialize to ${sample.serialization}`, () => assert.equal(generatedSource, sample.serialization));
 
-      const runtime = Runtime.new();
+      const runtime = new GlobalRuntime();
       const fruit = ast.visit(new Evaluator(praxisSymbolMap), runtime);
       it(`should evaluate to ${sample.evaluation}`, () => assert.deepStrictEqual(fruit, sample.evaluation));
     });
@@ -132,7 +132,7 @@ describe('Praxis Program Generation and Output', () => {
       output: "28\n",
     },
     {
-      source: `int[] xs = {12, 103, 88}
+      source: `int[] xs \u2b60 {12, 103, 88}
 print xs
 print xs[0]
 print xs[1]
@@ -160,11 +160,9 @@ print xs.length
       const expectedSerialization = sample.serialization ?? sample.source;
       it(`should serialize to\n${expectedSerialization}`, () => assert.equal(generatedSource, expectedSerialization));
 
-      Runtime.stdout = '';
-      const runtime = Runtime.new();
+      const runtime = new GlobalRuntime();
       ast.visit(new Evaluator(praxisSymbolMap), runtime);
-      const stdout = Runtime.stdout;
-      it(`should output\n${sample.output}`, () => assert.equal(stdout, sample.output));
+      it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
     });
   }
 });
