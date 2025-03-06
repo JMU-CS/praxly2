@@ -131,7 +131,7 @@ export abstract class Lexer {
         text += this.source[this.i];
         this.advance();
       }
-      this.emitTextToken(TokenType.Double, text);
+      this.emitTextToken(TokenType.Float, text);
     } else {
       this.emitTextToken(TokenType.Integer, text);
     }

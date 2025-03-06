@@ -53,13 +53,6 @@ describe('Praxis Expression Generation and Evaluation', () => {
       evaluation: new Fruit(Type.Boolean, true),
     },
     {
-      // not (a OP b) vs (not a) OP b
-      //
-      // a  b  NOT a  a AND b  a OR b  NOT (a AND b)  NOT (a OR b)  (NOT a) AND b
-      // T  T    F       T       T     F              F             F
-      // T  F    F       F       T     T              F             F
-      // F  T    T       F       T     T              F             T
-      // F  F    T       F       F     T              T             F
       source: 'not false and true',
       serialization: 'not false and true',
       evaluation: new Fruit(Type.Boolean, true),
@@ -98,6 +91,56 @@ describe('Praxis Expression Generation and Evaluation', () => {
       source: '-2 % 5',
       serialization: '-2 % 5',
       evaluation: new Fruit(Type.Integer, 3),
+    },
+    {
+      source: 'sqrt(0.25)',
+      serialization: 'sqrt(0.25)',
+      evaluation: new Fruit(Type.Float, 0.5),
+    },
+    {
+      source: 'max(5, 689)',
+      serialization: 'max(5, 689)',
+      evaluation: new Fruit(Type.Integer, 689),
+    },
+    {
+      source: 'min(5, 689)',
+      serialization: 'min(5, 689)',
+      evaluation: new Fruit(Type.Integer, 5),
+    },
+    {
+      source: 'abs(6)',
+      serialization: 'abs(6)',
+      evaluation: new Fruit(Type.Integer, 6),
+    },
+    {
+      source: 'abs(-6)',
+      serialization: 'abs(-6)',
+      evaluation: new Fruit(Type.Integer, 6),
+    },
+    {
+      source: 'abs(0)',
+      serialization: 'abs(0)',
+      evaluation: new Fruit(Type.Integer, 0),
+    },
+    {
+      source: 'log(1.0)',
+      serialization: 'log(1.0)',
+      evaluation: new Fruit(Type.Float, 0),
+    },
+    {
+      source: 'log(1)',
+      serialization: 'log(1)',
+      evaluation: new Fruit(Type.Float, 0),
+    },
+    {
+      source: 'log(1)',
+      serialization: 'log(1)',
+      evaluation: new Fruit(Type.Float, 0),
+    },
+    {
+      source: 'log(10)',
+      serialization: 'log(10)',
+      evaluation: new Fruit(Type.Float, 2.302585092994046),
     },
   ];
 
