@@ -7,7 +7,7 @@ import {tags} from "@lezer/highlight";
 const background = '#1e1e1e';
 const foreground = '#9cdcfe';
 const caret = '#c6c6c6';
-const selection = '#6199ff2f';
+const selection = '#00b1ff4a';
 const selectionMatch = '#72a1ff59';
 const lineHighlight = '#ffffff0f';
 const gutterBackground = '#1e1e1e';
@@ -38,19 +38,23 @@ const theme = {
     fontFamily: 'Menlo, Monaco, Consolas, "Andale Mono", "Ubuntu Mono", "Courier New", monospace',
   },
   ".cm-content": {
-    "caretColor": caret,
+    "caretColor": "#0000FF",
   },
   "&.cm-focused .cm-cursor": {
     borderLeftColor: caret,
   },
-  "&.cm-focused .cm-selectionBackground, ::selection": {
-    backgroundColor: selection,
+  ".cm-selectionBackground": {
+    backgroundColor: `${selection} !important`,
   },
+  // "&.cm-focused .cm-selectionBackground, ::selection": {
+    // backgroundColor: selection,
+    // opacity: 1,
+  // },
   ".cm-activeLine": {
     backgroundColor: lineHighlight,
   },
   ".cm-searchMatch": {
-    "backgroundColor": "#72a1ff"
+    "backgroundColor": selectionMatch,
   },
   ".cm-gutters": {
     backgroundColor: gutterBackground,

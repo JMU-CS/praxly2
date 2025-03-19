@@ -1,3 +1,12 @@
+import {lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, keymap} from '@codemirror/view';
+import {foldGutter, indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldKeymap} from '@codemirror/language';
+import {history, defaultKeymap, historyKeymap} from '@codemirror/commands';
+import {searchKeymap} from '@codemirror/search';
+import {closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap} from '@codemirror/autocomplete';
+import {lintKeymap} from '@codemirror/lint';
+import {EditorView} from 'codemirror';
+import {EditorState, EditorSelection} from '@codemirror/state';
+
 import {lexPraxis} from './language/praxis/lexer.js';
 import {parsePraxis} from './language/praxis/parser.js';
 import {PraxisGenerator} from './language/praxis/generator.js';
@@ -6,10 +15,7 @@ import {GlobalRuntime, Evaluator} from './language/evaluator.js';
 import {praxisSymbolMap} from './language/praxis/symbol-map.js';
 import {WhereError} from './language/exception.js';
 import * as ast from './language/ast.js';
-import {EditorView, basicSetup} from 'codemirror';
-import {EditorSelection} from '@codemirror/state';
 import {praxis} from './language/praxis/highlighter.js';
-import {vsCodeDark} from '@fsegurai/codemirror-theme-vscode-dark';
 import {praxlyTheme} from './praxly-theme.js';
 
 function initialize() {
@@ -22,7 +28,35 @@ function initialize() {
   const editorView = new EditorView({
     parent: editor,
     doc: '',
-    extensions: [basicSetup, praxis(), praxlyTheme],
+    extensions: [
+      lineNumbers(),
+      highlightActiveLineGutter(),
+      highlightSpecialChars(),
+      history(),
+      foldGutter(),
+      drawSelection(),
+      dropCursor(),
+      EditorState.allowMultipleSelections.of(true),
+      indentOnInput(),
+      syntaxHighlighting(defaultHighlightStyle, {fallback: true}),
+      bracketMatching(),
+      closeBrackets(),
+      autocompletion(),
+      rectangularSelection(),
+      crosshairCursor(),
+      highlightActiveLine(),
+      keymap.of([
+        ...closeBracketsKeymap,
+        ...defaultKeymap,
+        ...searchKeymap,
+        ...historyKeymap,
+        ...foldKeymap,
+        ...completionKeymap,
+        ...lintKeymap,
+      ]),
+      praxis(),
+      praxlyTheme,
+    ],
   });
 
   const latestSource = localStorage.getItem('latest-source');

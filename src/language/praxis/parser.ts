@@ -4,6 +4,8 @@ import {Where} from '../where.js';
 import {WhereError} from '../exception.js';
 import * as ast from '../ast.js';
 
+// https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf
+
 class PraxisParser extends Parser {
   hasTwoIdentifiers() {
     return this.has(TokenType.Identifier) && this.hasAhead(TokenType.Identifier, 1);

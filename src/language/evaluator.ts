@@ -132,7 +132,7 @@ class RandomSeedFunctionEntry extends FunctionEntry {
   constructor() {
     super([
       new FormalEntry('seed', Type.Integer),
-    ], NumberType);
+    ], Type.Void);
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
