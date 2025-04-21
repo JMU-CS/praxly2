@@ -5,6 +5,7 @@
 Install dependencies:
 ```
 $ npm install
+$ npm run parser
 ```
 
 To run locally:

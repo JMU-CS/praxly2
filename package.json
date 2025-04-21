@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "npm run build && npx mocha",
     "retest": "npx mocha",
-    "parser": "npx lezer-generator src/language/praxis/lezer.grammar > build/language/praxis/lezer-parser.js && echo \"import {LRParser} from \\\"@lezer/lr\\\"\n\nexport declare const parser: LRParser;\" > build/language/praxis/lezer-parser.d.ts"
+    "parser": "mkdir -p build/language/praxis/ && npx lezer-generator src/language/praxis/lezer.grammar > build/language/praxis/lezer-parser.js && echo \"import {LRParser} from \\\"@lezer/lr\\\"\n\nexport declare const parser: LRParser;\" > build/language/praxis/lezer-parser.d.ts"
   },
   "devDependencies": {
     "typescript": "~5.7.2",
