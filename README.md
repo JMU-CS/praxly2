@@ -33,3 +33,7 @@ $ npm run dev
 * praxis/parser.ts -- concrete class to parse praxis pseudocode
 * praxis/precedence.ts -- language specific precedence and associativity
 * praxis/symbol-map.ts -- language specific overrides for symbol map
+
+## License
+
+https://creativecommons.org/licenses/by-nc-sa/4.0/

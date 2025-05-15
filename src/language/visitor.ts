@@ -44,7 +44,7 @@ export abstract class Visitor<P, R> {
   abstract visitWhile(node: ast.While, payload: P): R;
   abstract visitDoWhile(node: ast.DoWhile, payload: P): R;
   abstract visitRepeatUntil(node: ast.RepeatUntil, payload: P): R;
-  abstract visitFor(node: ast.RepeatUntil, payload: P): R;
+  abstract visitFor(node: ast.For, payload: P): R;
 
   // Weirdos
   abstract visitBlank(node: ast.Blank, payload: P): R;
