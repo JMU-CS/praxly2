@@ -209,3 +209,34 @@ print xs.length
     });
   }
 });
+
+describe('Praxis Print', () => {
+  const samples = [
+    {
+      source: `print 8    // space
+print 6`,
+      output: "8 6\n",
+    },
+    {
+      source: `print 8    // nothing
+print 6`,
+      output: "86\n",
+    },
+    {
+      source: `print 8    // nothing space, which means \n
+print 6`,
+      output: "8\n6\n",
+    },
+  ];
+
+  for (let sample of samples) {
+    describe(sample.source, () => {
+      const tokens = lexPraxis(sample.source);
+      const ast = parsePraxis(tokens, sample.source);
+
+      const runtime = new GlobalRuntime();
+      ast.visit(new Evaluator(praxisSymbolMap), runtime);
+      it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
+    });
+  }
+});
