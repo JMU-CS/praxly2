@@ -106,7 +106,8 @@ class PraxisLexer extends Lexer {
       }
     } else if (this.accept('/')) {
       if (this.accept('/')) {
-        this.accept(' ');
+        // Skip over leading whitespace.
+        while (this.accept(' ')) {}
         let text = '';
         while (this.hasOtherwise("\n")) {
           text += this.source[this.i];

@@ -256,6 +256,11 @@ class PraxisParser extends Parser {
       statement = this.otherStatement();
     }
 
+    // Skip past any trailing comment.
+    if (this.has(TokenType.LineComment)) {
+      this.advance();
+    }
+
     this.statementLinebreak();
     return statement;
   }
@@ -463,10 +468,24 @@ class PraxisParser extends Parser {
     return new ast.RepeatUntil(block, conditionNode, Where.enclose(repeatToken.where, conditionNode.where));
   }
 
-  printStatement(): ast.Statement {
+  printStatement(): ast.Print {
     const printToken = this.advance();
     const parameterNode = this.expression();
-    return new ast.Print(parameterNode, Where.enclose(printToken.where, parameterNode.where));
+
+    // In Praxly, what character comes after the print is determined by a
+    // trailing comment. The comment text may be "space" or "nothing". Any
+    // other text leads to linebreak.
+    let trailer = "\n";
+    if (this.has(TokenType.LineComment)) {
+      const commentToken = this.advance() as TextToken;
+      if (commentToken.text.toLowerCase() === 'space') {
+        trailer = ' ';
+      } else if (commentToken.text.toLowerCase() === 'nothing') {
+        trailer = '';
+      }
+    }
+
+    return new ast.Print(parameterNode, trailer, Where.enclose(printToken.where, parameterNode.where));
   }
 
   otherStatement(): ast.Statement | ast.Expression {

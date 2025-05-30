@@ -119,10 +119,12 @@ export class Variable extends Expression {
 
 export class Print extends Statement {
   operandNode: Node;
+  trailer: string;
 
-  constructor(operandNode: Node, where: Where) {
+  constructor(operandNode: Node, trailer: string, where: Where) {
     super(where);
     this.operandNode = operandNode;
+    this.trailer = trailer;
   }
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {

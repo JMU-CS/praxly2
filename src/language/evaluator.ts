@@ -955,7 +955,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         Type.Boolean.covers(fruit.type) ||
         fruit.type instanceof ArrayType ||
         fruit.type instanceof ObjectType) {
-      runtime.globalRuntime.stdout += fruit.type.serializeValue(fruit.value) + "\n";
+      runtime.globalRuntime.stdout += fruit.type.serializeValue(fruit.value) + node.trailer;
     } else {
       console.log("fruit.type:", fruit.type);
       throw new WhereError('Only values may be printed.', node.where);
