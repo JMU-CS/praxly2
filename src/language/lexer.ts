@@ -124,7 +124,9 @@ export abstract class Lexer {
       this.advance();
     }
 
-    if (this.has('.')) {
+    // Floats have a single radix point. Don't get fooled by "..". 0..5 is a
+    // range.
+    if (this.has('.') && !this.hasAhead('.', 1)) {
       text += this.source[this.i];
       this.advance();
       while (this.hasDigit()) {

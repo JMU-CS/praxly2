@@ -1,13 +1,21 @@
 import {Where} from './where.js';
 import {Visitor} from './visitor.js';
+import {Type, ArrayType} from './type.js';
+
+// --------------------------------------------------------------------------- 
+
+export interface IndexRange {
+  max: number,
+  where: Where,
+}
 
 // --------------------------------------------------------------------------- 
 
 export class Formal {
   identifier: string;
-  type: string;
+  type: Type;
 
-  constructor(identifier: string, type: string) {
+  constructor(identifier: string, type: Type) {
     this.identifier = identifier;
     this.type = type;
   }
@@ -89,10 +97,10 @@ export class Assignment extends Statement {
 
 export class Declaration extends Statement {
   identifier: string;
-  variableType: string;
+  variableType: Type;
   rightNode: Node | null;
 
-  constructor(identifier: string, variableType: string, rightNode: Node | null, where: Where) {
+  constructor(identifier: string, variableType: Type, rightNode: Node | null, where: Where) {
     super(where);
     this.identifier = identifier;
     this.variableType = variableType;
@@ -427,10 +435,10 @@ export class For extends Statement {
 export class FunctionDefinition extends Statement {
   identifier: string;
   formals: Formal[];
-  returnType: string;
+  returnType: Type;
   body: Block;
 
-  constructor(identifier: string, formals: Formal[], returnType: string, body: Block, where: Where) {
+  constructor(identifier: string, formals: Formal[], returnType: Type, body: Block, where: Where) {
     super(where);
     this.identifier = identifier;
     this.formals = formals;
@@ -502,8 +510,11 @@ export class ArrayLiteral extends Expression {
 }
 
 export class ArrayDeclaration extends Declaration {
-  constructor(identifier: string, variableType: string, rightNode: Expression, where: Where) {
+  // indexRanges: (IndexRange | null)[] | null;
+
+  constructor(identifier: string, variableType: ArrayType, rightNode: Expression, where: Where) {
     super(identifier, variableType, rightNode, where);
+    // this.indexRanges = indexRanges;
   }
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
@@ -566,10 +577,10 @@ export class ClassDefinition extends Statement {
 
 export class InstanceVariableDeclaration extends Statement {
   identifier: string;
-  variableType: string;
+  variableType: Type;
   visibility: Visibility | null;
 
-  constructor(identifier: string, variableType: string, visibility: Visibility | null, where: Where) {
+  constructor(identifier: string, variableType: Type, visibility: Visibility | null, where: Where) {
     super(where);
     this.identifier = identifier;
     this.variableType = variableType;
@@ -584,11 +595,11 @@ export class InstanceVariableDeclaration extends Statement {
 export class MethodDefinition extends Statement {
   identifier: string;
   formals: Formal[];
-  returnType: string;
+  returnType: Type;
   body: Block;
   visibility: Visibility | null;
 
-  constructor(identifier: string, formals: Formal[], returnType: string, body: Block, visibility: Visibility | null, where: Where) {
+  constructor(identifier: string, formals: Formal[], returnType: Type, body: Block, visibility: Visibility | null, where: Where) {
     super(where);
     this.identifier = identifier;
     this.formals = formals;

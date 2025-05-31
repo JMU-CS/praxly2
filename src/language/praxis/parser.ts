@@ -3,6 +3,7 @@ import {Token, TextToken, TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {WhereError} from '../exception.js';
 import * as ast from '../ast.js';
+import {Type, ArrayType, SizedArrayType} from '../type.js';
 
 // https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf
 
@@ -93,7 +94,7 @@ class PraxisParser extends Parser {
         }
         const scalarTypeToken = this.advance() as TextToken;
         firstWhere = firstWhere ?? scalarTypeToken.where;
-        let type = scalarTypeToken.text;
+        let type = new Type(scalarTypeToken.text);
         while (this.has(TokenType.LeftBracket)) {
           const leftToken = this.advance(); // eat [
           if (!this.has(TokenType.RightBracket)) {
@@ -101,7 +102,7 @@ class PraxisParser extends Parser {
           }
           const rightToken = this.advance(); // eat ]
           lastWhere = rightToken.where;
-          type += '[]';
+          type = new ArrayType(type);
         }
 
         if (!this.has(TokenType.Identifier)) {
@@ -145,22 +146,25 @@ class PraxisParser extends Parser {
 
     const formals = [];
     if (this.has(TokenType.Identifier)) {
+      // TODO: parse type for real
       const typeToken = this.advance() as TextToken;
+      const type = new Type(typeToken.text);
       if (!this.has(TokenType.Identifier)) {
         throw new WhereError("A parameter must have both a type and a name.", typeToken.where);
       }
       const identifierToken = this.advance() as TextToken;
       latestToken = identifierToken;
-      formals.push(new ast.Formal(identifierToken.text, typeToken.text));
+      formals.push(new ast.Formal(identifierToken.text, type));
       while (this.has(TokenType.Comma)) {
         this.advance();
         const typeToken = this.advance() as TextToken;
+        const type = new Type(typeToken.text);
         if (!this.has(TokenType.Identifier)) {
           throw new WhereError(`A ${context} must have both a type and a name.`, typeToken.where);
         }
         const identifierToken = this.advance() as TextToken;
         latestToken = identifierToken;
-        formals.push(new ast.Formal(identifierToken.text, typeToken.text));
+        formals.push(new ast.Formal(identifierToken.text, type));
       }
     } 
 
@@ -185,9 +189,11 @@ class PraxisParser extends Parser {
   }
 
   functionDefinition(): ast.FunctionDefinition {
+    // TODO: parse return type for real
     const returnTypeToken = this.advance() as TextToken;
+    const returnType = new Type(returnTypeToken.text);
     const core = this.subroutineCore('function', returnTypeToken.where);
-    return new ast.FunctionDefinition(core.identifier, core.formals, returnTypeToken.text, core.block, Where.enclose(returnTypeToken.where, core.block.where));
+    return new ast.FunctionDefinition(core.identifier, core.formals, returnType, core.block, Where.enclose(returnTypeToken.where, core.block.where));
   }
 
   indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, ...endTokenTypes: TokenType[]) {
@@ -248,7 +254,9 @@ class PraxisParser extends Parser {
       } else {
         statement = this.uninitializedDeclaration();
       }
-    } else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.LeftBracket, 1) && this.hasAhead(TokenType.RightBracket, 2)) {
+    } else if (this.hasArrayWithoutIndex()) {
+      statement = this.arrayDeclaration();
+    } else if (this.hasArrayWithRange()) {
       statement = this.arrayDeclaration();
     } else if (this.has(TokenType.Return)) {
       statement = this.returnStatement(inFunctionDefinition);
@@ -265,20 +273,50 @@ class PraxisParser extends Parser {
     return statement;
   }
 
+  hasArrayWithoutIndex() {
+    return this.has(TokenType.Identifier) && 
+           this.hasAhead(TokenType.LeftBracket, 1) &&
+           this.hasAhead(TokenType.RightBracket, 2);
+  }
+
+  hasArrayWithRange() {
+    return this.has(TokenType.Identifier) && 
+           this.hasAhead(TokenType.LeftBracket, 1) &&
+           this.hasAhead(TokenType.Integer, 2) &&
+           this.hasAhead(TokenType.DotDot, 3) &&
+           this.hasAhead(TokenType.Integer, 4) &&
+           this.hasAhead(TokenType.RightBracket, 5);
+  }
+
   arrayDeclaration(): ast.ArrayDeclaration {
     const scalarTypeToken = this.advance() as TextToken;
 
     // Collect up type with a pair of brackets for each dimension.
-    let type = scalarTypeToken.text;
+    let type = new Type(scalarTypeToken.text);
     let leftToken;
     let rightToken;
     while (this.has(TokenType.LeftBracket)) {
       leftToken = this.advance();
+
+      // See if there's a range.
+      if (this.has(TokenType.Integer) && this.hasAhead(TokenType.DotDot, 1) && this.hasAhead(TokenType.Integer, 2)) {
+        const minToken = this.advance() as TextToken;
+        this.advance(); // eat ..
+        const maxToken = this.advance() as TextToken;
+        if (minToken.text !== '0') {
+          throw new WhereError("The starting index must be 0.", minToken.where);
+        }
+        const size = parseInt(maxToken.text) + 1;
+        type = new SizedArrayType(type, size);
+      } else {
+        type = new ArrayType(type);
+      }
+
+
       if (!this.has(TokenType.RightBracket)) {
         throw new WhereError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
       }
       rightToken = this.advance(); // eat ]
-      type += '[]';
     }
 
     if (!this.has(TokenType.Identifier)) {
@@ -297,7 +335,7 @@ class PraxisParser extends Parser {
 
     const rightNode = this.expression();
 
-    return new ast.ArrayDeclaration(identifierToken.text, type, rightNode, Where.enclose(scalarTypeToken.where, rightNode.where));
+    return new ast.ArrayDeclaration(identifierToken.text, type as ArrayType, rightNode, Where.enclose(scalarTypeToken.where, rightNode.where));
   }
 
   arrayLiteral(): ast.ArrayLiteral {
@@ -337,17 +375,21 @@ class PraxisParser extends Parser {
   }
 
   initializedDeclaration() {
+    // TODO: parse type for real
     const typeToken = this.advance() as TextToken;
+    const type = new Type(typeToken.text);
     const identifierToken = this.advance() as TextToken;
     this.advance(); // eat =
     const rightNode = this.expression();
-    return new ast.Declaration(identifierToken.text, typeToken.text, rightNode, Where.enclose(typeToken.where, rightNode.where));
+    return new ast.Declaration(identifierToken.text, type, rightNode, Where.enclose(typeToken.where, rightNode.where));
   }
 
   uninitializedDeclaration() {
+    // TODO: parse type for real
     const typeToken = this.advance() as TextToken;
+    const type = new Type(typeToken.text);
     const identifierToken = this.advance() as TextToken;
-    return new ast.Declaration(identifierToken.text, typeToken.text, null, Where.enclose(typeToken.where, identifierToken.where));
+    return new ast.Declaration(identifierToken.text, type, null, Where.enclose(typeToken.where, identifierToken.where));
   }
 
   ifStatement(inFunctionDefinition: boolean): ast.Statement {

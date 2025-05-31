@@ -24,8 +24,8 @@ class PraxisLexer extends Lexer {
       this.lexLinebreak();
     } else if (this.accept(',')) {
       this.emitToken(TokenType.Comma);
-    } else if (this.accept('.')) {
-      this.emitToken(TokenType.Period);
+    } else if (this.has('.')) {
+      this.lexDot();
     } else if (this.accept(';')) {
       this.emitToken(TokenType.Semicolon);
     } else if (this.accept('+')) {
@@ -133,6 +133,16 @@ class PraxisLexer extends Lexer {
     this.emitToken(TokenType.Linebreak);
     if (this.i < this.source.length) {
       this.lexIndent();
+    }
+  }
+
+  lexDot() {
+    this.advance(); // eat .
+    if (this.accept('.')) {
+      this.emitToken(TokenType.DotDot);
+    } else {
+      console.log("period");
+      this.emitToken(TokenType.Period);
     }
   }
 

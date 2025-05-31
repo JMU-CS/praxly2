@@ -4,92 +4,7 @@ import {Visitor} from './visitor.js';
 import {WhereError} from './exception.js';
 import {Where} from './where.js';
 import type {NodeClass, SymbolMap} from './symbol-map.js';
-
-export class Type {
-  text: string;
-
-  constructor(text: string) {
-    this.text = text;
-  }
-
-  equals(that: Type): boolean {
-    return this.text === that.text;
-  }
-
-  covers(that: Type): boolean {
-    return this.text === that.text;
-  }
-
-  toString(): string {
-    return this.text;
-  }
-
-  serializeValue(value: any): string {
-    return value.toString();
-  }
-
-  static Integer = new Type('int');
-  static Float = new Type('float');
-  static Double = new Type('double');
-  static Void = new Type('void');
-  static Boolean = new Type('boolean');
-  static String = new Type('String');
-}
-
-const typeMap: {[index: string]: Type} = {
-  'int': Type.Integer,
-  'float': Type.Float,
-  'double': Type.Double,
-  'void': Type.Void,
-  'boolean': Type.Boolean,
-  'String': Type.String,
-};
-
-export class ArrayType extends Type {
-  elementType: Type;
-
-  constructor(elementType: Type) {
-    super(`${elementType.text}[]`);
-    this.elementType = elementType;
-  }
-
-  serializeValue(value: any): string {
-    return `{${(value as Fruit[]).map(element => element.type.serializeValue(element.value)).join(', ')}}`;
-  }
-}
-
-export class ObjectType extends Type {
-}
-
-export class UnionType extends Type {
-  options: Type[];
-
-  constructor(options: Type[]) {
-    super(`(${options.map(option => option.text).join(' | ')})`);
-    this.options = options;
-  }
-
-  covers(that: Type): boolean {
-    // TODO: cover other union type
-    return this.options.some(option => option.covers(that));
-  }
-}
-
-const NumberType = new UnionType([Type.Double, Type.Float, Type.Integer]);
-
-export class Fruit {
-  type: Type;
-  value: any;
-
-  constructor(type: Type, value: any = null) {
-    this.type = type;
-    this.value = value;
-  }
-
-  toString(): string {
-    return this.value.toString();
-  }
-}
+import {Type, ArrayType, SizedArrayType, NumberType, UnionType, ObjectType, typeMap, Fruit} from './type.js';
 
 class FormalEntry {
   identifier: string;
@@ -841,7 +756,11 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const oldFruit = runtime.getVariable(identifier);
     if (oldFruit) {
       if (oldFruit.type.covers(fruit.type)) {
-        runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
+        if (!(oldFruit.type instanceof SizedArrayType) || oldFruit.type.size === fruit.value.length) {
+          runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
+        } else {
+          throw new WhereError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. An array of size \`${fruit.value.length}\` cannot be assigned to it.`, where);
+        }
       } else {
         throw new WhereError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
       }
@@ -894,29 +813,13 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     return new Fruit(Type.Void);
   }
 
-  resolveType(node: ast.Node, typeName: string, runtime: Runtime): Type {
-    const type = typeMap[typeName];
-    if (type) {
-      return type;
-    } else if (typeName.endsWith('[]')) {
-      const elementTypeName = typeName.substring(0, typeName.length - 2);
-      const elementType = this.resolveType(node, elementTypeName, runtime);
-      const type = new ArrayType(elementType);
-      typeMap[typeName] = type;
-      return type;
-    } else {
-      throw new WhereError(`The type \`${typeName}\` is unknown.`, node.where);
-    }
-  }
-
   visitDeclaration(node: ast.Declaration, runtime: Runtime): Fruit {
     let oldFruit = runtime.getVariable(node.identifier);
     if (oldFruit) {
       throw new WhereError(`Variable \`${node.identifier}\` is already declared.`, node.where);
     }
 
-    const type = this.resolveType(node, node.variableType, runtime);
-    runtime.declareVariable(node.identifier, type);
+    runtime.declareVariable(node.identifier, node.variableType);
 
     if (node.rightNode) {
       const rightFruit = node.rightNode.visit(this, runtime);
@@ -1051,12 +954,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   // --------------------------------------------------------------------------
 
   visitFunctionDefinition(node: ast.FunctionDefinition, runtime: Runtime): Fruit {
-    const formalEntries = node.formals.map(formal => {
-      const type = this.resolveType(node, formal.type, runtime);
-      return new FormalEntry(formal.identifier, type);
-    });
-    const returnType = this.resolveType(node, node.returnType, runtime);
-    runtime.functionBindings.set(node.identifier, new FunctionFruit(formalEntries, returnType, node.body, node.where));
+    const formalEntries = node.formals.map(formal => new FormalEntry(formal.identifier, formal.type));
+    runtime.functionBindings.set(node.identifier, new FunctionFruit(formalEntries, node.returnType, node.body, node.where));
     return new Fruit(Type.Void);
   }
 
@@ -1150,8 +1049,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     // The array literal needs to know what type its elements should have. We
     // pass the element type through the runtime.
     const newRuntime = runtime.shallowClone();
-    newRuntime.expectedType = this.resolveType(node, node.variableType, runtime);
-    return this.visitDeclaration(node, newRuntime);
+    newRuntime.expectedType = node.variableType;
+    const fruit = this.visitDeclaration(node, newRuntime);
+    console.log("fruit:", fruit);
+    return fruit;
   }
 
   visitArraySubscript(node: ast.ArraySubscript, runtime: Runtime): Fruit {
@@ -1214,8 +1115,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     }    
 
     const visibility = node.visibility ?? ast.Visibility.Public;
-    const type = this.resolveType(node, node.variableType, runtime);
-    classFruit.instanceVariableEntries.set(node.identifier, new InstanceVariableEntry(type, visibility));
+    classFruit.instanceVariableEntries.set(node.identifier, new InstanceVariableEntry(node.variableType, visibility));
 
     return new Fruit(Type.Void);
   }
@@ -1227,14 +1127,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       throw new WhereError(`Method ${node.identifier} has already been defined.`, node.where);
     }    
 
-    const formalEntries = node.formals.map(formal => {
-      const type = this.resolveType(node, formal.type, runtime);
-      return new FormalEntry(formal.identifier, type);
-    });
-    const returnType = this.resolveType(node, node.returnType, runtime);
+    const formalEntries = node.formals.map(formal => new FormalEntry(formal.identifier, formal.type));
 
     const visibility = node.visibility ?? ast.Visibility.Public;
-    classFruit.instanceMethodEntries.set(node.identifier, new MethodFruit(formalEntries, returnType, visibility, node.body, node.where));
+    classFruit.instanceMethodEntries.set(node.identifier, new MethodFruit(formalEntries, node.returnType, visibility, node.body, node.where));
 
     return new Fruit(Type.Void);
   }

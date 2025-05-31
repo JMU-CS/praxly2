@@ -103,7 +103,7 @@ function initialize() {
             });
           });
           outputPanel.appendChild(button);
-          console.error(e.where);
+          // console.error(e.where);
         }
 
         const message = e.message.replaceAll(/`(.*?)`/g, '<var>$1</var>');
