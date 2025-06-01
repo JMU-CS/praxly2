@@ -141,7 +141,6 @@ class PraxisLexer extends Lexer {
     if (this.accept('.')) {
       this.emitToken(TokenType.DotDot);
     } else {
-      console.log("period");
       this.emitToken(TokenType.Period);
     }
   }

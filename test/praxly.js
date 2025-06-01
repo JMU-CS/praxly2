@@ -280,6 +280,95 @@ print xs[0]
 print xs[1]`,
       output: "{4, 6}\n2\n4\n6\n",
     },
+    {
+      message: 'multidimensional initialization and access',
+      source: `int[][] nums = {{5, 3, 1}, {7, 4, 0}}
+print nums
+print nums.length
+print nums[0].length
+print nums[1].length
+print nums[0][0]
+print nums[0][1]
+print nums[0][2]
+print nums[1][0]
+print nums[1][1]
+print nums[1][2]`,
+      output: "{{5, 3, 1}, {7, 4, 0}}\n2\n3\n3\n5\n3\n1\n7\n4\n0\n",
+    },
+    {
+      message: 'ragged multidimensional initialization and access',
+      source: `int[][] nums = {{5, 3}, {7, 4, 0}}
+print nums
+print nums.length
+print nums[0].length
+print nums[1].length
+print nums[0][0]
+print nums[0][1]
+print nums[1][0]
+print nums[1][1]
+print nums[1][2]`,
+      output: "{{5, 3}, {7, 4, 0}}\n2\n2\n3\n5\n3\n7\n4\n0\n",
+    },
+    {
+      message: 'fixed size initialization and access',
+      source: `int[0..2] counts = {10, 11, 12}
+print counts
+print counts.length
+print counts[0]
+print counts[1]
+print counts[2]`,
+      output: "{10, 11, 12}\n3\n10\n11\n12\n",
+    },
+    {
+      message: 'multidimensional initialization and access',
+      source: `int[0..2][0..1] nums = {{5, 3, 1}, {7, 4, 0}}
+print nums
+print nums.length
+print nums[0].length
+print nums[1].length
+print nums[0][0]
+print nums[0][1]
+print nums[0][2]
+print nums[1][0]
+print nums[1][1]
+print nums[1][2]`,
+      output: "{{5, 3, 1}, {7, 4, 0}}\n2\n3\n3\n5\n3\n1\n7\n4\n0\n",
+    },
+    {
+      message: 'mixed multidimensional initialization and access',
+      source: `int[0..2][] nums = {{5, 3, 1}, {7, 4, 0}, {3, 10, 20}}
+print nums
+print nums.length
+print nums[0].length
+print nums[1].length
+print nums[2].length
+print nums[0][0]
+print nums[0][1]
+print nums[0][2]
+print nums[1][0]
+print nums[1][1]
+print nums[1][2]
+print nums[2][0]
+print nums[2][1]
+print nums[2][2]`,
+      output: "{{5, 3, 1}, {7, 4, 0}, {3, 10, 20}}\n3\n3\n3\n3\n5\n3\n1\n7\n4\n0\n3\n10\n20\n",
+    },
+    {
+      message: 'mixed multidimensional initialization and access',
+      source: `int[][0..2] nums = {{5}, {7, 8}, {13, 14, 15}}
+print nums
+print nums.length
+print nums[0].length
+print nums[1].length
+print nums[2].length
+print nums[0][0]
+print nums[1][0]
+print nums[1][1]
+print nums[2][0]
+print nums[2][1]
+print nums[2][2]`,
+      output: "{{5}, {7, 8}, {13, 14, 15}}\n3\n1\n2\n3\n5\n7\n8\n13\n14\n15\n",
+    },
   ];
 
   for (let sample of samples) {
@@ -306,7 +395,7 @@ describe('Praxis: Illegal Array', () => {
     },
     {
       message: 'bad index in non-empty array',
-      source: `int[] xs = {5; 6}
+      source: `int[] xs = {5, 6}
 print(xs[2])`,
     },
     {
@@ -316,13 +405,25 @@ print(xs[0])`,
     },
     {
       message: 'negative index',
-      source: `int[] xs = {5; 6}
+      source: `int[] xs = {5, 6}
 print(xs[-1])`,
     },
     {
       message: 'assignment to bad index',
-      source: `int[] xs = {5; 6}
+      source: `int[] xs = {5, 6}
 xs[2] = 7`,
+    },
+    {
+      message: 'mismatched sizes',
+      source: `int[0..2] xs = {5, 6}`,
+    },
+    {
+      message: 'multidimensional mismatched sizes',
+      source: `int[0..2][0..1] xs = {{5, 6}, {1, 3}}`,
+    },
+    {
+      message: 'ragged fixed-size multidimensional initialization and access',
+      source: `int[0..1][0..2] nums = {{5, 3}, {7, 4, 0}}`,
     },
   ];
 

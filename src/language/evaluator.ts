@@ -756,10 +756,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const oldFruit = runtime.getVariable(identifier);
     if (oldFruit) {
       if (oldFruit.type.covers(fruit.type)) {
-        if (!(oldFruit.type instanceof SizedArrayType) || oldFruit.type.size === fruit.value.length) {
+        if (!(oldFruit.type instanceof SizedArrayType) || oldFruit.type.fitsFruit(fruit)) {
           runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
         } else {
-          throw new WhereError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. An array of size \`${fruit.value.length}\` cannot be assigned to it.`, where);
+          throw new WhereError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. An array of size ${fruit.value.length} cannot be assigned to it.`, where);
         }
       } else {
         throw new WhereError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
@@ -1051,7 +1051,6 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const newRuntime = runtime.shallowClone();
     newRuntime.expectedType = node.variableType;
     const fruit = this.visitDeclaration(node, newRuntime);
-    console.log("fruit:", fruit);
     return fruit;
   }
 

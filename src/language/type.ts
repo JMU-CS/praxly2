@@ -62,6 +62,13 @@ export class SizedArrayType extends ArrayType {
     super(elementType, size);
     this.size = size;
   }
+
+  fitsFruit(fruit: Fruit) {
+    // Assumes typecheck has already been done. Only examines size.
+    return fruit.value.length === this.size &&
+           (!(this.elementType instanceof SizedArrayType) ||
+            fruit.value.every((element: Fruit) => (this.elementType as SizedArrayType).fitsFruit(element)));
+  }
 }
 
 export class ObjectType extends Type {
