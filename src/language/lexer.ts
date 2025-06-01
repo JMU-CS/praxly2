@@ -1,6 +1,6 @@
 import {TokenType, Token, TextToken} from './token.js';
 import {Where} from './where.js';
-import {WhereError} from './exception.js';
+import {WhereError} from './error.js';
 
 export abstract class Lexer {
   source: string;

@@ -5,6 +5,7 @@ import {PraxisGenerator} from '../build/language/praxis/generator.js';
 import {Fruit, Type} from '../build/language/type.js';
 import {GlobalRuntime, Evaluator} from '../build/language/evaluator.js';
 import {praxisSymbolMap} from '../build/language/praxis/symbol-map.js';
+import * as error from '../build/language/error.js';
 
 describe('Praxis: Expression Generation and Evaluation', () => {
   const samples = [
@@ -383,47 +384,11 @@ print nums[2][2]`,
   }
 });
 
-describe('Praxis: Illegal Array', () => {
+describe('Praxis: Parse Errors', () => {
   const samples = [
-    {
-      message: 'bad element type',
-      source: `int[] xs = {false}`,
-    },
     {
       message: 'bad separator',
       source: `int[] xs = {5; 6}`,
-    },
-    {
-      message: 'bad index in non-empty array',
-      source: `int[] xs = {5, 6}
-print(xs[2])`,
-    },
-    {
-      message: 'bad index in empty array',
-      source: `int[] xs = {}
-print(xs[0])`,
-    },
-    {
-      message: 'negative index',
-      source: `int[] xs = {5, 6}
-print(xs[-1])`,
-    },
-    {
-      message: 'assignment to bad index',
-      source: `int[] xs = {5, 6}
-xs[2] = 7`,
-    },
-    {
-      message: 'mismatched sizes',
-      source: `int[0..2] xs = {5, 6}`,
-    },
-    {
-      message: 'multidimensional mismatched sizes',
-      source: `int[0..2][0..1] xs = {{5, 6}, {1, 3}}`,
-    },
-    {
-      message: 'ragged fixed-size multidimensional initialization and access',
-      source: `int[0..1][0..2] nums = {{5, 3}, {7, 4, 0}}`,
     },
   ];
 
@@ -435,7 +400,68 @@ xs[2] = 7`,
         const runtime = new GlobalRuntime();
         ast.visit(new Evaluator(praxisSymbolMap), runtime);
       };
-      it(`should error on ${sample.message}`, () => assert.throws(evaluate));
+      it(`should error on ${sample.message}`, () => assert.throws(evaluate, error.ParseError));
+    });
+  }
+});
+
+describe('Praxis: Illegal Array', () => {
+  const samples = [
+    {
+      message: 'bad element type',
+      source: `int[] xs = {false}`,
+      error: error.TypeError,
+    },
+    {
+      message: 'bad index in non-empty array',
+      source: `int[] xs = {5, 6}
+print(xs[2])`,
+      error: error.IllegalIndexError,
+    },
+    {
+      message: 'bad index in empty array',
+      source: `int[] xs = {}
+print(xs[0])`,
+      error: error.IllegalIndexError,
+    },
+    {
+      message: 'negative index',
+      source: `int[] xs = {5, 6}
+print(xs[-1])`,
+      error: error.IllegalIndexError,
+    },
+    {
+      message: 'assignment to bad index',
+      source: `int[] xs = {5, 6}
+xs[2] = 7`,
+      error: error.IllegalIndexError,
+    },
+    {
+      message: 'mismatched sizes',
+      source: `int[0..2] xs = {5, 6}`,
+      error: error.TypeError,
+    },
+    {
+      message: 'multidimensional mismatched sizes',
+      source: `int[0..2][0..1] xs = {{5, 6}, {1, 3}}`,
+      error: error.TypeError,
+    },
+    {
+      message: 'ragged fixed-size multidimensional initialization and access',
+      source: `int[0..1][0..2] nums = {{5, 3}, {7, 4, 0}}`,
+      error: error.TypeError,
+    },
+  ];
+
+  for (let sample of samples) {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
+      const evaluate = () => {
+        const tokens = lexPraxis(sample.source);
+        const ast = parsePraxis(tokens, sample.source);
+        const runtime = new GlobalRuntime();
+        ast.visit(new Evaluator(praxisSymbolMap), runtime);
+      };
+      it(`should error on ${sample.message}`, () => assert.throws(evaluate, sample.error));
     });
   }
 });

@@ -1,7 +1,7 @@
 import * as ast from './ast.js';
 import prand from 'pure-rand';
 import {Visitor} from './visitor.js';
-import {WhereError} from './exception.js';
+import * as error from './error.js';
 import {Where} from './where.js';
 import type {NodeClass, SymbolMap} from './symbol-map.js';
 import {Type, ArrayType, SizedArrayType, NumberType, UnionType, ObjectType, typeMap, Fruit} from './type.js';
@@ -81,7 +81,7 @@ class RandomIntegerFunctionEntry extends FunctionEntry {
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
     const max = runtime.variableBindings.get('max')!.value as number;
     if (max < 1) {
-      throw new WhereError(`The \`max\` parameter given to \`randomInt\` must be at least 1.`, where);
+      throw new error.WhereError(`The \`max\` parameter given to \`randomInt\` must be at least 1.`, where);
     }
     const x = prand.unsafeUniformIntDistribution(0, max - 1, runtime.globalRuntime.rng);
     throw new ReturnSomethingException(new Fruit(Type.Integer, x), where);
@@ -109,7 +109,7 @@ class MinimumFunctionEntry extends FunctionEntry {
       const newValue = Math.min(a.value as number, b.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
     } else {
-      throw new WhereError("The arguments to `min` must be of the same type.", where);
+      throw new error.WhereError("The arguments to `min` must be of the same type.", where);
     }
   }
 }
@@ -135,7 +135,7 @@ class MaximumFunctionEntry extends FunctionEntry {
       const newValue = Math.max(a.value as number, b.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
     } else {
-      throw new WhereError("The arguments to `max` must be of the same type.", where);
+      throw new error.WhereError("The arguments to `max` must be of the same type.", where);
     }
   }
 }
@@ -159,7 +159,7 @@ class AbsoluteValueFunctionEntry extends FunctionEntry {
       const newValue = Math.abs(x.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
     } else {
-      throw new WhereError("The argument to `abs` must be a number.", where);
+      throw new error.WhereError("The argument to `abs` must be a number.", where);
     }
   }
 }
@@ -184,7 +184,7 @@ class LogFunctionEntry extends FunctionEntry {
       // TODO: what should the return type be?
       throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
     } else {
-      throw new WhereError("The argument to `log` must be a number.", where);
+      throw new error.WhereError("The argument to `log` must be a number.", where);
     }
   }
 }
@@ -209,7 +209,7 @@ class SquareRootFunctionEntry extends FunctionEntry {
       // TODO: what should the return type be?
       throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
     } else {
-      throw new WhereError("The argument to `sqrt` must be a number.", where);
+      throw new error.WhereError("The argument to `sqrt` must be a number.", where);
     }
   }
 }
@@ -231,7 +231,7 @@ class IntCastFunctionEntry extends FunctionEntry {
     } else {
       newValue = Number(variable.value);
       if (Number.isNaN(newValue)) {
-        throw new WhereError(`The value \`"${variable.value}"\` cannot be converted to an integer.`, where);
+        throw new error.WhereError(`The value \`"${variable.value}"\` cannot be converted to an integer.`, where);
       }
     }
     throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
@@ -253,7 +253,7 @@ class FloatCastFunctionEntry extends FunctionEntry {
     } else {
       newValue = Number(variable.value);
       if (Number.isNaN(newValue)) {
-        throw new WhereError(`The value \`"${variable.value}"\` cannot be converted to a float.`, where);
+        throw new error.WhereError(`The value \`"${variable.value}"\` cannot be converted to a float.`, where);
       }
     }
     throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
@@ -275,7 +275,7 @@ class DoubleCastFunctionEntry extends FunctionEntry {
     } else {
       newValue = Number(variable.value);
       if (Number.isNaN(newValue)) {
-        throw new WhereError(`The value \`"${variable.value}"\` cannot be converted to a double.`, where);
+        throw new error.WhereError(`The value \`"${variable.value}"\` cannot be converted to a double.`, where);
       }
     }
     throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
@@ -491,7 +491,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (operandFruit.type === Type.Boolean) {
       return new Fruit(Type.Boolean, !operandFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.LogicalNegate)} can only be applied to a boolean.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.LogicalNegate)} can only be applied to a boolean.`, node.where);
     }
   }
 
@@ -502,7 +502,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     } else if (Type.Integer.isSupertypeOf(operandFruit.type)) {
       return new Fruit(Type.Float, operandFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.ArithmeticNegate)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.ArithmeticNegate)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -511,7 +511,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (Type.Integer.isSupertypeOf(operandFruit.type)) {
       return new Fruit(Type.Integer, ~operandFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.BitwiseNegate)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.BitwiseNegate)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -528,7 +528,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
                (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value + rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.Add)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.Add)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -541,7 +541,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
                (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value - rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.Subtract)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.Subtract)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -554,7 +554,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
                (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type) || Type.Double.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value * rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.Multiply)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.Multiply)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -567,7 +567,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
                (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type) || Type.Double.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value / rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.Divide)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.Divide)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -579,7 +579,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       // negative numbers.
       return new Fruit(Type.Integer, leftFruit.value - rightFruit.value * (Math.floor(leftFruit.value / rightFruit.value)));
     } else {
-      throw new WhereError(`${this.symbol(ast.Remainder)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.Remainder)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -592,7 +592,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
                (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value ** rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.Power)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.Power)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -603,7 +603,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value < rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.LessThan)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.LessThan)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -614,7 +614,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value > rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.GreaterThan)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.GreaterThan)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -625,7 +625,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value <= rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.LessThanOrEqual)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.LessThanOrEqual)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -636,7 +636,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value >= rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.GreaterThanOrEqual)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.GreaterThanOrEqual)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -644,12 +644,12 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
-      throw new WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
     } else if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type) || Type.String.isSupertypeOf(leftFruit.type) || Type.Boolean.isSupertypeOf(leftFruit.type)) &&
                (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type) || Type.String.isSupertypeOf(rightFruit.type) || Type.Boolean.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value === rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
     }
   }
 
@@ -657,12 +657,12 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
-      throw new WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
     } else if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type) || Type.String.isSupertypeOf(leftFruit.type) || Type.Boolean.isSupertypeOf(leftFruit.type)) &&
                (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type) || Type.String.isSupertypeOf(rightFruit.type) || Type.Boolean.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value !== rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
     }
   }
 
@@ -678,7 +678,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         }
       }
     }
-    throw new WhereError(`\`${this.symbol(ast.LogicalAnd)}\` can only be applied to booleans.`, node.where);
+    throw new error.WhereError(`\`${this.symbol(ast.LogicalAnd)}\` can only be applied to booleans.`, node.where);
   }
 
   visitLogicalOr(node: ast.LogicalOr, runtime: Runtime): Fruit {
@@ -693,7 +693,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         }
       }
     }
-    throw new WhereError(`\`${this.symbol(ast.LogicalOr)}\` can only be applied to booleans.`, node.where);
+    throw new error.WhereError(`\`${this.symbol(ast.LogicalOr)}\` can only be applied to booleans.`, node.where);
   }
 
   visitBitwiseAnd(node: ast.BitwiseAnd, runtime: Runtime): Fruit {
@@ -702,7 +702,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value & rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.BitwiseAnd)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.BitwiseAnd)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -712,7 +712,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value | rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.BitwiseOr)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.BitwiseOr)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -724,7 +724,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     } else if (Type.Boolean.isSupertypeOf(leftFruit.type) && Type.Boolean.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Boolean, leftFruit.value !== rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.Xor)} can only be applied to integers or booleans.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.Xor)} can only be applied to integers or booleans.`, node.where);
     }
   }
 
@@ -734,7 +734,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value << rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.LeftShift)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.LeftShift)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -744,7 +744,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value >> rightFruit.value);
     } else {
-      throw new WhereError(`${this.symbol(ast.RightShift)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.symbol(ast.RightShift)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -758,10 +758,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       if (oldFruit.type.isSupertypeOf(fruit.type)) {
         runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
       } else {
-        throw new WhereError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
+        throw new error.TypeError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
       }
     } else {
-      throw new WhereError(`${label} \`${identifier}\` is undeclared.`, where);
+      throw new error.WhereError(`${label} \`${identifier}\` is undeclared.`, where);
     }
   }
 
@@ -779,30 +779,30 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     } else if (node.leftNode instanceof ast.ArraySubscript) {
       const receiverFruit = node.leftNode.arrayNode.visit(this, runtime);
       if (!(receiverFruit.type instanceof ArrayType)) {
-        throw new WhereError(`The index operator cannot be applied to a value of type \`${receiverFruit.type}\`.`, node.leftNode.where);
+        throw new error.TypeError(`The index operator cannot be applied to a value of type \`${receiverFruit.type}\`.`, node.leftNode.where);
       }
 
       const indexFruit = node.leftNode.indexNode.visit(this, runtime);
       if (!(Type.Integer.isSupertypeOf(indexFruit.type))) {
-        throw new WhereError(`An index must be an integer.`, node.leftNode.indexNode.where);
+        throw new error.TypeError(`An index must be an integer.`, node.leftNode.indexNode.where);
       }
 
       if (0 <= indexFruit.value && indexFruit.value < receiverFruit.value.length) {
         receiverFruit.value[indexFruit.value] = rightFruit;
       } else {
-        throw new WhereError(`This array has ${receiverFruit.value.length} element${receiverFruit.value.length === 1 ? '' : 's'}. Index ${indexFruit.value} is out of bounds.`, node.leftNode.indexNode.where);
+        throw new error.IllegalIndexError(`This array has ${receiverFruit.value.length} element${receiverFruit.value.length === 1 ? '' : 's'}. Index ${indexFruit.value} is out of bounds.`, node.leftNode.indexNode.where);
       }
     } else if (node.leftNode instanceof ast.Member) {
       const receiverFruit = node.leftNode.receiverNode.visit(this, runtime);
       if (!(receiverFruit.type instanceof ObjectType)) {
-        throw new WhereError(`A value of type \`${receiverFruit.type}\` has no properties.`, node.leftNode.where);
+        throw new error.WhereError(`A value of type \`${receiverFruit.type}\` has no properties.`, node.leftNode.where);
       }
       if (receiverFruit.value.has(node.leftNode.identifier)) {
         // TODO: do types match?
         // TODO: is it public?
         receiverFruit.value.set(node.leftNode.identifier, rightFruit);
       } else {
-        throw new WhereError(`A value of type \`${receiverFruit.type}\` does not have a \`${node.leftNode.identifier}\` property.`, node.where);
+        throw new error.TypeError(`A value of type \`${receiverFruit.type}\` does not have a \`${node.leftNode.identifier}\` property.`, node.where);
       }
     }
 
@@ -812,7 +812,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitDeclaration(node: ast.Declaration, runtime: Runtime): Fruit {
     let oldFruit = runtime.getVariable(node.identifier);
     if (oldFruit) {
-      throw new WhereError(`Variable \`${node.identifier}\` is already declared.`, node.where);
+      throw new error.WhereError(`Variable \`${node.identifier}\` is already declared.`, node.where);
     }
 
     runtime.declareVariable(node.identifier, node.variableType);
@@ -829,12 +829,12 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const entry = runtime.getVariable(node.identifier);
     if (entry) {
       if (entry.value === null) {
-        throw new WhereError(`Variable ${node.identifier} is uninitialized.`, node.where);
+        throw new error.WhereError(`Variable ${node.identifier} is uninitialized.`, node.where);
       } else {
         return new Fruit(entry.type, entry.value);
       }
     } else {
-      throw new WhereError(`Variable ${node.identifier} is undeclared.`, node.where);
+      throw new error.WhereError(`Variable ${node.identifier} is undeclared.`, node.where);
     }
   }
 
@@ -857,7 +857,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       runtime.globalRuntime.stdout += fruit.type.serializeValue(fruit.value) + node.trailer;
     } else {
       console.log("fruit.type:", fruit.type);
-      throw new WhereError('Only values may be printed.', node.where);
+      throw new error.WhereError('Only values may be printed.', node.where);
     }
     return new Fruit(Type.Void);
   }
@@ -871,7 +871,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         node.elseBlock.visit(this, runtime);
       }
     } else {
-      throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+      throw new error.WhereError('A condition must yield a boolean value.', node.conditionNode.where);
     }
     return new Fruit(Type.Void);
   }
@@ -887,7 +887,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
           isTerminated = true;
         }
       } else {
-        throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+        throw new error.WhereError('A condition must yield a boolean value.', node.conditionNode.where);
       }
     }
     return new Fruit(Type.Void);
@@ -903,7 +903,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
           isTerminated = true;
         }
       } else {
-        throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+        throw new error.WhereError('A condition must yield a boolean value.', node.conditionNode.where);
       }
     }
     return new Fruit(Type.Void);
@@ -919,7 +919,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
           isTerminated = true;
         }
       } else {
-        throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+        throw new error.WhereError('A condition must yield a boolean value.', node.conditionNode.where);
       }
     }
     return new Fruit(Type.Void);
@@ -939,7 +939,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
           isTerminated = true;
         }
       } else {
-        throw new WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+        throw new error.WhereError('A condition must yield a boolean value.', node.conditionNode.where);
       }
     }
     return new Fruit(Type.Void);
@@ -960,7 +960,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const lambda = runtime.globalRuntime.functionBindings.get(node.identifier);
     if (lambda) {
       if (node.actuals.length !== lambda.formals.length) {
-        throw new WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
+        throw new error.WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
       }
 
       const newRuntime = runtime.child();
@@ -975,22 +975,22 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         lambda.call(this, newRuntime, node.where);
         if (lambda instanceof FunctionFruit) {
           if (!Type.Void.isSupertypeOf(lambda.returnType)) {
-            throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It didn't return anything.`, lambda.where);
+            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It didn't return anything.`, lambda.where);
           }
         }
         fruit = new Fruit(Type.Void);
       } catch (e) {
         if (e instanceof ReturnSomethingException) {
           if (Type.Void.isSupertypeOf(lambda.returnType)) {
-            throw new WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
+            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
           } else if (!lambda.returnType.isSupertypeOf(e.fruit.type)) {
-            throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
+            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
           } else {
             fruit = e.fruit;
           }
         } else if (e instanceof ReturnNothingException) {
           if (!(Type.Void.isSupertypeOf(lambda.returnType))) {
-            throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned nothing.`, e.returnWhere);
+            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned nothing.`, e.returnWhere);
           } else {
             fruit = new Fruit(Type.Void);
           }
@@ -1001,7 +1001,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
       return fruit;
     } else {
-      throw new WhereError(`Function \`${node.identifier}\` is not defined.`, node.where);
+      throw new error.WhereError(`Function \`${node.identifier}\` is not defined.`, node.where);
     }
   }
 
@@ -1024,7 +1024,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitArrayLiteral(node: ast.ArrayLiteral, runtime: Runtime): Fruit {
     if (!runtime.expectedType) {
-      throw new WhereError("An array literal is in an unexpected place. It must be part of an array declaration.", node.where);
+      throw new error.WhereError("An array literal is in an unexpected place. It must be part of an array declaration.", node.where);
     }
 
     const elementType = (runtime.expectedType as ArrayType).elementType;
@@ -1035,7 +1035,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
     const badIndex = elementFruits.findIndex(elementFruit => !elementType.isSupertypeOf(elementFruit.type));
     if (badIndex >= 0) {
-      throw new WhereError(`An array element has the wrong type. It must have type \`${elementType}\`.`, node.elementNodes[badIndex].where);
+      throw new error.TypeError(`An array element has the wrong type. It must have type \`${elementType}\`.`, node.elementNodes[badIndex].where);
     }
 
     return new Fruit(new SizedArrayType(elementType, elementFruits.length), elementFruits);
@@ -1053,18 +1053,18 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitArraySubscript(node: ast.ArraySubscript, runtime: Runtime): Fruit {
     const receiverFruit = node.arrayNode.visit(this, runtime);
     if (!(receiverFruit.type instanceof ArrayType)) {
-      throw new WhereError(`The index operator cannot be applied to a value of type \`${receiverFruit.type}\`.`, node.where);
+      throw new error.WhereError(`The index operator cannot be applied to a value of type \`${receiverFruit.type}\`.`, node.where);
     }
 
     const indexFruit = node.indexNode.visit(this, runtime);
     if (!(Type.Integer.isSupertypeOf(indexFruit.type))) {
-      throw new WhereError(`An index must be an integer.`, node.indexNode.where);
+      throw new error.TypeError(`An index must be an integer.`, node.indexNode.where);
     }
 
     if (0 <= indexFruit.value && indexFruit.value < receiverFruit.value.length) {
       return receiverFruit.value[indexFruit.value];
     } else {
-      throw new WhereError(`This array has ${receiverFruit.value.length} element${receiverFruit.value.length === 1 ? '' : 's'}. Index ${indexFruit.value} is out of bounds.`, node.indexNode.where);
+      throw new error.IllegalIndexError(`This array has ${receiverFruit.value.length} element${receiverFruit.value.length === 1 ? '' : 's'}. Index ${indexFruit.value} is out of bounds.`, node.indexNode.where);
     }
   }
 
@@ -1076,13 +1076,13 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       const memberFruit = receiverFruit.value.get(node.identifier);
       if (memberFruit) {
         if (memberFruit.value === null) {
-          throw new WhereError(`Property \`${node.identifier}\` has not been initialized.`, node.where);
+          throw new error.WhereError(`Property \`${node.identifier}\` has not been initialized.`, node.where);
         } else {
           return memberFruit;
         }
       }
     }
-    throw new WhereError(`A value of type \`${receiverFruit.type}\` does not have a \`${node.identifier}\` property.`, node.where);
+    throw new error.WhereError(`A value of type \`${receiverFruit.type}\` does not have a \`${node.identifier}\` property.`, node.where);
   }
 
   // --------------------------------------------------------------------------
@@ -1106,7 +1106,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const classFruit = runtime.classFruit!;
 
     if (classFruit.instanceVariableEntries.has(node.identifier)) {
-      throw new WhereError(`Variable ${node.identifier} has already been declared.`, node.where);
+      throw new error.WhereError(`Variable ${node.identifier} has already been declared.`, node.where);
     }    
 
     const visibility = node.visibility ?? ast.Visibility.Public;
@@ -1119,7 +1119,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const classFruit = runtime.classFruit!;
 
     if (classFruit.instanceMethodEntries.has(node.identifier)) {
-      throw new WhereError(`Method ${node.identifier} has already been defined.`, node.where);
+      throw new error.WhereError(`Method ${node.identifier} has already been defined.`, node.where);
     }    
 
     const formalEntries = node.formals.map(formal => new FormalEntry(formal.identifier, formal.type));
@@ -1133,14 +1133,14 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitInstantiation(node: ast.Instantiation, runtime: Runtime): Fruit {
     const classFruit = runtime.classBindings.get(node.identifier);
     if (!classFruit) {
-      throw new WhereError(`Class ${node.identifier} is not defined.`, node.where);
+      throw new error.WhereError(`Class ${node.identifier} is not defined.`, node.where);
     }
     return new Fruit(new ObjectType(node.identifier), new Map(Array.from(classFruit.instanceVariableEntries, ([identifier, fruit]) => [identifier, new Fruit(fruit.type, null)])));
   }
 
   visitCall(_context: string, node: ast.MethodCall | ast.FunctionCall, subroutineFruit: MethodEntry | FunctionEntry, runtime: Runtime) {
     if (node.actuals.length !== subroutineFruit.formals.length) {
-      throw new WhereError(`Function \`${node.identifier}\` expects ${subroutineFruit.formals.length} parameter${subroutineFruit.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
+      throw new error.WhereError(`Function \`${node.identifier}\` expects ${subroutineFruit.formals.length} parameter${subroutineFruit.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
     }
 
     const newRuntime = runtime.child();
@@ -1155,22 +1155,22 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       subroutineFruit.call(this, newRuntime, node.where);
       if (subroutineFruit instanceof FunctionFruit) {
         if (!Type.Void.isSupertypeOf(subroutineFruit.returnType)) {
-          throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It didn't return anything.`, subroutineFruit.where);
+          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It didn't return anything.`, subroutineFruit.where);
         }
       }
       fruit = new Fruit(Type.Void);
     } catch (e) {
       if (e instanceof ReturnSomethingException) {
         if (Type.Void.isSupertypeOf(subroutineFruit.returnType)) {
-          throw new WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
+          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
         } else if (subroutineFruit.returnType !== e.fruit.type) {
-          throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
+          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
         } else {
           fruit = e.fruit;
         }
       } else if (e instanceof ReturnNothingException) {
         if (!Type.Void.isSupertypeOf(subroutineFruit.returnType)) {
-          throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned nothing.`, e.returnWhere);
+          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned nothing.`, e.returnWhere);
         } else {
           fruit = new Fruit(Type.Void);
         }
@@ -1185,7 +1185,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitMethodCall(node: ast.MethodCall, runtime: Runtime): Fruit {
     const receiverFruit = node.receiverNode.visit(this, runtime);
     if (!(receiverFruit.type instanceof ObjectType)) {
-      throw new WhereError(`A value of type \`${receiverFruit.type}\` is not an object. Methods cannot be called on it.`, node.receiverNode.where);
+      throw new error.TypeError(`A value of type \`${receiverFruit.type}\` is not an object. Methods cannot be called on it.`, node.receiverNode.where);
     }
 
     // TODO: will classFruit be defined?
@@ -1193,7 +1193,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
     const lambda = classFruit.instanceMethodEntries.get(node.identifier);
     if (!lambda) {
-      throw new WhereError(`Function ${node.identifier} is not defined.`, node.where);
+      throw new error.WhereError(`Function ${node.identifier} is not defined.`, node.where);
     }
 
     return this.visitCall('method', node, lambda, runtime);

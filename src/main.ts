@@ -13,7 +13,7 @@ import {PraxisGenerator} from './language/praxis/generator.js';
 import {Objectifier} from './language/objectifier.js';
 import {GlobalRuntime, Evaluator} from './language/evaluator.js';
 import {praxisSymbolMap} from './language/praxis/symbol-map.js';
-import {WhereError} from './language/exception.js';
+import {WhereError} from './language/error.js';
 import * as ast from './language/ast.js';
 import {praxis} from './language/praxis/highlighter.js';
 import {praxlyTheme} from './praxly-theme.js';

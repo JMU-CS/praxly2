@@ -1,7 +1,7 @@
 import {Lexer} from '../lexer.js';
 import {TokenType} from '../token.js';
 import {Where} from '../where.js';
-import {WhereError} from '../exception.js';
+import {LexError} from '../error.js';
 
 class PraxisLexer extends Lexer {
   indents: string[];
@@ -125,7 +125,7 @@ class PraxisLexer extends Lexer {
         this.emitToken(TokenType.Hyphen);
       }
     } else {
-      throw new WhereError(`The program contains an unexpected character: \`${this.source[this.i]}\`.`, new Where(this.i, this.i + 1));
+      throw new LexError(`The program contains an unexpected character: \`${this.source[this.i]}\`.`, new Where(this.i, this.i + 1));
     }
   }
 
@@ -176,7 +176,7 @@ class PraxisLexer extends Lexer {
       }
 
       if (this.indents[this.indents.length - 1] !== indent) {
-        throw new WhereError('A line is not indented like the line above it.', new Where(this.start, this.i));
+        throw new LexError('A line is not indented like the line above it.', new Where(this.start, this.i));
       }
     }
   }
