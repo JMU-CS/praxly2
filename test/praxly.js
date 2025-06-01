@@ -227,7 +227,7 @@ print 6`,
     },
     {
       message: 'non-space, non-nothing',
-      source: `print 8    // nothing space, which means \n
+      source: `print 8    // nothing space, which means \\n
 print 6`,
       output: "8\n6\n",
     },
@@ -240,13 +240,13 @@ print 6\n`,
   ];
 
   for (let sample of samples) {
-    describe(sample.source, () => {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxis(tokens, sample.source);
 
       const runtime = new GlobalRuntime();
       ast.visit(new Evaluator(praxisSymbolMap), runtime);
-      it(`on ${sample.message}, should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
+      it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
     });
   }
 });
@@ -372,13 +372,13 @@ print nums[2][2]`,
   ];
 
   for (let sample of samples) {
-    describe(sample.source, () => {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxis(tokens, sample.source);
 
       const runtime = new GlobalRuntime();
       ast.visit(new Evaluator(praxisSymbolMap), runtime);
-      it(`on ${sample.message}, should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
+      it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
     });
   }
 });
@@ -428,7 +428,7 @@ xs[2] = 7`,
   ];
 
   for (let sample of samples) {
-    describe(sample.source, () => {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
       const evaluate = () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);
