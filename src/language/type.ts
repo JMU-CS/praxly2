@@ -9,7 +9,7 @@ export class Type {
     return this.text === that.text;
   }
 
-  covers(that: Type): boolean {
+  isSupertypeOf(that: Type): boolean {
     return this.text === that.text;
   }
 
@@ -50,8 +50,17 @@ export class ArrayType extends Type {
     return `{${(value as Fruit[]).map(element => element.type.serializeValue(element.value)).join(', ')}}`;
   }
 
-  covers(that: Type): boolean {
-    return that instanceof ArrayType && this.elementType.covers(that.elementType);
+  equals(that: Type) {
+    return that instanceof ArrayType && this.elementType.equals(that.elementType);
+  }
+
+  isSupertypeOf(that: Type): boolean {
+    // Make arrays invariant because this code is dangerous:
+    //   sub[] subs = {sub0, sub1, sub2}
+    //   super[] supers = subs
+    //   supers[0] = newSuper
+    // Covariance allows a non-sub to be inserted.
+    return this.equals(that);
   }
 }
 
@@ -63,12 +72,16 @@ export class SizedArrayType extends ArrayType {
     this.size = size;
   }
 
-  fitsFruit(fruit: Fruit) {
-    // Assumes typecheck has already been done. Only examines size.
-    return fruit.value.length === this.size &&
-           (!(this.elementType instanceof SizedArrayType) ||
-            fruit.value.every((element: Fruit) => (this.elementType as SizedArrayType).fitsFruit(element)));
+  equals(that: Type): boolean {
+    return super.equals(that) && that instanceof SizedArrayType && this.size === that.size;
   }
+
+  // fitsFruit(fruit: Fruit) {
+    // Assumes typecheck has already been done. Only examines size.
+    // return fruit.value.length === this.size &&
+           // (!(this.elementType instanceof SizedArrayType) ||
+            // fruit.value.every((element: Fruit) => (this.elementType as SizedArrayType).fitsFruit(element)));
+  // }
 }
 
 export class ObjectType extends Type {
@@ -82,9 +95,9 @@ export class UnionType extends Type {
     this.options = options;
   }
 
-  covers(that: Type): boolean {
+  isSupertypeOf(that: Type): boolean {
     // TODO: cover other union type
-    return this.options.some(option => option.covers(that));
+    return this.options.some(option => option.isSupertypeOf(that));
   }
 }
 

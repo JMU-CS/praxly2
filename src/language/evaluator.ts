@@ -99,13 +99,13 @@ class MinimumFunctionEntry extends FunctionEntry {
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
     const a = runtime.variableBindings.get('a')!;
     const b = runtime.variableBindings.get('b')!;
-    if (Type.Double.covers(a.type) && Type.Double.covers(b.type)) {
+    if (Type.Double.isSupertypeOf(a.type) && Type.Double.isSupertypeOf(b.type)) {
       const newValue = Math.min(a.value as number, b.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
-    } else if (Type.Float.covers(a.type) && Type.Float.covers(b.type)) {
+    } else if (Type.Float.isSupertypeOf(a.type) && Type.Float.isSupertypeOf(b.type)) {
       const newValue = Math.min(a.value as number, b.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
-    } else if (Type.Integer.covers(a.type) && Type.Integer.covers(b.type)) {
+    } else if (Type.Integer.isSupertypeOf(a.type) && Type.Integer.isSupertypeOf(b.type)) {
       const newValue = Math.min(a.value as number, b.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
     } else {
@@ -125,13 +125,13 @@ class MaximumFunctionEntry extends FunctionEntry {
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
     const a = runtime.variableBindings.get('a')!;
     const b = runtime.variableBindings.get('b')!;
-    if (Type.Double.covers(a.type) && Type.Double.covers(b.type)) {
+    if (Type.Double.isSupertypeOf(a.type) && Type.Double.isSupertypeOf(b.type)) {
       const newValue = Math.max(a.value as number, b.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
-    } else if (Type.Float.covers(a.type) && Type.Float.covers(b.type)) {
+    } else if (Type.Float.isSupertypeOf(a.type) && Type.Float.isSupertypeOf(b.type)) {
       const newValue = Math.max(a.value as number, b.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
-    } else if (Type.Integer.covers(a.type) && Type.Integer.covers(b.type)) {
+    } else if (Type.Integer.isSupertypeOf(a.type) && Type.Integer.isSupertypeOf(b.type)) {
       const newValue = Math.max(a.value as number, b.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
     } else {
@@ -149,13 +149,13 @@ class AbsoluteValueFunctionEntry extends FunctionEntry {
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
     const x = runtime.variableBindings.get('x')!;
-    if (Type.Double.covers(x.type)) {
+    if (Type.Double.isSupertypeOf(x.type)) {
       const newValue = Math.abs(x.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
-    } else if (Type.Float.covers(x.type)) {
+    } else if (Type.Float.isSupertypeOf(x.type)) {
       const newValue = Math.abs(x.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
-    } else if (Type.Integer.covers(x.type)) {
+    } else if (Type.Integer.isSupertypeOf(x.type)) {
       const newValue = Math.abs(x.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
     } else {
@@ -173,13 +173,13 @@ class LogFunctionEntry extends FunctionEntry {
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
     const x = runtime.variableBindings.get('x')!;
-    if (Type.Double.covers(x.type)) {
+    if (Type.Double.isSupertypeOf(x.type)) {
       const newValue = Math.log(x.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
-    } else if (Type.Float.covers(x.type)) {
+    } else if (Type.Float.isSupertypeOf(x.type)) {
       const newValue = Math.log(x.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
-    } else if (Type.Integer.covers(x.type)) {
+    } else if (Type.Integer.isSupertypeOf(x.type)) {
       const newValue = Math.log(x.value as number);
       // TODO: what should the return type be?
       throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
@@ -198,13 +198,13 @@ class SquareRootFunctionEntry extends FunctionEntry {
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
     const x = runtime.variableBindings.get('x')!;
-    if (Type.Double.covers(x.type)) {
+    if (Type.Double.isSupertypeOf(x.type)) {
       const newValue = Math.sqrt(x.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
-    } else if (Type.Float.covers(x.type)) {
+    } else if (Type.Float.isSupertypeOf(x.type)) {
       const newValue = Math.sqrt(x.value as number);
       throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
-    } else if (Type.Integer.covers(x.type)) {
+    } else if (Type.Integer.isSupertypeOf(x.type)) {
       const newValue = Math.sqrt(x.value as number);
       // TODO: what should the return type be?
       throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
@@ -224,9 +224,9 @@ class IntCastFunctionEntry extends FunctionEntry {
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
     const variable = runtime.variableBindings.get('x')!;
     let newValue: any;
-    if (Type.Double.covers(variable.type) || Type.Float.covers(variable.type)) {
+    if (Type.Double.isSupertypeOf(variable.type) || Type.Float.isSupertypeOf(variable.type)) {
       newValue = Math.trunc(variable.value as number);
-    } else if (Type.Integer.covers(variable.type)) {
+    } else if (Type.Integer.isSupertypeOf(variable.type)) {
       newValue = variable.value as number;
     } else {
       newValue = Number(variable.value);
@@ -248,7 +248,7 @@ class FloatCastFunctionEntry extends FunctionEntry {
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
     const variable = runtime.variableBindings.get('x')!;
     let newValue: any;
-    if (Type.Double.covers(variable.type) || Type.Float.covers(variable.type) || Type.Integer.covers(variable.type)) {
+    if (Type.Double.isSupertypeOf(variable.type) || Type.Float.isSupertypeOf(variable.type) || Type.Integer.isSupertypeOf(variable.type)) {
       newValue = variable.value as number;
     } else {
       newValue = Number(variable.value);
@@ -270,7 +270,7 @@ class DoubleCastFunctionEntry extends FunctionEntry {
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Fruit {
     const variable = runtime.variableBindings.get('x')!;
     let newValue: any;
-    if (Type.Double.covers(variable.type) || Type.Float.covers(variable.type) || Type.Integer.covers(variable.type)) {
+    if (Type.Double.isSupertypeOf(variable.type) || Type.Float.isSupertypeOf(variable.type) || Type.Integer.isSupertypeOf(variable.type)) {
       newValue = variable.value as number;
     } else {
       newValue = Number(variable.value);
@@ -497,9 +497,9 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitArithmeticNegate(node: ast.ArithmeticNegate, runtime: Runtime): Fruit {
     const operandFruit = node.operandNode.visit(this, runtime);
-    if (Type.Integer.covers(operandFruit.type)) {
+    if (Type.Integer.isSupertypeOf(operandFruit.type)) {
       return new Fruit(Type.Integer, -operandFruit.value);
-    } else if (Type.Integer.covers(operandFruit.type)) {
+    } else if (Type.Integer.isSupertypeOf(operandFruit.type)) {
       return new Fruit(Type.Float, operandFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.ArithmeticNegate)} can only be applied to numbers.`, node.where);
@@ -508,7 +508,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitBitwiseNegate(node: ast.BitwiseNegate, runtime: Runtime): Fruit {
     const operandFruit = node.operandNode.visit(this, runtime);
-    if (Type.Integer.covers(operandFruit.type)) {
+    if (Type.Integer.isSupertypeOf(operandFruit.type)) {
       return new Fruit(Type.Integer, ~operandFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.BitwiseNegate)} can only be applied to integers.`, node.where);
@@ -522,10 +522,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitAdd(node: ast.Add, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value + rightFruit.value);
-    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type)) &&
-               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
+    } else if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type)) &&
+               (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value + rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Add)} can only be applied to numbers.`, node.where);
@@ -535,10 +535,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitSubtract(node: ast.Subtract, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value - rightFruit.value);
-    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type)) &&
-               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
+    } else if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type)) &&
+               (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value - rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Subtract)} can only be applied to numbers.`, node.where);
@@ -548,10 +548,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitMultiply(node: ast.Multiply, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value * rightFruit.value);
-    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.Double.covers(leftFruit.type)) &&
-               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.Double.covers(rightFruit.type))) {
+    } else if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type) || Type.Double.isSupertypeOf(leftFruit.type)) &&
+               (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type) || Type.Double.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value * rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Multiply)} can only be applied to numbers.`, node.where);
@@ -561,10 +561,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitDivide(node: ast.Divide, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, Math.trunc(leftFruit.value / rightFruit.value));
-    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.Double.covers(leftFruit.type)) &&
-               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.Double.covers(rightFruit.type))) {
+    } else if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type) || Type.Double.isSupertypeOf(leftFruit.type)) &&
+               (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type) || Type.Double.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value / rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Divide)} can only be applied to numbers.`, node.where);
@@ -574,7 +574,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitRemainder(node: ast.Remainder, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       // Do remainder rather than modulus. They differ in how they handle
       // negative numbers.
       return new Fruit(Type.Integer, leftFruit.value - rightFruit.value * (Math.floor(leftFruit.value / rightFruit.value)));
@@ -586,10 +586,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitPower(node: ast.Power, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value ** rightFruit.value);
-    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type)) &&
-               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
+    } else if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type)) &&
+               (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value ** rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Power)} can only be applied to numbers.`, node.where);
@@ -599,8 +599,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitLessThan(node: ast.LessThan, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type)) &&
-        (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
+    if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type)) &&
+        (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value < rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.LessThan)} can only be applied to numbers.`, node.where);
@@ -610,8 +610,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitGreaterThan(node: ast.GreaterThan, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type)) &&
-        (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
+    if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type)) &&
+        (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value > rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.GreaterThan)} can only be applied to numbers.`, node.where);
@@ -621,8 +621,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitLessThanOrEqual(node: ast.LessThanOrEqual, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type)) &&
-        (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
+    if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type)) &&
+        (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value <= rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.LessThanOrEqual)} can only be applied to numbers.`, node.where);
@@ -632,8 +632,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitGreaterThanOrEqual(node: ast.GreaterThanOrEqual, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type)) &&
-        (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
+    if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type)) &&
+        (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value >= rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.GreaterThanOrEqual)} can only be applied to numbers.`, node.where);
@@ -645,8 +645,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const rightFruit = node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
       throw new WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
-    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.String.covers(leftFruit.type) || Type.Boolean.covers(leftFruit.type)) &&
-               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.String.covers(rightFruit.type) || Type.Boolean.covers(rightFruit.type))) {
+    } else if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type) || Type.String.isSupertypeOf(leftFruit.type) || Type.Boolean.isSupertypeOf(leftFruit.type)) &&
+               (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type) || Type.String.isSupertypeOf(rightFruit.type) || Type.Boolean.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value === rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
@@ -658,8 +658,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     const rightFruit = node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
       throw new WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
-    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.String.covers(leftFruit.type) || Type.Boolean.covers(leftFruit.type)) &&
-               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.String.covers(rightFruit.type) || Type.Boolean.covers(rightFruit.type))) {
+    } else if ((Type.Integer.isSupertypeOf(leftFruit.type) || Type.Float.isSupertypeOf(leftFruit.type) || Type.String.isSupertypeOf(leftFruit.type) || Type.Boolean.isSupertypeOf(leftFruit.type)) &&
+               (Type.Integer.isSupertypeOf(rightFruit.type) || Type.Float.isSupertypeOf(rightFruit.type) || Type.String.isSupertypeOf(rightFruit.type) || Type.Boolean.isSupertypeOf(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value !== rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
@@ -668,12 +668,12 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitLogicalAnd(node: ast.LogicalAnd, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
-    if (Type.Boolean.covers(leftFruit.type)) {
+    if (Type.Boolean.isSupertypeOf(leftFruit.type)) {
       if (!leftFruit.value) {
         return new Fruit(Type.Boolean, false);
       } else {
         const rightFruit = node.rightNode.visit(this, runtime);
-        if (Type.Boolean.covers(rightFruit.type)) {
+        if (Type.Boolean.isSupertypeOf(rightFruit.type)) {
           return rightFruit;
         }
       }
@@ -683,12 +683,12 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitLogicalOr(node: ast.LogicalOr, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
-    if (Type.Boolean.covers(leftFruit.type)) {
+    if (Type.Boolean.isSupertypeOf(leftFruit.type)) {
       if (leftFruit.value) {
         return new Fruit(Type.Boolean, true);
       } else {
         const rightFruit = node.rightNode.visit(this, runtime);
-        if (Type.Boolean.covers(rightFruit.type)) {
+        if (Type.Boolean.isSupertypeOf(rightFruit.type)) {
           return rightFruit;
         }
       }
@@ -699,7 +699,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitBitwiseAnd(node: ast.BitwiseAnd, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value & rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.BitwiseAnd)} can only be applied to integers.`, node.where);
@@ -709,7 +709,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitBitwiseOr(node: ast.BitwiseOr, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value | rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.BitwiseOr)} can only be applied to integers.`, node.where);
@@ -719,9 +719,9 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitXor(node: ast.Xor, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value ^ rightFruit.value);
-    } else if (Type.Boolean.covers(leftFruit.type) && Type.Boolean.covers(rightFruit.type)) {
+    } else if (Type.Boolean.isSupertypeOf(leftFruit.type) && Type.Boolean.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Boolean, leftFruit.value !== rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.Xor)} can only be applied to integers or booleans.`, node.where);
@@ -731,7 +731,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitLeftShift(node: ast.LeftShift, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value << rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.LeftShift)} can only be applied to integers.`, node.where);
@@ -741,7 +741,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   visitRightShift(node: ast.RightShift, runtime: Runtime): Fruit {
     const leftFruit = node.leftNode.visit(this, runtime);
     const rightFruit = node.rightNode.visit(this, runtime);
-    if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
+    if (Type.Integer.isSupertypeOf(leftFruit.type) && Type.Integer.isSupertypeOf(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value >> rightFruit.value);
     } else {
       throw new WhereError(`${this.symbol(ast.RightShift)} can only be applied to integers.`, node.where);
@@ -755,12 +755,8 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   assignVariable(label: string, where: Where, identifier: string, fruit: Fruit, runtime: Runtime) {
     const oldFruit = runtime.getVariable(identifier);
     if (oldFruit) {
-      if (oldFruit.type.covers(fruit.type)) {
-        if (!(oldFruit.type instanceof SizedArrayType) || oldFruit.type.fitsFruit(fruit)) {
-          runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
-        } else {
-          throw new WhereError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. An array of size ${fruit.value.length} cannot be assigned to it.`, where);
-        }
+      if (oldFruit.type.isSupertypeOf(fruit.type)) {
+        runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
       } else {
         throw new WhereError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
       }
@@ -787,7 +783,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       }
 
       const indexFruit = node.leftNode.indexNode.visit(this, runtime);
-      if (!(Type.Integer.covers(indexFruit.type))) {
+      if (!(Type.Integer.isSupertypeOf(indexFruit.type))) {
         throw new WhereError(`An index must be an integer.`, node.leftNode.indexNode.where);
       }
 
@@ -851,11 +847,11 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitPrint(node: ast.Print, runtime: Runtime): Fruit {
     const fruit = node.operandNode.visit(this, runtime);
-    if (Type.Integer.covers(fruit.type) ||
-        Type.Float.covers(fruit.type) ||
-        Type.Double.covers(fruit.type) ||
-        Type.String.covers(fruit.type) ||
-        Type.Boolean.covers(fruit.type) ||
+    if (Type.Integer.isSupertypeOf(fruit.type) ||
+        Type.Float.isSupertypeOf(fruit.type) ||
+        Type.Double.isSupertypeOf(fruit.type) ||
+        Type.String.isSupertypeOf(fruit.type) ||
+        Type.Boolean.isSupertypeOf(fruit.type) ||
         fruit.type instanceof ArrayType ||
         fruit.type instanceof ObjectType) {
       runtime.globalRuntime.stdout += fruit.type.serializeValue(fruit.value) + node.trailer;
@@ -868,7 +864,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
   visitIf(node: ast.If, runtime: Runtime): Fruit {
     const fruit = node.conditionNode.visit(this, runtime);
-    if (Type.Boolean.covers(fruit.type)) {
+    if (Type.Boolean.isSupertypeOf(fruit.type)) {
       if (fruit.value) {
         node.thenBlock.visit(this, runtime);
       } else if (node.elseBlock) {
@@ -884,7 +880,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     let isTerminated = false;
     while (!isTerminated) {
       const fruit = node.conditionNode.visit(this, runtime);
-      if (Type.Boolean.covers(fruit.type)) {
+      if (Type.Boolean.isSupertypeOf(fruit.type)) {
         if (fruit.value) {
           node.body.visit(this, runtime);
         } else {
@@ -902,7 +898,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     while (!isTerminated) {
       node.body.visit(this, runtime);
       const fruit = node.conditionNode.visit(this, runtime);
-      if (Type.Boolean.covers(fruit.type)) {
+      if (Type.Boolean.isSupertypeOf(fruit.type)) {
         if (!fruit.value) {
           isTerminated = true;
         }
@@ -918,7 +914,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     while (!isTerminated) {
       node.body.visit(this, runtime);
       const fruit = node.conditionNode.visit(this, runtime);
-      if (Type.Boolean.covers(fruit.type)) {
+      if (Type.Boolean.isSupertypeOf(fruit.type)) {
         if (fruit.value) {
           isTerminated = true;
         }
@@ -935,7 +931,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     node.initializationNode?.visit(this, newRuntime);
     while (!isTerminated) {
       const fruit = node.conditionNode.visit(this, newRuntime);
-      if (Type.Boolean.covers(fruit.type)) {
+      if (Type.Boolean.isSupertypeOf(fruit.type)) {
         if (fruit.value) {
           node.body.visit(this, newRuntime);
           node.incrementBlock.visit(this, newRuntime);
@@ -978,22 +974,22 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
       try {
         lambda.call(this, newRuntime, node.where);
         if (lambda instanceof FunctionFruit) {
-          if (!Type.Void.covers(lambda.returnType)) {
+          if (!Type.Void.isSupertypeOf(lambda.returnType)) {
             throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It didn't return anything.`, lambda.where);
           }
         }
         fruit = new Fruit(Type.Void);
       } catch (e) {
         if (e instanceof ReturnSomethingException) {
-          if (Type.Void.covers(lambda.returnType)) {
+          if (Type.Void.isSupertypeOf(lambda.returnType)) {
             throw new WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
-          } else if (!lambda.returnType.covers(e.fruit.type)) {
+          } else if (!lambda.returnType.isSupertypeOf(e.fruit.type)) {
             throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
           } else {
             fruit = e.fruit;
           }
         } else if (e instanceof ReturnNothingException) {
-          if (!(Type.Void.covers(lambda.returnType))) {
+          if (!(Type.Void.isSupertypeOf(lambda.returnType))) {
             throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned nothing.`, e.returnWhere);
           } else {
             fruit = new Fruit(Type.Void);
@@ -1037,12 +1033,12 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     newRuntime.expectedType = elementType;
     const elementFruits = node.elementNodes.map(elementNode => elementNode.visit(this, newRuntime));
 
-    const badIndex = elementFruits.findIndex(elementFruit => !elementFruit.type.covers(elementType));
+    const badIndex = elementFruits.findIndex(elementFruit => !elementType.isSupertypeOf(elementFruit.type));
     if (badIndex >= 0) {
       throw new WhereError(`An array element has the wrong type. It must have type \`${elementType}\`.`, node.elementNodes[badIndex].where);
     }
 
-    return new Fruit(new ArrayType(elementType), elementFruits);
+    return new Fruit(new SizedArrayType(elementType, elementFruits.length), elementFruits);
   }
 
   visitArrayDeclaration(node: ast.ArrayDeclaration, runtime: Runtime): Fruit {
@@ -1061,7 +1057,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     }
 
     const indexFruit = node.indexNode.visit(this, runtime);
-    if (!(Type.Integer.covers(indexFruit.type))) {
+    if (!(Type.Integer.isSupertypeOf(indexFruit.type))) {
       throw new WhereError(`An index must be an integer.`, node.indexNode.where);
     }
 
@@ -1158,14 +1154,14 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     try {
       subroutineFruit.call(this, newRuntime, node.where);
       if (subroutineFruit instanceof FunctionFruit) {
-        if (!Type.Void.covers(subroutineFruit.returnType)) {
+        if (!Type.Void.isSupertypeOf(subroutineFruit.returnType)) {
           throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It didn't return anything.`, subroutineFruit.where);
         }
       }
       fruit = new Fruit(Type.Void);
     } catch (e) {
       if (e instanceof ReturnSomethingException) {
-        if (Type.Void.covers(subroutineFruit.returnType)) {
+        if (Type.Void.isSupertypeOf(subroutineFruit.returnType)) {
           throw new WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
         } else if (subroutineFruit.returnType !== e.fruit.type) {
           throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
@@ -1173,7 +1169,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
           fruit = e.fruit;
         }
       } else if (e instanceof ReturnNothingException) {
-        if (!Type.Void.covers(subroutineFruit.returnType)) {
+        if (!Type.Void.isSupertypeOf(subroutineFruit.returnType)) {
           throw new WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned nothing.`, e.returnWhere);
         } else {
           fruit = new Fruit(Type.Void);
