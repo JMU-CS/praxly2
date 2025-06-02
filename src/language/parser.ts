@@ -36,7 +36,7 @@ export abstract class Parser {
 
   skipLinebreaks() {
     let n = 0;
-    let where = null;
+    let where = Where.Nowhere;
     while (this.has(TokenType.Linebreak)) {
       const token = this.advance();
       if (where) {

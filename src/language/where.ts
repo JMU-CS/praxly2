@@ -26,4 +26,6 @@ export class Where {
   static enclose(a: Where, b: Where) {
     return new Where(a.start, b.end);
   }
+
+  static Nowhere = new Where(-1, -1);
 }

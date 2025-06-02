@@ -1,8 +1,12 @@
+import {Where} from './where.js';
+
 export class Type {
   text: string;
+  where: Where;
 
-  constructor(text: string) {
+  constructor(text: string, where: Where = Where.Nowhere) {
     this.text = text;
+    this.where = where;
   }
 
   equals(that: Type): boolean {
@@ -41,8 +45,8 @@ export const typeMap: {[index: string]: Type} = {
 export class ArrayType extends Type {
   elementType: Type;
 
-  constructor(elementType: Type, size: number | null = null) {
-    super(`${elementType.text}[${size === null ? '' : size}]`);
+  constructor(elementType: Type, size: number | null = null, where: Where = Where.Nowhere) {
+    super(`${elementType.text}[${size === null ? '' : size}]`, where);
     this.elementType = elementType;
   }
 
@@ -67,8 +71,8 @@ export class ArrayType extends Type {
 export class SizedArrayType extends ArrayType {
   size: number;
 
-  constructor(elementType: Type, size: number) {
-    super(elementType, size);
+  constructor(elementType: Type, size: number, where: Where = Where.Nowhere) {
+    super(elementType, size, where);
     this.size = size;
   }
 
