@@ -13,7 +13,7 @@ export class Type {
     return this.text === that.text;
   }
 
-  isSupertypeOf(that: Type): boolean {
+  covers(that: Type): boolean {
     return this.text === that.text;
   }
 
@@ -58,7 +58,7 @@ export class ArrayType extends Type {
     return that instanceof ArrayType && this.elementType.equals(that.elementType);
   }
 
-  isSupertypeOf(that: Type): boolean {
+  covers(that: Type): boolean {
     // Make arrays invariant because this code is dangerous:
     //   sub[] subs = {sub0, sub1, sub2}
     //   super[] supers = subs
@@ -79,13 +79,6 @@ export class SizedArrayType extends ArrayType {
   equals(that: Type): boolean {
     return super.equals(that) && that instanceof SizedArrayType && this.size === that.size;
   }
-
-  // fitsFruit(fruit: Fruit) {
-    // Assumes typecheck has already been done. Only examines size.
-    // return fruit.value.length === this.size &&
-           // (!(this.elementType instanceof SizedArrayType) ||
-            // fruit.value.every((element: Fruit) => (this.elementType as SizedArrayType).fitsFruit(element)));
-  // }
 }
 
 export class ObjectType extends Type {
@@ -99,9 +92,9 @@ export class UnionType extends Type {
     this.options = options;
   }
 
-  isSupertypeOf(that: Type): boolean {
+  covers(that: Type): boolean {
     // TODO: cover other union type
-    return this.options.some(option => option.isSupertypeOf(that));
+    return this.options.some(option => option.covers(that));
   }
 }
 
