@@ -393,9 +393,23 @@ class PraxisParser extends Parser {
   }
 
   ifStatement(inFunctionDefinition: boolean): ast.Statement {
+    const conditionNodes = [];
+    const thenBlocks = [];
+
     const ifToken = this.advance();
     const conditionNode = this.parenthesizedExpression(ifToken.where, "An if statement's condition").node;
     const thenBlock = this.indentedBlock(inFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
+    conditionNodes.push(conditionNode);
+    thenBlocks.push(thenBlock);
+
+    while (this.has(TokenType.Else) && this.hasAhead(TokenType.If, 1)) {
+      this.advance(); // eat else
+      const ifToken = this.advance();
+      const conditionNode = this.parenthesizedExpression(ifToken.where, "An else-if statement's condition").node;
+      const thenBlock = this.indentedBlock(inFunctionDefinition, 'else-if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
+      conditionNodes.push(conditionNode);
+      thenBlocks.push(thenBlock);
+    }
 
     let elseBlock = null;
     if (this.has(TokenType.Else)) {
@@ -409,7 +423,7 @@ class PraxisParser extends Parser {
     this.advance();
     const endToken = this.advance();
 
-    return new ast.If(conditionNode, thenBlock, elseBlock, Where.enclose(ifToken.where, endToken.where));
+    return new ast.If(conditionNodes, thenBlocks, elseBlock, Where.enclose(ifToken.where, endToken.where));
   }
 
   whileStatement(inFunctionDefinition: boolean): ast.Statement {

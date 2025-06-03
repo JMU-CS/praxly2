@@ -214,8 +214,8 @@ export class Objectifier extends Visitor<Object, Object> {
   visitIf(node: ast.If, payload: Object): Object {
     return {
       type: 'if',
-      conditionNode: node.conditionNode.visit(this, payload),
-      thenBlock: node.thenBlock.visit(this, payload),
+      conditionNodes: node.conditionNodes.map(conditionNode => conditionNode.visit(this, payload)),
+      thenBlocks: node.thenBlocks.map(thenBlock => thenBlock.visit(this, payload)),
       elseBlock: node.elseBlock?.visit(this, payload),
       where: {start: node.where.start, end: node.where.end},
     };

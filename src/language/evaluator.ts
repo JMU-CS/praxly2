@@ -894,15 +894,19 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   }
 
   visitIf(node: ast.If, runtime: Runtime): Fruit {
-    const fruit = node.conditionNode.visit(this, runtime);
-    if (Type.Boolean.covers(fruit.type)) {
-      if (fruit.value) {
-        node.thenBlock.visit(this, runtime);
-      } else if (node.elseBlock) {
-        node.elseBlock.visit(this, runtime);
+    for (let i = 0; i < node.conditionNodes.length; ++i) {
+      const fruit = node.conditionNodes[i].visit(this, runtime);
+      if (Type.Boolean.covers(fruit.type)) {
+        if (fruit.value) {
+          node.thenBlocks[i].visit(this, runtime);
+          return new Fruit(Type.Void);
+        }
+      } else {
+        throw new error.WhereError('A condition must yield a boolean value.', node.conditionNodes[i].where);
       }
-    } else {
-      throw new error.WhereError('A condition must yield a boolean value.', node.conditionNode.where);
+    }
+    if (node.elseBlock) {
+      node.elseBlock.visit(this, runtime);
     }
     return new Fruit(Type.Void);
   }

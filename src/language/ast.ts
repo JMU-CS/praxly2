@@ -360,14 +360,14 @@ export class RightShift extends BinaryOperator {
 // ---------------------------------------------------------------------------
 
 export class If extends Statement {
-  conditionNode: Node;
-  thenBlock: Block;
+  conditionNodes: Node[];
+  thenBlocks: Block[];
   elseBlock: Block | null;
 
-  constructor(conditionNode: Node, thenBlock: Block, elseBlock: Block | null, where: Where) {
+  constructor(conditionNodes: Node[], thenBlocks: Block[], elseBlock: Block | null, where: Where) {
     super(where);
-    this.conditionNode = conditionNode;
-    this.thenBlock = thenBlock;
+    this.conditionNodes = conditionNodes;
+    this.thenBlocks = thenBlocks;
     this.elseBlock = elseBlock;
   }
 
