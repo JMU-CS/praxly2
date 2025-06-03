@@ -167,16 +167,19 @@ describe('Praxis: Expression Generation and Evaluation', () => {
 describe('Praxis: Program Generation and Output', () => {
   const samples = [
     {
+      message: 'print sum',
       source: 'print 5 + 1',
       serialization: "print 5 + 1\n",
       output: "6\n",
     },
     {
+      message: 'print compound expression',
       source: 'print (7 * (3 + 1))',
       serialization: "print 7 * (3 + 1)\n",
       output: "28\n",
     },
     {
+      message: 'print array',
       source: `int[] xs \u2b60 {12, 103, 88}
 print xs
 print xs[0]
@@ -191,10 +194,60 @@ print xs.length
 3
 `,
     },
+    {
+      message: 'print int increments and decrements',
+      source: `int x \u2b60 13
+x++
+print x
+x++
+print x
+x--
+print x
+x--
+print x
+`,
+      output: `14
+15
+14
+13
+`,
+    },
+    {
+      message: 'print float increments and decrements',
+      source: `float x \u2b60 13.2
+x++
+print x
+x++
+print x
+x--
+print x
+x--
+print x
+`,
+      output: `14.2
+15.2
+14.2
+13.2
+`,
+    },
+    {
+      message: 'print array element increments and decrements',
+      source: `int[] counts \u2b60 {100, 500}
+counts[0]++
+counts[1]--
+print counts
+counts[0]--
+counts[1]++
+print counts
+`,
+      output: `{101, 499}
+{100, 500}
+`,
+    },
   ];
 
   for (let sample of samples) {
-    describe(sample.source, () => {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxis(tokens, sample.source);
 
@@ -462,6 +515,33 @@ xs[2] = 7`,
         ast.visit(new Evaluator(praxisSymbolMap), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.throws(evaluate, sample.error));
+    });
+  }
+});
+
+describe('Praxis: Type Errors', () => {
+  const samples = [
+    {
+      message: 'increment boolean',
+      source: `boolean b = false
+b++`,
+    },
+    {
+      message: 'increment string',
+      source: `String s = "pardon"
+s++`,
+    },
+  ];
+
+  for (let sample of samples) {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
+      const evaluate = () => {
+        const tokens = lexPraxis(sample.source);
+        const ast = parsePraxis(tokens, sample.source);
+        const runtime = new GlobalRuntime();
+        ast.visit(new Evaluator(praxisSymbolMap), runtime);
+      };
+      it(`should error on ${sample.message}`, () => assert.throws(evaluate, error.TypeError));
     });
   }
 });

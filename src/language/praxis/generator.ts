@@ -62,7 +62,7 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
   // Unary Operators
   // --------------------------------------------------------------------------
 
-  visitUnaryOperator(node: ast.UnaryOperator, formatter: Formatter, operator: string): string {
+  visitPrefixUnaryOperator(node: ast.UnaryOperator, formatter: Formatter, operator: string): string {
     let operandPrecedence = precedence.get(node.operandNode.constructor);
     let nodePrecedence = precedence.get(node.constructor);
 
@@ -73,24 +73,34 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
     return text;
   }
 
+  visitPostfixUnaryOperator(node: ast.UnaryOperator, formatter: Formatter, operator: string): string {
+    let operandPrecedence = precedence.get(node.operandNode.constructor);
+    let nodePrecedence = precedence.get(node.constructor);
+
+    let text = node.operandNode.visit(this, formatter);
+    text += operator;
+
+    return text;
+  }
+
   visitLogicalNegate(node: ast.LogicalNegate, formatter: Formatter): string {
-    return this.visitUnaryOperator(node, formatter, 'not ');
+    return this.visitPrefixUnaryOperator(node, formatter, 'not ');
   }
 
   visitArithmeticNegate(node: ast.ArithmeticNegate, formatter: Formatter): string {
-    return this.visitUnaryOperator(node, formatter, '-');
+    return this.visitPrefixUnaryOperator(node, formatter, '-');
   }
 
   visitBitwiseNegate(node: ast.BitwiseNegate, formatter: Formatter): string {
-    return this.visitUnaryOperator(node, formatter, '~');
+    return this.visitPrefixUnaryOperator(node, formatter, '~');
   }
 
   visitPostIncrement(node: ast.PostIncrement, formatter: Formatter): string {
-    return this.visitUnaryOperator(node, formatter, '++');
+    return this.visitPostfixUnaryOperator(node, formatter, '++');
   }
 
   visitPostDecrement(node: ast.PostDecrement, formatter: Formatter): string {
-    return this.visitUnaryOperator(node, formatter, '--');
+    return this.visitPostfixUnaryOperator(node, formatter, '--');
   }
 
   // --------------------------------------------------------------------------

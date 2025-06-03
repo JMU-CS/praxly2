@@ -502,7 +502,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     } else if (Type.Integer.covers(operandFruit.type)) {
       return new Fruit(Type.Float, operandFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.ArithmeticNegate)} can only be applied to numbers.`, node.where);
+      throw new error.TypeError(`${this.symbol(ast.ArithmeticNegate)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -511,7 +511,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (Type.Integer.covers(operandFruit.type)) {
       return new Fruit(Type.Integer, ~operandFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.BitwiseNegate)} can only be applied to integers.`, node.where);
+      throw new error.TypeError(`${this.symbol(ast.BitwiseNegate)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -524,7 +524,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     } else if (fruit.type.equals(Type.Float)) {
       unincrementedPrimitive = new ast.Float(fruit.value, Where.Nowhere);
     } else {
-      throw new error.WhereError('Only ints and floats can be incremented.', node.where);
+      throw new error.TypeError('Only ints and floats can be incremented.', node.where);
     }
     new ast.Assignment(node.operandNode, new ast.Add(unincrementedPrimitive, new ast.Integer(1, Where.Nowhere), Where.Nowhere), Where.Nowhere).visit(this, runtime);
     return fruit;
@@ -539,7 +539,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     } else if (fruit.type.equals(Type.Float)) {
       unincrementedPrimitive = new ast.Float(fruit.value, Where.Nowhere);
     } else {
-      throw new error.WhereError('Only ints and floats can be incremented.', node.where);
+      throw new error.TypeError('Only ints and floats can be incremented.', node.where);
     }
     new ast.Assignment(node.operandNode, new ast.Subtract(unincrementedPrimitive, new ast.Integer(1, Where.Nowhere), Where.Nowhere), Where.Nowhere).visit(this, runtime);
     return fruit;
