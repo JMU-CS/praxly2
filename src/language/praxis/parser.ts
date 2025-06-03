@@ -720,7 +720,7 @@ class PraxisParser extends Parser {
 
   postfixUnary(): ast.Expression {
     let leftNode = this.instantiate();
-    while (this.hasAny(TokenType.LeftBracket, TokenType.Period)) {
+    while (this.hasAny(TokenType.LeftBracket, TokenType.Period, TokenType.PlusPlus, TokenType.HyphenHyphen)) {
       const operatorToken = this.advance();
       if (operatorToken.type === TokenType.LeftBracket) {
         const indexNode = this.expression();
@@ -729,6 +729,10 @@ class PraxisParser extends Parser {
         }
         const rightToken = this.advance();
         leftNode = new ast.ArraySubscript(leftNode, indexNode, Where.enclose(leftNode.where, rightToken.where));
+      } else if (operatorToken.type === TokenType.PlusPlus) {
+        leftNode = new ast.PostIncrement(leftNode, Where.enclose(leftNode.where, operatorToken.where));
+      } else if (operatorToken.type === TokenType.HyphenHyphen) {
+        leftNode = new ast.PostDecrement(leftNode, Where.enclose(leftNode.where, operatorToken.where));
       } else {
         if (this.has(TokenType.Identifier)) {
           const propertyToken = this.advance() as TextToken;

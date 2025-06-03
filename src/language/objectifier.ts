@@ -59,6 +59,14 @@ export class Objectifier extends Visitor<Object, Object> {
     return this.visitUnaryOperator(node, payload, 'bitwise-negate');
   }
 
+  visitPostIncrement(node: ast.PostIncrement, payload: Object): Object {
+    return this.visitUnaryOperator(node, payload, 'post-increment');
+  }
+
+  visitPostDecrement(node: ast.PostDecrement, payload: Object): Object {
+    return this.visitUnaryOperator(node, payload, 'post-decrement');
+  }
+
   // --------------------------------------------------------------------------
   // Binary Operators
   // --------------------------------------------------------------------------

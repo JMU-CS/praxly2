@@ -85,6 +85,14 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
     return this.visitUnaryOperator(node, formatter, '~');
   }
 
+  visitPostIncrement(node: ast.PostIncrement, formatter: Formatter): string {
+    return this.visitUnaryOperator(node, formatter, '++');
+  }
+
+  visitPostDecrement(node: ast.PostDecrement, formatter: Formatter): string {
+    return this.visitUnaryOperator(node, formatter, '--');
+  }
+
   // --------------------------------------------------------------------------
   // Binary Operators
   // --------------------------------------------------------------------------

@@ -12,6 +12,8 @@ export abstract class Visitor<P, R> {
   abstract visitLogicalNegate(node: ast.LogicalNegate, payload: P): R;
   abstract visitArithmeticNegate(node: ast.ArithmeticNegate, payload: P): R;
   abstract visitBitwiseNegate(node: ast.BitwiseNegate, payload: P): R;
+  abstract visitPostIncrement(node: ast.PostIncrement, payload: P): R;
+  abstract visitPostDecrement(node: ast.PostDecrement, payload: P): R;
 
   // Binary operators
   abstract visitAdd(node: ast.Add, payload: P): R;

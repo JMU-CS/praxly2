@@ -29,7 +29,11 @@ class PraxisLexer extends Lexer {
     } else if (this.accept(';')) {
       this.emitToken(TokenType.Semicolon);
     } else if (this.accept('+')) {
-      this.emitToken(TokenType.Plus);
+      if (this.accept('+')) {
+        this.emitToken(TokenType.PlusPlus);
+      } else {
+        this.emitToken(TokenType.Plus);
+      }
     } else if (this.accept('%')) {
       this.emitToken(TokenType.Percent);
     } else if (this.accept('(')) {
@@ -122,7 +126,11 @@ class PraxisLexer extends Lexer {
         this.lexNumber();
       } else {
         this.advance();
-        this.emitToken(TokenType.Hyphen);
+        if (this.accept('-')) {
+          this.emitToken(TokenType.HyphenHyphen);
+        } else {
+          this.emitToken(TokenType.Hyphen);
+        }
       }
     } else {
       throw new LexError(`The program contains an unexpected character: \`${this.source[this.i]}\`.`, new Where(this.i, this.i + 1));

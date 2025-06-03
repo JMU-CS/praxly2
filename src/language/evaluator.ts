@@ -515,6 +515,37 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     }
   }
 
+  visitPostIncrement(node: ast.PostIncrement, runtime: Runtime): Fruit {
+    // x++ is just syntactic sugar for x = x + 1.
+    const fruit = node.operandNode.visit(this, runtime);
+    let unincrementedPrimitive;
+    if (fruit.type.equals(Type.Integer)) {
+      unincrementedPrimitive = new ast.Integer(fruit.value, Where.Nowhere);
+    } else if (fruit.type.equals(Type.Float)) {
+      unincrementedPrimitive = new ast.Float(fruit.value, Where.Nowhere);
+    } else {
+      throw new error.WhereError('Only ints and floats can be incremented.', node.where);
+    }
+    new ast.Assignment(node.operandNode, new ast.Add(unincrementedPrimitive, new ast.Integer(1, Where.Nowhere), Where.Nowhere), Where.Nowhere).visit(this, runtime);
+    return fruit;
+  }
+
+  visitPostDecrement(node: ast.PostDecrement, runtime: Runtime): Fruit {
+    // x-- is just syntactic sugar for x = x - 1.
+    const fruit = node.operandNode.visit(this, runtime);
+    let unincrementedPrimitive;
+    if (fruit.type.equals(Type.Integer)) {
+      unincrementedPrimitive = new ast.Integer(fruit.value, Where.Nowhere);
+    } else if (fruit.type.equals(Type.Float)) {
+      unincrementedPrimitive = new ast.Float(fruit.value, Where.Nowhere);
+    } else {
+      throw new error.WhereError('Only ints and floats can be incremented.', node.where);
+    }
+    new ast.Assignment(node.operandNode, new ast.Subtract(unincrementedPrimitive, new ast.Integer(1, Where.Nowhere), Where.Nowhere), Where.Nowhere).visit(this, runtime);
+    return fruit;
+  }
+
+
   // --------------------------------------------------------------------------
   // Binary Operators
   // --------------------------------------------------------------------------

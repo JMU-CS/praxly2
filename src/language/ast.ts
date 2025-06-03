@@ -214,6 +214,18 @@ export class BitwiseNegate extends UnaryOperator {
   }
 }
 
+export class PostIncrement extends UnaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitPostIncrement(this, payload);
+  }
+}
+
+export class PostDecrement extends UnaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitPostDecrement(this, payload);
+  }
+}
+
 // --------------------------------------------------------------------------- 
 // Binary Operators
 // --------------------------------------------------------------------------- 
