@@ -253,7 +253,7 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
     let text = `if (${node.conditionNodes[0].visit(this, formatter)})\n`;
     text += node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     for (let i = 1; i < node.conditionNodes.length; ++i) {
-      text = `else if (${node.conditionNodes[i].visit(this, formatter)})\n`;
+      text += `else if (${node.conditionNodes[i].visit(this, formatter)})\n`;
       text += node.thenBlocks[i].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     }
     if (node.elseBlock) {

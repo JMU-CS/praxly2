@@ -244,6 +244,96 @@ print counts
 {100, 500}
 `,
     },
+    {
+      message: 'if-sans-else statement',
+      source: `int age \u2b60 18
+if (age ≥ 18)
+  print "vote"
+end if
+age--
+if (age ≥ 18)
+  print "vote"
+end if
+`,
+      output: `vote
+`,
+    },
+    {
+      message: 'if-else statement',
+      source: `int age \u2b60 18
+if (age ≥ 18)
+  print "vote"
+else
+  print "stay home"
+end if
+age--
+if (age ≥ 18)
+  print "vote"
+else
+  print "stay home"
+end if
+`,
+      output: `vote
+stay home
+`,
+    },
+    {
+      message: 'if-else-if statement',
+      source: `int age \u2b60 18
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+else
+  print "stay home"
+end if
+age \u2b60 12
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+else
+  print "stay home"
+end if
+age \u2b60 14
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+else
+  print "stay home"
+end if
+`,
+      output: `vote
+accompany
+stay home
+`,
+    },
+    {
+      message: 'if-else-if-sans-else statement',
+      source: `int age \u2b60 18
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+end if
+age \u2b60 12
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+end if
+age \u2b60 14
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+end if
+`,
+      output: `vote
+accompany
+`,
+    },
   ];
 
   for (let sample of samples) {
