@@ -32,12 +32,9 @@ class PraxisParser extends Parser {
     }
   }
 
-  type(): Type {
-    const scalarTypeToken = this.advance() as TextToken;
-    let type = new Type(scalarTypeToken.text, scalarTypeToken.where);
-
-    // Gobble up arrays.
-    while (this.has(TokenType.LeftBracket)) {
+  arrayType(elementType: Type): Type {
+    if (this.has(TokenType.LeftBracket)) {
+      let type;
       const leftToken = this.advance(); // eat [
 
       // See if there's a range.
@@ -53,14 +50,30 @@ class PraxisParser extends Parser {
           throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
         }
         const rightToken = this.advance(); // eat ]
-        type = new SizedArrayType(type, size, Where.enclose(type.where, rightToken.where));
+        return new SizedArrayType(this.arrayType(elementType), size, Where.enclose(elementType.where, rightToken.where));
       } else {
         if (!this.has(TokenType.RightBracket)) {
           throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
         }
         const rightToken = this.advance(); // eat ]
-        type = new ArrayType(type, null, Where.enclose(type.where, rightToken.where));
+        return new ArrayType(this.arrayType(elementType), null, Where.enclose(elementType.where, rightToken.where));
       }
+    } else {
+      return elementType;
+    }
+  }
+
+  type(): Type {
+    const scalarTypeToken = this.advance() as TextToken;
+    let type = new Type(scalarTypeToken.text, scalarTypeToken.where);
+
+    // int[0..2][0..1] is a 3-array of 2-arrays. Currently I'm parsing this as
+    // (int[0..2])[0..1]. But the brackets are right-associative. Can I parse
+    // this with a recursive helper?
+
+    // Gobble up arrays.
+    if (this.has(TokenType.LeftBracket)) {
+      type = this.arrayType(type);
     }
 
     return type;

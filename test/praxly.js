@@ -322,7 +322,7 @@ print counts[2]`,
     },
     {
       message: 'multidimensional initialization and access',
-      source: `int[0..2][0..1] nums = {{5, 3, 1}, {7, 4, 0}}
+      source: `int[0..1][0..2] nums = {{5, 3, 1}, {7, 4, 0}}
 print nums
 print nums.length
 print nums[0].length
@@ -337,7 +337,7 @@ print nums[1][2]`,
     },
     {
       message: 'mixed multidimensional initialization and access',
-      source: `int[0..2][] nums = {{5, 3, 1}, {7, 4, 0}, {3, 10, 20}}
+      source: `int[][0..2] nums = {{5, 3, 1}, {7, 4, 0}, {3, 10, 20}}
 print nums
 print nums.length
 print nums[0].length
@@ -356,7 +356,7 @@ print nums[2][2]`,
     },
     {
       message: 'mixed multidimensional initialization and access',
-      source: `int[][0..2] nums = {{5}, {7, 8}, {13, 14, 15}}
+      source: `int[0..2][] nums = {{5}, {7, 8}, {13, 14, 15}}
 print nums
 print nums.length
 print nums[0].length
@@ -443,12 +443,12 @@ xs[2] = 7`,
     },
     {
       message: 'multidimensional mismatched sizes',
-      source: `int[0..2][0..1] xs = {{5, 6}, {1, 3}}`,
+      source: `int[0..1][0..2] xs = {{5, 6}, {1, 3}}`,
       error: error.TypeError,
     },
     {
       message: 'ragged fixed-size multidimensional initialization and access',
-      source: `int[0..1][0..2] nums = {{5, 3}, {7, 4, 0}}`,
+      source: `int[0..2][0..1] nums = {{5, 3}, {7, 4, 0}}`,
       error: error.TypeError,
     },
   ];
