@@ -7,6 +7,11 @@ import {Type, ArrayType, SizedArrayType} from '../type.js';
 
 // https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf
 
+enum BlockMode {
+  Curly,
+  End,
+};
+
 class PraxisParser extends Parser {
   hasTwoIdentifiers() {
     return this.has(TokenType.Identifier) && this.hasAhead(TokenType.Identifier, 1);
@@ -207,13 +212,16 @@ class PraxisParser extends Parser {
     }
     const rightToken = this.advance(); // eat )
 
-    const block = this.indentedBlock(true, 'function definition', Where.enclose(firstWhere, rightToken.where), TokenType.End);
+    const [block, blockMode] = this.block(true, 'function definition', Where.enclose(firstWhere, rightToken.where), TokenType.End);
 
-    if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Identifier, 1) || (this.tokens[this.i + 1] as TextToken).text !== identifierToken.text) {
-      throw new ParseError(`The ${context} must be closed with \`end ${identifierToken.text}\`.`, block.where);
+    if (blockMode === BlockMode.End) {
+      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Identifier, 1) || (this.tokens[this.i + 1] as TextToken).text !== identifierToken.text) {
+        throw new ParseError(`The ${context} must be closed with \`end ${identifierToken.text}\`.`, block.where);
+      }
+      this.advance();
+      const endToken = this.advance();
+      // TODO: need lastWhere of end token?
     }
-    this.advance();
-    const endToken = this.advance();
 
     return {
       identifier: identifierToken.text,
@@ -228,7 +236,45 @@ class PraxisParser extends Parser {
     return new ast.FunctionDefinition(core.identifier, core.formals, type, core.block, Where.enclose(type.where, core.block.where));
   }
 
-  indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, ...endTokenTypes: TokenType[]) {
+  block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, ...endTokenTypes: TokenType[]): [ast.Block, BlockMode] {
+    if (this.has(TokenType.LeftCurly)) {
+      return [this.curlyBlock(inFunctionDefinition, contextLabel, contextWhere), BlockMode.Curly];
+    } else {
+      return [this.indentedBlock(inFunctionDefinition, contextLabel, contextWhere, endTokenTypes), BlockMode.End]
+    }
+  }
+
+  curlyBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where) {
+    const leftToken = this.advance(); // eat {
+
+    if (!this.has(TokenType.Linebreak)) {
+      throw new ParseError(`A linebreak is missing after the header of this ${contextLabel}.`, contextWhere);
+    }
+    this.advance();
+
+    let statements = [];
+    if (this.has(TokenType.Indent)) {
+      const indentToken = this.advance();
+      while (!this.has(TokenType.Unindent)) {
+        const statement = this.statement(inFunctionDefinition);
+        statements.push(statement);
+      }
+
+      if (!this.has(TokenType.Unindent)) {
+        throw new ParseError(`The block in this ${contextLabel} doesn't end.`, contextWhere);
+      }
+      this.advance();
+    }
+
+    if (!this.has(TokenType.RightCurly)) {
+      throw new ParseError(`The block in this ${contextLabel} must be closed with \`}\`.`, contextWhere);
+    }
+    const rightToken = this.advance(); // eat }
+
+    return new ast.Block(statements, Where.enclose(leftToken.where, rightToken.where));
+  }
+
+  indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, endTokenTypes: TokenType[]) {
     if (!this.has(TokenType.Linebreak)) {
       throw new ParseError(`A linebreak is missing after the header of this ${contextLabel}.`, contextWhere);
     }
@@ -398,7 +444,10 @@ class PraxisParser extends Parser {
 
     const ifToken = this.advance();
     const conditionNode = this.parenthesizedExpression(ifToken.where, "An if statement's condition").node;
-    const thenBlock = this.indentedBlock(inFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
+    let thenBlock;
+    let blockMode;
+    [thenBlock, blockMode] = this.block(inFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
+    let lastWhere = thenBlock.where;
     conditionNodes.push(conditionNode);
     thenBlocks.push(thenBlock);
 
@@ -406,7 +455,8 @@ class PraxisParser extends Parser {
       this.advance(); // eat else
       const ifToken = this.advance();
       const conditionNode = this.parenthesizedExpression(ifToken.where, "An else-if statement's condition").node;
-      const thenBlock = this.indentedBlock(inFunctionDefinition, 'else-if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
+      [thenBlock, blockMode] = this.block(inFunctionDefinition, 'else-if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
+      lastWhere = thenBlock.where;
       conditionNodes.push(conditionNode);
       thenBlocks.push(thenBlock);
     }
@@ -414,35 +464,44 @@ class PraxisParser extends Parser {
     let elseBlock = null;
     if (this.has(TokenType.Else)) {
       const elseToken = this.advance();
-      elseBlock = this.indentedBlock(inFunctionDefinition, 'else branch', elseToken.where, TokenType.End);
+      [elseBlock, blockMode] = this.block(inFunctionDefinition, 'else branch', elseToken.where, TokenType.End);
+      lastWhere = elseBlock.where;
     }
 
-    if (!this.has(TokenType.End) || !this.hasAhead(TokenType.If, 1)) {
-      throw new ParseError(`The if statement must be closed with \`end if\`.`, Where.enclose(ifToken.where, elseBlock ? elseBlock.where : thenBlock.where));
+    if (blockMode === BlockMode.End) {
+      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.If, 1)) {
+        throw new ParseError(`The if statement must be closed with \`end if\`.`, Where.enclose(ifToken.where, lastWhere));
+      }
+      this.advance();
+      const endToken = this.advance();
+      lastWhere = endToken.where;
     }
-    this.advance();
-    const endToken = this.advance();
 
-    return new ast.If(conditionNodes, thenBlocks, elseBlock, Where.enclose(ifToken.where, endToken.where));
+    return new ast.If(conditionNodes, thenBlocks, elseBlock, Where.enclose(ifToken.where, lastWhere));
   }
 
   whileStatement(inFunctionDefinition: boolean): ast.Statement {
     const whileToken = this.advance();
     const conditionNode = this.parenthesizedExpression(whileToken.where, "A while statement's condition").node;
 
-    const block = this.indentedBlock(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where), TokenType.End);
+    const [block, blockMode] = this.block(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where), TokenType.End);
+    let lastWhere = block.where;
 
-    if (!this.has(TokenType.End) || !this.hasAhead(TokenType.While, 1)) {
-      throw new ParseError(`The loop must be closed with \`end while\`.`, block.where);
+    if (blockMode === BlockMode.End) {
+      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.While, 1)) {
+        throw new ParseError(`The loop must be closed with \`end while\`.`, block.where);
+      }
+      this.advance();
+      const endToken = this.advance();
+      lastWhere = endToken.where;
     }
-    this.advance();
-    const endToken = this.advance();
 
-    return new ast.While(conditionNode, block, Where.enclose(whileToken.where, endToken.where));
+    return new ast.While(conditionNode, block, Where.enclose(whileToken.where, lastWhere));
   }
 
   forStatement(inFunctionDefinition: boolean): ast.Statement {
     const forToken = this.advance();
+    let lastWhere = forToken.where;
 
     if (!this.has(TokenType.LeftParenthesis)) {
       throw new ParseError('The for loop is missing a left parenthesis in its header.', forToken.where);
@@ -452,12 +511,14 @@ class PraxisParser extends Parser {
     let initializationNode = null;
     if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.Equal, 2)) {
       initializationNode = this.initializedDeclaration();
+      lastWhere = initializationNode.where;
     } else if (this.hasOtherwise(TokenType.Semicolon)) {
       initializationNode = this.otherStatement();
+      lastWhere = initializationNode.where;
     }
 
     if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("The for loop is missing a semicolon between its initialization and condition.", initializationNode?.where ?? forToken.where);
+      throw new ParseError("The for loop is missing a semicolon between its initialization and condition.", lastWhere);
     }
     this.advance(); // eat ;
 
@@ -479,26 +540,31 @@ class PraxisParser extends Parser {
 
     const incrementBlockWhere = increments.length === 0 ? semicolonTokenB.where : Where.enclose(increments[0].where, increments[increments.length - 1].where);
     const incrementBlock = new ast.Block(increments, incrementBlockWhere);
+    lastWhere = incrementBlockWhere;
 
     if (!this.has(TokenType.RightParenthesis)) {
-      throw new ParseError("The for loop is missing a right parenthesis in its header.", Where.enclose(forToken.where, incrementBlock.where));
+      throw new ParseError("The for loop is missing a right parenthesis in its header.", Where.enclose(forToken.where, lastWhere));
     }
     const rightToken = this.advance(); // eat )
 
-    const block = this.indentedBlock(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where), TokenType.End);
+    const [block, blockMode] = this.block(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where), TokenType.End);
+    lastWhere = block.where;
 
-    if (!this.has(TokenType.End) || !this.hasAhead(TokenType.For, 1)) {
-      throw new ParseError(`The loop must be closed with \`end for\`.`, block.where);
+    if (blockMode === BlockMode.End) {
+      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.For, 1)) {
+        throw new ParseError(`The loop must be closed with \`end for\`.`, block.where);
+      }
+      this.advance();
+      const endToken = this.advance();
+      lastWhere = endToken.where;
     }
-    this.advance();
-    const endToken = this.advance();
 
-    return new ast.For(initializationNode, conditionNode, incrementBlock, block, Where.enclose(forToken.where, endToken.where));
+    return new ast.For(initializationNode, conditionNode, incrementBlock, block, Where.enclose(forToken.where, lastWhere));
   }
 
   doStatement(inFunctionDefinition: boolean): ast.Statement {
     const doToken = this.advance();
-    const block = this.indentedBlock(inFunctionDefinition, 'do-while loop', doToken.where, TokenType.While);
+    const [block, _] = this.block(inFunctionDefinition, 'do-while loop', doToken.where, TokenType.While);
 
     if (!this.has(TokenType.While)) {
       throw new ParseError(`The loop must be closed with \`while\` and a condition.`, block.where);
@@ -512,7 +578,7 @@ class PraxisParser extends Parser {
 
   repeatStatement(inFunctionDefinition: boolean): ast.Statement {
     const repeatToken = this.advance();
-    const block = this.indentedBlock(inFunctionDefinition, 'repeat-until loop', repeatToken.where, TokenType.Until);
+    const [block, _] = this.block(inFunctionDefinition, 'repeat-until loop', repeatToken.where, TokenType.Until);
 
     if (!this.has(TokenType.Until)) {
       throw new ParseError(`The loop must be closed with \`until\` and a condition.`, block.where);
