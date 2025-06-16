@@ -78,18 +78,22 @@ function initialize() {
       const tokens = lexPraxis(source);
       const ast = parsePraxis(tokens, source);
 
+      // Update tree-panel
       const object = ast.visit(new Objectifier(), {});
       treePanel.innerText = JSON.stringify(object, null, 2);
 
+      // Update source-panel
       const generatedSource = ast.visit(new PraxisGenerator(), {
         nestingLevel: 0,
         indentation: '  ',
       });
       sourcePanel.innerText = generatedSource;
 
+      // Update output-panel
       const runtime = new GlobalRuntime();
       ast.visit(new Evaluator(praxisSymbolMap), runtime);
       outputPanel.innerText = runtime.stdout;
+
     } catch (e) {
       if (e instanceof Error) {
         if (e instanceof WhereError) {

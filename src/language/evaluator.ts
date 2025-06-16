@@ -5,6 +5,7 @@ import * as error from './error.js';
 import {Where} from './where.js';
 import type {NodeClass, SymbolMap} from './symbol-map.js';
 import {Type, ArrayType, SizedArrayType, NumberType, UnionType, ObjectType, typeMap, Fruit} from './type.js';
+import * as memdia from './memdia.js';
 
 class FormalEntry {
   identifier: string;
@@ -807,6 +808,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     if (node.leftNode instanceof ast.Variable) {
       const identifier = node.leftNode.identifier;
       this.assignVariable('Variable', node.where, identifier, rightFruit, runtime);
+      memdia.assignment(identifier, rightFruit);
     } else if (node.leftNode instanceof ast.ArraySubscript) {
       const receiverFruit = node.leftNode.arrayNode.visit(this, runtime);
       if (!(receiverFruit.type instanceof ArrayType)) {
@@ -847,10 +849,12 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
     }
 
     runtime.declareVariable(node.identifier, node.variableType);
+    memdia.declaration(node.identifier, node.variableType);
 
     if (node.rightNode) {
       const rightFruit = node.rightNode.visit(this, runtime);
       this.assignVariable('Variable', node.where, node.identifier, rightFruit, runtime);
+      memdia.assignment(node.identifier, rightFruit);
     }
 
     return new Fruit(Type.Void);
@@ -1142,7 +1146,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
     if (classFruit.instanceVariableEntries.has(node.identifier)) {
       throw new error.WhereError(`Variable ${node.identifier} has already been declared.`, node.where);
-    }    
+    }
 
     const visibility = node.visibility ?? ast.Visibility.Public;
     classFruit.instanceVariableEntries.set(node.identifier, new InstanceVariableEntry(node.variableType, visibility));
@@ -1155,7 +1159,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
 
     if (classFruit.instanceMethodEntries.has(node.identifier)) {
       throw new error.WhereError(`Method ${node.identifier} has already been defined.`, node.where);
-    }    
+    }
 
     const formalEntries = node.formals.map(formal => new FormalEntry(formal.identifier, formal.type));
 

@@ -25,7 +25,7 @@
   flex-grow: 1;
 }
 
-#tree-panel, #source-panel, #output-panel {
+#tree-panel, #source-panel, #output-panel, #memdia-panel {
   padding: 10px;
   font-family: monospace;
   overflow-y: scroll;
