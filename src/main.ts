@@ -19,6 +19,13 @@ import {praxis} from './language/praxis/highlighter.js';
 import {praxlyTheme} from './praxly-theme.js';
 
 function initialize() {
+  const match = window.location.pathname.match(/\/([^\/]+)\.html$/);
+  const page = match ? match[1] : null;
+  if (page !== "sandbox") {
+    // TODO support other entry points
+    return;
+  }
+
   const runButton = document.getElementById('run-button') as HTMLInputElement;
   const treePanel = document.getElementById('tree-panel') as HTMLElement;
   const outputPanel = document.getElementById('output-panel') as HTMLElement;
