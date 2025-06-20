@@ -39,15 +39,18 @@ export abstract class Node {
 }
 
 export abstract class Statement extends Node {
+  hasSemicolon: boolean;
+
   constructor(where: Where) {
     super(where);
+    this.hasSemicolon = false;
   }
 }
 
 export class Block extends Node {
-  statements: (Statement|Expression)[];
+  statements: Statement[];
 
-  constructor(statements: (Statement|Expression)[], where: Where) {
+  constructor(statements: Statement[], where: Where) {
     super(where);
     this.statements = statements;
   }
@@ -79,6 +82,38 @@ export class Blank extends Statement {
     return visitor.visitBlank(this, payload);
   }
 }
+
+export class Print extends Statement {
+  operandNode: Node;
+  trailer: string;
+
+  constructor(operandNode: Node, trailer: string, where: Where) {
+    super(where);
+    this.operandNode = operandNode;
+    this.trailer = trailer;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitPrint(this, payload);
+  }
+}
+
+export class ExpressionStatement extends Statement {
+  expressionNode: Node;
+
+  constructor(expressionNode: Node) {
+    super(expressionNode.where);
+    this.expressionNode = expressionNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitExpressionStatement(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
+// Variables
+// --------------------------------------------------------------------------- 
 
 export class Assignment extends Statement {
   leftNode: Node;
@@ -122,21 +157,6 @@ export class Variable extends Expression {
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
     return visitor.visitVariable(this, payload);
-  }
-}
-
-export class Print extends Statement {
-  operandNode: Node;
-  trailer: string;
-
-  constructor(operandNode: Node, trailer: string, where: Where) {
-    super(where);
-    this.operandNode = operandNode;
-    this.trailer = trailer;
-  }
-
-  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
-    return visitor.visitPrint(this, payload);
   }
 }
 
@@ -193,6 +213,12 @@ export abstract class UnaryOperator extends Expression {
   constructor(operandNode: Node, where: Where) {
     super(where);
     this.operandNode = operandNode;
+  }
+}
+
+export class Association extends UnaryOperator {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitAssociation(this, payload);
   }
 }
 

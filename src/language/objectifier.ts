@@ -47,6 +47,10 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
+  visitAssociation(node: ast.Association, payload: Object): Object {
+    return this.visitUnaryOperator(node, payload, 'association');
+  }
+
   visitLogicalNegate(node: ast.LogicalNegate, payload: Object): Object {
     return this.visitUnaryOperator(node, payload, 'logical-negate');
   }
@@ -159,6 +163,14 @@ export class Objectifier extends Visitor<Object, Object> {
   // --------------------------------------------------------------------------
   // Variables
   // --------------------------------------------------------------------------
+
+  visitExpressionStatement(node: ast.ExpressionStatement, payload: Object): Object {
+    return {
+      type: 'expression-statement',
+      expression: node.expressionNode.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
 
   visitBlank(node: ast.Blank, _payload: Object): Object {
     return {

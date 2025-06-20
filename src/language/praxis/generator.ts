@@ -83,6 +83,12 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
     return text;
   }
 
+  visitAssociation(node: ast.Association, formatter: Formatter): string {
+    let operandText = node.operandNode.visit(this, formatter);
+    let text = `(${operandText})`;
+    return text;
+  }
+
   visitLogicalNegate(node: ast.LogicalNegate, formatter: Formatter): string {
     return this.visitPrefixUnaryOperator(node, formatter, 'not ');
   }
@@ -223,8 +229,15 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
   // Variables
   // --------------------------------------------------------------------------
 
+  maybeSemicolon(node: ast.Statement, text: string): string {
+    if (node.hasSemicolon) {
+      text += ';';
+    }
+    return text;
+  }
+
   visitAssignment(node: ast.Assignment, formatter: Formatter): string {
-    return `${node.leftNode.visit(this, formatter)} ${LEFT_ARROW} ${node.rightNode.visit(this, formatter)}`;
+    return this.maybeSemicolon(node, `${node.leftNode.visit(this, formatter)} ${LEFT_ARROW} ${node.rightNode.visit(this, formatter)}`);
   }
 
   visitDeclaration(node: ast.Declaration, formatter: Formatter): string {
@@ -232,7 +245,7 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
     if (node.rightNode) {
       text += ` ${LEFT_ARROW} ${node.rightNode.visit(this, formatter)}`;
     }
-    return text;
+    return this.maybeSemicolon(node, text);
   }
 
   visitVariable(node: ast.Variable, _formatter: Formatter): string {
@@ -246,7 +259,7 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
   }
 
   visitPrint(node: ast.Print, formatter: Formatter): string {
-    return `print ${node.operandNode.visit(this, formatter)}`;
+    return this.maybeSemicolon(node, `print ${node.operandNode.visit(this, formatter)}`);
   }
 
   visitIf(node: ast.If, formatter: Formatter): string {
@@ -296,6 +309,11 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
     return text;
   }
 
+  visitExpressionStatement(node: ast.ExpressionStatement, formatter: Formatter): string {
+    let text = node.expressionNode.visit(this, formatter);
+    return this.maybeSemicolon(node, text);
+  }
+
   visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
     let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
@@ -312,7 +330,7 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
     if (node.operandNode) {
       text += ` ${node.operandNode.visit(this, formatter)}`;
     }
-    return text;
+    return this.maybeSemicolon(node, text);
   }
 
   // --------------------------------------------------------------------------

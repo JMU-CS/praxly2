@@ -487,6 +487,10 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
   // Unary Operators
   // --------------------------------------------------------------------------
 
+  visitAssociation(node: ast.Association, runtime: Runtime): Fruit {
+    return node.operandNode.visit(this, runtime);
+  }
+
   visitLogicalNegate(node: ast.LogicalNegate, runtime: Runtime): Fruit {
     const operandFruit = node.operandNode.visit(this, runtime);
     if (operandFruit.type === Type.Boolean) {
@@ -891,7 +895,7 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         fruit.type instanceof ObjectType) {
       runtime.globalRuntime.stdout += fruit.type.serializeValue(fruit.value) + node.trailer;
     } else {
-      console.log("fruit.type:", fruit.type);
+      // console.log("fruit.type:", fruit.type);
       throw new error.WhereError('Only values may be printed.', node.where);
     }
     return new Fruit(Type.Void);
@@ -981,6 +985,11 @@ export class Evaluator extends Visitor<Runtime, Fruit> {
         throw new error.WhereError('A condition must yield a boolean value.', node.conditionNode.where);
       }
     }
+    return new Fruit(Type.Void);
+  }
+
+  visitExpressionStatement(node: ast.ExpressionStatement, runtime: Runtime): Fruit {
+    node.expressionNode.visit(this, runtime);
     return new Fruit(Type.Void);
   }
 

@@ -175,7 +175,7 @@ describe('Praxis: Program Generation and Output', () => {
     {
       message: 'print compound expression',
       source: 'print (7 * (3 + 1))',
-      serialization: "print 7 * (3 + 1)\n",
+      serialization: "print (7 * (3 + 1))\n",
       output: "28\n",
     },
     {

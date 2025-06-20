@@ -84,7 +84,7 @@ class PraxisParser extends Parser {
     return type;
   }
 
-  topLevelStatement(): ast.Statement | ast.Expression {
+  topLevelStatement(): ast.Statement {
     if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.LeftParenthesis, 2)) {
       const defineNode = this.functionDefinition();
       this.statementLinebreak();
@@ -308,7 +308,7 @@ class PraxisParser extends Parser {
     }
   } 
 
-  statement(inFunctionDefinition: boolean): ast.Statement | ast.Expression {
+  statement(inFunctionDefinition: boolean): ast.Statement {
     let statement;
 
     if (this.has(TokenType.If)) {
@@ -340,6 +340,11 @@ class PraxisParser extends Parser {
       statement = this.returnStatement(inFunctionDefinition);
     } else {
       statement = this.otherStatement();
+    }
+
+    if (this.has(TokenType.Semicolon)) {
+      const semicolonToken = this.advance();
+      statement.hasSemicolon = true;
     }
 
     // Skip past any trailing comment.
@@ -610,14 +615,14 @@ class PraxisParser extends Parser {
     return new ast.Print(parameterNode, trailer, Where.enclose(printToken.where, parameterNode.where));
   }
 
-  otherStatement(): ast.Statement | ast.Expression {
+  otherStatement(): ast.Statement {
     const expression = this.expression();
     if (this.has(TokenType.Equal)) {
       this.advance();
       const rightExpression = this.expression();
       return new ast.Assignment(expression, rightExpression, Where.enclose(expression.where, rightExpression.where));
     } else {
-      return expression;
+      return new ast.ExpressionStatement(expression);
     }
   }
 
@@ -899,14 +904,13 @@ class PraxisParser extends Parser {
     } else if (this.has(TokenType.LeftCurly)) {
       return this.arrayLiteral();
     } else if (this.has(TokenType.LeftParenthesis)) {
-      const leftParenthesisToken = this.advance();
+      const leftToken = this.advance();
       const expression = this.expression();
       if (!this.has(TokenType.RightParenthesis)) {
-        throw new ParseError('A right parenthesis is missing.', Where.enclose(leftParenthesisToken.where, expression.where));
+        throw new ParseError('A right parenthesis is missing.', Where.enclose(leftToken.where, expression.where));
       }
       const rightToken = this.advance(); // eat )
-      expression.where = Where.enclose(expression.where, rightToken.where);
-      return expression;
+      return new ast.Association(expression, Where.enclose(leftToken.where, rightToken.where));
     } else {
       if (this.i < this.tokens.length) {
         throw new ParseError(`An unexpected token was encountered: ${this.tokens[this.i].toPretty(this.source)}.`, this.tokens[this.i].where);

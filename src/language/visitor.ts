@@ -9,6 +9,7 @@ export abstract class Visitor<P, R> {
   abstract visitString(node: ast.String, payload: P): R;
 
   // Unary operators
+  abstract visitAssociation(node: ast.Association, payload: P): R;
   abstract visitLogicalNegate(node: ast.LogicalNegate, payload: P): R;
   abstract visitArithmeticNegate(node: ast.ArithmeticNegate, payload: P): R;
   abstract visitBitwiseNegate(node: ast.BitwiseNegate, payload: P): R;
@@ -47,6 +48,7 @@ export abstract class Visitor<P, R> {
   abstract visitDoWhile(node: ast.DoWhile, payload: P): R;
   abstract visitRepeatUntil(node: ast.RepeatUntil, payload: P): R;
   abstract visitFor(node: ast.For, payload: P): R;
+  abstract visitExpressionStatement(node: ast.ExpressionStatement, payload: P): R;
 
   // Weirdos
   abstract visitBlank(node: ast.Blank, payload: P): R;

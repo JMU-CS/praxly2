@@ -58,6 +58,7 @@ precedence.set(ast.Integer, Level.Apex);
 precedence.set(ast.Float, Level.Apex);
 precedence.set(ast.Boolean, Level.Apex);
 precedence.set(ast.String, Level.Apex);
+precedence.set(ast.Association, Level.Apex);
 
 export enum Associativity {
   Left,
