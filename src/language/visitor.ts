@@ -38,9 +38,7 @@ export abstract class Visitor<P, R> {
   abstract visitRightShift(node: ast.RightShift, payload: P): R;
 
   // Statements
-  abstract visitAssignment(node: ast.Assignment, payload: P): R;
-  abstract visitDeclaration(node: ast.Declaration, payload: P): R;
-  abstract visitVariable(node: ast.Variable, payload: P): R;
+  abstract visitExpressionStatement(node: ast.ExpressionStatement, payload: P): R;
   abstract visitBlock(node: ast.Block, payload: P): R;
   abstract visitPrint(node: ast.Print, payload: P): R;
   abstract visitIf(node: ast.If, payload: P): R;
@@ -48,21 +46,21 @@ export abstract class Visitor<P, R> {
   abstract visitDoWhile(node: ast.DoWhile, payload: P): R;
   abstract visitRepeatUntil(node: ast.RepeatUntil, payload: P): R;
   abstract visitFor(node: ast.For, payload: P): R;
-  abstract visitExpressionStatement(node: ast.ExpressionStatement, payload: P): R;
 
-  // Weirdos
-  abstract visitBlank(node: ast.Blank, payload: P): R;
-  abstract visitLineComment(node: ast.LineComment, payload: P): R;
-
-  // Functions
-  abstract visitFunctionDefinition(node: ast.FunctionDefinition, payload: P): R;
-  abstract visitFunctionCall(node: ast.FunctionCall, payload: P): R;
-  abstract visitReturn(node: ast.Return, payload: P): R;
+  // Variables
+  abstract visitAssignment(node: ast.Assignment, payload: P): R;
+  abstract visitDeclaration(node: ast.Declaration, payload: P): R;
+  abstract visitVariable(node: ast.Variable, payload: P): R;
 
   // Arrays
   abstract visitArrayLiteral(node: ast.ArrayLiteral, payload: P): R;
   abstract visitArrayDeclaration(node: ast.ArrayDeclaration, payload: P): R;
   abstract visitArraySubscript(node: ast.ArraySubscript, payload: P): R;
+
+  // Functions
+  abstract visitFunctionDefinition(node: ast.FunctionDefinition, payload: P): R;
+  abstract visitFunctionCall(node: ast.FunctionCall, payload: P): R;
+  abstract visitReturn(node: ast.Return, payload: P): R;
 
   // Classes
   abstract visitClassDefinition(node: ast.ClassDefinition, payload: P): R;
@@ -71,4 +69,8 @@ export abstract class Visitor<P, R> {
   abstract visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, payload: P): R;
   abstract visitInstantiation(node: ast.Instantiation, payload: P): R;
   abstract visitMember(node: ast.Member, payload: P): R;
+
+  // Weirdos
+  abstract visitBlank(node: ast.Blank, payload: P): R;
+  abstract visitLineComment(node: ast.LineComment, payload: P): R;
 }

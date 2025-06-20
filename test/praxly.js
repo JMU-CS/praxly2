@@ -147,7 +147,7 @@ describe('Praxis: Expression Generation and Evaluation', () => {
   ];
 
   for (let sample of samples) {
-    describe(sample.source, () => {
+    describe(sample.source, async () => {
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxisExpression(tokens, sample.source);
 
@@ -158,7 +158,7 @@ describe('Praxis: Expression Generation and Evaluation', () => {
       it(`should serialize to ${sample.serialization}`, () => assert.equal(generatedSource, sample.serialization));
 
       const runtime = new GlobalRuntime();
-      const fruit = ast.visit(new Evaluator(praxisSymbolMap), runtime);
+      const fruit = await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       it(`should evaluate to ${sample.evaluation}`, () => assert.deepStrictEqual(fruit, sample.evaluation));
     });
   }
@@ -337,7 +337,7 @@ accompany
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, () => {
+    describe(`// ${sample.message}\n${sample.source}`, async () => {
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxis(tokens, sample.source);
 
@@ -349,7 +349,7 @@ accompany
       it(`should serialize to\n${expectedSerialization}`, () => assert.equal(generatedSource, expectedSerialization));
 
       const runtime = new GlobalRuntime();
-      ast.visit(new Evaluator(praxisSymbolMap), runtime);
+      await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
     });
   }
@@ -384,12 +384,12 @@ print 6\n`,
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, () => {
+    describe(`// ${sample.message}\n${sample.source}`, async () => {
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxis(tokens, sample.source);
 
       const runtime = new GlobalRuntime();
-      ast.visit(new Evaluator(praxisSymbolMap), runtime);
+      await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
     });
   }
@@ -516,12 +516,12 @@ print nums[2][2]`,
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, () => {
+    describe(`// ${sample.message}\n${sample.source}`, async () => {
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxis(tokens, sample.source);
 
       const runtime = new GlobalRuntime();
-      ast.visit(new Evaluator(praxisSymbolMap), runtime);
+      await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
     });
   }
@@ -536,14 +536,14 @@ describe('Praxis: Parse Errors', () => {
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, () => {
-      const evaluate = () => {
+    describe(`// ${sample.message}\n${sample.source}`, async () => {
+      const evaluate = async () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);
         const runtime = new GlobalRuntime();
-        ast.visit(new Evaluator(praxisSymbolMap), runtime);
+        await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       };
-      it(`should error on ${sample.message}`, () => assert.throws(evaluate, error.ParseError));
+      it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.ParseError));
     });
   }
 });
@@ -597,14 +597,14 @@ xs[2] = 7`,
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, () => {
-      const evaluate = () => {
+    describe(`// ${sample.message}\n${sample.source}`, async () => {
+      const evaluate = async () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);
         const runtime = new GlobalRuntime();
-        ast.visit(new Evaluator(praxisSymbolMap), runtime);
+        await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       };
-      it(`should error on ${sample.message}`, () => assert.throws(evaluate, sample.error));
+      it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
     });
   }
 });
@@ -624,14 +624,14 @@ s++`,
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, () => {
-      const evaluate = () => {
+    describe(`// ${sample.message}\n${sample.source}`, async () => {
+      const evaluate = async () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);
         const runtime = new GlobalRuntime();
-        ast.visit(new Evaluator(praxisSymbolMap), runtime);
+        await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       };
-      it(`should error on ${sample.message}`, () => assert.throws(evaluate, error.TypeError));
+      it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.TypeError));
     });
   }
 });

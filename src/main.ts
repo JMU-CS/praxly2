@@ -74,7 +74,7 @@ function initialize() {
     });
   }
 
-  runButton.addEventListener('click', () => {
+  runButton.addEventListener('click', async () => {
     outputPanel.innerText = '';
 
     const source = editorView.state.doc.toString();
@@ -98,7 +98,7 @@ function initialize() {
 
       // Update output-panel
       const runtime = new GlobalRuntime();
-      ast.visit(new Evaluator(praxisSymbolMap), runtime);
+      await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       outputPanel.innerText = runtime.stdout;
 
     } catch (e) {

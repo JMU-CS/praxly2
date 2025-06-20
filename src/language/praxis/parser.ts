@@ -599,6 +599,12 @@ class PraxisParser extends Parser {
     const printToken = this.advance();
     const parameterNode = this.expression();
 
+    let hasSemicolon = false;
+    if (this.has(TokenType.Semicolon)) {
+      const semicolonToken = this.advance();
+      hasSemicolon = true;
+    }
+
     // In Praxly, what character comes after the print is determined by a
     // trailing comment. The comment text may be "space" or "nothing". Any
     // other text leads to linebreak.
@@ -612,7 +618,10 @@ class PraxisParser extends Parser {
       }
     }
 
-    return new ast.Print(parameterNode, trailer, Where.enclose(printToken.where, parameterNode.where));
+    let statement = new ast.Print(parameterNode, trailer, Where.enclose(printToken.where, parameterNode.where));
+    statement.hasSemicolon = hasSemicolon;
+
+    return statement;
   }
 
   otherStatement(): ast.Statement {
