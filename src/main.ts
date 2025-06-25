@@ -4,7 +4,6 @@ import {history, defaultKeymap, historyKeymap} from '@codemirror/commands';
 import {searchKeymap} from '@codemirror/search';
 import {closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap} from '@codemirror/autocomplete';
 import {lintKeymap} from '@codemirror/lint';
-import {EditorView} from 'codemirror';
 import {EditorState, EditorSelection} from '@codemirror/state';
 
 import {lexPraxis} from './language/praxis/lexer.js';
@@ -18,6 +17,40 @@ import * as ast from './language/ast.js';
 import {praxis} from './language/praxis/highlighter.js';
 import {praxlyTheme} from './praxly-theme.js';
 
+
+import {StateField, StateEffect, Transaction, Range} from "@codemirror/state";
+import {EditorView, Decoration} from "@codemirror/view";
+
+const addMarks = StateEffect.define<Range<Decoration>[]>();
+const filterMarks = StateEffect.define<(from: number, to: number) => boolean>();
+
+const markField = StateField.define({
+  create() { return Decoration.none },
+  update(value: any, tr) {
+    console.log("value:", value);
+    console.log("tr:", tr);
+    value = value.map(tr.changes);
+    for (let effect of tr.effects) {
+      if (effect.is(addMarks)) {
+				value = value.update({add: effect.value, sort: true});
+			} else if (effect.is(filterMarks)) {
+				value = value.update({filter: effect.value});
+			}
+    }
+    return value;
+  },
+  provide: f => EditorView.decorations.from(f),
+});
+
+function removeAllMarks() {
+}
+
+const stepMark = Decoration.mark({
+  attributes: {
+    style: "background-color: #2a4160",
+  }
+});
+
 function initialize() {
   const match = window.location.pathname.match(/\/([^\/]+)\.html$/);
   const page = match ? match[1] : null;
@@ -27,6 +60,9 @@ function initialize() {
   }
 
   const runButton = document.getElementById('run-button') as HTMLInputElement;
+  const debugButton = document.getElementById('debug-button') as HTMLInputElement;
+  const stepButton = document.getElementById('step-button') as HTMLInputElement;
+  const inputField = document.getElementById('input-field') as HTMLInputElement;
   const treePanel = document.getElementById('tree-panel') as HTMLElement;
   const outputPanel = document.getElementById('output-panel') as HTMLElement;
   const sourcePanel = document.getElementById('source-panel') as HTMLElement;
@@ -63,6 +99,7 @@ function initialize() {
       ]),
       praxis(),
       praxlyTheme,
+      markField,
     ],
   });
 
@@ -74,7 +111,13 @@ function initialize() {
     });
   }
 
-  runButton.addEventListener('click', async () => {
+  const removeAllMarks = () => {
+    editorView.dispatch({
+      effects: filterMarks.of((_from, _to) => false),
+    });
+  };
+
+  const run = async (isDebug: boolean) => {
     outputPanel.innerText = '';
 
     const source = editorView.state.doc.toString();
@@ -82,6 +125,8 @@ function initialize() {
     localStorage.setItem('latest-source', source);
 
     try {
+      outputPanel.innerText = '';
+      
       const tokens = lexPraxis(source);
       const ast = parsePraxis(tokens, source);
 
@@ -96,10 +141,45 @@ function initialize() {
       });
       sourcePanel.innerText = generatedSource;
 
+      const log = (text: string) => {
+        outputPanel.appendChild(document.createTextNode(text));
+      };
+
+      const getInput: () => Promise<string> = () => {
+        return new Promise(resolve => {
+          const listener = (event: KeyboardEvent) => {
+            if (event.key === 'Enter') {
+              inputField.removeEventListener('keydown', listener);
+              resolve(inputField.value);
+            }
+          };
+          inputField.addEventListener('keydown', listener);
+        });
+      };
+
       // Update output-panel
-      const runtime = new GlobalRuntime();
-      await ast.visit(new Evaluator(praxisSymbolMap), runtime);
-      outputPanel.innerText = runtime.stdout;
+      const runtime = new GlobalRuntime(log, getInput);
+      const evaluator = new Evaluator(praxisSymbolMap);
+      if (isDebug) {
+        evaluator.step = (node: ast.Node) => {
+          stepButton.disabled = false;
+
+          // Highlight node
+          removeAllMarks();
+          editorView.dispatch({
+            effects: addMarks.of([stepMark.range(node.where.start, node.where.end)])
+          })
+
+          return new Promise(resolve => {
+            const listener = () => {
+              stepButton.removeEventListener('click', listener);
+              resolve();
+            };
+            stepButton.addEventListener('click', listener);
+          });
+        };
+      }
+      await ast.visit(evaluator, runtime);
 
     } catch (e) {
       if (e instanceof Error) {
@@ -124,7 +204,14 @@ function initialize() {
         // console.error(e);
       }
     }
-  });
+
+    stepButton.disabled = true;
+    removeAllMarks();
+  };
+
+  stepButton.disabled = true;
+  runButton.addEventListener('click', () => run(false));
+  debugButton.addEventListener('click', () => run(true));
 }
 
 initialize();

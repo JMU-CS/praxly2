@@ -39,8 +39,8 @@ class FunctionFruit extends FunctionEntry {
     this.where = where;
   }
 
-  async call(evaluator: Evaluator, runtime: Runtime, _where: Where): Promise<Fruit> {
-    return await this.body.visit(evaluator, runtime);
+  call(evaluator: Evaluator, runtime: Runtime, _where: Where): Promise<Fruit> {
+    return this.body.visit(evaluator, runtime);
   }
 }
 
@@ -69,6 +69,17 @@ class RandomFloatFunctionEntry extends FunctionEntry {
     const max = 2e9;
     const x = prand.unsafeUniformIntDistribution(0, max - 1, runtime.globalRuntime.rng) / max;
     throw new ReturnSomethingException(new Fruit(Type.Float, x), where);
+  }
+}
+
+class InputFunctionEntry extends FunctionEntry {
+  constructor() {
+    super([], Type.String);
+  }
+
+  async call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
+    const text: string = await runtime.globalRuntime.getInput();
+    throw new ReturnSomethingException(new Fruit(Type.String, text), where);
   }
 }
 
@@ -399,12 +410,14 @@ export class Runtime {
 export class GlobalRuntime extends Runtime {
   seed!: number;
   rng!: any;
-  stdout: string;
+  log: (text: string) => void;
+  getInput: () => Promise<string>;
 
-  constructor() {
+  constructor(log: (text: string) => void, getInput: () => Promise<string>) {
     super(new Map(), new Map(), new Map(), null, null);
     this.globalRuntime = this;
-    this.stdout = '';
+    this.getInput = getInput;
+    this.log = log;
 
     this.setFunction('int', new IntCastFunctionEntry());
     this.setFunction('float', new FloatCastFunctionEntry());
@@ -417,6 +430,7 @@ export class GlobalRuntime extends Runtime {
     this.setFunction('randomSeed', new RandomSeedFunctionEntry());
     this.setFunction('random', new RandomFloatFunctionEntry());
     this.setFunction('randomInt', new RandomIntegerFunctionEntry());
+    this.setFunction('input', new InputFunctionEntry());
 
     this.seedRng(Date.now() ^ (Math.random() * 0x100000000));
   }
@@ -449,10 +463,12 @@ class ReturnNothingException extends Error {
 
 export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   symbolMap: SymbolMap;
+  step: (node: ast.Node) => Promise<void> | null;
 
   constructor(symbolMap: SymbolMap) {
     super();
     this.symbolMap = symbolMap;
+    this.step = () => null;
   }
 
   symbol(nodeClass: NodeClass): string {
@@ -806,6 +822,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitAssignment(node: ast.Assignment, runtime: Runtime): Promise<Fruit> {
+    await this.step(node);
     const rightFruit = await node.rightNode.visit(this, runtime);
 
     // Don't evaluate left-hand side because that does an rvalue lookup.
@@ -847,6 +864,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitDeclaration(node: ast.Declaration, runtime: Runtime): Promise<Fruit> {
+    await this.step(node);
     let oldFruit = runtime.getVariable(node.identifier);
     if (oldFruit) {
       throw new error.WhereError(`Variable \`${node.identifier}\` is already declared.`, node.where);
@@ -885,6 +903,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitPrint(node: ast.Print, runtime: Runtime): Promise<Fruit> {
+    await this.step(node);
     const fruit = await node.operandNode.visit(this, runtime);
     if (Type.Integer.covers(fruit.type) ||
         Type.Float.covers(fruit.type) ||
@@ -893,7 +912,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         Type.Boolean.covers(fruit.type) ||
         fruit.type instanceof ArrayType ||
         fruit.type instanceof ObjectType) {
-      runtime.globalRuntime.stdout += fruit.type.serializeValue(fruit.value) + node.trailer;
+      runtime.globalRuntime.log(fruit.type.serializeValue(fruit.value) + node.trailer);
     } else {
       // console.log("fruit.type:", fruit.type);
       throw new error.WhereError('Only values may be printed.', node.where);
@@ -903,6 +922,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
   async visitIf(node: ast.If, runtime: Runtime): Promise<Fruit> {
     for (let i = 0; i < node.conditionNodes.length; ++i) {
+      await this.step(node.conditionNodes[i]);
       const fruit = await node.conditionNodes[i].visit(this, runtime);
       if (Type.Boolean.covers(fruit.type)) {
         if (fruit.value) {
@@ -922,6 +942,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   async visitWhile(node: ast.While, runtime: Runtime): Promise<Fruit> {
     let isTerminated = false;
     while (!isTerminated) {
+      await this.step(node.conditionNode);
       const fruit = await node.conditionNode.visit(this, runtime);
       if (Type.Boolean.covers(fruit.type)) {
         if (fruit.value) {
@@ -940,6 +961,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     let isTerminated = false;
     while (!isTerminated) {
       await node.body.visit(this, runtime);
+      await this.step(node.conditionNode);
       const fruit = await node.conditionNode.visit(this, runtime);
       if (Type.Boolean.covers(fruit.type)) {
         if (!fruit.value) {
@@ -956,6 +978,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     let isTerminated = false;
     while (!isTerminated) {
       await node.body.visit(this, runtime);
+      await this.step(node.conditionNode);
       const fruit = await node.conditionNode.visit(this, runtime);
       if (Type.Boolean.covers(fruit.type)) {
         if (fruit.value) {
@@ -971,8 +994,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   async visitFor(node: ast.For, runtime: Runtime): Promise<Fruit> {
     let isTerminated = false;
     const newRuntime = runtime.child();
-    await node.initializationNode?.visit(this, newRuntime);
+    if (node.initializationNode) {
+      await node.initializationNode.visit(this, newRuntime);
+    }
     while (!isTerminated) {
+      await this.step(node.conditionNode);
       const fruit = await node.conditionNode.visit(this, newRuntime);
       if (Type.Boolean.covers(fruit.type)) {
         if (fruit.value) {
@@ -989,6 +1015,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitExpressionStatement(node: ast.ExpressionStatement, runtime: Runtime): Promise<Fruit> {
+    await this.step(node);
     await node.expressionNode.visit(this, runtime);
     return new Fruit(Type.Void);
   }
@@ -1020,7 +1047,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
       let fruit;
       try {
-        lambda.call(this, newRuntime, node.where);
+        await lambda.call(this, newRuntime, node.where);
         if (lambda instanceof FunctionFruit) {
           if (!Type.Void.covers(lambda.returnType)) {
             throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It didn't return anything.`, lambda.where);
@@ -1209,7 +1236,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
     let fruit;
     try {
-      subroutineFruit.call(this, newRuntime, node.where);
+      await subroutineFruit.call(this, newRuntime, node.where);
       if (subroutineFruit instanceof FunctionFruit) {
         if (!Type.Void.covers(subroutineFruit.returnType)) {
           throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It didn't return anything.`, subroutineFruit.where);

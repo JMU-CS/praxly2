@@ -7,6 +7,20 @@ import {GlobalRuntime, Evaluator} from '../build/language/evaluator.js';
 import {praxisSymbolMap} from '../build/language/praxis/symbol-map.js';
 import * as error from '../build/language/error.js';
 
+function makeLogger() {
+  const logger = {
+    stdout: '',
+    log: text => {
+      logger.stdout += text;
+    },
+  };
+  return logger;
+}
+
+function getInput() {
+  return new Promise(resolve => resolve(''));
+}
+
 describe('Praxis: Expression Generation and Evaluation', () => {
   const samples = [
     {
@@ -157,7 +171,8 @@ describe('Praxis: Expression Generation and Evaluation', () => {
       });
       it(`should serialize to ${sample.serialization}`, () => assert.equal(generatedSource, sample.serialization));
 
-      const runtime = new GlobalRuntime();
+      const logger = makeLogger();
+      const runtime = new GlobalRuntime(logger.log, getInput);
       const fruit = await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       it(`should evaluate to ${sample.evaluation}`, () => assert.deepStrictEqual(fruit, sample.evaluation));
     });
@@ -348,9 +363,10 @@ accompany
       const expectedSerialization = sample.serialization ?? sample.source;
       it(`should serialize to\n${expectedSerialization}`, () => assert.equal(generatedSource, expectedSerialization));
 
-      const runtime = new GlobalRuntime();
+      const logger = makeLogger();
+      const runtime = new GlobalRuntime(logger.log, getInput);
       await ast.visit(new Evaluator(praxisSymbolMap), runtime);
-      it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
+      it(`should output\n${sample.output}`, () => assert.equal(logger.stdout, sample.output));
     });
   }
 });
@@ -388,9 +404,10 @@ print 6\n`,
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxis(tokens, sample.source);
 
-      const runtime = new GlobalRuntime();
+      const logger = makeLogger();
+      const runtime = new GlobalRuntime(logger.log, getInput);
       await ast.visit(new Evaluator(praxisSymbolMap), runtime);
-      it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
+      it(`should output\n${sample.output}`, () => assert.equal(logger.stdout, sample.output));
     });
   }
 });
@@ -520,9 +537,10 @@ print nums[2][2]`,
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxis(tokens, sample.source);
 
-      const runtime = new GlobalRuntime();
+      const logger = makeLogger();
+      const runtime = new GlobalRuntime(log, getInput);
       await ast.visit(new Evaluator(praxisSymbolMap), runtime);
-      it(`should output\n${sample.output}`, () => assert.equal(runtime.stdout, sample.output));
+      it(`should output\n${sample.output}`, () => assert.equal(logger.stdout, sample.output));
     });
   }
 });
@@ -540,7 +558,8 @@ describe('Praxis: Parse Errors', () => {
       const evaluate = async () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);
-        const runtime = new GlobalRuntime();
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
         await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.ParseError));
@@ -601,7 +620,8 @@ xs[2] = 7`,
       const evaluate = async () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);
-        const runtime = new GlobalRuntime();
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
         await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
@@ -628,7 +648,8 @@ s++`,
       const evaluate = async () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);
-        const runtime = new GlobalRuntime();
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
         await ast.visit(new Evaluator(praxisSymbolMap), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.TypeError));
