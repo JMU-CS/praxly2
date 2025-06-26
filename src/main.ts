@@ -27,8 +27,6 @@ const filterMarks = StateEffect.define<(from: number, to: number) => boolean>();
 const markField = StateField.define({
   create() { return Decoration.none },
   update(value: any, tr) {
-    console.log("value:", value);
-    console.log("tr:", tr);
     value = value.map(tr.changes);
     for (let effect of tr.effects) {
       if (effect.is(addMarks)) {

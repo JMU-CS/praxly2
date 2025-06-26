@@ -367,8 +367,10 @@ export class Runtime {
   expectedType: Type | null;
   classFruit: ClassEntry | null;
   globalRuntime!: GlobalRuntime;
+  parent: Runtime | null;
 
-  constructor(variableBindings: Map<string, VariableEntry>, functionBindings: Map<string, FunctionEntry>, classBindings: Map<string, ClassEntry>, expectedType: Type | null, classFruit: ClassEntry | null) {
+  constructor(parent: Runtime | null, variableBindings: Map<string, VariableEntry>, functionBindings: Map<string, FunctionEntry>, classBindings: Map<string, ClassEntry>, expectedType: Type | null, classFruit: ClassEntry | null) {
+    this.parent = parent;
     this.variableBindings = variableBindings;
     this.functionBindings = functionBindings;
     this.classBindings = classBindings;
@@ -377,11 +379,11 @@ export class Runtime {
   }
 
   shallowClone() {
-    return new Runtime(this.variableBindings, this.functionBindings, this.classBindings, this.expectedType, this.classFruit);
+    return new Runtime(this, this.variableBindings, this.functionBindings, this.classBindings, this.expectedType, this.classFruit);
   }
 
   child() {
-    const newRuntime = new Runtime(new Map(), new Map(), new Map(), this.expectedType, this.classFruit);
+    const newRuntime = new Runtime(this, new Map(), new Map(), new Map(), this.expectedType, this.classFruit);
     newRuntime.globalRuntime = this.globalRuntime;
     return newRuntime;
   }
@@ -391,11 +393,23 @@ export class Runtime {
   }
 
   setVariable(identifier: string, entry: VariableEntry) {
-    this.variableBindings.set(identifier, entry);
+    if (this.variableBindings.has(identifier)) {
+      this.variableBindings.set(identifier, entry);
+    } else if (this.parent) {
+      this.parent.setVariable(identifier, entry);
+    } else {
+      throw new Error('undeclared variable snuck through');
+    }
   }
 
   getVariable(identifier: string): VariableEntry | undefined {
-    return this.variableBindings.get(identifier);
+    if (this.variableBindings.has(identifier)) {
+      return this.variableBindings.get(identifier);
+    } else if (this.parent) {
+      return this.parent.getVariable(identifier);
+    } else {
+      return undefined;
+    }
   }
 
   setFunction(identifier: string, lambda: FunctionEntry) {
@@ -414,7 +428,7 @@ export class GlobalRuntime extends Runtime {
   getInput: () => Promise<string>;
 
   constructor(log: (text: string) => void, getInput: () => Promise<string>) {
-    super(new Map(), new Map(), new Map(), null, null);
+    super(null, new Map(), new Map(), new Map(), null, null);
     this.globalRuntime = this;
     this.getInput = getInput;
     this.log = log;
@@ -886,12 +900,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const entry = runtime.getVariable(node.identifier);
     if (entry) {
       if (entry.value === null) {
-        throw new error.WhereError(`Variable ${node.identifier} is uninitialized.`, node.where);
+        throw new error.WhereError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
       } else {
         return new Fruit(entry.type, entry.value);
       }
     } else {
-      throw new error.WhereError(`Variable ${node.identifier} is undeclared.`, node.where);
+      throw new error.WhereError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
     }
   }
 
@@ -1190,7 +1204,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const classFruit = runtime.classFruit!;
 
     if (classFruit.instanceVariableEntries.has(node.identifier)) {
-      throw new error.WhereError(`Variable ${node.identifier} has already been declared.`, node.where);
+      throw new error.WhereError(`Variable \`${node.identifier}\` has already been declared.`, node.where);
     }
 
     const visibility = node.visibility ?? ast.Visibility.Public;
@@ -1203,7 +1217,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const classFruit = runtime.classFruit!;
 
     if (classFruit.instanceMethodEntries.has(node.identifier)) {
-      throw new error.WhereError(`Method ${node.identifier} has already been defined.`, node.where);
+      throw new error.WhereError(`Method \`${node.identifier}\` has already been defined.`, node.where);
     }
 
     const formalEntries = node.formals.map(formal => new FormalEntry(formal.identifier, formal.type));
