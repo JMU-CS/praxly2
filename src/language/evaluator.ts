@@ -823,6 +823,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (oldFruit) {
       if (oldFruit.type.covers(fruit.type)) {
         runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
+
+        if (memdia.isInFunction()) {
+          memdia.assignmentInFunction(identifier, fruit);
+        } else {
+          memdia.assignment(identifier, fruit);
+        }
       } else {
         throw new error.TypeError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
       }
@@ -1052,9 +1058,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         throw new error.WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
       }
 
+      memdia.startFunctionBox(node.identifier);
+
       const newRuntime = runtime.child();
       for (let [i, formal] of lambda.formals.entries()) {
         newRuntime.declareVariable(formal.identifier, formal.type);
+        memdia.declarationInFunction(formal.identifier, formal.type);
         const fruit = await node.actuals[i].visit(this, runtime);
         this.assignVariable('Parameter', node.actuals[i].where, formal.identifier, fruit, newRuntime);
       }
@@ -1095,6 +1104,8 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitReturn(node: ast.Return, runtime: Runtime): Promise<Fruit> {
+    memdia.endFunctionBox();
+
     if (node.operandNode) {
       const fruit = await node.operandNode.visit(this, runtime);
       throw new ReturnSomethingException(fruit, node.where);

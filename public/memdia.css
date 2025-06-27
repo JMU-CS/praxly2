@@ -1,0 +1,108 @@
+#memdia-panel {
+  display: flex;
+  justify-content: center;
+  padding-top: 150px;
+  background-color: #d9c4ec;
+}
+
+#memory-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.memory-variable {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.var-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.var-name {
+  font-weight: normal;
+  align-self: center;
+  font-size: 16px;
+  margin-top: 10.56px;
+}
+
+.var-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.var-type {
+  font-style: italic;
+  margin-bottom: 2px;
+  color: #444;
+  font-size: 11px;
+}
+
+.var-box {
+  display: flex;
+  justify-content: center;
+  border: 1px solid black;
+  padding: 10px 10px;
+  align-items: center;
+  border-radius: 4px;
+  font-size: 16px;
+  min-width: 18px;
+  min-height: 18px;
+}
+
+.reference-dot {
+  width: 4px;
+  height: 4px;
+  background-color: black;
+  border-radius: 50%;
+  margin: auto;
+}
+
+.function-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.function-name {
+  font-weight: bold;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.function-box {
+  border: 1px solid black;
+  padding: 10px;
+  border-radius: 4px;
+  display: flex;
+  width: fit-content;
+  min-width: 85px;
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 600px) {
+  #memory-panel {
+    position: static;
+    margin: 10px auto;
+    width: 90%;
+  }
+
+  .memory-variable {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .var-box {
+    width: 100%;
+    text-align: left;
+  }
+}

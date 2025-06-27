@@ -124,7 +124,7 @@ function initialize() {
 
     try {
       outputPanel.innerText = '';
-      
+
       const tokens = lexPraxis(source);
       const ast = parsePraxis(tokens, source);
 
