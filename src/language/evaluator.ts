@@ -824,11 +824,6 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       if (oldFruit.type.covers(fruit.type)) {
         runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
 
-        if (memdia.isInFunction()) {
-          memdia.assignmentInFunction(identifier, fruit);
-        } else {
-          memdia.assignment(identifier, fruit);
-        }
       } else {
         throw new error.TypeError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
       }
@@ -849,7 +844,13 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (node.leftNode instanceof ast.Variable) {
       const identifier = node.leftNode.identifier;
       this.assignVariable('Variable', node.where, identifier, rightFruit, runtime);
-      memdia.assignment(identifier, rightFruit);
+
+      if (memdia.isInFunction()) {
+          memdia.assignmentInFunction(identifier, rightFruit);
+        } else {
+          memdia.assignment(identifier, rightFruit);
+        }
+
     } else if (node.leftNode instanceof ast.ArraySubscript) {
       const receiverFruit = await node.leftNode.arrayNode.visit(this, runtime);
       if (!(receiverFruit.type instanceof ArrayType)) {
@@ -891,12 +892,22 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     }
 
     runtime.declareVariable(node.identifier, node.variableType);
-    memdia.declaration(node.identifier, node.variableType);
+
+    if (memdia.isInFunction()) {
+      memdia.declarationInFunction(node.identifier, node.variableType);
+    } else {
+      memdia.declaration(node.identifier, node.variableType);
+    }
 
     if (node.rightNode) {
       const rightFruit = await node.rightNode.visit(this, runtime);
       this.assignVariable('Variable', node.where, node.identifier, rightFruit, runtime);
-      memdia.assignment(node.identifier, rightFruit);
+
+      if (memdia.isInFunction()) {
+        memdia.assignmentInFunction(node.identifier, rightFruit);
+      } else {
+        memdia.assignment(node.identifier, rightFruit);
+      }
     }
 
     return new Fruit(Type.Void);
@@ -1059,8 +1070,8 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       }
 
       memdia.startFunctionBox(node.identifier);
-
       const newRuntime = runtime.child();
+
       for (let [i, formal] of lambda.formals.entries()) {
         newRuntime.declareVariable(formal.identifier, formal.type);
         memdia.declarationInFunction(formal.identifier, formal.type);

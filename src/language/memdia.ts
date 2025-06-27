@@ -12,9 +12,6 @@ const memory = new Map<string, {type: Type; value: Fruit | null}>();
 export const callStack: HTMLElement[] = [];
 let hasFunctionRun = false;
 
-console.log('[memdia] module loaded');
-
-
 // Ensures the memory panel element exists in the DOM and returns it
 function getOrCreatePanel(): HTMLElement {
   let panel = document.getElementById('memory-panel');
@@ -41,7 +38,6 @@ export function isInFunction(): boolean {
 
 // Declares a new variable with a given type, and updates the diagram
 export function declaration(identifier: string, variableType: Type): void {
-  console.log(`[memdia] declaration: ${identifier}, type: ${variableType}`);
   if (memory.has(identifier)) {
     console.warn(`[memdia] Variable '${identifier}' is already declared.`);
     return;
@@ -54,7 +50,6 @@ export function declaration(identifier: string, variableType: Type): void {
 
 // Assigns a value to an existing variable, and updates the diagram
 export function assignment(identifier: string, rightFruit: Fruit): void {
-  console.log(`[memdia] assignment: ${identifier}, value: ${rightFruit}`);
   if (!memory.has(identifier)) {
     console.error(`[memdia] Variable '${identifier}' is not declared.`);
     return;
@@ -71,7 +66,6 @@ export function assignment(identifier: string, rightFruit: Fruit): void {
 
 // Creates and displays a new function box with the given name
 export function startFunctionBox(name: string): void {
-  console.log(`[memdia] Starting function box for ${name}`);
   hasFunctionRun = true;
 
   const panel = getOrCreatePanel();
