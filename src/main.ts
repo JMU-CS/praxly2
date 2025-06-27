@@ -65,6 +65,8 @@ function initialize() {
   const outputPanel = document.getElementById('output-panel') as HTMLElement;
   const sourcePanel = document.getElementById('source-panel') as HTMLElement;
 
+  inputField.style.display = 'none';
+
   const editor = document.getElementById('editor')!;
   const editorView = new EditorView({
     parent: editor,
@@ -145,9 +147,11 @@ function initialize() {
 
       const getInput: () => Promise<string> = () => {
         return new Promise(resolve => {
+          inputField.style.display = 'inline';
           const listener = (event: KeyboardEvent) => {
             if (event.key === 'Enter') {
               inputField.removeEventListener('keydown', listener);
+              inputField.style.display = 'none';
               resolve(inputField.value);
             }
           };
