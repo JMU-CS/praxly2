@@ -1,5 +1,13 @@
 import {Type, Fruit, ArrayType, ObjectType} from './type.js';
 
+class Memdia {
+  // put pure model, non-browser stuff here
+}
+
+class MemdiaSvg {
+  // override methods that add SVG to the browser here
+}
+
 const memory = new Map<string, {type: Type; value: Fruit | null}>();
 export const callStack: HTMLElement[] = [];
 let hasFunctionRun = false;
