@@ -5,7 +5,9 @@ import * as error from './error.js';
 import {Where} from './where.js';
 import type {NodeClass, SymbolMap} from './symbol-map.js';
 import {Type, ArrayType, SizedArrayType, NumberType, UnionType, ObjectType, typeMap, Fruit} from './type.js';
-import * as memdia from './memdia.js';
+import {MemdiaSvg} from './memdia.js';
+
+const mem = new MemdiaSvg();
 
 class FormalEntry {
   identifier: string;
@@ -845,11 +847,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       const identifier = node.leftNode.identifier;
       this.assignVariable('Variable', node.where, identifier, rightFruit, runtime);
 
-      if (memdia.isInFunction()) {
-          memdia.assignmentInFunction(identifier, rightFruit);
-        } else {
-          memdia.assignment(identifier, rightFruit);
-        }
+      if (mem.isInFunction()) {
+        mem.assignmentInFunction(identifier, rightFruit);
+      } else {
+        mem.assignment(identifier, rightFruit);
+      }
 
     } else if (node.leftNode instanceof ast.ArraySubscript) {
       const receiverFruit = await node.leftNode.arrayNode.visit(this, runtime);
@@ -893,20 +895,20 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
     runtime.declareVariable(node.identifier, node.variableType);
 
-    if (memdia.isInFunction()) {
-      memdia.declarationInFunction(node.identifier, node.variableType);
+    if (mem.isInFunction()) {
+      mem.declarationInFunction(node.identifier, node.variableType);
     } else {
-      memdia.declaration(node.identifier, node.variableType);
+      mem.declaration(node.identifier, node.variableType);
     }
 
     if (node.rightNode) {
       const rightFruit = await node.rightNode.visit(this, runtime);
       this.assignVariable('Variable', node.where, node.identifier, rightFruit, runtime);
 
-      if (memdia.isInFunction()) {
-        memdia.assignmentInFunction(node.identifier, rightFruit);
+      if (mem.isInFunction()) {
+        mem.assignmentInFunction(node.identifier, rightFruit);
       } else {
-        memdia.assignment(node.identifier, rightFruit);
+        mem.assignment(node.identifier, rightFruit);
       }
     }
 
@@ -1069,12 +1071,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         throw new error.WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
       }
 
-      memdia.startFunctionBox(node.identifier);
+      mem.startFunctionBox(node.identifier);
       const newRuntime = runtime.child();
 
       for (let [i, formal] of lambda.formals.entries()) {
         newRuntime.declareVariable(formal.identifier, formal.type);
-        memdia.declarationInFunction(formal.identifier, formal.type);
+        mem.declarationInFunction(formal.identifier, formal.type);
         const fruit = await node.actuals[i].visit(this, runtime);
         this.assignVariable('Parameter', node.actuals[i].where, formal.identifier, fruit, newRuntime);
       }
@@ -1115,7 +1117,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitReturn(node: ast.Return, runtime: Runtime): Promise<Fruit> {
-    memdia.endFunctionBox();
+    mem.endFunctionBox();
 
     if (node.operandNode) {
       const fruit = await node.operandNode.visit(this, runtime);
