@@ -1,0 +1,98 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background-color: #1e1e1e;
+  color: white;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Toolbar styles */
+.nav-bar {
+  background-color: #2c2c2c;
+  padding: 10px;
+}
+
+.nav-bar ul {
+  list-style: none;
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-bar li {
+  display: flex;
+  align-items: center;
+}
+
+.nav-bar button {
+  background: #444;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-bar button:hover {
+  background-color: #666;
+}
+
+/* Main view split horizontally */
+.main-view {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.code-editor {
+  flex: 1;
+  height: 100%;
+}
+
+#editor {
+  height: 100%;
+  width: 100%;
+}
+
+.output-section {
+  width: 40%;
+  background-color: #2a2a2a;
+  display: flex;
+  flex-direction: column;
+  border-left: 2px solid #3b5970;
+}
+
+.output {
+  flex: 1;
+  padding: 10px;
+  border-bottom: 2px solid #3b5970;
+  overflow-y: auto;
+}
+
+.variable-table-container {
+  padding: 10px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  color: white;
+}
+
+th,
+td {
+  border: 1px solid white;
+  padding: 6px;
+  text-align: left;
+}
+
+th {
+  background-color: #444;
+}

@@ -1,14 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Praxly2 Main</title>
-    <link rel="stylesheet" href="/style.css" />
-    <link rel="stylesheet" href="/memdia.css" />
-  </head>
-  <body>
-    <p>TODO: Main mode for Praxly2</p>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Praxly2 Main</title>
+  <link rel="icon" href="/fallen-leaf_1f342.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/main.css">
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/memdia.css" />
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+</head>
+
+<body>
+  <header class="nav-bar">
+    <div id="title-version">
+      <h1 id="titleRefresh">Praxly 🍂</h1>
+
+      <!-- Toolbar buttons -->
+      <ul>
+        <li>
+          <button id="runButton" class="MainMenu-button" title="Run the entire program">
+            Run <span class="material-symbols-rounded run">play_arrow</span>
+          </button>
+        </li>
+        <li>
+          <button id="debugButton" class="MainMenu-button" title="Run one step at a time">
+            Debug <span class="material-symbols-rounded bug">pest_control</span>
+          </button>
+        </li>
+        <li>
+          <button id="stepButton" class="MainMenu-button debugOptions" title="Run the next step">
+            Step <span class="material-symbols-rounded step">step</span>
+          </button>
+        </li>
+        <li>
+          <button id="stopButton" class="MainMenu-button debugOptions" title="Exit the debugger">
+            Exit <span class="material-symbols-rounded stop">stop</span>
+          </button>
+        </li>
+        <li>
+          <button id="share" class="MainMenu-button" title="Create link for sharing">
+            Share <span class="material-symbols-rounded share">share</span>
+          </button>
+        </li>
+        <li>
+          <button id="reference" class="MainMenu-button" title="Open the Pseudocode Notation">
+            Manual <span class="material-symbols-rounded manual">book_2</span>
+          </button>
+        </li>
+        <li>
+          <button id="info" class="MainMenu-button" title="About Praxly">
+            <span class="material-symbols-rounded extra">info</span>
+            <span class="button-text">About</span>
+          </button>
+        </li>
+        <li>
+          <button id="resetButton" class="MainMenu-button" title="Reset the initial code">
+            Reset <span class="material-symbols-rounded reset">restart_alt</span>
+          </button>
+        </li>
+        <li>
+          <button id="settings" class="MainMenu-button" title="Settings">
+            Settings <span class="material-symbols-rounded settings">settings</span>
+          </button>
+        </li>
+      </ul>
+  </header>
+
+  <div class="main-view">
+
+    <div class="code-editor">
+      <div id="editor"> type here </div>
+    </div>
+
+    <div class="output-section">
+      <div class="output">
+        <p class="stdout">Output here </p>
+      </div>
+      <div class="variable-table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Type</th>
+              <th>Value</th>
+              <th>Scope</th>
+            </tr>
+          </thead>
+          <tbody id="Variable-table">
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+
+</body>
+
 </html>
