@@ -141,7 +141,6 @@ class PraxisParser extends Parser {
           firstWhere = visibilityToken.where;
         }
 
-        this.debugToken();
         if (!this.has(TokenType.Identifier)) {
           throw new ParseError("A type is missing.", lastWhere);
         }
