@@ -872,13 +872,21 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       if (!(receiverFruit.type instanceof ObjectType)) {
         throw new error.WhereError(`A value of type \`${receiverFruit.type}\` has no properties.`, node.leftNode.where);
       }
-      if (receiverFruit.value.has(node.leftNode.identifier)) {
-        // TODO: do types match?
-        // TODO: is it public?
-        receiverFruit.value.set(node.leftNode.identifier, rightFruit);
+
+      const identifier = node.leftNode.identifier;
+
+      // Ensure that variable is public.
+      const template = receiverFruit.value.template;
+      const declaration = template.instanceVariableEntries.get(identifier);
+      if (declaration) {
+        if (declaration.visibility !== ast.Visibility.Public) {
+          throw new error.WhereError(`Variable \`${identifier}\` is private.`, node.where);
+        }
       } else {
-        throw new error.TypeError(`A value of type \`${receiverFruit.type}\` does not have a \`${node.leftNode.identifier}\` property.`, node.where);
+        throw new error.WhereError(`Variable \`${identifier}\` is undeclared.`, node.where);
       }
+
+      this.assignVariable('Variable', node.where, identifier, rightFruit, receiverFruit.value.runtime);
     }
 
     return new Fruit(Type.Void);
@@ -1187,13 +1195,26 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (receiverFruit.type instanceof ArrayType && node.identifier === 'length') {
       return new Fruit(Type.Integer, receiverFruit.value.length);
     } else if (receiverFruit.type instanceof ObjectType) {
-      const memberFruit = receiverFruit.value.get(node.identifier);
-      if (memberFruit) {
-        if (memberFruit.value === null) {
-          throw new error.WhereError(`Property \`${node.identifier}\` has not been initialized.`, node.where);
-        } else {
-          return memberFruit;
+      // Ensure that variable is public.
+      const template = receiverFruit.value.template;
+      const declaration = template.instanceVariableEntries.get(node.identifier);
+      if (declaration) {
+        if (declaration.visibility !== ast.Visibility.Public) {
+          throw new error.WhereError(`Variable \`${node.identifier}\` is private.`, node.where);
         }
+      } else {
+        throw new error.WhereError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
+      }
+
+      const entry = receiverFruit.value.runtime.getVariable(node.identifier);
+      if (entry) {
+        if (entry.value === null) {
+          throw new error.WhereError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
+        } else {
+          return new Fruit(entry.type, entry.value);
+        }
+      } else {
+        throw new error.WhereError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
       }
     }
     throw new error.WhereError(`A value of type \`${receiverFruit.type}\` does not have a \`${node.identifier}\` property.`, node.where);
@@ -1269,14 +1290,18 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       throw new error.WhereError(`Class ${node.identifier} is not defined.`, node.where);
     }
 
+    const instance = {
+      template: classFruit,
+      runtime: runtime.globalRuntime.child(),
+    };
+
     // Each instance of a class is a runtime that persists the instance's state.
-    const instanceRuntime = runtime.globalRuntime.child();
     for (let [name, entry] of classFruit.instanceVariableEntries) {
-      instanceRuntime.declareVariable(name, entry.type);
-      instanceRuntime.setVariable(name, new VariableEntry(entry.type, entry.initialValue));
+      instance.runtime.declareVariable(name, entry.type);
+      instance.runtime.setVariable(name, new VariableEntry(entry.type, entry.initialValue));
     }
 
-    return new Fruit(new ObjectType(node.identifier), instanceRuntime);
+    return new Fruit(new ObjectType(node.identifier), instance);
   }
 
   async visitCall(_context: string, node: ast.MethodCall | ast.FunctionCall, subroutineFruit: MethodEntry | FunctionEntry, runtime: Runtime) {
@@ -1337,7 +1362,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       throw new error.WhereError(`Function ${node.identifier} is not defined.`, node.where);
     }
 
-    return await this.visitCall('method', node, lambda, receiverFruit.value);
+    return await this.visitCall('method', node, lambda, receiverFruit.value.runtime);
   }
 
   // --------------------------------------------------------------------------
