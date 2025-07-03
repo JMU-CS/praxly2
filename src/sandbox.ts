@@ -16,7 +16,7 @@ import {WhereError} from './language/error.js';
 import * as ast from './language/ast.js';
 import {praxis} from './language/praxis/highlighter.js';
 import {praxlyTheme} from './praxly-theme.js';
-
+import {MemdiaSvg} from './language/memdia.js';
 
 import {StateField, StateEffect, Transaction, Range} from "@codemirror/state";
 import {EditorView, Decoration} from "@codemirror/view";
@@ -161,7 +161,7 @@ function initialize() {
 
       // Update output-panel
       const runtime = new GlobalRuntime(log, getInput);
-      const evaluator = new Evaluator(praxisSymbolMap);
+      const evaluator = new Evaluator(praxisSymbolMap, new MemdiaSvg());
       if (isDebug) {
         evaluator.step = (node: ast.Node) => {
           stepButton.disabled = false;

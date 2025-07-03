@@ -5,13 +5,6 @@
   background-color: #d9c4ec;
 }
 
-#memory-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-
 .memory-variable {
   display: flex;
   flex-direction: row;
@@ -66,25 +59,17 @@
   margin: auto;
 }
 
-.function-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.function-name {
+text.function-name {
   font-weight: bold;
   font-size: 16px;
-  white-space: nowrap;
+  dominant-baseline: middle;
 }
 
-.function-box {
-  border: 1px solid black;
-  border-radius: 4px;
-  display: flex;
-  width: fit-content;
-  align-items: flex-end;
-  flex-direction: column;
+rect.function-box {
+  stroke: black;
+  fill: white;
+  rx: 4;
+  ry: 4;
 }
 
 @media (max-width: 600px) {
