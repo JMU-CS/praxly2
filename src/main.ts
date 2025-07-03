@@ -9,6 +9,7 @@ import {EditorState, EditorSelection} from '@codemirror/state';
 import {lexPraxis} from './language/praxis/lexer.js';
 import {parsePraxis} from './language/praxis/parser.js';
 import {PraxisGenerator} from './language/praxis/generator.js';
+import {PythonGenerator} from './language/python/generator.js';
 import {Objectifier} from './language/objectifier.js';
 import {GlobalRuntime, Evaluator} from './language/evaluator.js';
 import {praxisSymbolMap} from './language/praxis/symbol-map.js';
@@ -135,7 +136,7 @@ function initialize() {
       treePanel.innerText = JSON.stringify(object, null, 2);
 
       // Update source-panel
-      const generatedSource = ast.visit(new PraxisGenerator(), {
+      const generatedSource = ast.visit(new PythonGenerator(), {
         nestingLevel: 0,
         indentation: '  ',
       });
