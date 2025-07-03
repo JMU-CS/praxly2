@@ -617,12 +617,14 @@ export class InstanceVariableDeclaration extends Statement {
   identifier: string;
   variableType: Type;
   visibility: Visibility | null;
+  valueNode: Expression | null;
 
-  constructor(identifier: string, variableType: Type, visibility: Visibility | null, where: Where) {
+  constructor(identifier: string, variableType: Type, visibility: Visibility | null, valueNode: Expression | null, where: Where) {
     super(where);
     this.identifier = identifier;
     this.variableType = variableType;
     this.visibility = visibility;
+    this.valueNode = valueNode;
   }
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {

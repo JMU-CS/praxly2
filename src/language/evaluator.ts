@@ -333,18 +333,17 @@ class VariableEntry {
     this.type = type;
     this.value = value;
   }
-
-  foo() {
-  }
 }
 
 class InstanceVariableEntry {
   type: Type;
   visibility: ast.Visibility;
+  initialValue: string | number | boolean | null;
 
-  constructor(type: Type, visibility: ast.Visibility) {
+  constructor(type: Type, visibility: ast.Visibility, initialValue: any) {
     this.type = type;
     this.visibility = visibility;
+    this.initialValue = initialValue;
   }
 }
 
@@ -825,7 +824,6 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (oldFruit) {
       if (oldFruit.type.covers(fruit.type)) {
         runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
-
       } else {
         throw new error.TypeError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
       }
@@ -1064,7 +1062,6 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitFunctionCall(node: ast.FunctionCall, runtime: Runtime): Promise<Fruit> {
-    // TODO: allow nested functions?
     const lambda = runtime.globalRuntime.functionBindings.get(node.identifier);
     if (lambda) {
       if (node.actuals.length !== lambda.formals.length) {
@@ -1231,8 +1228,22 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       throw new error.WhereError(`Variable \`${node.identifier}\` has already been declared.`, node.where);
     }
 
+    const instanceVariableEntry = classFruit.instanceVariableEntries.get(node.identifier);
+
+    // If the declaration provides an initial value, we eagerly evaluate the
+    // expression and store it as part of the declaration.
+    let initialValue = null;
+    if (node.valueNode) {
+      const initialValueFruit = await node.valueNode.visit(this, runtime);
+      if (node.variableType.covers(initialValueFruit.type)) {
+        initialValue = initialValueFruit.value;
+      } else {
+        throw new error.WhereError(`The initial value of \`${node.identifier}\` must be of type \`${node.variableType}\`.`, node.valueNode.where);
+      }
+    }
+
     const visibility = node.visibility ?? ast.Visibility.Public;
-    classFruit.instanceVariableEntries.set(node.identifier, new InstanceVariableEntry(node.variableType, visibility));
+    classFruit.instanceVariableEntries.set(node.identifier, new InstanceVariableEntry(node.variableType, visibility, initialValue));
 
     return new Fruit(Type.Void);
   }
@@ -1257,7 +1268,15 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (!classFruit) {
       throw new error.WhereError(`Class ${node.identifier} is not defined.`, node.where);
     }
-    return new Fruit(new ObjectType(node.identifier), new Map(Array.from(classFruit.instanceVariableEntries, ([identifier, fruit]) => [identifier, new Fruit(fruit.type, null)])));
+
+    // Each instance of a class is a runtime that persists the instance's state.
+    const instanceRuntime = runtime.globalRuntime.child();
+    for (let [name, entry] of classFruit.instanceVariableEntries) {
+      instanceRuntime.declareVariable(name, entry.type);
+      instanceRuntime.setVariable(name, new VariableEntry(entry.type, entry.initialValue));
+    }
+
+    return new Fruit(new ObjectType(node.identifier), instanceRuntime);
   }
 
   async visitCall(_context: string, node: ast.MethodCall | ast.FunctionCall, subroutineFruit: MethodEntry | FunctionEntry, runtime: Runtime) {
@@ -1318,7 +1337,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       throw new error.WhereError(`Function ${node.identifier} is not defined.`, node.where);
     }
 
-    return await this.visitCall('method', node, lambda, runtime);
+    return await this.visitCall('method', node, lambda, receiverFruit.value);
   }
 
   // --------------------------------------------------------------------------

@@ -141,6 +141,7 @@ class PraxisParser extends Parser {
           firstWhere = visibilityToken.where;
         }
 
+        this.debugToken();
         if (!this.has(TokenType.Identifier)) {
           throw new ParseError("A type is missing.", lastWhere);
         }
@@ -157,7 +158,21 @@ class PraxisParser extends Parser {
           methodDefinitions.push(declaration);
         } else {
           const memberIdentifierToken = this.advance() as TextToken;
-          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, type, visibility, Where.enclose(firstWhere, memberIdentifierToken.where));
+
+          // The original Praxis document says nothing about how instance
+          // variables are initialized. On the outside through public access?
+          // On the inside through a constructor? On the inside through direct
+          // assignment in the declaration? For the time being, let's allow
+          // direct assignment, since that's simplest and doesn't depend on
+          // visibility.
+
+          let rightNode = null;
+          if (this.has(TokenType.Equal)) {
+            this.advance();
+            rightNode = this.expression();
+          }
+
+          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, type, visibility, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
           instanceVariableDeclarations.push(declaration);
         }
 
