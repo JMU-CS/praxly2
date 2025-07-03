@@ -406,7 +406,7 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
     return text;
   }
 
-  visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, _formatter: Formatter): string {
+  visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, formatter: Formatter): string {
     let text = '';
     if (node.visibility === ast.Visibility.Public) {
       text += `public `;
@@ -414,6 +414,9 @@ export class PraxisGenerator extends Visitor<Formatter, string> {
       text += `private `;
     }
     text += `${node.variableType} ${node.identifier}`;
+    if (node.valueNode) {
+      text += ` ${LEFT_ARROW} ${node.valueNode.visit(this, formatter)}`;
+    }
     return text;
   }
 
