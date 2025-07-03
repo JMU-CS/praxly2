@@ -3,16 +3,13 @@ import {Type, Fruit, ArrayType, ObjectType} from './type.js';
 // put pure model, non-browser stuff here
 export class Memdia {
   protected memory = new Map<string, {type: Type; value: Fruit | null}>();
-  protected callStack: HTMLElement[] = [];
+  protected callStack: SVGElement[] = [];
   protected hasFunctionRun = false;
 
 
   // Declares a new variable with a given type, and updates the diagram
   declaration(identifier: string, variableType: Type): void {
-    if (this.memory.has(identifier)) {
-      console.warn(`[memdia] Variable '${identifier}' is already declared.`);
-      return;
-    }
+    if (this.memory.has(identifier)) return;
 
     this.memory.set(identifier, {type: variableType, value: null});
   }
@@ -20,10 +17,7 @@ export class Memdia {
 
   // Assigns a value to an existing variable, and updates the diagram
   assignment(identifier: string, rightFruit: Fruit): void {
-    if (!this.memory.has(identifier)) {
-      console.error(`[memdia] Variable '${identifier}' is not declared.`);
-      return;
-    }
+    if (!this.memory.has(identifier)) return;
 
     const entry = this.memory.get(identifier);
     if (entry) {
@@ -35,27 +29,40 @@ export class Memdia {
   isInFunction(): boolean {
     return this.callStack.length > 0;
   }
+
+
+  startFunctionBox(_name: string): void {}
+  endFunctionBox(): void {}
+
+  declarationInFunction(_name: string, _type: Type): void {}
+  assignmentInFunction(_name: string, _fruit: Fruit): void {}
 }
 
+const NS = "http://www.w3.org/2000/svg";
 
 // override methods that add SVG to the browser here
 export class MemdiaSvg extends Memdia {
+
   // Ensures the memory panel element exists in the DOM and returns it
-  getOrCreatePanel(): HTMLElement {
-    let panel = document.getElementById('memory-panel');
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = 'memory-panel';
+  getOrCreatePanel(): SVGSVGElement {
+    let svgPanel = document.getElementById('memory-panel') as SVGSVGElement | null;
+
+    if (!svgPanel) {
+      svgPanel = document.createElementNS(NS, 'svg');
+      svgPanel.id = 'memory-panel';
+
+      svgPanel.setAttribute('width', '100%');
+      svgPanel.setAttribute('height', '100%');
 
       const parent = document.getElementById('memdia-panel');
       if (parent) {
-        parent.appendChild(panel);
+        parent.appendChild(svgPanel);
       } else {
-        console.warn('Could not find memdia, appending to body as fallback');
-        document.body.appendChild(panel);
+        //console.warn('Could not find memdia, appending to body as fallback');
+        document.body.appendChild(svgPanel);
       }
     }
-    return panel;
+    return svgPanel;
   }
 
 
@@ -72,40 +79,44 @@ export class MemdiaSvg extends Memdia {
 
 
   // Creates and displays a new function box with the given name
-  startFunctionBox(name: string): void {
+  override startFunctionBox(name: string): void {
     this.hasFunctionRun = true;
 
     const panel = this.getOrCreatePanel();
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'function-wrapper';
+    const group = document.createElementNS(NS, 'g');
+    panel.appendChild(group);
 
-    const funcName = document.createElement('div');
-    funcName.className = 'function-name';
+    const funcName = document.createElementNS(NS, 'text');
+    funcName.setAttribute("class", "function-name");
     funcName.textContent = name;
+    funcName.setAttribute('x', '10');
+    funcName.setAttribute('y', '20');
+    group.appendChild(funcName);
 
-    const funcBox = document.createElement('div');
-    funcBox.className = 'function-box';
+    const funcBox = document.createElementNS(NS, 'rect');
+    funcBox.setAttribute("class", "function-box");
+    funcBox.setAttribute('x', '10');
+    funcBox.setAttribute('y', '30');
+    funcBox.setAttribute('width', '200');
+    funcBox.setAttribute('height', '100');
+    group.appendChild(funcBox);
 
-    wrapper.appendChild(funcName);
-    wrapper.appendChild(funcBox);
-    panel.appendChild(wrapper);
-
-    this.callStack.push(funcBox);
+    this.callStack.push(group);
   }
 
 
   // Removes the most recently added function box from the diagram
-  endFunctionBox(): void {
+  override endFunctionBox(): void {
     const exitingBox = this.callStack.pop();
     exitingBox?.parentElement?.remove()
   }
 
 
   // Declares a variable inside the current (most recent) function box
-  declarationInFunction(name: string, type: Type): void {
+  override declarationInFunction(name: string, type: Type): void {
     if (this.callStack.length === 0) {
-      console.error(`[memdia] No active function box.`);
+      //console.error(`[memdia] No active function box.`);
       return;
     }
 
@@ -116,9 +127,9 @@ export class MemdiaSvg extends Memdia {
 
 
   // Assigns a value to a variable inside the current function box
-  assignmentInFunction(name: string, fruit: Fruit): void {
+  override assignmentInFunction(name: string, fruit: Fruit): void {
       if (this.callStack.length === 0) {
-      console.error(`[memdia] No active function box.`);
+      //console.error(`[memdia] No active function box.`);
       return;
     }
 
@@ -134,7 +145,7 @@ export class MemdiaSvg extends Memdia {
         return;
       }
     }
-    console.warn(`[memdia] Variable '${name}' not found in current function box.`);
+    //console.warn(`[memdia] Variable '${name}' not found in current function box.`);
   }
 
 
