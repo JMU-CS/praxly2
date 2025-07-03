@@ -1,153 +1,170 @@
 import {Type, Fruit, ArrayType, ObjectType} from './type.js';
 
-class Memdia {
-  // put pure model, non-browser stuff here
-}
+// put pure model, non-browser stuff here
+export class Memdia {
+  protected memory = new Map<string, {type: Type; value: Fruit | null}>();
+  protected callStack: SVGElement[] = [];
+  protected hasFunctionRun = false;
 
-class MemdiaSvg {
-  // override methods that add SVG to the browser here
-}
 
-const memory = new Map<string, {type: Type; value: Fruit | null}>();
-export const callStack: HTMLElement[] = [];
-let hasFunctionRun = false;
+  // Declares a new variable with a given type, and updates the diagram
+  declaration(identifier: string, variableType: Type): void {
+    if (this.memory.has(identifier)) return;
 
-// Ensures the memory panel element exists in the DOM and returns it
-function getOrCreatePanel(): HTMLElement {
-  let panel = document.getElementById('memory-panel');
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.id = 'memory-panel';
+    this.memory.set(identifier, {type: variableType, value: null});
+  }
 
-    const parent = document.getElementById('memdia-panel');
-    if (parent) {
-      parent.appendChild(panel);
-    } else {
-      console.warn('Could not find memdia, appending to body as fallback');
-      document.body.appendChild(panel);
+
+  // Assigns a value to an existing variable, and updates the diagram
+  assignment(identifier: string, rightFruit: Fruit): void {
+    if (!this.memory.has(identifier)) return;
+
+    const entry = this.memory.get(identifier);
+    if (entry) {
+      entry.value = rightFruit;
     }
   }
-  return panel;
-}
 
-export function isInFunction(): boolean {
-  return callStack.length > 0;
-}
 
-// ==== GLOBAL MEMORY ====
-
-// Declares a new variable with a given type, and updates the diagram
-export function declaration(identifier: string, variableType: Type): void {
-  if (memory.has(identifier)) {
-    console.warn(`[memdia] Variable '${identifier}' is already declared.`);
-    return;
+  isInFunction(): boolean {
+    return this.callStack.length > 0;
   }
 
-  memory.set(identifier, {type: variableType, value: null});
-  renderMemoryDiagram();
+
+  startFunctionBox(_name: string): void {}
+  endFunctionBox(): void {}
+
+  declarationInFunction(_name: string, _type: Type): void {}
+  assignmentInFunction(_name: string, _fruit: Fruit): void {}
 }
 
+const NS = "http://www.w3.org/2000/svg";
 
-// Assigns a value to an existing variable, and updates the diagram
-export function assignment(identifier: string, rightFruit: Fruit): void {
-  if (!memory.has(identifier)) {
-    console.error(`[memdia] Variable '${identifier}' is not declared.`);
-    return;
+// override methods that add SVG to the browser here
+export class MemdiaSvg extends Memdia {
+
+  // Ensures the memory panel element exists in the DOM and returns it
+  getOrCreatePanel(): SVGSVGElement {
+    let svgPanel = document.getElementById('memory-panel') as SVGSVGElement | null;
+
+    if (!svgPanel) {
+      svgPanel = document.createElementNS(NS, 'svg');
+      svgPanel.id = 'memory-panel';
+
+      svgPanel.setAttribute('width', '100%');
+      svgPanel.setAttribute('height', '100%');
+
+      const parent = document.getElementById('memdia-panel');
+      if (parent) {
+        parent.appendChild(svgPanel);
+      } else {
+        //console.warn('Could not find memdia, appending to body as fallback');
+        document.body.appendChild(svgPanel);
+      }
+    }
+    return svgPanel;
   }
 
-  const entry = memory.get(identifier);
-  if (entry) {
-    entry.value = rightFruit;
-    renderMemoryDiagram();
-  }
-}
 
-//==== FUNCTION BOX HANDLING ====
-
-// Creates and displays a new function box with the given name
-export function startFunctionBox(name: string): void {
-  hasFunctionRun = true;
-
-  const panel = getOrCreatePanel();
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'function-wrapper';
-
-  const funcName = document.createElement('div');
-  funcName.className = 'function-name';
-  funcName.textContent = name;
-
-  const funcBox = document.createElement('div');
-  funcBox.className = 'function-box';
-
-  wrapper.appendChild(funcName);
-  wrapper.appendChild(funcBox);
-  panel.appendChild(wrapper);
-
-  callStack.push(funcBox);
-}
-
-
-// Removes the most recently added function box from the diagram
-export function endFunctionBox(): void {
-  const exitingBox = callStack.pop();
-  exitingBox?.parentElement?.remove()
-}
-
-
-// Declares a variable inside the current (most recent) function box
-export function declarationInFunction(name: string, type: Type): void {
-  if (callStack.length === 0) {
-    console.error(`[memdia] No active function box.`);
-    return;
+  override declaration(identifier: string, variableType: Type): void {
+    super.declaration(identifier, variableType);
+    this.renderMemoryDiagram();
   }
 
-  const funcBox = callStack[callStack.length - 1];
-  const varBox = renderPrimitiveVariableBox(name, type, null);
-  funcBox.appendChild(varBox);
-}
 
-
-// Assigns a value to a variable inside the current function box
-export function assignmentInFunction(name: string, fruit: Fruit): void {
-    if (callStack.length === 0) {
-    console.error(`[memdia] No active function box.`);
-    return;
+  override assignment(identifier: string, rightFruit: Fruit): void {
+    super.assignment(identifier, rightFruit);
+    this.renderMemoryDiagram();
   }
 
-  const funcBox = callStack[callStack.length - 1];
-  const vars = funcBox.querySelectorAll('.memory-variable');
-  for (const variable of vars) {
-    const nameDiv = variable.querySelector('.var-name');
-    const boxDiv = variable.querySelector('.var-box');
-    if (nameDiv?.textContent === name && boxDiv) {
-      boxDiv.textContent = fruit.value !== null
-        ? fruit.type.serializeValue(fruit.value)
-        : '';
+
+  // Creates and displays a new function box with the given name
+  override startFunctionBox(name: string): void {
+    this.hasFunctionRun = true;
+
+    const panel = this.getOrCreatePanel();
+
+    const group = document.createElementNS(NS, 'g');
+    panel.appendChild(group);
+
+    const funcName = document.createElementNS(NS, 'text');
+    funcName.setAttribute("class", "function-name");
+    funcName.textContent = name;
+    funcName.setAttribute('x', '10');
+    funcName.setAttribute('y', '20');
+    group.appendChild(funcName);
+
+    const funcBox = document.createElementNS(NS, 'rect');
+    funcBox.setAttribute("class", "function-box");
+    funcBox.setAttribute('x', '10');
+    funcBox.setAttribute('y', '30');
+    funcBox.setAttribute('width', '200');
+    funcBox.setAttribute('height', '100');
+    group.appendChild(funcBox);
+
+    this.callStack.push(group);
+  }
+
+
+  // Removes the most recently added function box from the diagram
+  override endFunctionBox(): void {
+    const exitingBox = this.callStack.pop();
+    exitingBox?.parentElement?.remove()
+  }
+
+
+  // Declares a variable inside the current (most recent) function box
+  override declarationInFunction(name: string, type: Type): void {
+    if (this.callStack.length === 0) {
+      //console.error(`[memdia] No active function box.`);
       return;
     }
+
+    const funcBox = this.callStack[this.callStack.length - 1];
+    const varBox = this.renderPrimitiveVariableBox(name, type, null);
+    funcBox.appendChild(varBox);
   }
-  console.warn(`[memdia] Variable '${name}' not found in current function box.`);
-}
 
 
-//==== MEMORY DIAGRAM RENDERING ====
+  // Assigns a value to a variable inside the current function box
+  override assignmentInFunction(name: string, fruit: Fruit): void {
+      if (this.callStack.length === 0) {
+      //console.error(`[memdia] No active function box.`);
+      return;
+    }
 
-// Clears and redraws the entire memory diagram based on current global memory state
-function renderMemoryDiagram(): void {
-  const panel = getOrCreatePanel();
-
-  if (memory.size > 0 && callStack.length === 0) {
-    panel.innerHTML = '';
-    const box = renderScopeBox('main', memory);
-    panel.appendChild(box);
+    const funcBox = this.callStack[this.callStack.length - 1];
+    const vars = funcBox.querySelectorAll('.memory-variable');
+    for (const variable of vars) {
+      const nameDiv = variable.querySelector('.var-name');
+      const boxDiv = variable.querySelector('.var-box');
+      if (nameDiv?.textContent === name && boxDiv) {
+        boxDiv.textContent = fruit.value !== null
+          ? fruit.type.serializeValue(fruit.value)
+          : '';
+        return;
+      }
+    }
+    //console.warn(`[memdia] Variable '${name}' not found in current function box.`);
   }
-}
 
-// Creates a box (function-style) for a given scope and its variables
-function renderScopeBox(
-  scopeName: string,
-  variables: Map<string, {type: Type, value: Fruit | null}>): HTMLElement {
+
+  // Clears and redraws the entire memory diagram based on current global memory state
+  renderMemoryDiagram(): void {
+    const panel = this.getOrCreatePanel();
+
+    if (this.memory.size > 0 && this.callStack.length === 0) {
+      panel.innerHTML = '';
+      const box = this.renderScopeBox('main', this.memory);
+      panel.appendChild(box);
+    }
+  }
+
+
+  // Creates a box (function-style) for a given scope and its variables
+  renderScopeBox(
+    scopeName: string,
+    variables: Map<string, {type: Type, value: Fruit | null}>): HTMLElement {
     const wrapper = document.createElement('div');
     wrapper.className = 'function-wrapper';
 
@@ -164,9 +181,9 @@ function renderScopeBox(
         type instanceof ObjectType ||
         type.toString() === 'String'
       ) {
-        box.appendChild(renderReferenceBox(varName, type));
+        box.appendChild(this.renderReferenceBox(varName, type));
       } else {
-        box.appendChild(renderPrimitiveVariableBox(varName, type, value));
+        box.appendChild(this.renderPrimitiveVariableBox(varName, type, value));
       }
     }
 
@@ -176,64 +193,65 @@ function renderScopeBox(
   }
 
 
-// Creates a reusable box layout for a variable (name, type, box)
-// The fillBox function customizes the content inside the box
-function renderBaseVariableBox(
-  name: string,
-  type: Type,
-  fillBox: (box: HTMLElement) => void): HTMLElement {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'memory-variable';
+  // Creates a reusable box layout for a variable (name, type, box)
+  // The fillBox function customizes the content inside the box
+  renderBaseVariableBox(
+    name: string,
+    type: Type,
+    fillBox: (box: HTMLElement) => void): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'memory-variable';
 
-  const varRow = document.createElement('div');
-  varRow.className = 'var-row';
+    const varRow = document.createElement('div');
+    varRow.className = 'var-row';
 
-  const varName = document.createElement('div');
-  varName.className = 'var-name';
-  varName.textContent = name;
+    const varName = document.createElement('div');
+    varName.className = 'var-name';
+    varName.textContent = name;
 
-  const varColumn = document.createElement('div');
-  varColumn.className = 'var-column';
+    const varColumn = document.createElement('div');
+    varColumn.className = 'var-column';
 
-  const varType = document.createElement('div');
-  varType.className = 'var-type';
-  varType.textContent = type.toString();
+    const varType = document.createElement('div');
+    varType.className = 'var-type';
+    varType.textContent = type.toString();
 
-  const varBox = document.createElement('div');
-  varBox.className = 'var-box';
+    const varBox = document.createElement('div');
+    varBox.className = 'var-box';
 
-  fillBox(varBox);
+    fillBox(varBox);
 
-  varColumn.appendChild(varType);
-  varColumn.appendChild(varBox);
+    varColumn.appendChild(varType);
+    varColumn.appendChild(varBox);
 
-  varRow.appendChild(varName);
-  varRow.appendChild(varColumn);
+    varRow.appendChild(varName);
+    varRow.appendChild(varColumn);
 
-  wrapper.appendChild(varRow);
+    wrapper.appendChild(varRow);
 
-  return wrapper;
-}
+    return wrapper;
+  }
 
 
-// Renders a variable box for a primitive value (e.g. int, bool)
-function renderPrimitiveVariableBox(
-  name: string,
-  type: Type,
-  value: Fruit | null): HTMLElement {
-    return renderBaseVariableBox(name, type, box => {
+  // Renders a variable box for a primitive value (e.g. int, bool)
+  renderPrimitiveVariableBox(
+    name: string,
+    type: Type,
+    value: Fruit | null): HTMLElement {
+    return this.renderBaseVariableBox(name, type, box => {
       if (value instanceof Fruit && value.value !== null) {
         box.textContent = type.serializeValue(value.value);
-    }
-  });
-}
+      }
+    });
+  }
 
 
-// Renders a variable box for a reference type (e.g. string, array, object) (dot shown inside the box for now)
-function renderReferenceBox(name: string, type: Type): HTMLElement {
-  return renderBaseVariableBox(name, type, box => {
-    const dot = document.createElement('div');
-    dot.className = 'reference-dot';
-    box.appendChild(dot);
-  })
+  // Renders a variable box for a reference type (e.g. string, array, object) (dot shown inside the box for now)
+  renderReferenceBox(name: string, type: Type): HTMLElement {
+    return this.renderBaseVariableBox(name, type, box => {
+      const dot = document.createElement('div');
+      dot.className = 'reference-dot';
+      box.appendChild(dot);
+    })
+  }
 }

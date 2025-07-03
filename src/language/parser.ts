@@ -38,6 +38,11 @@ export abstract class Parser {
     let n = 0;
     let where = Where.Nowhere;
     while (this.has(TokenType.Linebreak)) {
+           // (this.has(TokenType.Indent) && this.hasAhead(TokenType.Linebreak, 1)) ||
+           // (this.has(TokenType.Unindent) && this.hasAhead(TokenType.Linebreak, 1))) {
+      if (this.has(TokenType.Indent) || this.has(TokenType.Unindent)) {
+        this.advance();
+      }
       const token = this.advance();
       if (where) {
         where.end = token.where.end;
@@ -47,6 +52,10 @@ export abstract class Parser {
       n += 1;
     }
     return {n, where};
+  }
+
+  debugToken(offset: number = 0) {
+    console.log(this.tokens[this.i + offset].toPretty(this.source));
   }
 
   abstract parse(): ast.Node;
