@@ -1329,7 +1329,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       if (e instanceof ReturnSomethingException) {
         if (Type.Void.covers(subroutineFruit.returnType)) {
           throw new error.WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
-        } else if (subroutineFruit.returnType !== e.fruit.type) {
+        } else if (!subroutineFruit.returnType.covers(e.fruit.type)) {
           throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
         } else {
           fruit = e.fruit;
