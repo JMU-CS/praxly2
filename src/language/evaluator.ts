@@ -416,7 +416,23 @@ export class Runtime {
   }
 
   getFunction(identifier: string): FunctionEntry | undefined {
-    return this.functionBindings.get(identifier);
+    if (this.functionBindings.has(identifier)) {
+      return this.functionBindings.get(identifier);
+    } else if (this.parent) {
+      return this.parent.getFunction(identifier);
+    } else {
+      return undefined;
+    }
+  }
+
+  functionOwner(identifier: string): Runtime | undefined {
+    if (this.functionBindings.has(identifier)) {
+      return this;
+    } else if (this.parent) {
+      return this.parent.functionOwner(identifier);
+    } else {
+      return undefined;
+    }
   }
 }
 
@@ -1070,14 +1086,17 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitFunctionCall(node: ast.FunctionCall, runtime: Runtime): Promise<Fruit> {
-    const lambda = runtime.globalRuntime.functionBindings.get(node.identifier);
-    if (lambda) {
+    const definerRuntime = runtime.functionOwner(node.identifier);
+    if (definerRuntime) {
+      // getFunction will succeed because definerRuntime owns the function.
+      const lambda = definerRuntime.getFunction(node.identifier)!;
+
       if (node.actuals.length !== lambda.formals.length) {
         throw new error.WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
       }
 
       this.mem.startFunctionBox(node.identifier);
-      const newRuntime = runtime.child();
+      const newRuntime = definerRuntime.child();
 
       for (let [i, formal] of lambda.formals.entries()) {
         newRuntime.declareVariable(formal.identifier, formal.type);
@@ -1299,6 +1318,15 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     for (let [name, entry] of classFruit.instanceVariableEntries) {
       instance.runtime.declareVariable(name, entry.type);
       instance.runtime.setVariable(name, new VariableEntry(entry.type, entry.initialValue));
+    }
+
+    // Each instance also carries around a list of the class's methods. It's
+    // really not necessary for each instance to carry such a list around. A
+    // vtable, for example, is stored with the class. Perhaps we could
+    // eliminate this redundancy someday. For now, it's the easiest
+    // implementation given how Runtime performs lookups.
+    for (let [name, entry] of classFruit.instanceMethodEntries) {
+      instance.runtime.setFunction(name, entry);
     }
 
     return new Fruit(new ObjectType(node.identifier), instance);
