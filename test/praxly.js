@@ -622,9 +622,28 @@ Smallest s = new Smallest
 s.value = 999999
 s.add(6)
 s.add(3)
+s.add(400)
 s.add(-5)
 print s.value`,
       output: "-5\n",
+    },
+    {
+      message: 'method with return',
+      source: `class Smallest
+  public int value
+  int add(int x)
+    value = min(x, value)
+    return value
+  end add
+end class Smallest
+Smallest s = new Smallest
+s.value = 999999
+print s.add(6)
+print s.add(3)
+print s.add(400)
+print s.add(-5)
+print s.value`,
+      output: "6\n3\n3\n-5\n-5\n",
     },
   ];
 
@@ -639,6 +658,87 @@ print s.value`,
         await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
+    });
+  }
+});
+
+// unknown method internal/external
+// parentheses after constructor
+
+describe('Praxis: Object Errors', () => {
+  const samples = [
+    {
+      message: 'private access',
+      source: `class Circle
+  private double radius
+end class Circle
+Circle c = new Circle
+print c.radius`,
+      error: error.VisibilityError,
+    },
+    {
+      message: 'external access of unknown instance variable',
+      source: `class Circle
+  public double radius
+end class Circle
+Circle c = new Circle
+print c.diameter`,
+      error: error.UndeclaredError,
+    },
+    {
+      message: 'internal access of unknown instance variable',
+      source: `class Circle
+  public double radius
+  void debug()
+    print diameter
+  end debug
+end class Circle
+Circle c = new Circle
+c.debug()`,
+      error: error.UndeclaredError,
+    },
+    {
+      message: 'external access of unknown instance method',
+      source: `class Circle
+  public double radius
+end class Circle
+Circle c = new Circle
+print c.area()`,
+      error: error.UndeclaredError,
+    },
+    {
+      message: 'internal access of unknown instance method',
+      source: `class Circle
+  public double radius
+  double circumference()
+    return diameter() * 3.14159
+  end
+end class Circle
+Circle c = new Circle
+print c.circumference()`,
+      error: error.UndeclaredError,
+    },
+    {
+      message: 'uninitialized instance variable',
+      source: `class Circle
+  public double radius
+end class Circle
+Circle c = new Circle
+print c.radius`,
+      error: error.UninitializedError,
+    },
+  ];
+
+  for (let sample of samples) {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
+      const evaluate = async () => {
+        const tokens = lexPraxis(sample.source);
+        const ast = parsePraxis(tokens, sample.source);
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
+        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+      };
+      it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
     });
   }
 });

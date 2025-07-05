@@ -844,7 +844,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         throw new error.TypeError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
       }
     } else {
-      throw new error.WhereError(`${label} \`${identifier}\` is undeclared.`, where);
+      throw new error.UnknownError(`${label} \`${identifier}\` is undeclared.`, where);
     }
   }
 
@@ -899,7 +899,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
           throw new error.WhereError(`Variable \`${identifier}\` is private.`, node.where);
         }
       } else {
-        throw new error.WhereError(`Variable \`${identifier}\` is undeclared.`, node.where);
+        throw new error.UnknownError(`Variable \`${identifier}\` is undeclared.`, node.where);
       }
 
       this.assignVariable('Variable', node.where, identifier, rightFruit, receiverFruit.value.runtime);
@@ -941,12 +941,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const entry = runtime.getVariable(node.identifier);
     if (entry) {
       if (entry.value === null) {
-        throw new error.WhereError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
+        throw new error.UninitializedError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
       } else {
         return new Fruit(entry.type, entry.value);
       }
     } else {
-      throw new error.WhereError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
+      throw new error.UnknownError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
     }
   }
 
@@ -1219,21 +1219,21 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       const declaration = template.instanceVariableEntries.get(node.identifier);
       if (declaration) {
         if (declaration.visibility !== ast.Visibility.Public) {
-          throw new error.WhereError(`Variable \`${node.identifier}\` is private.`, node.where);
+          throw new error.VisibilityError(`Variable \`${node.identifier}\` is private.`, node.where);
         }
       } else {
-        throw new error.WhereError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
+        throw new error.UnknownError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
       }
 
       const entry = receiverFruit.value.runtime.getVariable(node.identifier);
       if (entry) {
         if (entry.value === null) {
-          throw new error.WhereError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
+          throw new error.UninitializedError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
         } else {
           return new Fruit(entry.type, entry.value);
         }
       } else {
-        throw new error.WhereError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
+        throw new error.UnknownError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
       }
     }
     throw new error.WhereError(`A value of type \`${receiverFruit.type}\` does not have a \`${node.identifier}\` property.`, node.where);
