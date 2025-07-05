@@ -578,7 +578,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     } else {
       throw new error.TypeError('Only ints and floats can be incremented.', node.where);
     }
-    await new ast.Assignment(node.operandNode, new ast.Add(unincrementedPrimitive, new ast.Integer(1, Where.Nowhere), Where.Nowhere), Where.Nowhere).visit(this, runtime);
+    await this.assignWithoutStep(new ast.Assignment(node.operandNode, new ast.Add(unincrementedPrimitive, new ast.Integer(1, Where.Nowhere), Where.Nowhere), Where.Nowhere), runtime);
     return fruit;
   }
 
@@ -852,8 +852,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     return new Fruit(Type.Void);
   }
 
-  async visitAssignment(node: ast.Assignment, runtime: Runtime): Promise<Fruit> {
-    await this.step(node);
+  async assignWithoutStep(node: ast.Assignment, runtime: Runtime) {
+    // In debug mode, the visitAssignment method pauses before being evaluated.
+    // Some nodes create an artificial assignment node, but we don't want to
+    // pause on these fake nodes.
+
     const rightFruit = await node.rightNode.visit(this, runtime);
 
     // Don't evaluate left-hand side because that does an rvalue lookup.
@@ -906,6 +909,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     }
 
     return new Fruit(Type.Void);
+  }
+
+  async visitAssignment(node: ast.Assignment, runtime: Runtime): Promise<Fruit> {
+    await this.step(node);
+    return await this.assignWithoutStep(node, runtime);
   }
 
   async visitDeclaration(node: ast.Declaration, runtime: Runtime): Promise<Fruit> {
