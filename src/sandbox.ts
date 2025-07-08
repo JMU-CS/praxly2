@@ -143,7 +143,7 @@ function initialize() {
       }
 
       let generator;
-      if (srcLang.value === "Praxis") {
+      if (dstLang.value === "Praxis") {
         generator = new PraxisGenerator();
       } else {
         generator = new PythonGenerator();
