@@ -1,16 +1,18 @@
-#root {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0;
+}
 
+#panels {
+  flex: 1;
   display: flex;
   flex-direction: row;
   align-items: stretch;
 }
 
-#root > * {
+#panels > * {
   flex-grow: 1;
   flex-basis: 0;
 }
@@ -44,16 +46,14 @@
   background-color: rgb(230, 230, 230);
 }
 
-.controls {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 5px;
+#controls {
+  padding: 1ex;
 }
+
+#controls > select {
+  margin-right: 1em;
+}
+
 
 var {
   color: blue;

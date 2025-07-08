@@ -60,6 +60,8 @@ function initialize() {
     return;
   }
 
+  const srcLang = document.getElementById('src-lang') as HTMLInputElement;
+  const dstLang = document.getElementById('dst-lang') as HTMLInputElement;
   const runButton = document.getElementById('run-button') as HTMLInputElement;
   const debugButton = document.getElementById('debug-button') as HTMLInputElement;
   const stepButton = document.getElementById('step-button') as HTMLInputElement;
@@ -130,15 +132,29 @@ function initialize() {
     try {
       outputPanel.innerText = '';
 
-      const tokens = lexPython(source);
-      const ast = parsePython(tokens, source);
+      let tokens;
+      let ast;
+      if (srcLang.value === "Praxis") {
+        tokens = lexPraxis(source);
+        ast = parsePraxis(tokens, source);
+      } else {
+        tokens = lexPython(source);
+        ast = parsePython(tokens, source);
+      }
+
+      let generator;
+      if (srcLang.value === "Praxis") {
+        generator = new PraxisGenerator();
+      } else {
+        generator = new PythonGenerator();
+      }
 
       // Update tree-panel
       const object = ast.visit(new Objectifier(), {});
       treePanel.innerText = JSON.stringify(object, null, 2);
 
       // Update source-panel
-      const generatedSource = ast.visit(new PythonGenerator(), {
+      const generatedSource = ast.visit(generator, {
         nestingLevel: 0,
         indentation: '  ',
       });
