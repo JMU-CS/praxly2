@@ -8,19 +8,29 @@
     <link rel="stylesheet" href="/memdia.css" />
   </head>
   <body>
-    <div id="root">
+    <div id="controls">
+      <label for="src-lang">Source:</label>
+      <select id="src-lang">
+        <option>Praxis</option>
+        <option>Python</option>
+      </select>
+      <label for="dst-lang">Target:</label>
+      <select id="dst-lang">
+        <option>Praxis</option>
+        <option selected>Python</option>
+      </select>
+      <button id="run-button">run</button>
+      <button id="debug-button">debug</button>
+      <button id="step-button">step</button>
+      <input type="text" id="input-field">
+    </div>
+    <div id="panels">
       <!-- <textarea id="editor"></textarea> -->
       <div id="editor"></div>
       <div id="tree-panel"></div>
        <div id="source-panel"></div>
       <div id="output-panel"></div>
       <div id="memdia-panel"></div>
-      <div class="controls">
-        <button id="run-button">run</button>
-        <button id="debug-button">debug</button>
-        <button id="step-button">step</button>
-        <input type="text" id="input-field">
-      </div>
     </div>
     <script type="module" src="/src/sandbox.ts"></script>
   </body>
