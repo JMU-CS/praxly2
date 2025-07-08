@@ -22,6 +22,9 @@ function getInput() {
   return new Promise(resolve => resolve(''));
 }
 
+// Functions passed to describe can't be async. Only functions passed to it can
+// be asynchronous.
+
 describe('Praxis: Expression Generation and Evaluation', () => {
   const samples = [
     {
@@ -162,7 +165,7 @@ describe('Praxis: Expression Generation and Evaluation', () => {
   ];
 
   for (let sample of samples) {
-    describe(sample.source, async () => {
+    describe(sample.source, () => {
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxisExpression(tokens, sample.source);
 
@@ -172,10 +175,12 @@ describe('Praxis: Expression Generation and Evaluation', () => {
       });
       it(`should serialize to ${sample.serialization}`, () => assert.equal(generatedSource, sample.serialization));
 
-      const logger = makeLogger();
-      const runtime = new GlobalRuntime(logger.log, getInput);
-      const fruit = await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
-      it(`should evaluate to ${sample.evaluation}`, () => assert.deepStrictEqual(fruit, sample.evaluation));
+      it(`should evaluate to ${sample.evaluation}`, async () => {
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
+        const fruit = await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        assert.deepStrictEqual(fruit, sample.evaluation);
+      });
     });
   }
 });
@@ -353,7 +358,7 @@ accompany
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, async () => {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
       const tokens = lexPraxis(sample.source);
       const ast = parsePraxis(tokens, sample.source);
 
@@ -364,10 +369,12 @@ accompany
       const expectedSerialization = sample.serialization ?? sample.source;
       it(`should serialize to\n${expectedSerialization}`, () => assert.equal(generatedSource, expectedSerialization));
 
-      const logger = makeLogger();
-      const runtime = new GlobalRuntime(logger.log, getInput);
-      await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
-      it(`should output\n${sample.output}`, () => assert.equal(logger.stdout, sample.output));
+      it(`should output\n${sample.output}`, async () => {
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
+        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        assert.equal(logger.stdout, sample.output);
+      });
     });
   }
 });
@@ -401,14 +408,16 @@ print 6\n`,
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, async () => {
-      const tokens = lexPraxis(sample.source);
-      const ast = parsePraxis(tokens, sample.source);
+    describe(`// ${sample.message}\n${sample.source}`, () => {
+      it(`should output\n${sample.output}`, async () => {
+        const tokens = lexPraxis(sample.source);
+        const ast = parsePraxis(tokens, sample.source);
 
-      const logger = makeLogger();
-      const runtime = new GlobalRuntime(logger.log, getInput);
-      await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
-      it(`should output\n${sample.output}`, () => assert.equal(logger.stdout, sample.output));
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
+        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        assert.equal(logger.stdout, sample.output);
+      });
     });
   }
 });
@@ -534,14 +543,202 @@ print nums[2][2]`,
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, async () => {
-      const tokens = lexPraxis(sample.source);
-      const ast = parsePraxis(tokens, sample.source);
+    describe(`// ${sample.message}\n${sample.source}`, () => {
+      it(`should output\n${sample.output}`, async () => {
+        const tokens = lexPraxis(sample.source);
+        const ast = parsePraxis(tokens, sample.source);
 
-      const logger = makeLogger();
-      const runtime = new GlobalRuntime(log, getInput);
-      await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
-      it(`should output\n${sample.output}`, () => assert.equal(logger.stdout, sample.output));
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
+        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        assert.equal(logger.stdout, sample.output);
+      });
+    });
+  }
+});
+
+describe('Praxis: Objects', () => {
+  const samples = [
+    {
+      message: 'basic object',
+      source: `class Count
+  public int count = 0
+  void inc()
+    count = count + 1
+  end inc
+  void dec()
+    count = count - 1
+  end dec
+end class Count
+Count c = new Count
+print c.count
+c.inc()
+c.inc()
+print c.count
+c.dec()
+print c.count`,
+      output: "0\n2\n1\n",
+    },
+    {
+      message: 'public instance variable access',
+      source: `class Dog
+  public String name
+end class Dog
+Dog d = new Dog
+d.name = "Bizness"
+print d.name`,
+      output: "Bizness\n",
+    },
+    {
+      message: 'internal method calls',
+      source: `class Count
+  public int n
+  void inc()
+    n = n + 1
+  end inc
+  void inc2()
+    inc()
+    inc()
+  end inc2
+end class Count
+Count c = new Count
+c.n = 0
+print c.n
+c.inc2()
+c.inc2()
+c.inc2()
+print c.n`,
+      output: "0\n6\n",
+    },
+    {
+      message: 'call global functions from methods',
+      source: `class Smallest
+  public int value
+  void add(int x)
+    value = min(x, value)
+  end add
+end class Smallest
+Smallest s = new Smallest
+s.value = 999999
+s.add(6)
+s.add(3)
+s.add(400)
+s.add(-5)
+print s.value`,
+      output: "-5\n",
+    },
+    {
+      message: 'method with return',
+      source: `class Smallest
+  public int value
+  int add(int x)
+    value = min(x, value)
+    return value
+  end add
+end class Smallest
+Smallest s = new Smallest
+s.value = 999999
+print s.add(6)
+print s.add(3)
+print s.add(400)
+print s.add(-5)
+print s.value`,
+      output: "6\n3\n3\n-5\n-5\n",
+    },
+  ];
+
+  for (let sample of samples) {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
+      it(`should output\n${sample.output}`, async () => {
+        const tokens = lexPraxis(sample.source);
+        const ast = parsePraxis(tokens, sample.source);
+
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
+        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        assert.equal(logger.stdout, sample.output);
+      });
+    });
+  }
+});
+
+// unknown method internal/external
+// parentheses after constructor
+
+describe('Praxis: Object Errors', () => {
+  const samples = [
+    {
+      message: 'private access',
+      source: `class Circle
+  private double radius
+end class Circle
+Circle c = new Circle
+print c.radius`,
+      error: error.VisibilityError,
+    },
+    {
+      message: 'external access of unknown instance variable',
+      source: `class Circle
+  public double radius
+end class Circle
+Circle c = new Circle
+print c.diameter`,
+      error: error.UndeclaredError,
+    },
+    {
+      message: 'internal access of unknown instance variable',
+      source: `class Circle
+  public double radius
+  void debug()
+    print diameter
+  end debug
+end class Circle
+Circle c = new Circle
+c.debug()`,
+      error: error.UndeclaredError,
+    },
+    {
+      message: 'external access of unknown instance method',
+      source: `class Circle
+  public double radius
+end class Circle
+Circle c = new Circle
+print c.area()`,
+      error: error.UndeclaredError,
+    },
+    {
+      message: 'internal access of unknown instance method',
+      source: `class Circle
+  public double radius
+  double circumference()
+    return diameter() * 3.14159
+  end
+end class Circle
+Circle c = new Circle
+print c.circumference()`,
+      error: error.UndeclaredError,
+    },
+    {
+      message: 'uninitialized instance variable',
+      source: `class Circle
+  public double radius
+end class Circle
+Circle c = new Circle
+print c.radius`,
+      error: error.UninitializedError,
+    },
+  ];
+
+  for (let sample of samples) {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
+      const evaluate = async () => {
+        const tokens = lexPraxis(sample.source);
+        const ast = parsePraxis(tokens, sample.source);
+        const logger = makeLogger();
+        const runtime = new GlobalRuntime(logger.log, getInput);
+        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+      };
+      it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
     });
   }
 });
@@ -555,7 +752,7 @@ describe('Praxis: Parse Errors', () => {
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, async () => {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
       const evaluate = async () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);
@@ -617,7 +814,7 @@ xs[2] = 7`,
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, async () => {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
       const evaluate = async () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);
@@ -645,7 +842,7 @@ s++`,
   ];
 
   for (let sample of samples) {
-    describe(`// ${sample.message}\n${sample.source}`, async () => {
+    describe(`// ${sample.message}\n${sample.source}`, () => {
       const evaluate = async () => {
         const tokens = lexPraxis(sample.source);
         const ast = parsePraxis(tokens, sample.source);

@@ -416,7 +416,23 @@ export class Runtime {
   }
 
   getFunction(identifier: string): FunctionEntry | undefined {
-    return this.functionBindings.get(identifier);
+    if (this.functionBindings.has(identifier)) {
+      return this.functionBindings.get(identifier);
+    } else if (this.parent) {
+      return this.parent.getFunction(identifier);
+    } else {
+      return undefined;
+    }
+  }
+
+  functionOwner(identifier: string): Runtime | undefined {
+    if (this.functionBindings.has(identifier)) {
+      return this;
+    } else if (this.parent) {
+      return this.parent.functionOwner(identifier);
+    } else {
+      return undefined;
+    }
   }
 }
 
@@ -562,7 +578,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     } else {
       throw new error.TypeError('Only ints and floats can be incremented.', node.where);
     }
-    await new ast.Assignment(node.operandNode, new ast.Add(unincrementedPrimitive, new ast.Integer(1, Where.Nowhere), Where.Nowhere), Where.Nowhere).visit(this, runtime);
+    await this.assignWithoutStep(new ast.Assignment(node.operandNode, new ast.Add(unincrementedPrimitive, new ast.Integer(1, Where.Nowhere), Where.Nowhere), Where.Nowhere), runtime);
     return fruit;
   }
 
@@ -828,7 +844,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         throw new error.TypeError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
       }
     } else {
-      throw new error.WhereError(`${label} \`${identifier}\` is undeclared.`, where);
+      throw new error.UnknownError(`${label} \`${identifier}\` is undeclared.`, where);
     }
   }
 
@@ -836,8 +852,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     return new Fruit(Type.Void);
   }
 
-  async visitAssignment(node: ast.Assignment, runtime: Runtime): Promise<Fruit> {
-    await this.step(node);
+  async assignWithoutStep(node: ast.Assignment, runtime: Runtime) {
+    // In debug mode, the visitAssignment method pauses before being evaluated.
+    // Some nodes create an artificial assignment node, but we don't want to
+    // pause on these fake nodes.
+
     const rightFruit = await node.rightNode.visit(this, runtime);
 
     // Don't evaluate left-hand side because that does an rvalue lookup.
@@ -883,13 +902,18 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
           throw new error.WhereError(`Variable \`${identifier}\` is private.`, node.where);
         }
       } else {
-        throw new error.WhereError(`Variable \`${identifier}\` is undeclared.`, node.where);
+        throw new error.UnknownError(`Variable \`${identifier}\` is undeclared.`, node.where);
       }
 
       this.assignVariable('Variable', node.where, identifier, rightFruit, receiverFruit.value.runtime);
     }
 
     return new Fruit(Type.Void);
+  }
+
+  async visitAssignment(node: ast.Assignment, runtime: Runtime): Promise<Fruit> {
+    await this.step(node);
+    return await this.assignWithoutStep(node, runtime);
   }
 
   async visitDeclaration(node: ast.Declaration, runtime: Runtime): Promise<Fruit> {
@@ -925,12 +949,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const entry = runtime.getVariable(node.identifier);
     if (entry) {
       if (entry.value === null) {
-        throw new error.WhereError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
+        throw new error.UninitializedError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
       } else {
         return new Fruit(entry.type, entry.value);
       }
     } else {
-      throw new error.WhereError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
+      throw new error.UnknownError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
     }
   }
 
@@ -1070,14 +1094,17 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitFunctionCall(node: ast.FunctionCall, runtime: Runtime): Promise<Fruit> {
-    const lambda = runtime.globalRuntime.functionBindings.get(node.identifier);
-    if (lambda) {
+    const definerRuntime = runtime.functionOwner(node.identifier);
+    if (definerRuntime) {
+      // getFunction will succeed because definerRuntime owns the function.
+      const lambda = definerRuntime.getFunction(node.identifier)!;
+
       if (node.actuals.length !== lambda.formals.length) {
         throw new error.WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
       }
 
       this.mem.startFunctionBox(node.identifier);
-      const newRuntime = runtime.child();
+      const newRuntime = definerRuntime.child();
 
       for (let [i, formal] of lambda.formals.entries()) {
         newRuntime.declareVariable(formal.identifier, formal.type);
@@ -1200,21 +1227,21 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       const declaration = template.instanceVariableEntries.get(node.identifier);
       if (declaration) {
         if (declaration.visibility !== ast.Visibility.Public) {
-          throw new error.WhereError(`Variable \`${node.identifier}\` is private.`, node.where);
+          throw new error.VisibilityError(`Variable \`${node.identifier}\` is private.`, node.where);
         }
       } else {
-        throw new error.WhereError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
+        throw new error.UnknownError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
       }
 
       const entry = receiverFruit.value.runtime.getVariable(node.identifier);
       if (entry) {
         if (entry.value === null) {
-          throw new error.WhereError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
+          throw new error.UninitializedError(`Variable \`${node.identifier}\` is uninitialized.`, node.where);
         } else {
           return new Fruit(entry.type, entry.value);
         }
       } else {
-        throw new error.WhereError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
+        throw new error.UnknownError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
       }
     }
     throw new error.WhereError(`A value of type \`${receiverFruit.type}\` does not have a \`${node.identifier}\` property.`, node.where);
@@ -1301,6 +1328,15 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       instance.runtime.setVariable(name, new VariableEntry(entry.type, entry.initialValue));
     }
 
+    // Each instance also carries around a list of the class's methods. It's
+    // really not necessary for each instance to carry such a list around. A
+    // vtable, for example, is stored with the class. Perhaps we could
+    // eliminate this redundancy someday. For now, it's the easiest
+    // implementation given how Runtime performs lookups.
+    for (let [name, entry] of classFruit.instanceMethodEntries) {
+      instance.runtime.setFunction(name, entry);
+    }
+
     return new Fruit(new ObjectType(node.identifier), instance);
   }
 
@@ -1329,7 +1365,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       if (e instanceof ReturnSomethingException) {
         if (Type.Void.covers(subroutineFruit.returnType)) {
           throw new error.WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
-        } else if (subroutineFruit.returnType !== e.fruit.type) {
+        } else if (!subroutineFruit.returnType.covers(e.fruit.type)) {
           throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
         } else {
           fruit = e.fruit;
