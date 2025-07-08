@@ -226,16 +226,8 @@ class PythonParser extends Parser {
     }
     const rightToken = this.advance(); // eat )
 
-    const [block, blockMode] = this.block(true, 'function definition', Where.enclose(firstWhere, rightToken.where), TokenType.End);
+    const block = this.block(true, 'function definition', Where.enclose(firstWhere, rightToken.where));
 
-    if (blockMode === BlockMode.End) {
-      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Identifier, 1) || (this.tokens[this.i + 1] as TextToken).text !== identifierToken.text) {
-        throw new ParseError(`The ${context} must be closed with \`end ${identifierToken.text}\`.`, block.where);
-      }
-      this.advance();
-      const endToken = this.advance();
-      // TODO: need lastWhere of end token?
-    }
 
     return {
       identifier: identifierToken.text,
@@ -250,11 +242,11 @@ class PythonParser extends Parser {
     return new ast.FunctionDefinition(core.identifier, core.formals, type, core.block, Where.enclose(type.where, core.block.where));
   }
 
-  block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, ...endTokenTypes: TokenType[]): [ast.Block, BlockMode] {
+  block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where): ast.Block {
     // if (this.has(TokenType.LeftCurly)) {
     //   return [this.curlyBlock(inFunctionDefinition, contextLabel, contextWhere), BlockMode.Curly];
     // } else {
-      return [this.indentedBlock(inFunctionDefinition, contextLabel, contextWhere, endTokenTypes), BlockMode.End]
+      return this.indentedBlock(inFunctionDefinition, contextLabel, contextWhere)
     // }
   }
 
@@ -288,7 +280,7 @@ class PythonParser extends Parser {
     return new ast.Block(statements, Where.enclose(leftToken.where, rightToken.where));
   }
 
-  indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, endTokenTypes: TokenType[]) {
+  indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where) {
     if (!this.has(TokenType.Linebreak)) {
       throw new ParseError(`A linebreak is missing after the header of this ${contextLabel}.`, contextWhere);
     }
@@ -297,17 +289,14 @@ class PythonParser extends Parser {
     let statements = [];
     if (this.has(TokenType.Indent)) {
       const indentToken = this.advance();
-      while (!this.has(TokenType.Unindent)) {
+      while (!this.has(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
         const statement = this.statement(inFunctionDefinition);
         statements.push(statement);
       }
 
-      if (!this.has(TokenType.Unindent)) {
-        throw new ParseError(`The block in this ${contextLabel} doesn't end.`, contextWhere);
+      if (this.has(TokenType.Unindent)) {
+        this.advance();
       }
-      this.advance();
-    } else if (!this.hasAny(...endTokenTypes)) {
-      throw new ParseError(`The block in this ${contextLabel} is not indented.`, contextWhere);
     }
 
     const blockWhere = statements.length > 0 ? Where.enclose(statements[0].where, statements[statements.length - 1].where) : contextWhere;
@@ -329,10 +318,6 @@ class PythonParser extends Parser {
       statement = this.ifStatement(inFunctionDefinition);
     } else if (this.has(TokenType.While)) {
       statement = this.whileStatement(inFunctionDefinition);
-    } else if (this.has(TokenType.Do)) {
-      statement = this.doStatement(inFunctionDefinition);
-    } else if (this.has(TokenType.Repeat)) {
-      statement = this.repeatStatement(inFunctionDefinition);
     } else if (this.has(TokenType.For)) {
       statement = this.forStatement(inFunctionDefinition);
     } else if (this.has(TokenType.Print)) {
@@ -466,7 +451,7 @@ class PythonParser extends Parser {
     const conditionNode = this.eatCondition(ifToken.where, "An if statement's condition").node;
     let thenBlock;
     let blockMode;
-    [thenBlock, blockMode] = this.block(inFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
+    thenBlock = this.block(inFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where));
     let lastWhere = thenBlock.where;
     conditionNodes.push(conditionNode);
     thenBlocks.push(thenBlock);
@@ -475,7 +460,7 @@ class PythonParser extends Parser {
       this.advance(); // eat else
       const ifToken = this.advance();
       const conditionNode = this.parenthesizedExpression(ifToken.where, "An elif statement's condition").node;
-      [thenBlock, blockMode] = this.block(inFunctionDefinition, 'elif statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else); // add elif?
+      thenBlock = this.block(inFunctionDefinition, 'elif statement', Where.enclose(ifToken.where, conditionNode.where));
       lastWhere = thenBlock.where;
       conditionNodes.push(conditionNode);
       thenBlocks.push(thenBlock);
@@ -484,18 +469,18 @@ class PythonParser extends Parser {
     let elseBlock = null;
     if (this.has(TokenType.Else)) {
       const elseToken = this.advance();
-      [elseBlock, blockMode] = this.block(inFunctionDefinition, 'else branch', elseToken.where, TokenType.End);
+      elseBlock = this.block(inFunctionDefinition, 'else branch', elseToken.where);
       lastWhere = elseBlock.where;
     }
 
-    if (blockMode === BlockMode.End) {
-      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.If, 1)) {
-        throw new ParseError(`The if statement must be closed with \`end if\`.`, Where.enclose(ifToken.where, lastWhere));
-      }
-      this.advance();
-      const endToken = this.advance();
-      lastWhere = endToken.where;
-    }
+    // if (blockMode === BlockMode.End) {
+    //   if (!this.has(TokenType.End) || !this.hasAhead(TokenType.If, 1)) {
+    //     throw new ParseError(`The if statement must be closed with \`end if\`.`, Where.enclose(ifToken.where, lastWhere));
+    //   }
+    //   this.advance();
+    //   const endToken = this.advance();
+    //   lastWhere = endToken.where;
+    // }
 
     return new ast.If(conditionNodes, thenBlocks, elseBlock, Where.enclose(ifToken.where, lastWhere));
   }
@@ -519,17 +504,8 @@ class PythonParser extends Parser {
     const whileToken = this.advance();
     const conditionNode = this.parenthesizedExpression(whileToken.where, "A while statement's condition").node;
 
-    const [block, blockMode] = this.block(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where), TokenType.End);
+    const block = this.block(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where));
     let lastWhere = block.where;
-
-    if (blockMode === BlockMode.End) {
-      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.While, 1)) {
-        throw new ParseError(`The loop must be closed with \`end while\`.`, block.where);
-      }
-      this.advance();
-      const endToken = this.advance();
-      lastWhere = endToken.where;
-    }
 
     return new ast.While(conditionNode, block, Where.enclose(whileToken.where, lastWhere));
   }
@@ -582,51 +558,27 @@ class PythonParser extends Parser {
     }
     const rightToken = this.advance(); // eat )
 
-    const [block, blockMode] = this.block(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where), TokenType.End);
+    const block = this.block(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where));
     lastWhere = block.where;
 
-    if (blockMode === BlockMode.End) {
-      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.For, 1)) {
-        throw new ParseError(`The loop must be closed with \`end for\`.`, block.where);
-      }
-      this.advance();
-      const endToken = this.advance();
-      lastWhere = endToken.where;
-    }
+    // if (blockMode === BlockMode.End) {
+    //   if (!this.has(TokenType.End) || !this.hasAhead(TokenType.For, 1)) {
+    //     throw new ParseError(`The loop must be closed with \`end for\`.`, block.where);
+    //   }
+    //   this.advance();
+    //   const endToken = this.advance();
+    //   lastWhere = endToken.where;
+    // }
 
     return new ast.For(initializationNode, conditionNode, incrementBlock, block, Where.enclose(forToken.where, lastWhere));
   }
 
-  doStatement(inFunctionDefinition: boolean): ast.Statement {
-    const doToken = this.advance();
-    const [block, _] = this.block(inFunctionDefinition, 'do-while loop', doToken.where, TokenType.While);
-
-    if (!this.has(TokenType.While)) {
-      throw new ParseError(`The loop must be closed with \`while\` and a condition.`, block.where);
-    }
-    const whileToken = this.advance(); // eat while
-
-    const conditionNode = this.parenthesizedExpression(whileToken.where, "A do loop's condition").node;
-
-    return new ast.DoWhile(block, conditionNode, Where.enclose(doToken.where, conditionNode.where));
-  }
-
-  repeatStatement(inFunctionDefinition: boolean): ast.Statement {
-    const repeatToken = this.advance();
-    const [block, _] = this.block(inFunctionDefinition, 'repeat-until loop', repeatToken.where, TokenType.Until);
-
-    if (!this.has(TokenType.Until)) {
-      throw new ParseError(`The loop must be closed with \`until\` and a condition.`, block.where);
-    }
-    const untilToken = this.advance(); // eat while
-
-    const conditionNode = this.parenthesizedExpression(repeatToken.where, "A repeat loop's condition").node;
-
-    return new ast.RepeatUntil(block, conditionNode, Where.enclose(repeatToken.where, conditionNode.where));
-  }
-
   printStatement(): ast.Print {
     const printToken = this.advance(); // eat print
+
+    if (!this.has(TokenType.LeftParenthesis)) {
+      throw new ParseError(`Print statement needs a opening parenthesis`, printToken.where);
+    }
     const leftParenthesis = this.advance(); // eat (
     const parameterNode = this.expression();
 
@@ -648,8 +600,7 @@ class PythonParser extends Parser {
     }
     const rightParenthesis = this.advance(); // eat )
 
-    let statement = new ast.Print(parameterNode, trailer, Where.enclose(leftParenthesis.where, rightParenthesis.where));
-    // statement.hasSemicolon = hasSemicolon; // or just change to false?
+    let statement = new ast.Print(parameterNode, trailer, Where.enclose(printToken.where, rightParenthesis.where));
 
     return statement;
   }
