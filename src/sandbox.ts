@@ -7,7 +7,9 @@ import {lintKeymap} from '@codemirror/lint';
 import {EditorState, EditorSelection} from '@codemirror/state';
 
 import {lexPraxis} from './language/praxis/lexer.js';
+import {lexPython} from './language/python/lexer.js';
 import {parsePraxis} from './language/praxis/parser.js';
+import {parsePython} from './language/python/parser.js';
 import {PraxisGenerator} from './language/praxis/generator.js';
 import {PythonGenerator} from './language/python/generator.js';
 import {Objectifier} from './language/objectifier.js';
@@ -128,8 +130,8 @@ function initialize() {
     try {
       outputPanel.innerText = '';
 
-      const tokens = lexPraxis(source);
-      const ast = parsePraxis(tokens, source);
+      const tokens = lexPython(source);
+      const ast = parsePython(tokens, source);
 
       // Update tree-panel
       const object = ast.visit(new Objectifier(), {});
