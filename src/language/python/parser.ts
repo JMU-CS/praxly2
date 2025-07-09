@@ -85,7 +85,8 @@ class PythonParser extends Parser {
   }
 
   topLevelStatement(): ast.Statement {
-    if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.LeftParenthesis, 2)) {
+    // TODO Change this!! functions are defined with def and a following identifier with ()
+    if (this.has(TokenType.Function) && this.hasAhead(TokenType.LeftParenthesis, 2)) {
       const defineNode = this.functionDefinition();
       this.statementLinebreak();
       return defineNode;
@@ -202,22 +203,21 @@ class PythonParser extends Parser {
 
     const formals = [];
     if (this.has(TokenType.Identifier)) {
-      const type = this.type();
-      if (!this.has(TokenType.Identifier)) {
-        throw new ParseError("A parameter must have both a type and a name.", type.where);
-      }
+      // if (!this.has(TokenType.Identifier)) {
+      //   throw new ParseError("A parameter must have both a type and a name.", type.where);
+      // }
       const identifierToken = this.advance() as TextToken;
       latestToken = identifierToken;
-      formals.push(new ast.Formal(identifierToken.text, type));
+      formals.push(new ast.Formal(identifierToken.text, Type.Any));
       while (this.has(TokenType.Comma)) {
-        this.advance();
-        const type = this.type();
+        let comma = this.advance(); // pass the ,
+        // const type = this.type();
         if (!this.has(TokenType.Identifier)) {
-          throw new ParseError(`A ${context} must have both a type and a name.`, type.where);
+          throw new ParseError(`A ${context} must have a name.`, comma.where);
         }
         const identifierToken = this.advance() as TextToken;
         latestToken = identifierToken;
-        formals.push(new ast.Formal(identifierToken.text, type));
+        formals.push(new ast.Formal(identifierToken.text, Type.Any));
       }
     }
 
@@ -226,7 +226,12 @@ class PythonParser extends Parser {
     }
     const rightToken = this.advance(); // eat )
 
-    const block = this.block(true, 'function definition', Where.enclose(firstWhere, rightToken.where));
+    if (!this.has(TokenType.Colon)) {
+      throw new ParseError(`A ${context}'s definition must include a :`, Where.enclose(firstWhere, rightToken.where));
+    }
+    const colon = this.advance(); // eat :
+
+    const block = this.block(true, 'function definition', Where.enclose(firstWhere, colon.where));
 
 
     return {
@@ -237,9 +242,12 @@ class PythonParser extends Parser {
   }
 
   functionDefinition(): ast.FunctionDefinition {
-    const type = this.type();
-    const core = this.subroutineCore('function', type.where);
-    return new ast.FunctionDefinition(core.identifier, core.formals, type, core.block, Where.enclose(type.where, core.block.where));
+    // if (!this.has(TokenType.Function)) {
+    //   throw new ParseError("Function definitions must start with keyword def", Where.enclose())
+    // }
+    const def = this.advance(); // eat def
+    const core = this.subroutineCore('function', def.where);
+    return new ast.FunctionDefinition(core.identifier, core.formals, Type.Any, core.block, Where.enclose(def.where, core.block.where));
   }
 
   block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where): ast.Block {
@@ -502,7 +510,7 @@ class PythonParser extends Parser {
 
   whileStatement(inFunctionDefinition: boolean): ast.Statement {
     const whileToken = this.advance();
-    const conditionNode = this.parenthesizedExpression(whileToken.where, "A while statement's condition").node;
+    const conditionNode = this.eatCondition(whileToken.where, "A while statement's condition").node;
 
     const block = this.block(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where));
     let lastWhere = block.where;

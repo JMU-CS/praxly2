@@ -29,7 +29,7 @@ class PythonLexer extends Lexer {
     } else if (this.accept(';')) {
       this.emitToken(TokenType.Semicolon);
     } else if (this.accept('+')) {
-      if (this.accept('+')) {
+      if (this.accept('+')) { // TODO FIX ++ for python
         this.emitToken(TokenType.PlusPlus);
       } else {
         this.emitToken(TokenType.Plus);

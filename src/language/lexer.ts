@@ -145,6 +145,7 @@ export abstract class Lexer {
   static keywords: {[index: string]: TokenType} = {
     and: TokenType.And,
     class: TokenType.Class,
+    def: TokenType.Function,
     do: TokenType.Do,
     else: TokenType.Else,
     end: TokenType.End,
