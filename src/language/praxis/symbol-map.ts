@@ -8,3 +8,5 @@ praxisSymbolMap.set(ast.LogicalOr, 'or');
 praxisSymbolMap.set(ast.LogicalNegate, 'not');
 praxisSymbolMap.set(true, 'true');
 praxisSymbolMap.set(false, 'false');
+praxisSymbolMap.set('array-left', '{');
+praxisSymbolMap.set('array-right', '}');

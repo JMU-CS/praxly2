@@ -8,3 +8,5 @@ pythonSymbolMap.set(ast.LogicalOr, 'or');
 pythonSymbolMap.set(ast.LogicalNegate, 'not');
 pythonSymbolMap.set(true, 'True');
 pythonSymbolMap.set(false, 'False');
+pythonSymbolMap.set('array-left', '[');
+pythonSymbolMap.set('array-right', ']');

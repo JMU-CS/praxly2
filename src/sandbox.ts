@@ -228,7 +228,7 @@ function initialize() {
         const span = document.createElement('span');
         span.innerHTML = `: ${message}`;
         outputPanel.appendChild(span);
-        // console.error(e);
+        console.error(e);
       }
     }
 

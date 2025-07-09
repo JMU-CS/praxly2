@@ -502,7 +502,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     this.mem = mem;
   }
 
-  symbol(key: NodeClass | boolean): string {
+  symbol(key: NodeClass | boolean | string): string {
     return this.symbolMap.get(key)!;
   }
 
@@ -970,11 +970,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const fruit = await node.operandNode.visit(this, runtime);
     if (Type.Boolean.covers(fruit.type)) {
       runtime.globalRuntime.log(this.symbol(fruit.value) + node.trailer);
+    } else if (fruit.type instanceof ArrayType) {
+      runtime.globalRuntime.log(`${this.symbol('array-left')}${fruit.type.serializeValue(fruit.value)}${this.symbol('array-right')}${node.trailer}`);
     } else if (Type.Integer.covers(fruit.type) ||
         Type.Float.covers(fruit.type) ||
         Type.Double.covers(fruit.type) ||
         Type.String.covers(fruit.type) ||
-        fruit.type instanceof ArrayType ||
         fruit.type instanceof ObjectType) {
       runtime.globalRuntime.log(fruit.type.serializeValue(fruit.value) + node.trailer);
     } else {
@@ -1173,7 +1174,13 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       throw new error.WhereError("An array literal is in an unexpected place. It must be part of an array declaration.", node.where);
     }
 
-    const elementType = (runtime.expectedType as ArrayType).elementType;
+    // If we don't have specific types, the element type can be anything.
+    let elementType;
+    if (runtime.expectedType.equals(Type.Any)) {
+      elementType = Type.Any;
+    } else {
+      elementType = (runtime.expectedType as ArrayType).elementType;
+    }
 
     const newRuntime = runtime.shallowClone();
     newRuntime.expectedType = elementType;

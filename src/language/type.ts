@@ -62,7 +62,7 @@ export class ArrayType extends Type {
   }
 
   serializeValue(value: any): string {
-    return `{${(value as Fruit[]).map(element => element.type.serializeValue(element.value)).join(', ')}}`;
+    return `${(value as Fruit[]).map(element => element.type.serializeValue(element.value)).join(', ')}`;
   }
 
   equals(that: Type) {
