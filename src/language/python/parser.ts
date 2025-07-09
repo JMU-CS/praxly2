@@ -3,7 +3,7 @@ import {Token, TextToken, TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {ParseError} from '../error.js';
 import * as ast from '../ast.js';
-import {Type, ArrayType, SizedArrayType} from '../type.js';
+import {Type, ArrayType, SizedArrayType, AnyType} from '../type.js';
 
 // https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf
 
@@ -325,14 +325,9 @@ class PythonParser extends Parser {
     } else if (this.has(TokenType.LineComment)) {
       const token = this.advance() as TextToken;
       statement = new ast.LineComment(token.text, token.where);
-    }
-
-    else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
+    } else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
         statement = this.declaration();
-    }
-
-
-    else if (this.hasArrayWithoutIndex()) {
+    } else if (this.hasArrayWithoutIndex()) {
       statement = this.arrayDeclaration();
     } else if (this.hasArrayWithRange()) {
       statement = this.arrayDeclaration();
@@ -445,11 +440,11 @@ class PythonParser extends Parser {
   }
 
   declaration() {
+    let type = new AnyType(); // type can be anything
     const identifierToken = this.advance() as TextToken;
     this.advance(); // eat =
-    let type = new Type(identifierToken.text, identifierToken.where);
     const rightNode = this.expression();
-    return new ast.Declaration(identifierToken.text, type, rightNode, rightNode.where);
+    return new ast.Declaration(identifierToken.text, type, rightNode, Where.enclose(identifierToken.where, rightNode.where));
   }
 
   ifStatement(inFunctionDefinition: boolean): ast.Statement {
@@ -481,15 +476,6 @@ class PythonParser extends Parser {
       elseBlock = this.block(inFunctionDefinition, 'else branch', elseToken.where);
       lastWhere = elseBlock.where;
     }
-
-    // if (blockMode === BlockMode.End) {
-    //   if (!this.has(TokenType.End) || !this.hasAhead(TokenType.If, 1)) {
-    //     throw new ParseError(`The if statement must be closed with \`end if\`.`, Where.enclose(ifToken.where, lastWhere));
-    //   }
-    //   this.advance();
-    //   const endToken = this.advance();
-    //   lastWhere = endToken.where;
-    // }
 
     return new ast.If(conditionNodes, thenBlocks, elseBlock, Where.enclose(ifToken.where, lastWhere));
   }
@@ -569,15 +555,6 @@ class PythonParser extends Parser {
 
     const block = this.block(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where));
     lastWhere = block.where;
-
-    // if (blockMode === BlockMode.End) {
-    //   if (!this.has(TokenType.End) || !this.hasAhead(TokenType.For, 1)) {
-    //     throw new ParseError(`The loop must be closed with \`end for\`.`, block.where);
-    //   }
-    //   this.advance();
-    //   const endToken = this.advance();
-    //   lastWhere = endToken.where;
-    // }
 
     return new ast.For(initializationNode, conditionNode, incrementBlock, block, Where.enclose(forToken.where, lastWhere));
   }
