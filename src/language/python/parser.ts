@@ -325,13 +325,14 @@ class PythonParser extends Parser {
     } else if (this.has(TokenType.LineComment)) {
       const token = this.advance() as TextToken;
       statement = new ast.LineComment(token.text, token.where);
-    } else if (this.hasTwoIdentifiers()) {
-      if (this.hasAhead(TokenType.Equal, 2)) {
-        statement = this.initializedDeclaration();
-      } else {
-        statement = this.uninitializedDeclaration();
-      }
-    } else if (this.hasArrayWithoutIndex()) {
+    }
+
+    else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
+        statement = this.declaration();
+    }
+
+
+    else if (this.hasArrayWithoutIndex()) {
       statement = this.arrayDeclaration();
     } else if (this.hasArrayWithRange()) {
       statement = this.arrayDeclaration();
@@ -441,6 +442,14 @@ class PythonParser extends Parser {
     const type = this.type();
     const identifierToken = this.advance() as TextToken;
     return new ast.Declaration(identifierToken.text, type, null, Where.enclose(type.where, identifierToken.where));
+  }
+
+  declaration() {
+    const identifierToken = this.advance() as TextToken;
+    this.advance(); // eat =
+    let type = new Type(identifierToken.text, identifierToken.where);
+    const rightNode = this.expression();
+    return new ast.Declaration(identifierToken.text, type, rightNode, rightNode.where);
   }
 
   ifStatement(inFunctionDefinition: boolean): ast.Statement {
