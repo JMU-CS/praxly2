@@ -141,7 +141,9 @@ class PraxisParser extends Parser {
           firstWhere = visibilityToken.where;
         }
 
-        if (!this.has(TokenType.Identifier)) {
+        if (this.has(TokenType.Indent)) {
+          throw new ParseError("The code has stray indentation.", this.tokens[this.i].where);
+        } else if (!this.has(TokenType.Identifier)) {
           throw new ParseError("A type is missing.", lastWhere);
         }
         const type = this.type();
