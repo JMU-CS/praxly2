@@ -502,8 +502,8 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     this.mem = mem;
   }
 
-  symbol(nodeClass: NodeClass): string {
-    return this.symbolMap.get(nodeClass)!;
+  symbol(key: NodeClass | boolean): string {
+    return this.symbolMap.get(key)!;
   }
 
   // --------------------------------------------------------------------------
@@ -968,11 +968,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   async visitPrint(node: ast.Print, runtime: Runtime): Promise<Fruit> {
     await this.step(node);
     const fruit = await node.operandNode.visit(this, runtime);
-    if (Type.Integer.covers(fruit.type) ||
+    if (Type.Boolean.covers(fruit.type)) {
+      runtime.globalRuntime.log(this.symbol(fruit.value) + node.trailer);
+    } else if (Type.Integer.covers(fruit.type) ||
         Type.Float.covers(fruit.type) ||
         Type.Double.covers(fruit.type) ||
         Type.String.covers(fruit.type) ||
-        Type.Boolean.covers(fruit.type) ||
         fruit.type instanceof ArrayType ||
         fruit.type instanceof ObjectType) {
       runtime.globalRuntime.log(fruit.type.serializeValue(fruit.value) + node.trailer);

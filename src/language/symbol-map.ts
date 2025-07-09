@@ -1,10 +1,10 @@
 import * as ast from './ast.js';
 
 export type NodeClass = new(...args: any[]) => ast.Node;
-export type SymbolMap = Map<NodeClass, string>;
+export type SymbolMap = Map<NodeClass | boolean, string>;
 
 export function defaultSymbolMap(): SymbolMap {
-  const symbolMap = new Map<NodeClass, string>();
+  const symbolMap = new Map<NodeClass | boolean, string>();
 
   symbolMap.set(ast.Add, '+');
   symbolMap.set(ast.Subtract, '-');
