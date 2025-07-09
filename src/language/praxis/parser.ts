@@ -294,6 +294,8 @@ class PraxisParser extends Parser {
     }
     this.advance();
 
+    this.skipLinebreaks();
+
     let statements = [];
     if (this.has(TokenType.Indent)) {
       const indentToken = this.advance();
