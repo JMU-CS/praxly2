@@ -146,13 +146,13 @@ function initialize() {
       } else {
         tokens = lexPython(source);
         ast = parsePython(tokens, source);
+        symbolMap = pythonSymbolMap;
       }
 
       if (dstLang.value === "Praxis") {
         generator = new PraxisGenerator();
       } else {
         generator = new PythonGenerator();
-        symbolMap = pythonSymbolMap;
       }
 
       // Update tree-panel
