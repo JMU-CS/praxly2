@@ -118,7 +118,7 @@ const run = async (isDebug: boolean) => {
     const ast = parsePraxis(tokens, source);
     // Update output-panel
     const runtime = new GlobalRuntime(log, getInput);
-    const evaluator = new Evaluator(praxisSymbolMap);
+    const evaluator = new Evaluator(praxisSymbolMap, runtime);
     if (isDebug) {
       evaluator.step = (node: ast.Node) => {
         stepButton.disabled = false;
