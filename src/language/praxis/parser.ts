@@ -206,7 +206,7 @@ class PraxisParser extends Parser {
     if (this.has(TokenType.Identifier)) {
       const type = this.type();
       if (!this.has(TokenType.Identifier)) {
-        throw new ParseError("A parameter must have both a type and a name.", type.where);
+        throw new ParseError("A parameter is missing its name.", type.where);
       }
       const identifierToken = this.advance() as TextToken;
       latestToken = identifierToken;
