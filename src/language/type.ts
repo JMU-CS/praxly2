@@ -31,6 +31,7 @@ export class Type {
   static Void = new Type('void');
   static Boolean = new Type('boolean');
   static String = new Type('String');
+  static Any: Type;
 }
 
 export const typeMap: {[index: string]: Type} = {
@@ -41,6 +42,16 @@ export const typeMap: {[index: string]: Type} = {
   'boolean': Type.Boolean,
   'String': Type.String,
 };
+
+export class AnyType extends Type {
+  constructor() {
+    super('Any');
+  }
+
+  covers(_that: Type): boolean {
+    return true;
+  }
+}
 
 export class ArrayType extends Type {
   elementType: Type;
@@ -113,3 +124,5 @@ export class Fruit {
     return this.value.toString();
   }
 }
+
+Type.Any = new AnyType();
