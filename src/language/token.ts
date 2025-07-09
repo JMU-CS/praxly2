@@ -9,6 +9,7 @@ export enum TokenType {
   Character,
   Class,
   Circumflex,
+  Colon,
   Comma,
   Do,
   DotDot,

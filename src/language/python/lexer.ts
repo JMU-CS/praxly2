@@ -1,9 +1,9 @@
 import {Lexer} from '../lexer.js';
-import {TokenType} from '../token.js';
+import {Token, TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {LexError} from '../error.js';
 
-class PraxisLexer extends Lexer {
+class PythonLexer extends Lexer {
   indents: string[];
 
   constructor(source: string) {
@@ -44,26 +44,16 @@ class PraxisLexer extends Lexer {
       this.emitToken(TokenType.LeftBracket);
     } else if (this.accept(']')) {
       this.emitToken(TokenType.RightBracket);
-    } else if (this.accept('{')) {
-      this.emitToken(TokenType.LeftCurly);
-    } else if (this.accept('}')) {
-      this.emitToken(TokenType.RightCurly);
+    } else if (this.accept(':')) {
+      this.emitToken(TokenType.Colon);
     } else if (this.accept('~')) {
       this.emitToken(TokenType.Tilde);
     } else if (this.accept('^')) {
       this.emitToken(TokenType.Circumflex);
-    } else if (this.accept('\u2264')) {
-      this.emitToken(TokenType.LessThanOrEqual);
-    } else if (this.accept('\u2265')) {
-      this.emitToken(TokenType.GreaterThanOrEqual);
-    } else if (this.accept('\u2260')) { // ≠
-      this.emitToken(TokenType.NotEqual);
-    } else if (this.accept('\u2b60')) {
-      this.emitToken(TokenType.Equal);
-    } else if (this.accept('\u2190')) {
-      this.emitToken(TokenType.Equal);
     } else if (this.has('"')) {
       this.lexString();
+    } else if (this.has("'")) {
+      this.emitToken(TokenType.Character);
     } else if (this.hasAlphabetic()) {
       this.lexIdentifier();
     } else if (this.accept('*')) {
@@ -75,11 +65,7 @@ class PraxisLexer extends Lexer {
     } else if (this.accept('&')) {
       this.emitToken(TokenType.Ampersand);
     } else if (this.accept('|')) {
-      if (this.accept('|')) {
-        this.emitToken(TokenType.DoublePipe);
-      } else {
         this.emitToken(TokenType.Pipe);
-      }
     } else if (this.accept('!')) {
       if (this.accept('=')) {
         this.emitToken(TokenType.NotEqual);
@@ -110,16 +96,9 @@ class PraxisLexer extends Lexer {
       }
     } else if (this.accept('/')) {
       if (this.accept('/')) {
-        // Skip over leading whitespace.
-        while (this.accept(' ')) {}
-        let text = '';
-        while (this.hasOtherwise("\n")) {
-          text += this.source[this.i];
-          this.advance();
-        }
-        this.emitTextToken(TokenType.LineComment, text);
+        this.emitToken(TokenType.DoubleForwardSlash); // floor division
       } else {
-        this.emitToken(TokenType.ForwardSlash);
+        this.emitToken(TokenType.ForwardSlash); // division
       }
     } else if (this.has('-')) {
       if (this.hasDigitAhead(1)) {
@@ -132,6 +111,15 @@ class PraxisLexer extends Lexer {
           this.emitToken(TokenType.Hyphen);
         }
       }
+    } else if (this.has('#')) {
+         // Skip over leading whitespace.
+        while (this.accept(' ')) {}
+        let text = '';
+        while (this.hasOtherwise("\n")) {
+          text += this.source[this.i];
+          this.advance();
+        }
+        this.emitTextToken(TokenType.LineComment, text);
     } else {
       throw new LexError(`The program contains an unexpected character: \`${this.source[this.i]}\`.`, new Where(this.i, this.i + 1));
     }
@@ -204,6 +192,6 @@ class PraxisLexer extends Lexer {
   }
 }
 
-export function lexPraxis(source: string) {
-  return new PraxisLexer(source).lex();
+export function lexPython(source: string) {
+  return new PythonLexer(source).lex();
 }

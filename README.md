@@ -10,7 +10,7 @@ The main goals of this project are:
 * Provide new learning tools for program comprehension, such as code explanations and memory diagrams.
 
 [TEX]: https://www.tx.nesinc.com/Content/StudyGuide/TX_SG_strategies_241.asp#stimulusQ
-[CSP]: https://apcentral.collegeboard.org/media/pdf/ap-computer-science-principles-exam-reference-sheet.pdf
+[CSP]: https://apcentral.collegeboard.org/media/pdf/ap-computer-science-principles-exam-reference-sheet.pdf#page=3
 
 ## Development
 

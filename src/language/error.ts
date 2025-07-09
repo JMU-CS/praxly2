@@ -13,6 +13,9 @@ export class LexError extends WhereError {}
 
 export class ParseError extends WhereError {}
 
+export class UninitializedError extends WhereError {}
+export class UnknownError extends WhereError {}
+export class VisibilityError extends WhereError {}
 export class EvaluateError extends WhereError {}
 export class TypeError extends EvaluateError {}
 export class IllegalIndexError extends EvaluateError {}

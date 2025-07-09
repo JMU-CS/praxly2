@@ -7,16 +7,20 @@ import {lintKeymap} from '@codemirror/lint';
 import {EditorState, EditorSelection} from '@codemirror/state';
 
 import {lexPraxis} from './language/praxis/lexer.js';
+import {lexPython} from './language/python/lexer.js';
 import {parsePraxis} from './language/praxis/parser.js';
+import {parsePython} from './language/python/parser.js';
 import {PraxisGenerator} from './language/praxis/generator.js';
+import {PythonGenerator} from './language/python/generator.js';
 import {Objectifier} from './language/objectifier.js';
 import {GlobalRuntime, Evaluator} from './language/evaluator.js';
 import {praxisSymbolMap} from './language/praxis/symbol-map.js';
+import {pythonSymbolMap} from './language/python/symbol-map.js';
 import {WhereError} from './language/error.js';
 import * as ast from './language/ast.js';
 import {praxis} from './language/praxis/highlighter.js';
 import {praxlyTheme} from './praxly-theme.js';
-
+import {MemdiaSvg} from './language/memdia.js';
 
 import {StateField, StateEffect, Transaction, Range} from "@codemirror/state";
 import {EditorView, Decoration} from "@codemirror/view";
@@ -57,6 +61,8 @@ function initialize() {
     return;
   }
 
+  const srcLang = document.getElementById('src-lang') as HTMLInputElement;
+  const dstLang = document.getElementById('dst-lang') as HTMLInputElement;
   const runButton = document.getElementById('run-button') as HTMLInputElement;
   const debugButton = document.getElementById('debug-button') as HTMLInputElement;
   const stepButton = document.getElementById('step-button') as HTMLInputElement;
@@ -127,15 +133,34 @@ function initialize() {
     try {
       outputPanel.innerText = '';
 
-      const tokens = lexPraxis(source);
-      const ast = parsePraxis(tokens, source);
+      let tokens;
+      let ast;
+      let symbolMap;
+      let generator;
+
+      if (srcLang.value === "Praxis") {
+        tokens = lexPraxis(source);
+        ast = parsePraxis(tokens, source);
+        generator = new PraxisGenerator();
+        symbolMap = praxisSymbolMap;
+      } else {
+        tokens = lexPython(source);
+        ast = parsePython(tokens, source);
+        symbolMap = pythonSymbolMap;
+      }
+
+      if (dstLang.value === "Praxis") {
+        generator = new PraxisGenerator();
+      } else {
+        generator = new PythonGenerator();
+      }
 
       // Update tree-panel
       const object = ast.visit(new Objectifier(), {});
       treePanel.innerText = JSON.stringify(object, null, 2);
 
       // Update source-panel
-      const generatedSource = ast.visit(new PraxisGenerator(), {
+      const generatedSource = ast.visit(generator, {
         nestingLevel: 0,
         indentation: '  ',
       });
@@ -161,7 +186,7 @@ function initialize() {
 
       // Update output-panel
       const runtime = new GlobalRuntime(log, getInput);
-      const evaluator = new Evaluator(praxisSymbolMap);
+      const evaluator = new Evaluator(symbolMap, new MemdiaSvg());
       if (isDebug) {
         evaluator.step = (node: ast.Node) => {
           stepButton.disabled = false;
@@ -203,7 +228,7 @@ function initialize() {
         const span = document.createElement('span');
         span.innerHTML = `: ${message}`;
         outputPanel.appendChild(span);
-        // console.error(e);
+        console.error(e);
       }
     }
 

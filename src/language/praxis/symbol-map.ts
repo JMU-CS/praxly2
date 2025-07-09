@@ -6,3 +6,7 @@ export const praxisSymbolMap = defaultSymbolMap();
 praxisSymbolMap.set(ast.LogicalAnd, 'and');
 praxisSymbolMap.set(ast.LogicalOr, 'or');
 praxisSymbolMap.set(ast.LogicalNegate, 'not');
+praxisSymbolMap.set(true, 'true');
+praxisSymbolMap.set(false, 'false');
+praxisSymbolMap.set('array-left', '{');
+praxisSymbolMap.set('array-right', '}');

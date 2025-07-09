@@ -3,7 +3,7 @@ import {Token, TextToken, TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {ParseError} from '../error.js';
 import * as ast from '../ast.js';
-import {Type, ArrayType, SizedArrayType} from '../type.js';
+import {Type, ArrayType, SizedArrayType, AnyType} from '../type.js';
 
 // https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf
 
@@ -12,7 +12,7 @@ enum BlockMode {
   End,
 };
 
-class PraxisParser extends Parser {
+class PythonParser extends Parser {
   hasTwoIdentifiers() {
     return this.has(TokenType.Identifier) && this.hasAhead(TokenType.Identifier, 1);
   }
@@ -72,7 +72,7 @@ class PraxisParser extends Parser {
     const scalarTypeToken = this.advance() as TextToken;
     let type = new Type(scalarTypeToken.text, scalarTypeToken.where);
 
-    // int[0..2][0..1] is a 3-array of 2-arrays. Currently I'm parsing this as
+    // int[0..2][0..1] is  3-array of 2-arrays. Currently I'm parsing this as
     // (int[0..2])[0..1]. But the brackets are right-associative. Can I parse
     // this with a recursive helper?
 
@@ -141,9 +141,7 @@ class PraxisParser extends Parser {
           firstWhere = visibilityToken.where;
         }
 
-        if (this.has(TokenType.Indent)) {
-          throw new ParseError("The code has stray indentation.", this.tokens[this.i].where);
-        } else if (!this.has(TokenType.Identifier)) {
+        if (!this.has(TokenType.Identifier)) {
           throw new ParseError("A type is missing.", lastWhere);
         }
         const type = this.type();
@@ -206,7 +204,7 @@ class PraxisParser extends Parser {
     if (this.has(TokenType.Identifier)) {
       const type = this.type();
       if (!this.has(TokenType.Identifier)) {
-        throw new ParseError("A parameter is missing its name.", type.where);
+        throw new ParseError("A parameter must have both a type and a name.", type.where);
       }
       const identifierToken = this.advance() as TextToken;
       latestToken = identifierToken;
@@ -221,23 +219,15 @@ class PraxisParser extends Parser {
         latestToken = identifierToken;
         formals.push(new ast.Formal(identifierToken.text, type));
       }
-    } 
+    }
 
     if (!this.has(TokenType.RightParenthesis)) {
       throw new ParseError(`A ${context}'s parameter must be enclosed in parentheses.`, Where.enclose(firstWhere, latestToken.where));
     }
     const rightToken = this.advance(); // eat )
 
-    const [block, blockMode] = this.block(true, 'function definition', Where.enclose(firstWhere, rightToken.where), TokenType.End);
+    const block = this.block(true, 'function definition', Where.enclose(firstWhere, rightToken.where));
 
-    if (blockMode === BlockMode.End) {
-      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Identifier, 1) || (this.tokens[this.i + 1] as TextToken).text !== identifierToken.text) {
-        throw new ParseError(`The ${context} must be closed with \`end ${identifierToken.text}\`.`, block.where);
-      }
-      this.advance();
-      const endToken = this.advance();
-      // TODO: need lastWhere of end token?
-    }
 
     return {
       identifier: identifierToken.text,
@@ -252,12 +242,12 @@ class PraxisParser extends Parser {
     return new ast.FunctionDefinition(core.identifier, core.formals, type, core.block, Where.enclose(type.where, core.block.where));
   }
 
-  block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, ...endTokenTypes: TokenType[]): [ast.Block, BlockMode] {
-    if (this.has(TokenType.LeftCurly)) {
-      return [this.curlyBlock(inFunctionDefinition, contextLabel, contextWhere), BlockMode.Curly];
-    } else {
-      return [this.indentedBlock(inFunctionDefinition, contextLabel, contextWhere, endTokenTypes), BlockMode.End]
-    }
+  block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where): ast.Block {
+    // if (this.has(TokenType.LeftCurly)) {
+    //   return [this.curlyBlock(inFunctionDefinition, contextLabel, contextWhere), BlockMode.Curly];
+    // } else {
+      return this.indentedBlock(inFunctionDefinition, contextLabel, contextWhere)
+    // }
   }
 
   curlyBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where) {
@@ -290,28 +280,23 @@ class PraxisParser extends Parser {
     return new ast.Block(statements, Where.enclose(leftToken.where, rightToken.where));
   }
 
-  indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, endTokenTypes: TokenType[]) {
+  indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where) {
     if (!this.has(TokenType.Linebreak)) {
       throw new ParseError(`A linebreak is missing after the header of this ${contextLabel}.`, contextWhere);
     }
     this.advance();
 
-    this.skipLinebreaks();
-
     let statements = [];
     if (this.has(TokenType.Indent)) {
       const indentToken = this.advance();
-      while (!this.has(TokenType.Unindent)) {
+      while (!this.has(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
         const statement = this.statement(inFunctionDefinition);
         statements.push(statement);
       }
 
-      if (!this.has(TokenType.Unindent)) {
-        throw new ParseError(`The block in this ${contextLabel} doesn't end.`, contextWhere);
+      if (this.has(TokenType.Unindent)) {
+        this.advance();
       }
-      this.advance();
-    } else if (!this.hasAny(...endTokenTypes)) {
-      throw new ParseError(`The block in this ${contextLabel} is not indented.`, contextWhere);
     }
 
     const blockWhere = statements.length > 0 ? Where.enclose(statements[0].where, statements[statements.length - 1].where) : contextWhere;
@@ -324,7 +309,7 @@ class PraxisParser extends Parser {
     } else if (!this.has(TokenType.EndOfSource)) {
       throw new ParseError(`A statement has stray text: \`${this.tokens[this.i].where.text(this.source)}\`.`, this.tokens[this.i].where);
     }
-  } 
+  }
 
   statement(inFunctionDefinition: boolean): ast.Statement {
     let statement;
@@ -333,10 +318,6 @@ class PraxisParser extends Parser {
       statement = this.ifStatement(inFunctionDefinition);
     } else if (this.has(TokenType.While)) {
       statement = this.whileStatement(inFunctionDefinition);
-    } else if (this.has(TokenType.Do)) {
-      statement = this.doStatement(inFunctionDefinition);
-    } else if (this.has(TokenType.Repeat)) {
-      statement = this.repeatStatement(inFunctionDefinition);
     } else if (this.has(TokenType.For)) {
       statement = this.forStatement(inFunctionDefinition);
     } else if (this.has(TokenType.Print)) {
@@ -344,16 +325,18 @@ class PraxisParser extends Parser {
     } else if (this.has(TokenType.LineComment)) {
       const token = this.advance() as TextToken;
       statement = new ast.LineComment(token.text, token.where);
-    } else if (this.hasTwoIdentifiers()) {
-      if (this.hasAhead(TokenType.Equal, 2)) {
-        statement = this.initializedDeclaration();
+    } else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
+      // variable will be assigned an array literal
+      if (this.hasAhead(TokenType.LeftBracket, 2)) {
+        statement = this.arrayDeclaration();
       } else {
-        statement = this.uninitializedDeclaration();
+        // variable will be assigned to a literal
+        statement = this.declaration();
       }
-    } else if (this.hasArrayWithoutIndex()) {
-      statement = this.arrayDeclaration();
-    } else if (this.hasArrayWithRange()) {
-      statement = this.arrayDeclaration();
+    // } else if (this.hasArrayWithoutIndex()) {
+    //   statement = this.arrayDeclaration();
+    // } else if (this.hasArrayWithRange()) {
+    //   statement = this.arrayDeclaration();
     } else if (this.has(TokenType.Return)) {
       statement = this.returnStatement(inFunctionDefinition);
     } else {
@@ -375,13 +358,13 @@ class PraxisParser extends Parser {
   }
 
   hasArrayWithoutIndex() {
-    return this.has(TokenType.Identifier) && 
+    return this.has(TokenType.Identifier) &&
            this.hasAhead(TokenType.LeftBracket, 1) &&
            this.hasAhead(TokenType.RightBracket, 2);
   }
 
   hasArrayWithRange() {
-    return this.has(TokenType.Identifier) && 
+    return this.has(TokenType.Identifier) &&
            this.hasAhead(TokenType.LeftBracket, 1) &&
            this.hasAhead(TokenType.Integer, 2) &&
            this.hasAhead(TokenType.DotDot, 3) &&
@@ -390,7 +373,7 @@ class PraxisParser extends Parser {
   }
 
   arrayDeclaration(): ast.ArrayDeclaration {
-    const type = this.type();
+    const type = Type.Any; // types are not necessary
 
     if (!this.has(TokenType.Identifier)) {
       throw new ParseError("This array declaration is missing a variable name.", type.where);
@@ -398,12 +381,12 @@ class PraxisParser extends Parser {
     const identifierToken = this.advance() as TextToken;
 
     if (!this.has(TokenType.Equal)) {
-      throw new ParseError("This array declaration is missing an assignment.", Where.enclose(type.where, identifierToken.where));
+      throw new ParseError("This array declaration is missing an assignment.", Where.enclose(identifierToken.where, identifierToken.where));
     }
     const equalToken = this.advance(); // eat =
 
-    if (!this.has(TokenType.LeftCurly)) {
-      throw new ParseError("This array declaration is missing an array literal enclosed in {}.", Where.enclose(type.where, equalToken.where));
+    if (!this.has(TokenType.LeftBracket)) {
+      throw new ParseError("This array declaration is missing an array literal enclosed in [].", Where.enclose(identifierToken.where, equalToken.where));
     }
 
     const rightNode = this.expression();
@@ -413,21 +396,21 @@ class PraxisParser extends Parser {
 
   arrayLiteral(): ast.ArrayLiteral {
     const elementNodes = [];
-    const leftToken = this.advance(); // eat {
+    const leftToken = this.advance(); // eat [
 
-    if (this.hasOtherwise(TokenType.RightCurly)) {
-      elementNodes.push(this.expression());  
+    if (this.hasOtherwise(TokenType.RightBracket)) {
+      elementNodes.push(this.expression());
       while (this.has(TokenType.Comma)) {
         this.advance(); // eat ,
-        elementNodes.push(this.expression());  
+        elementNodes.push(this.expression());
       }
     }
 
-    if (!this.has(TokenType.RightCurly)) {
+    if (!this.has(TokenType.RightBracket)) {
       const lastWhere = elementNodes.length === 0 ? leftToken.where : elementNodes[elementNodes.length - 1].where;
-      throw new ParseError("This array literal is missing its `}`.", lastWhere);
+      throw new ParseError("This array literal is missing its `]`.", lastWhere);
     }
-    const rightToken = this.advance(); // eat }
+    const rightToken = this.advance(); // eat ]
 
     return new ast.ArrayLiteral(elementNodes, Where.enclose(leftToken.where, rightToken.where));
   }
@@ -436,7 +419,7 @@ class PraxisParser extends Parser {
     const returnToken = this.advance();
 
     if (!inFunctionDefinition) {
-      throw new ParseError(`A return statement must be within a function.`, returnToken.where);
+      throw new ParseError(`A return statement is allowed only in a function.`, returnToken.where);
     }
 
     if (this.hasOtherwise(TokenType.Linebreak)) {
@@ -461,15 +444,23 @@ class PraxisParser extends Parser {
     return new ast.Declaration(identifierToken.text, type, null, Where.enclose(type.where, identifierToken.where));
   }
 
+  declaration() {
+    let type = Type.Any; // type can be anything, Where(rightNode.where, rightNode.where)
+    const identifierToken = this.advance() as TextToken;
+    this.advance(); // eat =
+    const rightNode = this.expression();
+    return new ast.Declaration(identifierToken.text, type, rightNode, Where.enclose(identifierToken.where, rightNode.where));
+  }
+
   ifStatement(inFunctionDefinition: boolean): ast.Statement {
     const conditionNodes = [];
     const thenBlocks = [];
 
     const ifToken = this.advance();
-    const conditionNode = this.parenthesizedExpression(ifToken.where, "An if statement's condition").node;
+    const conditionNode = this.eatCondition(ifToken.where, "An if statement's condition").node;
     let thenBlock;
     let blockMode;
-    [thenBlock, blockMode] = this.block(inFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
+    thenBlock = this.block(inFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where));
     let lastWhere = thenBlock.where;
     conditionNodes.push(conditionNode);
     thenBlocks.push(thenBlock);
@@ -477,8 +468,8 @@ class PraxisParser extends Parser {
     while (this.has(TokenType.Else) && this.hasAhead(TokenType.If, 1)) {
       this.advance(); // eat else
       const ifToken = this.advance();
-      const conditionNode = this.parenthesizedExpression(ifToken.where, "An else-if statement's condition").node;
-      [thenBlock, blockMode] = this.block(inFunctionDefinition, 'else-if statement', Where.enclose(ifToken.where, conditionNode.where), TokenType.Else, TokenType.End);
+      const conditionNode = this.parenthesizedExpression(ifToken.where, "An elif statement's condition").node;
+      thenBlock = this.block(inFunctionDefinition, 'elif statement', Where.enclose(ifToken.where, conditionNode.where));
       lastWhere = thenBlock.where;
       conditionNodes.push(conditionNode);
       thenBlocks.push(thenBlock);
@@ -487,37 +478,34 @@ class PraxisParser extends Parser {
     let elseBlock = null;
     if (this.has(TokenType.Else)) {
       const elseToken = this.advance();
-      [elseBlock, blockMode] = this.block(inFunctionDefinition, 'else branch', elseToken.where, TokenType.End);
+      elseBlock = this.block(inFunctionDefinition, 'else branch', elseToken.where);
       lastWhere = elseBlock.where;
     }
 
-    if (blockMode === BlockMode.End) {
-      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.If, 1)) {
-        throw new ParseError(`The if statement must be closed with \`end if\`.`, Where.enclose(ifToken.where, lastWhere));
-      }
-      this.advance();
-      const endToken = this.advance();
-      lastWhere = endToken.where;
-    }
-
     return new ast.If(conditionNodes, thenBlocks, elseBlock, Where.enclose(ifToken.where, lastWhere));
+  }
+
+  eatCondition(predecessorWhere: Where, prefix: string) {
+    // goal - eat until : is found
+    const node = this.expression(); // this should eat up until the :
+
+    if (!this.has(TokenType.Colon)) {
+      throw new ParseError(`${prefix} must include ':' at the end.`, predecessorWhere);
+    }
+    const endToken = this.advance(); // eat :
+
+    return {
+      node,
+      where: Where.enclose(predecessorWhere, endToken.where)
+    };
   }
 
   whileStatement(inFunctionDefinition: boolean): ast.Statement {
     const whileToken = this.advance();
     const conditionNode = this.parenthesizedExpression(whileToken.where, "A while statement's condition").node;
 
-    const [block, blockMode] = this.block(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where), TokenType.End);
+    const block = this.block(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where));
     let lastWhere = block.where;
-
-    if (blockMode === BlockMode.End) {
-      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.While, 1)) {
-        throw new ParseError(`The loop must be closed with \`end while\`.`, block.where);
-      }
-      this.advance();
-      const endToken = this.advance();
-      lastWhere = endToken.where;
-    }
 
     return new ast.While(conditionNode, block, Where.enclose(whileToken.where, lastWhere));
   }
@@ -570,58 +558,20 @@ class PraxisParser extends Parser {
     }
     const rightToken = this.advance(); // eat )
 
-    const [block, blockMode] = this.block(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where), TokenType.End);
+    const block = this.block(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where));
     lastWhere = block.where;
-
-    if (blockMode === BlockMode.End) {
-      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.For, 1)) {
-        throw new ParseError(`The loop must be closed with \`end for\`.`, block.where);
-      }
-      this.advance();
-      const endToken = this.advance();
-      lastWhere = endToken.where;
-    }
 
     return new ast.For(initializationNode, conditionNode, incrementBlock, block, Where.enclose(forToken.where, lastWhere));
   }
 
-  doStatement(inFunctionDefinition: boolean): ast.Statement {
-    const doToken = this.advance();
-    const [block, _] = this.block(inFunctionDefinition, 'do-while loop', doToken.where, TokenType.While);
-
-    if (!this.has(TokenType.While)) {
-      throw new ParseError(`The loop must be closed with \`while\` and a condition.`, block.where);
-    }
-    const whileToken = this.advance(); // eat while
-
-    const conditionNode = this.parenthesizedExpression(whileToken.where, "A do loop's condition").node;
-
-    return new ast.DoWhile(block, conditionNode, Where.enclose(doToken.where, conditionNode.where));
-  }
-
-  repeatStatement(inFunctionDefinition: boolean): ast.Statement {
-    const repeatToken = this.advance();
-    const [block, _] = this.block(inFunctionDefinition, 'repeat-until loop', repeatToken.where, TokenType.Until);
-
-    if (!this.has(TokenType.Until)) {
-      throw new ParseError(`The loop must be closed with \`until\` and a condition.`, block.where);
-    }
-    const untilToken = this.advance(); // eat while
-
-    const conditionNode = this.parenthesizedExpression(repeatToken.where, "A repeat loop's condition").node;
-
-    return new ast.RepeatUntil(block, conditionNode, Where.enclose(repeatToken.where, conditionNode.where));
-  }
-
   printStatement(): ast.Print {
-    const printToken = this.advance();
-    const parameterNode = this.expression();
+    const printToken = this.advance(); // eat print
 
-    let hasSemicolon = false;
-    if (this.has(TokenType.Semicolon)) {
-      const semicolonToken = this.advance();
-      hasSemicolon = true;
+    if (!this.has(TokenType.LeftParenthesis)) {
+      throw new ParseError(`Print statement needs a opening parenthesis`, printToken.where);
     }
+    const leftParenthesis = this.advance(); // eat (
+    const parameterNode = this.expression();
 
     // In Praxly, what character comes after the print is determined by a
     // trailing comment. The comment text may be "space" or "nothing". Any
@@ -636,8 +586,12 @@ class PraxisParser extends Parser {
       }
     }
 
-    let statement = new ast.Print(parameterNode, trailer, Where.enclose(printToken.where, parameterNode.where));
-    statement.hasSemicolon = hasSemicolon;
+    if (!this.has(TokenType.RightParenthesis)) {
+      throw new ParseError(`Print statement needs a closing parenthesis`, parameterNode.where);
+    }
+    const rightParenthesis = this.advance(); // eat )
+
+    let statement = new ast.Print(parameterNode, trailer, Where.enclose(printToken.where, rightParenthesis.where));
 
     return statement;
   }
@@ -928,7 +882,7 @@ class PraxisParser extends Parser {
       return new ast.Boolean(false, token.where);
     } else if (this.has(TokenType.Identifier)) {
       return this.variable();
-    } else if (this.has(TokenType.LeftCurly)) {
+    } else if (this.has(TokenType.LeftBracket)) {
       return this.arrayLiteral();
     } else if (this.has(TokenType.LeftParenthesis)) {
       const leftToken = this.advance();
@@ -940,11 +894,7 @@ class PraxisParser extends Parser {
       return new ast.Association(expression, Where.enclose(leftToken.where, rightToken.where));
     } else {
       if (this.i < this.tokens.length) {
-        if (this.has(TokenType.Indent)) {
-          throw new ParseError("The code has stray indentation.", this.tokens[this.i].where);
-        } else {
-          throw new ParseError(`An unexpected token was encountered: ${this.tokens[this.i].toPretty(this.source)}.`, this.tokens[this.i].where);
-        }
+        throw new ParseError(`An unexpected token was encountered: ${this.tokens[this.i].toPretty(this.source)}.`, this.tokens[this.i].where);
       } else {
         throw new Error('The program ended unexpectedly.');
       }
@@ -952,10 +902,10 @@ class PraxisParser extends Parser {
   }
 }
 
-export function parsePraxis(tokens: Token[], source: string) {
-  return new PraxisParser(tokens, source).parse();
+export function parsePython(tokens: Token[], source: string) {
+  return new PythonParser(tokens, source).parse();
 }
 
-export function parsePraxisExpression(tokens: Token[], source: string) {
-  return new PraxisParser(tokens, source).expression();
+export function parsePythonExpression(tokens: Token[], source: string) {
+  return new PythonParser(tokens, source).expression();
 }
