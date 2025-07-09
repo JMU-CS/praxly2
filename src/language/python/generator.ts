@@ -349,7 +349,7 @@ export class PythonGenerator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitArrayLiteral(node: ast.ArrayLiteral, formatter: Formatter): string {
-    return `[${node.elementNodes.map(elementNode => elementNode.visit(this, formatter)).join(', ')}]x`;
+    return `[${node.elementNodes.map(elementNode => elementNode.visit(this, formatter)).join(', ')}]`;
   }
 
   visitArrayDeclaration(node: ast.ArrayDeclaration, formatter: Formatter): string {

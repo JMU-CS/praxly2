@@ -326,11 +326,17 @@ class PythonParser extends Parser {
       const token = this.advance() as TextToken;
       statement = new ast.LineComment(token.text, token.where);
     } else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
+      // variable will be assigned an array literal
+      if (this.hasAhead(TokenType.LeftBracket, 2)) {
+        statement = this.arrayDeclaration();
+      } else {
+        // variable will be assigned to a literal
         statement = this.declaration();
-    } else if (this.hasArrayWithoutIndex()) {
-      statement = this.arrayDeclaration();
-    } else if (this.hasArrayWithRange()) {
-      statement = this.arrayDeclaration();
+      }
+    // } else if (this.hasArrayWithoutIndex()) {
+    //   statement = this.arrayDeclaration();
+    // } else if (this.hasArrayWithRange()) {
+    //   statement = this.arrayDeclaration();
     } else if (this.has(TokenType.Return)) {
       statement = this.returnStatement(inFunctionDefinition);
     } else {
@@ -367,12 +373,11 @@ class PythonParser extends Parser {
   }
 
   arrayDeclaration(): ast.ArrayDeclaration {
-    // types are not necessary
-    const type = this.type();
+    const type = Type.Any; // types are not necessary
 
-    // if (!this.has(TokenType.Identifier)) {
-    //   throw new ParseError("This array declaration is missing a variable name.", type.where);
-    // }
+    if (!this.has(TokenType.Identifier)) {
+      throw new ParseError("This array declaration is missing a variable name.", type.where);
+    }
     const identifierToken = this.advance() as TextToken;
 
     if (!this.has(TokenType.Equal)) {
@@ -380,8 +385,8 @@ class PythonParser extends Parser {
     }
     const equalToken = this.advance(); // eat =
 
-    if (!this.has(TokenType.LeftCurly)) {
-      throw new ParseError("This array declaration is missing an array literal enclosed in {}.", Where.enclose(identifierToken.where, equalToken.where));
+    if (!this.has(TokenType.LeftBracket)) {
+      throw new ParseError("This array declaration is missing an array literal enclosed in [].", Where.enclose(identifierToken.where, equalToken.where));
     }
 
     const rightNode = this.expression();
@@ -391,9 +396,9 @@ class PythonParser extends Parser {
 
   arrayLiteral(): ast.ArrayLiteral {
     const elementNodes = [];
-    const leftToken = this.advance(); // eat {
+    const leftToken = this.advance(); // eat [
 
-    if (this.hasOtherwise(TokenType.RightCurly)) {
+    if (this.hasOtherwise(TokenType.RightBracket)) {
       elementNodes.push(this.expression());
       while (this.has(TokenType.Comma)) {
         this.advance(); // eat ,
@@ -401,11 +406,11 @@ class PythonParser extends Parser {
       }
     }
 
-    if (!this.has(TokenType.RightCurly)) {
+    if (!this.has(TokenType.RightBracket)) {
       const lastWhere = elementNodes.length === 0 ? leftToken.where : elementNodes[elementNodes.length - 1].where;
-      throw new ParseError("This array literal is missing its `}`.", lastWhere);
+      throw new ParseError("This array literal is missing its `]`.", lastWhere);
     }
-    const rightToken = this.advance(); // eat }
+    const rightToken = this.advance(); // eat ]
 
     return new ast.ArrayLiteral(elementNodes, Where.enclose(leftToken.where, rightToken.where));
   }
@@ -440,7 +445,7 @@ class PythonParser extends Parser {
   }
 
   declaration() {
-    let type = new AnyType(); // type can be anything
+    let type = Type.Any; // type can be anything, Where(rightNode.where, rightNode.where)
     const identifierToken = this.advance() as TextToken;
     this.advance(); // eat =
     const rightNode = this.expression();
@@ -877,7 +882,7 @@ class PythonParser extends Parser {
       return new ast.Boolean(false, token.where);
     } else if (this.has(TokenType.Identifier)) {
       return this.variable();
-    } else if (this.has(TokenType.LeftCurly)) {
+    } else if (this.has(TokenType.LeftBracket)) {
       return this.arrayLiteral();
     } else if (this.has(TokenType.LeftParenthesis)) {
       const leftToken = this.advance();
