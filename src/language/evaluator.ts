@@ -502,8 +502,8 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     this.mem = mem;
   }
 
-  symbol(nodeClass: NodeClass): string {
-    return this.symbolMap.get(nodeClass)!;
+  symbol(key: NodeClass | boolean): string {
+    return this.symbolMap.get(key)!;
   }
 
   // --------------------------------------------------------------------------
@@ -523,7 +523,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitBoolean(node: ast.Boolean, _runtime: Runtime): Promise<Fruit> {
-    return new Fruit(Type.Boolean, node.rawValue);
+    return new Fruit(Type.Boolean, this.symbol(node.rawValue));
   }
 
   async visitString(node: ast.String, _runtime: Runtime): Promise<Fruit> {
