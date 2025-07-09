@@ -11,15 +11,6 @@ type Formatter = {
   indentation: string,
 };
 
-// Unicode has several left arrows:
-// ← (\u2190)
-// ⭠ (\u2b60)
-// The second one tends to be easier to read.
-const LEFT_ARROW = "\u2b60";
-const NOT_EQUAL = "\u2260";
-const LESS_THAN_OR_EQUAL = "\u2264";
-const GREATER_THAN_OR_EQUAL = "\u2265";
-
 export class PythonGenerator extends Visitor<Formatter, string> {
 
   // --------------------------------------------------------------------------
@@ -309,8 +300,10 @@ export class PythonGenerator extends Visitor<Formatter, string> {
   }
 
   visitFor(node: ast.For, formatter: Formatter): string {
-    let text = `for ${node.initializationNode?.visit(this, formatter).slice(0,1) ?? ''} in range(${node.conditionNode.visit(this, formatter).slice(-1)}):\n`;
+    let text = `${node.initializationNode?.visit(this, formatter) ?? ''}\n`;
+    text += `while ${node.conditionNode.visit(this, formatter)}:\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += node.incrementBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     return text;
   }
 

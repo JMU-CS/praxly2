@@ -44,10 +44,6 @@ class PythonLexer extends Lexer {
       this.emitToken(TokenType.LeftBracket);
     } else if (this.accept(']')) {
       this.emitToken(TokenType.RightBracket);
-    } else if (this.accept('{')) {
-      this.emitToken(TokenType.LeftCurly);
-    } else if (this.accept('}')) {
-      this.emitToken(TokenType.RightCurly);
     } else if (this.accept(':')) {
       this.emitToken(TokenType.Colon);
     } else if (this.accept('~')) {
