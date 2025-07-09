@@ -436,7 +436,7 @@ class PraxisParser extends Parser {
     const returnToken = this.advance();
 
     if (!inFunctionDefinition) {
-      throw new ParseError(`A return statement is allowed only in a function.`, returnToken.where);
+      throw new ParseError(`A return statement must be within a function.`, returnToken.where);
     }
 
     if (this.hasOtherwise(TokenType.Linebreak)) {
@@ -940,7 +940,11 @@ class PraxisParser extends Parser {
       return new ast.Association(expression, Where.enclose(leftToken.where, rightToken.where));
     } else {
       if (this.i < this.tokens.length) {
-        throw new ParseError(`An unexpected token was encountered: ${this.tokens[this.i].toPretty(this.source)}.`, this.tokens[this.i].where);
+        if (this.has(TokenType.Indent)) {
+          throw new ParseError("The code has stray indentation.", this.tokens[this.i].where);
+        } else {
+          throw new ParseError(`An unexpected token was encountered: ${this.tokens[this.i].toPretty(this.source)}.`, this.tokens[this.i].where);
+        }
       } else {
         throw new Error('The program ended unexpectedly.');
       }
