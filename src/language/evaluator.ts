@@ -859,12 +859,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (node.leftNode instanceof ast.Variable) {
       const identifier = node.leftNode.identifier;
       this.assignVariable('Variable', node.where, identifier, rightFruit, runtime);
-
-      if (this.mem.isInFunction()) {
-        this.mem.assignmentInFunction(identifier, rightFruit);
-      } else {
-        this.mem.assignment(identifier, rightFruit);
-      }
+      this.mem.assignment(identifier, rightFruit);
 
     } else if (node.leftNode instanceof ast.ArraySubscript) {
       const receiverFruit = await node.leftNode.arrayNode.visit(this, runtime);
@@ -920,22 +915,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     }
 
     runtime.declareVariable(node.identifier, node.variableType);
-
-    if (this.mem.isInFunction()) {
-      this.mem.declarationInFunction(node.identifier, node.variableType);
-    } else {
-      this.mem.declaration(node.identifier, node.variableType);
-    }
+    this.mem.declaration(node.identifier, node.variableType);
 
     if (node.rightNode) {
       const rightFruit = await node.rightNode.visit(this, runtime);
       this.assignVariable('Variable', node.where, node.identifier, rightFruit, runtime);
-
-      if (this.mem.isInFunction()) {
-        this.mem.assignmentInFunction(node.identifier, rightFruit);
-      } else {
-        this.mem.assignment(node.identifier, rightFruit);
-      }
+      this.mem.assignment(node.identifier, rightFruit);
     }
 
     return new Fruit(Type.Void);
@@ -1121,12 +1106,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         throw new error.WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
       }
 
-      this.mem.startFunctionBox(node.identifier);
+      this.mem.functionCall(node.identifier);
       const newRuntime = definerRuntime.child();
 
       for (let [i, formal] of lambda.formals.entries()) {
         newRuntime.declareVariable(formal.identifier, formal.type);
-        this.mem.declarationInFunction(formal.identifier, formal.type);
+        this.mem.declaration(formal.identifier, formal.type);
         const fruit = await node.actuals[i].visit(this, runtime);
         this.assignVariable('Parameter', node.actuals[i].where, formal.identifier, fruit, newRuntime);
       }
@@ -1167,7 +1152,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitReturn(node: ast.Return, runtime: Runtime): Promise<Fruit> {
-    this.mem.endFunctionBox();
+    this.mem.functionReturn();
 
     if (node.operandNode) {
       const fruit = await node.operandNode.visit(this, runtime);

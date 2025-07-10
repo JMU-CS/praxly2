@@ -205,7 +205,7 @@ function initialize() {
 
       // Update output-panel
       const runtime = new GlobalRuntime(log, getInput);
-      const evaluator = new Evaluator(outputFormatter, new MemdiaSvg());
+      const evaluator = new Evaluator(outputFormatter, new MemdiaSvg(runtime));
       if (isDebug) {
         evaluator.step = (node: ast.Node) => {
           stepButton.disabled = false;
