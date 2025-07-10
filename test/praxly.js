@@ -4,7 +4,7 @@ import {parsePraxis, parsePraxisExpression} from '../build/language/praxis/parse
 import {PraxisGenerator} from '../build/language/praxis/generator.js';
 import {Fruit, Type} from '../build/language/type.js';
 import {GlobalRuntime, Evaluator} from '../build/language/evaluator.js';
-import {praxisSymbolMap} from '../build/language/praxis/symbol-map.js';
+import {PraxisOutputFormatter} from '../build/language/praxis/output-formatter.js';
 import * as error from '../build/language/error.js';
 import {Memdia} from '../build/language/memdia.js';
 
@@ -178,7 +178,7 @@ describe('Praxis: Expression Generation and Evaluation', () => {
       it(`should evaluate to ${sample.evaluation}`, async () => {
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        const fruit = await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        const fruit = await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
         assert.deepStrictEqual(fruit, sample.evaluation);
       });
     });
@@ -372,7 +372,7 @@ accompany
       it(`should output\n${sample.output}`, async () => {
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
     });
@@ -415,7 +415,7 @@ print 6\n`,
 
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
     });
@@ -550,7 +550,7 @@ print nums[2][2]`,
 
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
     });
@@ -655,7 +655,7 @@ print s.value`,
 
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
     });
@@ -736,7 +736,7 @@ print c.radius`,
         const ast = parsePraxis(tokens, sample.source);
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
     });
@@ -758,7 +758,7 @@ describe('Praxis: Parse Errors', () => {
         const ast = parsePraxis(tokens, sample.source);
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.ParseError));
     });
@@ -820,7 +820,7 @@ xs[2] = 7`,
         const ast = parsePraxis(tokens, sample.source);
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
     });
@@ -848,7 +848,7 @@ s++`,
         const ast = parsePraxis(tokens, sample.source);
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(praxisSymbolMap, new Memdia()), runtime);
+        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.TypeError));
     });

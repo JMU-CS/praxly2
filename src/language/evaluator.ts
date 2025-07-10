@@ -3,7 +3,7 @@ import prand from 'pure-rand';
 import {Visitor} from './visitor.js';
 import * as error from './error.js';
 import {Where} from './where.js';
-import type {NodeClass, SymbolMap} from './symbol-map.js';
+import type {NodeClass, OutputFormatter} from './output-formatter.js';
 import {Type, ArrayType, SizedArrayType, NumberType, UnionType, ObjectType, typeMap, Fruit} from './type.js';
 import {Memdia} from './memdia.js';
 
@@ -491,19 +491,15 @@ class ReturnNothingException extends Error {
 }
 
 export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
-  symbolMap: SymbolMap;
+  outputFormatter: OutputFormatter;
   step: (node: ast.Node) => Promise<void> | null;
   mem: Memdia;
 
-  constructor(symbolMap: SymbolMap, mem: Memdia) {
+  constructor(outputFormatter: OutputFormatter, mem: Memdia) {
     super();
-    this.symbolMap = symbolMap;
+    this.outputFormatter = outputFormatter;
     this.step = () => null;
     this.mem = mem;
-  }
-
-  symbol(key: NodeClass | boolean | string): string {
-    return this.symbolMap.get(key)!;
   }
 
   // --------------------------------------------------------------------------
@@ -543,7 +539,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (operandFruit.type === Type.Boolean) {
       return new Fruit(Type.Boolean, !operandFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.LogicalNegate)} can only be applied to a boolean.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.LogicalNegate)} can only be applied to a boolean.`, node.where);
     }
   }
 
@@ -554,7 +550,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     } else if (Type.Integer.covers(operandFruit.type)) {
       return new Fruit(Type.Float, operandFruit.value);
     } else {
-      throw new error.TypeError(`${this.symbol(ast.ArithmeticNegate)} can only be applied to numbers.`, node.where);
+      throw new error.TypeError(`${this.outputFormatter.operator(ast.ArithmeticNegate)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -563,7 +559,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (Type.Integer.covers(operandFruit.type)) {
       return new Fruit(Type.Integer, ~operandFruit.value);
     } else {
-      throw new error.TypeError(`${this.symbol(ast.BitwiseNegate)} can only be applied to integers.`, node.where);
+      throw new error.TypeError(`${this.outputFormatter.operator(ast.BitwiseNegate)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -611,7 +607,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
                (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value + rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.Add)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Add)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -624,7 +620,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
                (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value - rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.Subtract)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Subtract)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -637,7 +633,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
                (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.Double.covers(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value * rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.Multiply)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Multiply)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -650,7 +646,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
                (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.Double.covers(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value / rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.Divide)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Divide)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -662,7 +658,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       // negative numbers.
       return new Fruit(Type.Integer, leftFruit.value - rightFruit.value * (Math.floor(leftFruit.value / rightFruit.value)));
     } else {
-      throw new error.WhereError(`${this.symbol(ast.Remainder)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Remainder)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -675,7 +671,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
                (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value ** rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.Power)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Power)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -686,7 +682,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value < rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.LessThan)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.LessThan)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -697,7 +693,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value > rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.GreaterThan)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.GreaterThan)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -708,7 +704,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value <= rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.LessThanOrEqual)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.LessThanOrEqual)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -719,7 +715,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value >= rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.GreaterThanOrEqual)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.GreaterThanOrEqual)} can only be applied to numbers.`, node.where);
     }
   }
 
@@ -727,12 +723,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const leftFruit = await node.leftNode.visit(this, runtime);
     const rightFruit = await node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
-      throw new error.WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Equal)} can only be applied to values of the same type.`, node.where);
     } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.String.covers(leftFruit.type) || Type.Boolean.covers(leftFruit.type)) &&
                (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.String.covers(rightFruit.type) || Type.Boolean.covers(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value === rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.Equal)} can only be applied to values of the same type.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Equal)} can only be applied to values of the same type.`, node.where);
     }
   }
 
@@ -740,12 +736,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const leftFruit = await node.leftNode.visit(this, runtime);
     const rightFruit = await node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
-      throw new error.WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
     } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.String.covers(leftFruit.type) || Type.Boolean.covers(leftFruit.type)) &&
                (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.String.covers(rightFruit.type) || Type.Boolean.covers(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value !== rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
     }
   }
 
@@ -761,7 +757,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         }
       }
     }
-    throw new error.WhereError(`\`${this.symbol(ast.LogicalAnd)}\` can only be applied to booleans.`, node.where);
+    throw new error.WhereError(`\`${this.outputFormatter.operator(ast.LogicalAnd)}\` can only be applied to booleans.`, node.where);
   }
 
   async visitLogicalOr(node: ast.LogicalOr, runtime: Runtime): Promise<Fruit> {
@@ -776,7 +772,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         }
       }
     }
-    throw new error.WhereError(`\`${this.symbol(ast.LogicalOr)}\` can only be applied to booleans.`, node.where);
+    throw new error.WhereError(`\`${this.outputFormatter.operator(ast.LogicalOr)}\` can only be applied to booleans.`, node.where);
   }
 
   async visitBitwiseAnd(node: ast.BitwiseAnd, runtime: Runtime): Promise<Fruit> {
@@ -785,7 +781,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value & rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.BitwiseAnd)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.BitwiseAnd)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -795,7 +791,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value | rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.BitwiseOr)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.BitwiseOr)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -807,7 +803,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     } else if (Type.Boolean.covers(leftFruit.type) && Type.Boolean.covers(rightFruit.type)) {
       return new Fruit(Type.Boolean, leftFruit.value !== rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.Xor)} can only be applied to integers or booleans.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Xor)} can only be applied to integers or booleans.`, node.where);
     }
   }
 
@@ -817,7 +813,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value << rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.LeftShift)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.LeftShift)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -827,7 +823,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (Type.Integer.covers(leftFruit.type) && Type.Integer.covers(rightFruit.type)) {
       return new Fruit(Type.Integer, leftFruit.value >> rightFruit.value);
     } else {
-      throw new error.WhereError(`${this.symbol(ast.RightShift)} can only be applied to integers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.RightShift)} can only be applied to integers.`, node.where);
     }
   }
 
@@ -968,16 +964,9 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   async visitPrint(node: ast.Print, runtime: Runtime): Promise<Fruit> {
     await this.step(node);
     const fruit = await node.operandNode.visit(this, runtime);
-    if (Type.Boolean.covers(fruit.type)) {
-      runtime.globalRuntime.log(this.symbol(fruit.value) + node.trailer);
-    } else if (fruit.type instanceof ArrayType) {
-      runtime.globalRuntime.log(`${this.symbol('array-left')}${fruit.type.serializeValue(fruit.value)}${this.symbol('array-right')}${node.trailer}`);
-    } else if (Type.Integer.covers(fruit.type) ||
-        Type.Float.covers(fruit.type) ||
-        Type.Double.covers(fruit.type) ||
-        Type.String.covers(fruit.type) ||
-        fruit.type instanceof ObjectType) {
-      runtime.globalRuntime.log(fruit.type.serializeValue(fruit.value) + node.trailer);
+    const text = this.outputFormatter.value(fruit);
+    if (text) {
+      runtime.globalRuntime.log(text + node.trailer);
     } else {
       // console.log("fruit.type:", fruit.type);
       throw new error.WhereError('Only values may be printed.', node.where);

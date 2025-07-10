@@ -9,7 +9,7 @@ import { EditorState, EditorSelection } from '@codemirror/state';
 import { lexPraxis } from './language/praxis/lexer.js';
 import { parsePraxis } from './language/praxis/parser.js';
 import { GlobalRuntime, Evaluator } from './language/evaluator.js';
-import { praxisSymbolMap } from './language/praxis/symbol-map.js';
+import { PraxisOutputFormatter } from './language/praxis/output-formatter.js';
 import { WhereError } from './language/error.js';
 import * as ast from './language/ast.js';
 import { praxis } from './language/praxis/highlighter.js';
@@ -120,11 +120,11 @@ const run = async (isDebug: boolean) => {
 
     const tokens = lexPraxis(source);
     const ast = parsePraxis(tokens, source);
-    const symbolMap = praxisSymbolMap;
+    const outputFormatter = new PraxisOutputFormatter();
 
     // Update output-panel
     const runtime = new GlobalRuntime(log, getInput);
-    const evaluator = new Evaluator(symbolMap, new MemdiaSvg());
+    const evaluator = new Evaluator(outputFormatter, new MemdiaSvg());
     if (isDebug) {
       evaluator.step = (node: ast.Node) => {
         stepButton.disabled = false;

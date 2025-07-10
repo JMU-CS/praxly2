@@ -14,8 +14,8 @@ import {PraxisGenerator} from './language/praxis/generator.js';
 import {PythonGenerator} from './language/python/generator.js';
 import {Objectifier} from './language/objectifier.js';
 import {GlobalRuntime, Evaluator} from './language/evaluator.js';
-import {praxisSymbolMap} from './language/praxis/symbol-map.js';
-import {pythonSymbolMap} from './language/python/symbol-map.js';
+import {PraxisOutputFormatter} from './language/praxis/output-formatter.js';
+import {PythonOutputFormatter} from './language/python/output-formatter.js';
 import {WhereError} from './language/error.js';
 import * as ast from './language/ast.js';
 import {praxis} from './language/praxis/highlighter.js';
@@ -135,18 +135,18 @@ function initialize() {
 
       let tokens;
       let ast;
-      let symbolMap;
+      let outputFormatter;
       let generator;
 
       if (srcLang.value === "Praxis") {
         tokens = lexPraxis(source);
         ast = parsePraxis(tokens, source);
         generator = new PraxisGenerator();
-        symbolMap = praxisSymbolMap;
+        outputFormatter = new PraxisOutputFormatter();
       } else {
         tokens = lexPython(source);
         ast = parsePython(tokens, source);
-        symbolMap = pythonSymbolMap;
+        outputFormatter = new PythonOutputFormatter();
       }
 
       if (dstLang.value === "Praxis") {
@@ -186,7 +186,7 @@ function initialize() {
 
       // Update output-panel
       const runtime = new GlobalRuntime(log, getInput);
-      const evaluator = new Evaluator(symbolMap, new MemdiaSvg());
+      const evaluator = new Evaluator(outputFormatter, new MemdiaSvg());
       if (isDebug) {
         evaluator.step = (node: ast.Node) => {
           stepButton.disabled = false;
