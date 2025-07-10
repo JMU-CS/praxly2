@@ -271,6 +271,16 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
+  visitForEach(node: ast.ForEach, payload: Object): Object {
+    return {
+      type: 'for-each',
+      identifier: node.identifier,
+      iterableNode: node.iterableNode.visit(this, payload),
+      body: node.body.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   // --------------------------------------------------------------------------
   // Functions
   // --------------------------------------------------------------------------
@@ -310,6 +320,19 @@ export class Objectifier extends Visitor<Object, Object> {
     return {
       type: 'line-comment',
       text: node.text,
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // Range
+  // --------------------------------------------------------------------------
+
+  visitRangeLiteral(node: ast.RangeLiteral, payload: Object): Object {
+    return {
+      type: 'range-literal',
+      loNode: node.loNode.visit(this, payload),
+      hiNode: node.hiNode.visit(this, payload),
       where: {start: node.where.start, end: node.where.end},
     };
   }

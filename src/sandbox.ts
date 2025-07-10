@@ -21,6 +21,7 @@ import * as ast from './language/ast.js';
 import {praxis} from './language/praxis/highlighter.js';
 import {praxlyTheme} from './praxly-theme.js';
 import {MemdiaSvg} from './language/memdia.js';
+import {Where} from './language/where.js';
 
 import {StateField, StateEffect, Transaction, Range} from "@codemirror/state";
 import {EditorView, Decoration} from "@codemirror/view";
@@ -123,6 +124,42 @@ function initialize() {
     });
   };
 
+  const log = (text: string) => {
+    outputPanel.appendChild(document.createTextNode(text));
+  };
+
+  const getInput: () => Promise<string> = () => {
+    return new Promise(resolve => {
+      inputField.style.display = 'inline';
+      const listener = (event: KeyboardEvent) => {
+        if (event.key === 'Enter') {
+          inputField.removeEventListener('keydown', listener);
+          inputField.style.display = 'none';
+          resolve(inputField.value);
+        }
+      };
+      inputField.addEventListener('keydown', listener);
+    });
+  };
+
+  // const iterable = new ast.ArrayLiteral([
+    // new ast.Integer(5, Where.Nowhere),
+    // new ast.Integer(7, Where.Nowhere),
+  // ], Where.Nowhere);
+  // const iterable = new ast.RangeLiteral(
+    // new ast.Integer(5, Where.Nowhere),
+    // new ast.Integer(21, Where.Nowhere),
+    // Where.Nowhere
+  // );
+
+  // const tree = new ast.ForEach('foo', iterable, new ast.Block([
+    // new ast.Print(new ast.Variable('foo', Where.Nowhere), "\n", Where.Nowhere)
+  // ], Where.Nowhere), Where.Nowhere);
+
+  // const runtime = new GlobalRuntime(log, getInput);
+  // const evaluator = new Evaluator(new PraxisOutputFormatter(), new MemdiaSvg());
+  // tree.visit(evaluator, runtime);
+
   const run = async (isDebug: boolean) => {
     outputPanel.innerText = '';
 
@@ -165,24 +202,6 @@ function initialize() {
         indentation: '  ',
       });
       sourcePanel.innerText = generatedSource;
-
-      const log = (text: string) => {
-        outputPanel.appendChild(document.createTextNode(text));
-      };
-
-      const getInput: () => Promise<string> = () => {
-        return new Promise(resolve => {
-          inputField.style.display = 'inline';
-          const listener = (event: KeyboardEvent) => {
-            if (event.key === 'Enter') {
-              inputField.removeEventListener('keydown', listener);
-              inputField.style.display = 'none';
-              resolve(inputField.value);
-            }
-          };
-          inputField.addEventListener('keydown', listener);
-        });
-      };
 
       // Update output-panel
       const runtime = new GlobalRuntime(log, getInput);

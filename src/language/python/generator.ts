@@ -307,6 +307,10 @@ export class PythonGenerator extends Visitor<Formatter, string> {
     return text;
   }
 
+  visitForEach(_node: ast.ForEach, _formatter: Formatter): string {
+    return 'UNSUPPORTED';
+  }
+
   visitExpressionStatement(node: ast.ExpressionStatement, formatter: Formatter): string {
     let text = node.expressionNode.visit(this, formatter);
     return this.maybeSemicolon(node, text);
@@ -342,6 +346,14 @@ export class PythonGenerator extends Visitor<Formatter, string> {
 
   visitLineComment(node: ast.LineComment, _formatter: Formatter): string {
     return `# ${node.text}`;
+  }
+
+  // --------------------------------------------------------------------------
+  // Range
+  // --------------------------------------------------------------------------
+
+  visitRangeLiteral(_node: ast.RangeLiteral, _formatter: Formatter): string {
+    return 'UNSUPPORTED';
   }
 
   // --------------------------------------------------------------------------

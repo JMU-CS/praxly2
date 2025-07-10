@@ -4,13 +4,6 @@ import {Type, ArrayType} from './type.js';
 
 // --------------------------------------------------------------------------- 
 
-export interface IndexRange {
-  max: number,
-  where: Where,
-}
-
-// --------------------------------------------------------------------------- 
-
 export class Formal {
   identifier: string;
   type: Type;
@@ -466,6 +459,23 @@ export class For extends Statement {
   }
 }
 
+export class ForEach extends Statement {
+  identifier: string;
+  iterableNode: Expression;
+  body: Block;
+
+  constructor(identifier: string, iterableNode: Expression, body: Block, where: Where) {
+    super(where);
+    this.identifier = identifier;
+    this.iterableNode = iterableNode;
+    this.body = body;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitForEach(this, payload);
+  }
+}
+
 // --------------------------------------------------------------------------- 
 // Functions
 // --------------------------------------------------------------------------- 
@@ -531,6 +541,25 @@ export class LineComment extends Statement {
 }
 
 // --------------------------------------------------------------------------- 
+// Range
+// --------------------------------------------------------------------------- 
+
+export class RangeLiteral extends Expression {
+  loNode: Expression;
+  hiNode: Expression;
+
+  constructor(loNode: Expression, hiNode: Expression, where: Where) {
+    super(where);
+    this.loNode = loNode;
+    this.hiNode = hiNode;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitRangeLiteral(this, payload);
+  }
+}
+
+// --------------------------------------------------------------------------- 
 // Arrays
 // --------------------------------------------------------------------------- 
 
@@ -548,11 +577,8 @@ export class ArrayLiteral extends Expression {
 }
 
 export class ArrayDeclaration extends Declaration {
-  // indexRanges: (IndexRange | null)[] | null;
-
   constructor(identifier: string, variableType: ArrayType, rightNode: Expression, where: Where) {
     super(identifier, variableType, rightNode, where);
-    // this.indexRanges = indexRanges;
   }
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {

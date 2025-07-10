@@ -1068,6 +1068,33 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     return new Fruit(Type.Void);
   }
 
+  async visitForEach(node: ast.ForEach, runtime: Runtime): Promise<Fruit> {
+    const newRuntime = runtime.child();
+    // TODO: is setting the expected type reasonable? Should the evaluator be
+    // making certain that array literals only appear in declarations?
+    newRuntime.expectedType = new ArrayType(Type.Integer);
+    const iterableFruit = await node.iterableNode.visit(this, newRuntime);
+    if (iterableFruit.type instanceof ArrayType) {
+      for (let elementFruit of iterableFruit.value) {
+        const bodyRuntime = runtime.child();
+        bodyRuntime.declareVariable(node.identifier, iterableFruit.type.elementType);
+        bodyRuntime.setVariable(node.identifier, new VariableEntry(iterableFruit.type.elementType, elementFruit.value));
+        await node.body.visit(this, bodyRuntime);
+      }
+    } else if (Type.IntegerRange.covers(iterableFruit.type)) {
+      for (let i = iterableFruit.value.lo; i < iterableFruit.value.hi; ++i) {
+        const bodyRuntime = runtime.child();
+        bodyRuntime.declareVariable(node.identifier, Type.Integer);
+        bodyRuntime.setVariable(node.identifier, new VariableEntry(Type.Integer, i));
+        await node.body.visit(this, bodyRuntime);
+      }
+    } else {
+      throw new error.TypeError(`A value of type ${iterableFruit.type} is not iteratable.`, node.iterableNode.where);
+    }
+
+    return new Fruit(Type.Void);
+  }
+
   async visitExpressionStatement(node: ast.ExpressionStatement, runtime: Runtime): Promise<Fruit> {
     await this.step(node);
     await node.expressionNode.visit(this, runtime);
@@ -1152,6 +1179,27 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
   async visitLineComment(_node: ast.LineComment, _runtime: Runtime): Promise<Fruit> {
     return new Fruit(Type.Void);
+  }
+
+  // --------------------------------------------------------------------------
+  // Range
+  // --------------------------------------------------------------------------
+
+  async visitRangeLiteral(node: ast.RangeLiteral, runtime: Runtime): Promise<Fruit> {
+    const loFruit = await node.loNode.visit(this, runtime);
+    if (!Type.Integer.covers(loFruit.type)) {
+      throw new error.TypeError(`The lower bound of this range has the wrong type. It must be an integer.`, node.loNode.where);
+    }
+
+    const hiFruit = await node.hiNode.visit(this, runtime);
+    if (!Type.Integer.covers(hiFruit.type)) {
+      throw new error.TypeError(`The upper bound of this range has the wrong type. It must be an integer.`, node.hiNode.where);
+    }
+
+    return new Fruit(Type.IntegerRange, {
+      lo: loFruit.value,
+      hi: hiFruit.value,
+    });
   }
 
   // --------------------------------------------------------------------------

@@ -31,6 +31,7 @@ export class Type {
   static Void = new Type('void');
   static Boolean = new Type('boolean');
   static String = new Type('String');
+  static IntegerRange = new Type('IntegerRange');
   static Any: Type;
 }
 

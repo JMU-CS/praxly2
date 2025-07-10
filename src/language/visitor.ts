@@ -46,11 +46,15 @@ export abstract class Visitor<P, R> {
   abstract visitDoWhile(node: ast.DoWhile, payload: P): R;
   abstract visitRepeatUntil(node: ast.RepeatUntil, payload: P): R;
   abstract visitFor(node: ast.For, payload: P): R;
+  abstract visitForEach(node: ast.ForEach, payload: P): R;
 
   // Variables
   abstract visitAssignment(node: ast.Assignment, payload: P): R;
   abstract visitDeclaration(node: ast.Declaration, payload: P): R;
   abstract visitVariable(node: ast.Variable, payload: P): R;
+
+  // Range
+  abstract visitRangeLiteral(node: ast.RangeLiteral, payload: P): R;
 
   // Arrays
   abstract visitArrayLiteral(node: ast.ArrayLiteral, payload: P): R;
