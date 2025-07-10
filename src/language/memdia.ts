@@ -1,11 +1,12 @@
 import {Type, Fruit, ArrayType, ObjectType} from './type.js';
 
+const NS = "http://www.w3.org/2000/svg";
+
 // put pure model, non-browser stuff here
 export class Memdia {
   protected memory = new Map<string, {type: Type; value: Fruit | null}>();
   protected callStack: SVGElement[] = [];
-  protected hasFunctionRun = false;
-
+  //protected hasFunctionRun = false;
 
   // Declares a new variable with a given type, and updates the diagram
   declaration(identifier: string, variableType: Type): void {
@@ -13,7 +14,6 @@ export class Memdia {
 
     this.memory.set(identifier, {type: variableType, value: null});
   }
-
 
   // Assigns a value to an existing variable, and updates the diagram
   assignment(identifier: string, rightFruit: Fruit): void {
@@ -25,11 +25,9 @@ export class Memdia {
     }
   }
 
-
   isInFunction(): boolean {
     return this.callStack.length > 0;
   }
-
 
   startFunctionBox(_name: string): void {}
   endFunctionBox(): void {}
@@ -37,8 +35,6 @@ export class Memdia {
   declarationInFunction(_name: string, _type: Type): void {}
   assignmentInFunction(_name: string, _fruit: Fruit): void {}
 }
-
-const NS = "http://www.w3.org/2000/svg";
 
 // override methods that add SVG to the browser here
 export class MemdiaSvg extends Memdia {
@@ -53,6 +49,9 @@ export class MemdiaSvg extends Memdia {
 
       svgPanel.setAttribute('width', '100%');
       svgPanel.setAttribute('height', '100%');
+
+      svgPanel.setAttribute('viewBox', '0 0 300 300');
+      svgPanel.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
       const parent = document.getElementById('memdia-panel');
       if (parent) {
@@ -80,7 +79,7 @@ export class MemdiaSvg extends Memdia {
 
   // Creates and displays a new function box with the given name
   override startFunctionBox(name: string): void {
-    this.hasFunctionRun = true;
+    //this.hasFunctionRun = true;
 
     const panel = this.getOrCreatePanel();
 
@@ -153,6 +152,13 @@ export class MemdiaSvg extends Memdia {
   renderMemoryDiagram(): void {
     const panel = this.getOrCreatePanel();
 
+    const centerGroup = document.createElementNS(NS, 'g');
+    centerGroup.setAttribute('transform', 'translate(50, 50)');
+
+    const scopeBox = this.renderScopeBox("main", this.memory);
+    centerGroup.appendChild(scopeBox);
+    panel.appendChild(centerGroup);
+
     if (this.memory.size > 0 && this.callStack.length === 0) {
       panel.innerHTML = '';
       const box = this.renderScopeBox('main', this.memory);
@@ -164,32 +170,41 @@ export class MemdiaSvg extends Memdia {
   // Creates a box (function-style) for a given scope and its variables
   renderScopeBox(
     scopeName: string,
-    variables: Map<string, {type: Type, value: Fruit | null}>): HTMLElement {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'function-wrapper';
+    variables: Map<string, {type: Type, value: Fruit | null}>): SVGElement {
+    const group = document.createElementNS(NS, 'g');
 
-    const funcName = document.createElement('div');
-    funcName.className = 'function-name';
+    const funcName = document.createElementNS(NS, 'text');
+    funcName.setAttribute('class', 'function-name');
     funcName.textContent = scopeName;
+    funcName.setAttribute('x', '75');
+    funcName.setAttribute('y', '80');
+    group.appendChild(funcName);
 
-    const box = document.createElement('div');
-    box.className = 'function-box';
+    const funcBox = document.createElementNS(NS, 'rect');
+    funcBox.setAttribute('class', 'function-box');
+    funcBox.setAttribute('x', '100');
+    funcBox.setAttribute('y', '30');
+    funcBox.setAttribute('width', '100');
+    funcBox.setAttribute('height', '100');
+    group.appendChild(funcBox);
+
 
     for (const [varName, {type, value}] of variables.entries()) {
+      let varGroup: SVGElement;
       if (
         type instanceof ArrayType ||
         type instanceof ObjectType ||
         type.toString() === 'String'
       ) {
-        box.appendChild(this.renderReferenceBox(varName, type));
+        varGroup = this.renderReferenceBox(varName, type);
       } else {
-        box.appendChild(this.renderPrimitiveVariableBox(varName, type, value));
+        varGroup = this.renderPrimitiveVariableBox(varName, type, value);
       }
+
+      group.appendChild(varGroup);
     }
 
-    wrapper.appendChild(funcName);
-    wrapper.appendChild(box);
-    return wrapper;
+    return group;
   }
 
 
@@ -198,38 +213,43 @@ export class MemdiaSvg extends Memdia {
   renderBaseVariableBox(
     name: string,
     type: Type,
-    fillBox: (box: HTMLElement) => void): HTMLElement {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'memory-variable';
+    fillBox: (boxGroup: SVGGElement) => void): SVGGElement {
+    const group = document.createElementNS(NS, 'g');
+    group.setAttribute('class', 'memory-variable');
 
-    const varRow = document.createElement('div');
-    varRow.className = 'var-row';
+    const nameX = 115;
+    const nameY = 84;
+    const boxX = 130;
+    const boxY = 60;
 
-    const varName = document.createElement('div');
-    varName.className = 'var-name';
+    const varName = document.createElementNS(NS, 'text');
     varName.textContent = name;
+    varName.setAttribute('class', 'var-name');
+    varName.setAttribute('x', `${nameX}`);
+    varName.setAttribute('y', `${nameY}`);
+    group.appendChild(varName);
 
-    const varColumn = document.createElement('div');
-    varColumn.className = 'var-column';
-
-    const varType = document.createElement('div');
-    varType.className = 'var-type';
+    const varType = document.createElementNS(NS, 'text');
     varType.textContent = type.toString();
+    varType.setAttribute('class', 'var-type');
+    varType.setAttribute('x', `${boxX}`);
+    varType.setAttribute('y', `${boxY - 7}`);
+    group.appendChild(varType);
 
-    const varBox = document.createElement('div');
-    varBox.className = 'var-box';
+    const rect = document.createElementNS(NS, 'rect');
+    rect.setAttribute('x', `${boxX}`);
+    rect.setAttribute('y', `${boxY}`);
+    rect.setAttribute('width', '40');
+    rect.setAttribute('height', '40');
+    rect.setAttribute('class', 'var-box');
+    group.appendChild(rect);
 
-    fillBox(varBox);
+    const boxGroup = document.createElementNS(NS, 'g');
+    boxGroup.setAttribute('transform', `translate(${boxX}, ${boxY})`);
+    fillBox(boxGroup);
+    group.appendChild(boxGroup)
 
-    varColumn.appendChild(varType);
-    varColumn.appendChild(varBox);
-
-    varRow.appendChild(varName);
-    varRow.appendChild(varColumn);
-
-    wrapper.appendChild(varRow);
-
-    return wrapper;
+    return group;
   }
 
 
@@ -237,21 +257,30 @@ export class MemdiaSvg extends Memdia {
   renderPrimitiveVariableBox(
     name: string,
     type: Type,
-    value: Fruit | null): HTMLElement {
-    return this.renderBaseVariableBox(name, type, box => {
+    value: Fruit | null): SVGGElement {
+    return this.renderBaseVariableBox(name, type, boxGroup => {
       if (value instanceof Fruit && value.value !== null) {
-        box.textContent = type.serializeValue(value.value);
+        const text = document.createElementNS(NS, 'text');
+        text.textContent = type.serializeValue(value.value);
+        text.setAttribute('x', '20');
+        text.setAttribute('y', '20');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('class', 'primitive-value');
+        boxGroup.appendChild(text);
       }
     });
   }
 
 
   // Renders a variable box for a reference type (e.g. string, array, object) (dot shown inside the box for now)
-  renderReferenceBox(name: string, type: Type): HTMLElement {
-    return this.renderBaseVariableBox(name, type, box => {
-      const dot = document.createElement('div');
-      dot.className = 'reference-dot';
-      box.appendChild(dot);
+  renderReferenceBox(name: string, type: Type): SVGGElement {
+    return this.renderBaseVariableBox(name, type, boxGroup => {
+      const dot = document.createElementNS(NS, 'circle');
+      dot.setAttribute('cx', '20');
+      dot.setAttribute('cy', '20');
+      dot.setAttribute('r', '4');
+      dot.setAttribute('fill', 'black');
+      boxGroup.appendChild(dot);
     })
   }
 }

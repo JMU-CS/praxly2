@@ -1,8 +1,16 @@
 #memdia-panel {
   display: flex;
   justify-content: center;
+  align-items: center;
   padding-top: 150px;
   background-color: #d9c4ec;
+}
+
+#memory-panel {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: auto;
 }
 
 .memory-variable {
@@ -10,66 +18,56 @@
   flex-direction: row;
   align-items: flex-start;
   padding: 10px;
-}
-
-.var-row {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 10px;
+  font-family: sans-serif;
 }
 
 .var-name {
   font-weight: normal;
-  align-self: center;
   font-size: 16px;
-  margin-top: 10.56px;
-}
-
-.var-column {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  fill: black;
+  text-anchor: start;
 }
 
 .var-type {
   font-style: italic;
-  margin-bottom: 2px;
-  color: #444;
-  font-size: 11px;
+  fill: #444;
+  font-size: 12px;
+  text-anchor: start;
 }
 
 .var-box {
-  display: flex;
-  justify-content: center;
-  border: 1px solid black;
-  padding: 10px 10px;
-  align-items: center;
-  border-radius: 4px;
+  stroke: black;
+  fill: none;
+  stroke-width: 1;
+  rx: 2;
+  ry: 2;
+}
+
+.primitive-value {
   font-size: 16px;
-  min-width: 18px;
-  min-height: 18px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  x: 25;
+  y: 20;
 }
 
 .reference-dot {
-  width: 4px;
-  height: 4px;
-  background-color: black;
-  border-radius: 50%;
-  margin: auto;
+  fill: black;
 }
 
-text.function-name {
+.function-name {
   font-weight: bold;
   font-size: 16px;
+  text-anchor: middle;
   dominant-baseline: middle;
 }
 
-rect.function-box {
+.function-box {
   stroke: black;
-  fill: white;
-  rx: 4;
-  ry: 4;
+  fill: none;
+  rx: 2;
+  ry: 2;
 }
 
 @media (max-width: 600px) {
