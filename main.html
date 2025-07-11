@@ -7,7 +7,6 @@
   <title>Praxly2 Main</title>
   <link rel="icon" href="/fallen-leaf_1f342.ico" type="image/x-icon">
   <link rel="stylesheet" href="/main.css">
-  <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/memdia.css" />
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
@@ -32,48 +31,44 @@
         </button>
       </li>
       <li>
-        <button id="step-button" class="MainMenu-button debugOptions" title="Run the next step">
+        <button id="step-button" style="display: none;" class="MainMenu-button debugOptions" title="Run the next step">
           Step <span class="material-symbols-rounded step">step</span>
         </button>
       </li>
       <li>
-        <button id="stopButton" class="MainMenu-button debugOptions" title="Exit the debugger">
+        <button id="stop-button" style="display: none;" class="MainMenu-button debugOptions" title="Exit the debugger">
           Exit <span class="material-symbols-rounded stop">stop</span>
         </button>
       </li>
       <li>
-        <button id="share" class="MainMenu-button" title="Create link for sharing">
+        <button id="share-button" class="MainMenu-button" title="Create link for sharing">
           Share <span class="material-symbols-rounded share">share</span>
         </button>
       </li>
       <li>
-        <button id="reference" class="MainMenu-button" title="Open the Pseudocode Notation">
-          Manual <span class="material-symbols-rounded manual">book_2</span>
+        <button id="settings-button" class="MainMenu-button" title="Settings">
+          <span class="material-symbols-rounded extra">settings</span>
+          <span class="button-text">Settings</span>
         </button>
       </li>
       <li>
-        <button id="info" class="MainMenu-button" title="About Praxly">
-          <span class="material-symbols-rounded extra">info</span>
-          <span class="button-text">About</span>
-        </button>
-      </li>
-      <li>
-        <button id="resetButton" class="MainMenu-button" title="Reset the initial code">
+        <button id="reset-button" class="MainMenu-button" title="Reset the initial code">
           Reset <span class="material-symbols-rounded reset">restart_alt</span>
-        </button>
-      </li>
-      <li>
-        <button id="settings" class="MainMenu-button" title="Settings">
-          Settings <span class="material-symbols-rounded settings">settings</span>
         </button>
       </li>
     </ul>
   </header>
 
-  <div id ="main-view">
-    <div id="editor"> </div>
-    <div id ="output"></div>
+  <div id="main-view">
+    <div class="quad" id="editor"></div>
+    <div class="quad" id="output"></div>
+    <div class="quad" id="memdia"></div>
+    <div class="quad" id="other"></div>
   </div>
+
+  <div id="resize-bar-X"></div>
+  <div id="resize-bar-Y"></div>
+
 
   <!-- <div id ="output-section">
       <div class ="output">
@@ -98,6 +93,24 @@
   </div>
 
   <script type="module" src="/src/main.ts"></script>
+  <script> const runButton = document.getElementById("run-button");
+    const debugButton = document.getElementById("debug-button");
+    const stepButton = document.getElementById("step-button");
+    const exitButton = document.getElementById("stop-button");
+
+    function showStepAndExit() {
+      stepButton.style.display = "inline-flex";
+      exitButton.style.display = "inline-flex";
+    }
+
+    runButton.addEventListener("click", () => {
+      showStepAndExit();
+    });
+
+    debugButton.addEventListener("click", () => {
+      showStepAndExit();
+    });
+    </script>
 
 </body>
 

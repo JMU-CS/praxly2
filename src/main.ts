@@ -177,3 +177,85 @@ const run = async (isDebug: boolean) => {
 stepButton.disabled = true;
 runButton.addEventListener('click', () => run(false));
 debugButton.addEventListener('click', () => run(true));
+
+// RESIZE BARS
+
+const resizeBarX = document.getElementById('resize-bar-X')!;
+const resizeBarY = document.getElementById('resize-bar-Y')!;
+const mainView = document.getElementById('main-view')!;
+
+let isDraggingX = false;
+let isDraggingY = false;
+
+resizeBarX.addEventListener('mousedown', () => isDraggingX = true);
+resizeBarY.addEventListener('mousedown', () => isDraggingY = true);
+
+document.addEventListener('mouseup', () => {
+  isDraggingX = false;
+  isDraggingY = false;
+});
+
+document.addEventListener('mousemove', (e) => {
+
+  if (isDraggingX) {
+    // ask for help
+  }
+
+  if (isDraggingY) {
+    // ask for help
+  }
+});
+
+
+// function resizeHandler(e) {
+//   if (isResizingHoriz) {
+//     if (configuration.embed) {
+//       const containerWidth = document.body.offsetWidth;
+//       const mouseX = e.pageX;
+//       const leftPaneWidth = (mouseX / containerWidth) * 100;
+//       const rightPaneWidth = 100 - leftPaneWidth;
+
+//       document.querySelector('.side-view').style.flex = rightPaneWidth;
+
+//       if (configuration.editor === 'blocks') {
+//         blockPane.style.flex = leftPaneWidth;
+//       } else if (configuration.editor === 'text') {
+//         main.style.flex = leftPaneWidth;
+//       }
+
+//     } else {
+//       const containerWidth = main.offsetWidth;
+//       const mouseX = e.pageX;
+//       const leftPaneWidth = (mouseX / containerWidth) * 100;
+//       const rightPaneWidth = 100 - leftPaneWidth;
+
+//       textPane.style.flex = leftPaneWidth;
+//       blockPane.style.flex = rightPaneWidth;
+//       output.style.flex = leftPaneWidth;
+//       varContainer.style.flex = rightPaneWidth;
+//     }
+
+//   } else if (isResizingVert) {
+
+//     if (configuration.embed) {
+//       const containerHeight = document.querySelector('.side-view').clientHeight;
+//       const mouseY = e.pageY;
+//       const topHeight = (mouseY / containerHeight) * 100;
+//       const bottomHeight = 100 - topHeight;
+
+//       output.style.flex = topHeight;
+//       varContainer.style.flex = bottomHeight;
+//     } else {
+//       const containerHeight = document.body.clientHeight;
+//       const mouseY = e.pageY;
+//       const topHeight = (mouseY / containerHeight) * 100;
+//       const bottomHeight = 100 - topHeight;
+
+//       main.style.flex = topHeight + '%';
+//       bottomPart.style.flex = bottomHeight + '%';
+//     }
+
+//   }
+
+//   Blockly.svgResize(workspace);
+// }
