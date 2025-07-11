@@ -175,36 +175,36 @@ const run = async (isDebug: boolean) => {
 };
 
 stepButton.disabled = true;
-runButton.addEventListener('click', () => run(false));
+runButton.addEventListener('click', () => run(true));
 debugButton.addEventListener('click', () => run(true));
 
 // RESIZE BARS
 
-const resizeBarX = document.getElementById('resize-bar-X')!;
-const resizeBarY = document.getElementById('resize-bar-Y')!;
-const mainView = document.getElementById('main-view')!;
+// const resizeBarX = document.getElementById('resize-bar-X')!;
+// const resizeBarY = document.getElementById('resize-bar-Y')!;
+// const mainView = document.getElementById('main-view')!;
 
-let isDraggingX = false;
-let isDraggingY = false;
+// let isDraggingX = false;
+// let isDraggingY = false;
 
-resizeBarX.addEventListener('mousedown', () => isDraggingX = true);
-resizeBarY.addEventListener('mousedown', () => isDraggingY = true);
+// resizeBarX.addEventListener('mousedown', () => isDraggingX = true);
+// resizeBarY.addEventListener('mousedown', () => isDraggingY = true);
 
-document.addEventListener('mouseup', () => {
-  isDraggingX = false;
-  isDraggingY = false;
-});
+// document.addEventListener('mouseup', () => {
+//   isDraggingX = false;
+//   isDraggingY = false;
+// });
 
-document.addEventListener('mousemove', (e) => {
+// document.addEventListener('mousemove', (e) => {
 
-  if (isDraggingX) {
-    // ask for help
-  }
+//   if (isDraggingX) {
+//     // ask for help
+//   }
 
-  if (isDraggingY) {
-    // ask for help
-  }
-});
+//   if (isDraggingY) {
+//     // ask for help
+//   }
+// });
 
 
 // function resizeHandler(e) {
