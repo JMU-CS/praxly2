@@ -84,6 +84,7 @@
 
   <script type="module" src="/src/main.ts"></script>
   <script>
+
     /* code for RUN, DEBUG, STEP, AND EXIT */
     const runButton = document.getElementById("run-button");
     const debugButton = document.getElementById("debug-button");
@@ -92,20 +93,22 @@
     const settingsButton = document.getElementById("settings-button");
     const dropdown = settingsButton?.parentElement?.querySelector(".dropdown-content");
 
-    // run button
     function showStepAndExit() {
       stepButton.style.display = "inline-flex";
       exitButton.style.display = "inline-flex";
     }
 
-    runButton.addEventListener("click", () => {
-      showStepAndExit();
-    });
-
     debugButton.addEventListener("click", () => {
       showStepAndExit();
     });
 
+    settingsButton.addEventListener("click", () => {
+      if (dropdown.style.display === "block") {
+        dropdown.style.display = "none";
+      } else {
+        dropdown.style.display = "block";
+      }
+    });
 
     /* RESIZE BAR-X CODE */
     const resizeBarX = document.getElementById("resize-bar-X");
@@ -118,11 +121,12 @@
     });
 
     function resizeX(e) {
-      const totalWidth = document.querySelector("main").offsetWidth;
-      const newLeftWidth = e.clientX;
-      const rightWidth = totalWidth - newLeftWidth - resizeBarX.offsetWidth;
+      const leftEdge = leftSide.getBoundingClientRect().left;
+      const totalWidth = leftSide.offsetWidth;
+      const leftWidth = e.clientX - leftEdge;
+      const rightWidth = totalWidth - leftWidth - resizeBarX.offsetWidth;
 
-      leftSide.style.width = `${newLeftWidth}px`;
+      leftSide.style.width = `${leftWidth}px`;
       rightSide.style.width = `${rightWidth}px`;
     }
 
@@ -135,7 +139,6 @@
     const resizeBarY = document.getElementById("resize-bar-Y");
     const outputPanel = document.getElementById("output-panel");
     const memdiaPanel = document.getElementById("memdia-panel");
-    const editorPanel = document.getElementById("editor");
 
     resizeBarY.addEventListener("mousedown", (e) => {
       document.addEventListener("mousemove", resizeY);
@@ -143,15 +146,12 @@
     });
 
     function resizeY(e) {
-      const rightSideTop = document.getElementById("right-side").getBoundingClientRect().top;
-      const totalHeight = document.getElementById("right-side").offsetHeight;
-      const newOutputHeight = e.clientY - rightSideTop;
-      const memdiaHeight = totalHeight - newOutputHeight - resizeBarY.offsetHeight;
+      const topEdge = rightSide.getBoundingClientRect().top;
+      const totalHeight = rightSide.offsetHeight;
+      const outputHeight = e.clientY - topEdge;
+      const memdiaHeight = totalHeight - outputHeight - resizeBarY.offsetHeight;
 
-      outputPanel.style.flex = "none";
-      outputPanel.style.height = `${newOutputHeight}px`;
-
-      memdiaPanel.style.flex = "none";
+      outputPanel.style.height = `${outputHeight}px`;
       memdiaPanel.style.height = `${memdiaHeight}px`;
     }
 
@@ -159,18 +159,6 @@
       document.removeEventListener("mousemove", resizeY);
       document.removeEventListener("mouseup", stopResizeY);
     }
-
-    settingsButton.addEventListener("click", () => {
-      if (dropdown.style.display === "block") {
-        dropdown.style.display = "none";
-      } else {
-        dropdown.style.display = "block";
-      }
-    });
-
-
-
-
 
   </script>
 
