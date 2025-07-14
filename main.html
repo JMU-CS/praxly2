@@ -45,12 +45,23 @@
           Share <span class="material-symbols-rounded share">share</span>
         </button>
       </li>
-      <li>
+      <li class="dropdown">
         <button id="settings-button" class="MainMenu-button" title="Settings">
           <span class="material-symbols-rounded extra">settings</span>
           <span class="button-text">Settings</span>
         </button>
+        <div class="dropdown-content">
+          <button class="dropdown-item">Help</button>
+          <button class="dropdown-item">Language</button>
+          <button class="dropdown-item">Manual</button>
+        </div>
       </li>
+      <!-- <li>
+        <button id="settings-button" class="MainMenu-button" title="Settings">
+          <span class="material-symbols-rounded extra">settings</span>
+          <span class="button-text">Settings</span>
+        </button>
+      </li> -->
       <li>
         <button id="reset-button" class="MainMenu-button" title="Reset the initial code">
           Reset <span class="material-symbols-rounded reset">restart_alt</span>
@@ -78,6 +89,8 @@
     const debugButton = document.getElementById("debug-button");
     const stepButton = document.getElementById("step-button");
     const exitButton = document.getElementById("stop-button");
+    const settingsButton = document.getElementById("settings-button");
+    const dropdown = settingsButton?.parentElement?.querySelector(".dropdown-content");
 
     // run button
     function showStepAndExit() {
@@ -147,17 +160,17 @@
       document.removeEventListener("mouseup", stopResizeY);
     }
 
-    exitButton.addEventListener("click", () => {
-      editorView.dispatch({
-        changes: { from: 0, to: editor.state.doc.length, insert: "" }
-      });
-
-      outputPanel.textContent = "";
-
-      //hide step, and exit
-      stepButton.style.display = "none";
-      exitButton.style.display = "none";
+    settingsButton.addEventListener("click", () => {
+      if (dropdown.style.display === "block") {
+        dropdown.style.display = "none";
+      } else {
+        dropdown.style.display = "block";
+      }
     });
+
+
+
+
 
   </script>
 

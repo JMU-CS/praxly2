@@ -147,7 +147,32 @@ main {
   flex-grow: 0;
 }
 
-#resize-bar-x:hover,
-#resize-bar-y:hover {
+#resize-bar-X:hover,
+#resize-bar-Y:hover {
   box-shadow: #90d9ff;
+}
+
+/* dropdown menu */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  min-width: 150px;
+  z-index: 100;
+  border-radius: 5px;
+  padding: 6px 0;
+}
+
+.dropdown-item {
+  padding: 10px 16px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background-color: #3d3d3d;
 }

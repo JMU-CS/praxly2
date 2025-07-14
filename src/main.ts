@@ -91,7 +91,7 @@ const debugButton = document.getElementById('debug-button') as HTMLInputElement;
 const stepButton = document.getElementById('step-button') as HTMLInputElement;
 const outputPanel = document.getElementById('output-panel') as HTMLElement;
 const exitButton = document.getElementById("stop-button") as HTMLElement;
-
+const resetButton = document.getElementById("reset-button") as HTMLElement;
 const latestSource = localStorage.getItem('latest-source');
 
 if (latestSource) {
@@ -182,8 +182,8 @@ stepButton.disabled = true;
 runButton.addEventListener('click', () => run(true));
 debugButton.addEventListener('click', () => run(true));
 
-// exit button
-exitButton.addEventListener('click', () => {
+// reset button
+resetButton.addEventListener('click', () => {
   editorView.dispatch({
     changes: { from: 0, to: editorView.state.doc.length, insert: '' }
   });
@@ -192,5 +192,12 @@ exitButton.addEventListener('click', () => {
   stepButton.style.display = 'none';
   exitButton.style.display = 'none';
   stepButton.disabled = true;
-  // localStorage.removeItem('latest-source');
+  localStorage.removeItem('latest-source');
+});
+// exit button
+exitButton.addEventListener('click', () => {
+  outputPanel.textContent = '';
+  stepButton.style.display = 'none';
+  exitButton.style.display = 'none';
+  stepButton.disabled = true;
 });
