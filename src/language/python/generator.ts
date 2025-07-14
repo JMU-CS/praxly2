@@ -68,10 +68,15 @@ export class PythonGenerator extends Visitor<Formatter, string> {
     let operandPrecedence = precedence.get(node.operandNode.constructor);
     let nodePrecedence = precedence.get(node.constructor);
 
-    operator = operator.slice(0, 2) == '++' ? ` += 1` : operator.slice(0, 2) == '--' ? ` -= 1` : operator;
-
     let text = node.operandNode.visit(this, formatter);
-    text += operator;
+
+    if (operator.slice(0, 2) == '++') {
+      text += ` = ${node.operandNode.visit(this, formatter)} + 1`; // x++
+    } else if (operator.slice(0, 2) == '--') {
+      text += ` = ${node.operandNode.visit(this, formatter)} - 1`; // x--
+    } else {
+      text += operator;
+    }
 
     return text;
   }
@@ -345,7 +350,7 @@ export class PythonGenerator extends Visitor<Formatter, string> {
   }
 
   visitLineComment(node: ast.LineComment, _formatter: Formatter): string {
-    return `# ${node.text}`;
+    return ` ${node.text}`;
   }
 
   // --------------------------------------------------------------------------
@@ -397,10 +402,10 @@ export class PythonGenerator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitClassDefinition(node: ast.ClassDefinition, formatter: Formatter): string {
-    let text = `class ${node.identifier}:`;
-    if (node.superclass) {
-      text += ` extends ${node.superclass}`;
-    }
+    let text = `Class ${node.identifier}:`;
+    // if (node.superclass) {
+    //   text += ` extends ${node.superclass}`;
+    // }
     text += "\n";
 
     text += node.instanceVariableDeclarations.map(declaration => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${declaration.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('');
