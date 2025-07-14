@@ -6,14 +6,10 @@ import { closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap } 
 import { lintKeymap } from '@codemirror/lint';
 import { EditorState, EditorSelection } from '@codemirror/state';
 
-import { lexPraxis } from './language/praxis/lexer.js';
-import { parsePraxis } from './language/praxis/parser.js';
+import * as praxis from './language/praxis/index.js';
 import { GlobalRuntime, Evaluator } from './language/evaluator.js';
-import { PraxisOutputFormatter } from './language/praxis/output-formatter.js';
 import { WhereError } from './language/error.js';
 import * as ast from './language/ast.js';
-import { praxis } from './language/praxis/highlighter.js';
-import { praxlyTheme } from './praxly-theme.js';
 import { MemdiaSvg } from './language/memdia.js';
 
 import { StateField, StateEffect, Transaction, Range } from "@codemirror/state";
@@ -68,13 +64,16 @@ const editorView = new EditorView({
       ...completionKeymap,
       ...lintKeymap,
     ]),
-    praxis(),
-    praxlyTheme,
+    praxis.plugin(),
+    praxis.praxlyTheme,
     markField,
   ],
 });
 
 function removeAllMarks() {
+  editorView.dispatch({
+    effects: filterMarks.of(() => false)
+  });
 }
 
 const stepMark = Decoration.mark({
@@ -87,6 +86,7 @@ const runButton = document.getElementById('run-button') as HTMLInputElement;
 const debugButton = document.getElementById('debug-button') as HTMLInputElement;
 const stepButton = document.getElementById('step-button') as HTMLInputElement;
 const outputPanel = document.getElementById('output-panel') as HTMLElement;
+const exitButton = document.getElementById("stop-button") as HTMLElement;
 
 const latestSource = localStorage.getItem('latest-source');
 
@@ -118,13 +118,13 @@ const run = async (isDebug: boolean) => {
   try {
     outputPanel.innerText = '';
 
-    const tokens = lexPraxis(source);
-    const ast = parsePraxis(tokens, source);
-    const outputFormatter = new PraxisOutputFormatter();
+    const tokens = praxis.lex(source);
+    const ast = praxis.parse(tokens, source);
+    const outputFormatter = new praxis.OutputFormatter();
 
     // Update output-panel
     const runtime = new GlobalRuntime(log, getInput);
-    const evaluator = new Evaluator(outputFormatter, new MemdiaSvg());
+    const evaluator = new Evaluator(outputFormatter, new MemdiaSvg(runtime));
     if (isDebug) {
       evaluator.step = (node: ast.Node) => {
         stepButton.disabled = false;
@@ -175,5 +175,18 @@ const run = async (isDebug: boolean) => {
 };
 
 stepButton.disabled = true;
-runButton.addEventListener('click', () => run(false));
+runButton.addEventListener('click', () => run(true));
 debugButton.addEventListener('click', () => run(true));
+
+// exit button
+exitButton.addEventListener('click', () => {
+  editorView.dispatch({
+    changes: { from: 0, to: editorView.state.doc.length, insert: '' }
+  });
+
+  outputPanel.textContent = '';
+  stepButton.style.display = 'none';
+  exitButton.style.display = 'none';
+  stepButton.disabled = true;
+  // localStorage.removeItem('latest-source');
+});

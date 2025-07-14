@@ -1,8 +1,8 @@
-import {OutputFormatter} from '../output-formatter.js';
+import * as common from '../output-formatter.js';
 import * as ast from '../ast.js';
 import {ArrayType, ObjectType, Type, Fruit} from '../type.js';
 
-export class PraxisOutputFormatter extends OutputFormatter {
+export class OutputFormatter extends common.OutputFormatter {
   constructor() {
     super();
     this.operatorMap.set(ast.LogicalAnd, 'and');
