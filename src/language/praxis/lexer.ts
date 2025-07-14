@@ -204,6 +204,6 @@ class PraxisLexer extends Lexer {
   }
 }
 
-export function lexPraxis(source: string) {
+export function lex(source: string) {
   return new PraxisLexer(source).lex();
 }

@@ -6,20 +6,17 @@ import {closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap} fr
 import {lintKeymap} from '@codemirror/lint';
 import {EditorState, EditorSelection} from '@codemirror/state';
 
-import {lexPraxis} from './language/praxis/lexer.js';
+import * as praxis from './language/praxis/index.js';
+
 import {lexPython} from './language/python/lexer.js';
-import {parsePraxis} from './language/praxis/parser.js';
 import {parsePython} from './language/python/parser.js';
-import {PraxisGenerator} from './language/praxis/generator.js';
 import {PythonGenerator} from './language/python/generator.js';
+import {PythonOutputFormatter} from './language/python/output-formatter.js';
+
 import {Objectifier} from './language/objectifier.js';
 import {GlobalRuntime, Evaluator} from './language/evaluator.js';
-import {PraxisOutputFormatter} from './language/praxis/output-formatter.js';
-import {PythonOutputFormatter} from './language/python/output-formatter.js';
 import {WhereError} from './language/error.js';
 import * as ast from './language/ast.js';
-import {praxis} from './language/praxis/highlighter.js';
-import {praxlyTheme} from './praxly-theme.js';
 import {MemdiaSvg} from './language/memdia.js';
 import {Where} from './language/where.js';
 
@@ -104,8 +101,8 @@ function initialize() {
         ...completionKeymap,
         ...lintKeymap,
       ]),
-      praxis(),
-      praxlyTheme,
+      praxis.praxis(),
+      praxis.praxlyTheme,
       markField,
     ],
   });
@@ -157,7 +154,7 @@ function initialize() {
   // ], Where.Nowhere), Where.Nowhere);
 
   // const runtime = new GlobalRuntime(log, getInput);
-  // const evaluator = new Evaluator(new PraxisOutputFormatter(), new MemdiaSvg());
+  // const evaluator = new Evaluator(new praxis.PraxisOutputFormatter(), new MemdiaSvg());
   // tree.visit(evaluator, runtime);
 
   const run = async (isDebug: boolean) => {
@@ -176,10 +173,10 @@ function initialize() {
       let generator;
 
       if (srcLang.value === "Praxis") {
-        tokens = lexPraxis(source);
-        ast = parsePraxis(tokens, source);
-        generator = new PraxisGenerator();
-        outputFormatter = new PraxisOutputFormatter();
+        tokens = praxis.lex(source);
+        ast = praxis.parse(tokens, source);
+        generator = new praxis.Generator();
+        outputFormatter = new praxis.OutputFormatter();
       } else {
         tokens = lexPython(source);
         ast = parsePython(tokens, source);
@@ -187,7 +184,7 @@ function initialize() {
       }
 
       if (dstLang.value === "Praxis") {
-        generator = new PraxisGenerator();
+        generator = new praxis.Generator();
       } else {
         generator = new PythonGenerator();
       }

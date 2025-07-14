@@ -20,7 +20,7 @@ const NOT_EQUAL = "\u2260";
 const LESS_THAN_OR_EQUAL = "\u2264";
 const GREATER_THAN_OR_EQUAL = "\u2265";
 
-export class PraxisGenerator extends Visitor<Formatter, string> {
+export class Generator extends Visitor<Formatter, string> {
 
   // --------------------------------------------------------------------------
   // Primitives
