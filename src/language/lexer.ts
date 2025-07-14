@@ -145,7 +145,6 @@ export abstract class Lexer {
   static keywords: {[index: string]: TokenType} = {
     and: TokenType.And,
     class: TokenType.Class,
-    def: TokenType.Function,
     do: TokenType.Do,
     else: TokenType.Else,
     end: TokenType.End,
@@ -165,5 +164,9 @@ export abstract class Lexer {
     true: TokenType.True,
     until: TokenType.Until,
     while: TokenType.While,
+
+    // python specific
+    def: TokenType.Function,
+
   };
 }

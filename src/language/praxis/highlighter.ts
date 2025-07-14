@@ -4,7 +4,7 @@ import {styleTags, tags as t} from "@lezer/highlight";
 // import {completeFromList} from "@codemirror/autocomplete"
 
 // https://lezer.codemirror.net/docs/ref/#highlight.tags
-export let parserWithMetadata = parser.configure({
+export let lezerParser = parser.configure({
   props: [
     styleTags({
       For: t.keyword,
@@ -46,12 +46,12 @@ export let parserWithMetadata = parser.configure({
 
 export const praxisLanguage = LRLanguage.define({
   name: 'praxis',
-  parser: parserWithMetadata,
+  parser: lezerParser,
   languageData: {
     // commentTokens: {line: "//"}
   }
 });
 
-export function praxis() {
+export function plugin() {
   return new LanguageSupport(praxisLanguage);
 };

@@ -85,7 +85,7 @@ class PythonParser extends Parser {
   }
 
   topLevelStatement(): ast.Statement {
-    // TODO Change this!! functions are defined with def and a following identifier with ()
+    // functions are defined with def and a following identifier with ()
     if (this.has(TokenType.Function) && this.hasAhead(TokenType.LeftParenthesis, 2)) {
       const defineNode = this.functionDefinition();
       this.statementLinebreak();
@@ -100,7 +100,7 @@ class PythonParser extends Parser {
   }
 
   classDefinition(): ast.ClassDefinition {
-    const classToken = this.advance() as TextToken;
+    const classToken = this.advance() as TextToken; // eat Class
 
     if (!this.has(TokenType.Identifier)) {
       throw new ParseError("The class name is missing.", classToken.where);
@@ -109,20 +109,17 @@ class PythonParser extends Parser {
     let lastWhere = classIdentifierToken.where;
 
     let superclass = null;
-    if (this.has(TokenType.Extends)) {
-      const extendsToken = this.advance();
-      if (!this.has(TokenType.Identifier)) {
-        throw new ParseError("The superclass name is missing.", extendsToken.where);
-      }
-      const superclassToken = this.advance() as TextToken;
-      lastWhere = superclassToken.where;
-      superclass = superclassToken.text;
+
+    if (!this.has(TokenType.Colon)) {
+      throw new ParseError("A : is missing after the class name.", lastWhere);
     }
+
 
     if (!this.has(TokenType.Linebreak)) {
       throw new ParseError("A linebreak is missing after this class header.", Where.enclose(classToken.where, lastWhere));
     }
     this.advance(); // eat linebreak
+
 
     this.skipLinebreaks();
 
@@ -133,31 +130,14 @@ class PythonParser extends Parser {
       this.advance(); // eat indent
 
       while (this.hasOtherwise(TokenType.Unindent)) {
-        let visibility = null;
         let firstWhere = null;
-        if (this.has(TokenType.Public) || this.has(TokenType.Private)) {
-          const visibilityToken = this.advance(); // eat public/private
-          visibility = visibilityToken.type === TokenType.Public ? ast.Visibility.Public : ast.Visibility.Private;
-          lastWhere = visibilityToken.where;
-          firstWhere = visibilityToken.where;
-        }
 
+        // check if instance variable
         if (!this.has(TokenType.Identifier)) {
-          throw new ParseError("A type is missing.", lastWhere);
-        }
-        const type = this.type();
-        firstWhere = firstWhere ?? type.where;
-
-        if (!this.has(TokenType.Identifier)) {
-          throw new ParseError("A name is missing after this type.", lastWhere);
-        }
-
-        if (this.hasAhead(TokenType.LeftParenthesis, 1)) {
-          const core = this.subroutineCore('method', Where.enclose(type.where, lastWhere));
-          const declaration = new ast.MethodDefinition(core.identifier, core.formals, type, core.block, visibility, Where.enclose(firstWhere, core.block.where));
-          methodDefinitions.push(declaration);
+          throw new ParseError("A name is missing for this variable.", lastWhere);
         } else {
           const memberIdentifierToken = this.advance() as TextToken;
+          firstWhere = firstWhere ?? memberIdentifierToken.where;
 
           // The original Praxis document says nothing about how instance
           // variables are initialized. On the outside through public access?
@@ -168,12 +148,19 @@ class PythonParser extends Parser {
 
           let rightNode = null;
           if (this.has(TokenType.Equal)) {
-            this.advance();
+            this.advance(); // eat =
             rightNode = this.expression();
           }
 
-          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, type, visibility, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
+          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, Type.Any, null, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
           instanceVariableDeclarations.push(declaration);
+        }
+
+        // check if function
+        if (this.has(TokenType.Function)) {
+          const core = this.functionDefinition();
+          const declaration = new ast.MethodDefinition(core.identifier, core.formals, Type.Any, core.body, null, Where.enclose(firstWhere, core.body.where));
+          methodDefinitions.push(declaration);
         }
 
         this.skipLinebreaks();
@@ -185,14 +172,7 @@ class PythonParser extends Parser {
       this.advance();
     }
 
-    if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Class, 1) || !this.hasAhead(TokenType.Identifier, 2) || (this.tokens[this.i + 2] as TextToken).text !== classIdentifierToken.text) {
-      throw new ParseError(`The class must be closed with \`end class ${classIdentifierToken.text}\`.`, Where.enclose(classToken.where, lastWhere));
-    }
-    this.advance();
-    this.advance();
-    const endToken = this.advance();
-
-    return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, methodDefinitions, Where.enclose(classToken.where, endToken.where));
+    return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, methodDefinitions, Where.enclose(classToken.where, lastWhere));
   }
 
   subroutineCore(context: string, firstWhere: Where) {
@@ -327,7 +307,7 @@ class PythonParser extends Parser {
     } else if (this.has(TokenType.While)) {
       statement = this.whileStatement(inFunctionDefinition);
     } else if (this.has(TokenType.For)) {
-      statement = this.forStatement(inFunctionDefinition);
+      throw new ParseError(`For loops are not supported.`, this.advance().where); // for loops currently not supported
     } else if (this.has(TokenType.Print)) {
       statement = this.printStatement();
     } else if (this.has(TokenType.LineComment)) {
@@ -341,19 +321,10 @@ class PythonParser extends Parser {
         // variable will be assigned to a literal
         statement = this.declaration();
       }
-    // } else if (this.hasArrayWithoutIndex()) {
-    //   statement = this.arrayDeclaration();
-    // } else if (this.hasArrayWithRange()) {
-    //   statement = this.arrayDeclaration();
     } else if (this.has(TokenType.Return)) {
       statement = this.returnStatement(inFunctionDefinition);
     } else {
       statement = this.otherStatement();
-    }
-
-    if (this.has(TokenType.Semicolon)) {
-      const semicolonToken = this.advance();
-      statement.hasSemicolon = true;
     }
 
     // Skip past any trailing comment.
@@ -519,7 +490,7 @@ class PythonParser extends Parser {
   }
 
   forStatement(inFunctionDefinition: boolean): ast.Statement {
-    const forToken = this.advance();
+    const forToken = this.advance(); // eat for
     let lastWhere = forToken.where;
 
     if (!this.has(TokenType.LeftParenthesis)) {

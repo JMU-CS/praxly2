@@ -1,10 +1,7 @@
 import assert from 'node:assert';
-import {lexPraxis} from '../build/language/praxis/lexer.js';
-import {parsePraxis, parsePraxisExpression} from '../build/language/praxis/parser.js';
-import {PraxisGenerator} from '../build/language/praxis/generator.js';
+import * as praxis from '../build/language/praxis/index.js';
 import {Fruit, Type} from '../build/language/type.js';
 import {GlobalRuntime, Evaluator} from '../build/language/evaluator.js';
-import {PraxisOutputFormatter} from '../build/language/praxis/output-formatter.js';
 import * as error from '../build/language/error.js';
 import {Memdia} from '../build/language/memdia.js';
 
@@ -166,10 +163,10 @@ describe('Praxis: Expression Generation and Evaluation', () => {
 
   for (let sample of samples) {
     describe(sample.source, () => {
-      const tokens = lexPraxis(sample.source);
-      const ast = parsePraxisExpression(tokens, sample.source);
+      const tokens = praxis.lex(sample.source);
+      const ast = praxis.parseExpression(tokens, sample.source);
 
-      const generatedSource = ast.visit(new PraxisGenerator(), {
+      const generatedSource = ast.visit(new praxis.Generator(), {
         nestingLevel: 0,
         indentation: '  ',
       });
@@ -178,7 +175,7 @@ describe('Praxis: Expression Generation and Evaluation', () => {
       it(`should evaluate to ${sample.evaluation}`, async () => {
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        const fruit = await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
+        const fruit = await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.deepStrictEqual(fruit, sample.evaluation);
       });
     });
@@ -359,10 +356,10 @@ accompany
 
   for (let sample of samples) {
     describe(`// ${sample.message}\n${sample.source}`, () => {
-      const tokens = lexPraxis(sample.source);
-      const ast = parsePraxis(tokens, sample.source);
+      const tokens = praxis.lex(sample.source);
+      const ast = praxis.parse(tokens, sample.source);
 
-      const generatedSource = ast.visit(new PraxisGenerator(), {
+      const generatedSource = ast.visit(new praxis.Generator(), {
         nestingLevel: 0,
         indentation: '  ',
       });
@@ -372,7 +369,7 @@ accompany
       it(`should output\n${sample.output}`, async () => {
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
+        await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
     });
@@ -410,12 +407,12 @@ print 6\n`,
   for (let sample of samples) {
     describe(`// ${sample.message}\n${sample.source}`, () => {
       it(`should output\n${sample.output}`, async () => {
-        const tokens = lexPraxis(sample.source);
-        const ast = parsePraxis(tokens, sample.source);
+        const tokens = praxis.lex(sample.source);
+        const ast = praxis.parse(tokens, sample.source);
 
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
+        await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
     });
@@ -545,12 +542,12 @@ print nums[2][2]`,
   for (let sample of samples) {
     describe(`// ${sample.message}\n${sample.source}`, () => {
       it(`should output\n${sample.output}`, async () => {
-        const tokens = lexPraxis(sample.source);
-        const ast = parsePraxis(tokens, sample.source);
+        const tokens = praxis.lex(sample.source);
+        const ast = praxis.parse(tokens, sample.source);
 
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
+        await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
     });
@@ -650,12 +647,12 @@ print s.value`,
   for (let sample of samples) {
     describe(`// ${sample.message}\n${sample.source}`, () => {
       it(`should output\n${sample.output}`, async () => {
-        const tokens = lexPraxis(sample.source);
-        const ast = parsePraxis(tokens, sample.source);
+        const tokens = praxis.lex(sample.source);
+        const ast = praxis.parse(tokens, sample.source);
 
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
+        await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
     });
@@ -732,11 +729,11 @@ print c.radius`,
   for (let sample of samples) {
     describe(`// ${sample.message}\n${sample.source}`, () => {
       const evaluate = async () => {
-        const tokens = lexPraxis(sample.source);
-        const ast = parsePraxis(tokens, sample.source);
+        const tokens = praxis.lex(sample.source);
+        const ast = praxis.parse(tokens, sample.source);
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
+        await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
     });
@@ -754,11 +751,11 @@ describe('Praxis: Parse Errors', () => {
   for (let sample of samples) {
     describe(`// ${sample.message}\n${sample.source}`, () => {
       const evaluate = async () => {
-        const tokens = lexPraxis(sample.source);
-        const ast = parsePraxis(tokens, sample.source);
+        const tokens = praxis.lex(sample.source);
+        const ast = praxis.parse(tokens, sample.source);
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
+        await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.ParseError));
     });
@@ -816,11 +813,11 @@ xs[2] = 7`,
   for (let sample of samples) {
     describe(`// ${sample.message}\n${sample.source}`, () => {
       const evaluate = async () => {
-        const tokens = lexPraxis(sample.source);
-        const ast = parsePraxis(tokens, sample.source);
+        const tokens = praxis.lex(sample.source);
+        const ast = praxis.parse(tokens, sample.source);
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
+        await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
     });
@@ -844,11 +841,11 @@ s++`,
   for (let sample of samples) {
     describe(`// ${sample.message}\n${sample.source}`, () => {
       const evaluate = async () => {
-        const tokens = lexPraxis(sample.source);
-        const ast = parsePraxis(tokens, sample.source);
+        const tokens = praxis.lex(sample.source);
+        const ast = praxis.parse(tokens, sample.source);
         const logger = makeLogger();
         const runtime = new GlobalRuntime(logger.log, getInput);
-        await ast.visit(new Evaluator(new PraxisOutputFormatter(), new Memdia()), runtime);
+        await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.TypeError));
     });

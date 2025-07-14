@@ -1,5 +1,5 @@
 import {Lexer} from '../lexer.js';
-import {Token, TokenType} from '../token.js';
+import {TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {LexError} from '../error.js';
 
@@ -29,11 +29,7 @@ class PythonLexer extends Lexer {
     } else if (this.accept(';')) {
       this.emitToken(TokenType.Semicolon);
     } else if (this.accept('+')) {
-      if (this.accept('+')) { // TODO FIX ++ for python
-        this.emitToken(TokenType.PlusPlus);
-      } else {
-        this.emitToken(TokenType.Plus);
-      }
+      this.emitToken(TokenType.Plus);
     } else if (this.accept('%')) {
       this.emitToken(TokenType.Percent);
     } else if (this.accept('(')) {

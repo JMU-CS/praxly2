@@ -6,14 +6,10 @@ import { closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap } 
 import { lintKeymap } from '@codemirror/lint';
 import { EditorState, EditorSelection } from '@codemirror/state';
 
-import { lexPraxis } from './language/praxis/lexer.js';
-import { parsePraxis } from './language/praxis/parser.js';
+import * as praxis from './language/praxis/index.js';
 import { GlobalRuntime, Evaluator } from './language/evaluator.js';
-import { PraxisOutputFormatter } from './language/praxis/output-formatter.js';
 import { WhereError } from './language/error.js';
 import * as ast from './language/ast.js';
-import { praxis } from './language/praxis/highlighter.js';
-import { praxlyTheme } from './praxly-theme.js';
 import { MemdiaSvg } from './language/memdia.js';
 
 import { StateField, StateEffect, Transaction, Range } from "@codemirror/state";
@@ -68,8 +64,8 @@ const editorView = new EditorView({
       ...completionKeymap,
       ...lintKeymap,
     ]),
-    praxis(),
-    praxlyTheme,
+    praxis.plugin(),
+    praxis.praxlyTheme,
     markField,
   ],
 });
@@ -122,9 +118,9 @@ const run = async (isDebug: boolean) => {
   try {
     outputPanel.innerText = '';
 
-    const tokens = lexPraxis(source);
-    const ast = parsePraxis(tokens, source);
-    const outputFormatter = new PraxisOutputFormatter();
+    const tokens = praxis.lex(source);
+    const ast = praxis.parse(tokens, source);
+    const outputFormatter = new praxis.OutputFormatter();
 
     // Update output-panel
     const runtime = new GlobalRuntime(log, getInput);
