@@ -59,41 +59,27 @@
     </ul>
   </header>
 
-  <div id="main-view">
-    <div id="editor" class="quad" ></div>
-    <div id="output-panel" class="quad"></div>
-    <div id="memdia" class="quad"></div>
-    <div id="other" class="quad"></div>
-  </div>
-  </body>
-
-  <div id="resize-bar-X"></div>
-  <div id="resize-bar-Y"></div>
-
-
-  <!-- <div class="variable-table-container"> -->
-  <!-- <table>
-          <thead> -->
-  <!-- <tr>
-              <th>Variable</th>
-              <th>Type</th>
-              <th>Value</th>
-              <th>Scope</th>
-            </tr>
-          </thead>
-          <tbody id="Variable-table">
-
-          </tbody>
-        </table>
-      </div> -->
-  </div>
+  <main>
+    <div id="left-side">
+      <div id="editor" class="panel"></div>
+    </div>
+    <div id="resize-bar-X"></div>
+    <div id="right-side">
+      <div id="output-panel" class="panel"></div>
+      <div id="resize-bar-Y"></div>
+      <div id="memdia-panel" class="panel"></div>
+    </div>
+  </main>
 
   <script type="module" src="/src/main.ts"></script>
-  <script> const runButton = document.getElementById("run-button");
+  <script>
+    /* code for RUN, DEBUG, STEP, AND EXIT */
+    const runButton = document.getElementById("run-button");
     const debugButton = document.getElementById("debug-button");
     const stepButton = document.getElementById("step-button");
     const exitButton = document.getElementById("stop-button");
 
+    // run button
     function showStepAndExit() {
       stepButton.style.display = "inline-flex";
       exitButton.style.display = "inline-flex";
@@ -106,7 +92,74 @@
     debugButton.addEventListener("click", () => {
       showStepAndExit();
     });
-    </script>
+
+
+    /* RESIZE BAR-X CODE */
+    const resizeBarX = document.getElementById("resize-bar-X");
+    const leftSide = document.getElementById("left-side");
+    const rightSide = document.getElementById("right-side");
+
+    resizeBarX.addEventListener("mousedown", (e) => {
+      document.addEventListener("mousemove", resizeX);
+      document.addEventListener("mouseup", stopResizeX);
+    });
+
+    function resizeX(e) {
+      const totalWidth = document.querySelector("main").offsetWidth;
+      const newLeftWidth = e.clientX;
+      const rightWidth = totalWidth - newLeftWidth - resizeBarX.offsetWidth;
+
+      leftSide.style.width = `${newLeftWidth}px`;
+      rightSide.style.width = `${rightWidth}px`;
+    }
+
+    function stopResizeX() {
+      document.removeEventListener("mousemove", resizeX);
+      document.removeEventListener("mouseup", stopResizeX);
+    }
+
+    /* RESIZE BAR Y CODE */
+    const resizeBarY = document.getElementById("resize-bar-Y");
+    const outputPanel = document.getElementById("output-panel");
+    const memdiaPanel = document.getElementById("memdia-panel");
+    const editorPanel = document.getElementById("editor");
+
+    resizeBarY.addEventListener("mousedown", (e) => {
+      document.addEventListener("mousemove", resizeY);
+      document.addEventListener("mouseup", stopResizeY);
+    });
+
+    function resizeY(e) {
+      const rightSideTop = document.getElementById("right-side").getBoundingClientRect().top;
+      const totalHeight = document.getElementById("right-side").offsetHeight;
+      const newOutputHeight = e.clientY - rightSideTop;
+      const memdiaHeight = totalHeight - newOutputHeight - resizeBarY.offsetHeight;
+
+      outputPanel.style.flex = "none";
+      outputPanel.style.height = `${newOutputHeight}px`;
+
+      memdiaPanel.style.flex = "none";
+      memdiaPanel.style.height = `${memdiaHeight}px`;
+    }
+
+    function stopResizeY() {
+      document.removeEventListener("mousemove", resizeY);
+      document.removeEventListener("mouseup", stopResizeY);
+    }
+
+    exitButton.addEventListener("click", () => {
+      editorView.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: "" }
+      });
+
+      outputPanel.textContent = "";
+
+      //hide step, and exit
+      stepButton.style.display = "none";
+      exitButton.style.display = "none";
+    });
+
+  </script>
 
 </body>
 
