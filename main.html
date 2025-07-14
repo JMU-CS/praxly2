@@ -7,7 +7,6 @@
   <title>Praxly2 Main</title>
   <link rel="icon" href="/fallen-leaf_1f342.ico" type="image/x-icon">
   <link rel="stylesheet" href="/main.css">
-  <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/memdia.css" />
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
@@ -32,72 +31,135 @@
         </button>
       </li>
       <li>
-        <button id="step-button" class="MainMenu-button debugOptions" title="Run the next step">
+        <button id="step-button" style="display: none;" class="MainMenu-button debugOptions" title="Run the next step">
           Step <span class="material-symbols-rounded step">step</span>
         </button>
       </li>
       <li>
-        <button id="stopButton" class="MainMenu-button debugOptions" title="Exit the debugger">
+        <button id="stop-button" style="display: none;" class="MainMenu-button debugOptions" title="Exit the debugger">
           Exit <span class="material-symbols-rounded stop">stop</span>
         </button>
       </li>
       <li>
-        <button id="share" class="MainMenu-button" title="Create link for sharing">
+        <button id="share-button" class="MainMenu-button" title="Create link for sharing">
           Share <span class="material-symbols-rounded share">share</span>
         </button>
       </li>
       <li>
-        <button id="reference" class="MainMenu-button" title="Open the Pseudocode Notation">
-          Manual <span class="material-symbols-rounded manual">book_2</span>
+        <button id="settings-button" class="MainMenu-button" title="Settings">
+          <span class="material-symbols-rounded extra">settings</span>
+          <span class="button-text">Settings</span>
         </button>
       </li>
       <li>
-        <button id="info" class="MainMenu-button" title="About Praxly">
-          <span class="material-symbols-rounded extra">info</span>
-          <span class="button-text">About</span>
-        </button>
-      </li>
-      <li>
-        <button id="resetButton" class="MainMenu-button" title="Reset the initial code">
+        <button id="reset-button" class="MainMenu-button" title="Reset the initial code">
           Reset <span class="material-symbols-rounded reset">restart_alt</span>
-        </button>
-      </li>
-      <li>
-        <button id="settings" class="MainMenu-button" title="Settings">
-          Settings <span class="material-symbols-rounded settings">settings</span>
         </button>
       </li>
     </ul>
   </header>
 
-  <div id ="main-view">
-    <div id="editor"> </div>
-    <div id ="output"></div>
-  </div>
-
-  <!-- <div id ="output-section">
-      <div class ="output">
-        <p class="stdout"> </p> -->
-  </div>
-  <!-- <div class="variable-table-container"> -->
-  <!-- <table>
-          <thead> -->
-  <!-- <tr>
-              <th>Variable</th>
-              <th>Type</th>
-              <th>Value</th>
-              <th>Scope</th>
-            </tr>
-          </thead>
-          <tbody id="Variable-table">
-
-          </tbody>
-        </table>
-      </div> -->
-  </div>
-  </div>
+  <main>
+    <div id="left-side">
+      <div id="editor" class="panel"></div>
+    </div>
+    <div id="resize-bar-X"></div>
+    <div id="right-side">
+      <div id="output-panel" class="panel"></div>
+      <div id="resize-bar-Y"></div>
+      <div id="memdia-panel" class="panel"></div>
+    </div>
+  </main>
 
   <script type="module" src="/src/main.ts"></script>
+  <script>
+    /* code for RUN, DEBUG, STEP, AND EXIT */
+    const runButton = document.getElementById("run-button");
+    const debugButton = document.getElementById("debug-button");
+    const stepButton = document.getElementById("step-button");
+    const exitButton = document.getElementById("stop-button");
+
+    // run button
+    function showStepAndExit() {
+      stepButton.style.display = "inline-flex";
+      exitButton.style.display = "inline-flex";
+    }
+
+    runButton.addEventListener("click", () => {
+      showStepAndExit();
+    });
+
+    debugButton.addEventListener("click", () => {
+      showStepAndExit();
+    });
+
+
+    /* RESIZE BAR-X CODE */
+    const resizeBarX = document.getElementById("resize-bar-X");
+    const leftSide = document.getElementById("left-side");
+    const rightSide = document.getElementById("right-side");
+
+    resizeBarX.addEventListener("mousedown", (e) => {
+      document.addEventListener("mousemove", resizeX);
+      document.addEventListener("mouseup", stopResizeX);
+    });
+
+    function resizeX(e) {
+      const totalWidth = document.querySelector("main").offsetWidth;
+      const newLeftWidth = e.clientX;
+      const rightWidth = totalWidth - newLeftWidth - resizeBarX.offsetWidth;
+
+      leftSide.style.width = `${newLeftWidth}px`;
+      rightSide.style.width = `${rightWidth}px`;
+    }
+
+    function stopResizeX() {
+      document.removeEventListener("mousemove", resizeX);
+      document.removeEventListener("mouseup", stopResizeX);
+    }
+
+    /* RESIZE BAR Y CODE */
+    const resizeBarY = document.getElementById("resize-bar-Y");
+    const outputPanel = document.getElementById("output-panel");
+    const memdiaPanel = document.getElementById("memdia-panel");
+    const editorPanel = document.getElementById("editor");
+
+    resizeBarY.addEventListener("mousedown", (e) => {
+      document.addEventListener("mousemove", resizeY);
+      document.addEventListener("mouseup", stopResizeY);
+    });
+
+    function resizeY(e) {
+      const rightSideTop = document.getElementById("right-side").getBoundingClientRect().top;
+      const totalHeight = document.getElementById("right-side").offsetHeight;
+      const newOutputHeight = e.clientY - rightSideTop;
+      const memdiaHeight = totalHeight - newOutputHeight - resizeBarY.offsetHeight;
+
+      outputPanel.style.flex = "none";
+      outputPanel.style.height = `${newOutputHeight}px`;
+
+      memdiaPanel.style.flex = "none";
+      memdiaPanel.style.height = `${memdiaHeight}px`;
+    }
+
+    function stopResizeY() {
+      document.removeEventListener("mousemove", resizeY);
+      document.removeEventListener("mouseup", stopResizeY);
+    }
+
+    exitButton.addEventListener("click", () => {
+      editorView.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: "" }
+      });
+
+      outputPanel.textContent = "";
+
+      //hide step, and exit
+      stepButton.style.display = "none";
+      exitButton.style.display = "none";
+    });
+
+  </script>
 
 </body>
 

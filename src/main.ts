@@ -71,6 +71,9 @@ const editorView = new EditorView({
 });
 
 function removeAllMarks() {
+  editorView.dispatch({
+    effects: filterMarks.of(() => false)
+  });
 }
 
 const stepMark = Decoration.mark({
@@ -83,6 +86,7 @@ const runButton = document.getElementById('run-button') as HTMLInputElement;
 const debugButton = document.getElementById('debug-button') as HTMLInputElement;
 const stepButton = document.getElementById('step-button') as HTMLInputElement;
 const outputPanel = document.getElementById('output-panel') as HTMLElement;
+const exitButton = document.getElementById("stop-button") as HTMLElement;
 
 const latestSource = localStorage.getItem('latest-source');
 
@@ -120,7 +124,7 @@ const run = async (isDebug: boolean) => {
 
     // Update output-panel
     const runtime = new GlobalRuntime(log, getInput);
-    const evaluator = new Evaluator(outputFormatter, new MemdiaSvg());
+    const evaluator = new Evaluator(outputFormatter, new MemdiaSvg(runtime));
     if (isDebug) {
       evaluator.step = (node: ast.Node) => {
         stepButton.disabled = false;
@@ -171,5 +175,18 @@ const run = async (isDebug: boolean) => {
 };
 
 stepButton.disabled = true;
-runButton.addEventListener('click', () => run(false));
+runButton.addEventListener('click', () => run(true));
 debugButton.addEventListener('click', () => run(true));
+
+// exit button
+exitButton.addEventListener('click', () => {
+  editorView.dispatch({
+    changes: { from: 0, to: editorView.state.doc.length, insert: '' }
+  });
+
+  outputPanel.textContent = '';
+  stepButton.style.display = 'none';
+  exitButton.style.display = 'none';
+  stepButton.disabled = true;
+  // localStorage.removeItem('latest-source');
+});
