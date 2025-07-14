@@ -1,4 +1,4 @@
-import {parserWithMetadata} from "../language/praxis/highlighter.js";
+import {lezerParser} from "../language/praxis/highlighter.js";
 
 let source = `for (int i = 0; i < 6; i = i + 1)
   print (i + 1) << 9
@@ -8,7 +8,7 @@ print randomInt()
 // source = `print 5
 // `;
 // https://lezer.codemirror.net/docs/ref/#common.Tree.iterate
-const tree = parserWithMetadata.parse(source);
+const tree = lezerParser.parse(source);
 let level = 0;
 tree.iterate({
   enter: node => {

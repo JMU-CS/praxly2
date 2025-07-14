@@ -64,7 +64,7 @@ const editorView = new EditorView({
       ...completionKeymap,
       ...lintKeymap,
     ]),
-    praxis.praxis(),
+    praxis.plugin(),
     praxis.praxlyTheme,
     markField,
   ],

@@ -101,7 +101,7 @@ function initialize() {
         ...completionKeymap,
         ...lintKeymap,
       ]),
-      praxis.praxis(),
+      praxis.plugin(),
       praxis.praxlyTheme,
       markField,
     ],
@@ -192,6 +192,24 @@ function initialize() {
       // Update tree-panel
       const object = ast.visit(new Objectifier(), {});
       treePanel.innerText = JSON.stringify(object, null, 2);
+
+      // Emit CodeMirror parser log
+      if (false) {
+        const tree = praxis.lezerParser.parse(source);
+        let level = 0;
+        tree.iterate({
+          enter: node => {
+            console.log(`${'  '.repeat(level)}${node.name} [${node.from} ${node.to}]`);
+            if (node.type.isError) {
+              console.log(`${'  '.repeat(level)}error ${node} ${node.from} ${node.to}`);
+            }
+            level += 1;
+          },
+          leave: _node => {
+            level -= 1;
+          },
+        });
+      }
 
       // Update source-panel
       const generatedSource = ast.visit(generator, {
