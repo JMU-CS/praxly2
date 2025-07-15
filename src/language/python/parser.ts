@@ -113,7 +113,7 @@ class PythonParser extends Parser {
     if (!this.has(TokenType.Colon)) {
       throw new ParseError("A : is missing after the class name.", lastWhere);
     }
-
+    this.advance(); // eat :
 
     if (!this.has(TokenType.Linebreak)) {
       throw new ParseError("A linebreak is missing after this class header.", Where.enclose(classToken.where, lastWhere));
@@ -133,9 +133,9 @@ class PythonParser extends Parser {
         let firstWhere = null;
 
         // check if instance variable
-        if (!this.has(TokenType.Identifier)) {
-          throw new ParseError("A name is missing for this variable.", lastWhere);
-        } else {
+        // if (!this.has(TokenType.Identifier)) {
+        //   throw new ParseError("A name is missing for this variable.", lastWhere);}
+        if (this.has(TokenType.Identifier)) {
           const memberIdentifierToken = this.advance() as TextToken;
           firstWhere = firstWhere ?? memberIdentifierToken.where;
 
@@ -159,16 +159,17 @@ class PythonParser extends Parser {
         // check if function
         if (this.has(TokenType.Function)) {
           const core = this.functionDefinition();
-          const declaration = new ast.MethodDefinition(core.identifier, core.formals, Type.Any, core.body, null, Where.enclose(firstWhere, core.body.where));
+          const declaration = new ast.MethodDefinition(core.identifier, core.formals, Type.Any, core.body, null, Where.enclose(core.where, core.body.where));
           methodDefinitions.push(declaration);
+
         }
 
         this.skipLinebreaks();
       }
 
-      if (!this.has(TokenType.Unindent)) {
-        throw new ParseError("The class must be closed.", lastWhere);
-      }
+      // if (!this.has(TokenType.Unindent)) {
+      //   throw new ParseError("The class must be closed.", lastWhere);
+      // }
       this.advance();
     }
 
