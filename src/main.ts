@@ -1,86 +1,11 @@
-import { lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, keymap } from '@codemirror/view';
-import { foldGutter, indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldKeymap } from '@codemirror/language';
-import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-import { searchKeymap } from '@codemirror/search';
-import { closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
-import { lintKeymap } from '@codemirror/lint';
-import { EditorState, EditorSelection } from '@codemirror/state';
+import { CodeMirrorEditor, addMarks, stepMark } from './editor.js';
+import { EditorSelection } from '@codemirror/state';
 
-import * as praxis from './language/praxis/index.js';
+import * as ast from './language/ast.js';
 import { GlobalRuntime, Evaluator } from './language/evaluator.js';
 import { WhereError } from './language/error.js';
-import * as ast from './language/ast.js';
 import { MemdiaSvg } from './language/memdia.js';
-
-import { StateField, StateEffect, Transaction, Range } from "@codemirror/state";
-import { EditorView, Decoration } from "@codemirror/view";
-
-const addMarks = StateEffect.define<Range<Decoration>[]>();
-const filterMarks = StateEffect.define<(from: number, to: number) => boolean>();
-
-const markField = StateField.define({
-  create() { return Decoration.none },
-  update(value: any, tr) {
-    value = value.map(tr.changes);
-    for (let effect of tr.effects) {
-      if (effect.is(addMarks)) {
-        value = value.update({add: effect.value, sort: true});
-      } else if (effect.is(filterMarks)) {
-        value = value.update({filter: effect.value});
-      }
-    }
-    return value;
-  },
-  provide: f => EditorView.decorations.from(f),
-});
-
-const editor = document.getElementById('editor')!;
-const editorView = new EditorView({
-  parent: editor,
-  doc: '',
-  extensions: [
-    lineNumbers(),
-    highlightActiveLineGutter(),
-    highlightSpecialChars(),
-    history(),
-    foldGutter(),
-    drawSelection(),
-    dropCursor(),
-    EditorState.allowMultipleSelections.of(true),
-    indentOnInput(),
-    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-    bracketMatching(),
-    closeBrackets(),
-    autocompletion(),
-    rectangularSelection(),
-    crosshairCursor(),
-    highlightActiveLine(),
-    keymap.of([
-      ...closeBracketsKeymap,
-      ...defaultKeymap,
-      ...searchKeymap,
-      ...historyKeymap,
-      ...foldKeymap,
-      ...completionKeymap,
-      ...lintKeymap,
-    ]),
-    praxis.plugin(),
-    praxis.praxlyTheme,
-    markField,
-  ],
-});
-
-function removeAllMarks() {
-  editorView.dispatch({
-    effects: filterMarks.of(() => false)
-  });
-}
-
-const stepMark = Decoration.mark({
-  attributes: {
-    style: "background-color: #2a4160",
-  }
-});
+import * as praxis from './language/praxis/index.js';
 
 // Toolbar buttons
 const runButton = document.getElementById('run-button') as HTMLInputElement;
@@ -101,6 +26,8 @@ const resizeBarY = document.getElementById("resize-bar-Y") as HTMLElement;
 const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
 
 // Code editor
+const editor = new CodeMirrorEditor('editor');
+const editorView = editor.view;
 const latestSource = localStorage.getItem('latest-source');
 if (latestSource) {
   editorView.focus();
@@ -147,7 +74,7 @@ const run = async (isDebug: boolean) => {
       evaluator.step = (node: ast.Node) => {
 
         // Highlight node
-        removeAllMarks();
+        editor.removeAllMarks();
         editorView.dispatch({
           effects: addMarks.of([stepMark.range(node.where.start, node.where.end)])
         })
@@ -183,12 +110,12 @@ const run = async (isDebug: boolean) => {
       const span = document.createElement('span');
       span.innerHTML = `: ${message}`;
       outputPanel.appendChild(span);
-      // console.error(e);
+      console.error(e);
     }
   }
 
   // Unhighlight node
-  removeAllMarks();
+  editor.removeAllMarks();
 };
 
 // ---------------------------------------------------------------------------
