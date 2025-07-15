@@ -31,12 +31,12 @@
         </button>
       </li>
       <li>
-        <button id="step-button" style="display: none;" class="MainMenu-button debugOptions" title="Run the next step">
+        <button id="step-button"class="MainMenu-button debugOptions" title="Run the next step"  style="display: none;">
           Step <span class="material-symbols-rounded step">step</span>
         </button>
       </li>
       <li>
-        <button id="stop-button" style="display: none;" class="MainMenu-button debugOptions" title="Exit the debugger">
+        <button id="exit-button" class="MainMenu-button debugOptions" title="Exit the debugger" style="display: none;">
           Exit <span class="material-symbols-rounded stop">stop</span>
         </button>
       </li>
@@ -83,85 +83,6 @@
   </main>
 
   <script type="module" src="/src/main.ts"></script>
-  <script>
-
-    /* code for RUN, DEBUG, STEP, AND EXIT */
-    const runButton = document.getElementById("run-button");
-    const debugButton = document.getElementById("debug-button");
-    const stepButton = document.getElementById("step-button");
-    const exitButton = document.getElementById("stop-button");
-    const settingsButton = document.getElementById("settings-button");
-    const dropdown = settingsButton?.parentElement?.querySelector(".dropdown-content");
-
-    function showStepAndExit() {
-      stepButton.style.display = "inline-flex";
-      exitButton.style.display = "inline-flex";
-    }
-
-    debugButton.addEventListener("click", () => {
-      showStepAndExit();
-    });
-
-    settingsButton.addEventListener("click", () => {
-      if (dropdown.style.display === "block") {
-        dropdown.style.display = "none";
-      } else {
-        dropdown.style.display = "block";
-      }
-    });
-
-    /* RESIZE BAR-X CODE */
-    const resizeBarX = document.getElementById("resize-bar-X");
-    const leftSide = document.getElementById("left-side");
-    const rightSide = document.getElementById("right-side");
-
-    resizeBarX.addEventListener("mousedown", (e) => {
-      document.addEventListener("mousemove", resizeX);
-      document.addEventListener("mouseup", stopResizeX);
-    });
-
-    function resizeX(e) {
-      const leftEdge = leftSide.getBoundingClientRect().left;
-      const totalWidth = leftSide.offsetWidth;
-      const leftWidth = e.clientX - leftEdge;
-      const rightWidth = totalWidth - leftWidth - resizeBarX.offsetWidth;
-
-      leftSide.style.width = `${leftWidth}px`;
-      rightSide.style.width = `${rightWidth}px`;
-    }
-
-    function stopResizeX() {
-      document.removeEventListener("mousemove", resizeX);
-      document.removeEventListener("mouseup", stopResizeX);
-    }
-
-    /* RESIZE BAR Y CODE */
-    const resizeBarY = document.getElementById("resize-bar-Y");
-    const outputPanel = document.getElementById("output-panel");
-    const memdiaPanel = document.getElementById("memdia-panel");
-
-    resizeBarY.addEventListener("mousedown", (e) => {
-      document.addEventListener("mousemove", resizeY);
-      document.addEventListener("mouseup", stopResizeY);
-    });
-
-    function resizeY(e) {
-      const topEdge = rightSide.getBoundingClientRect().top;
-      const totalHeight = rightSide.offsetHeight;
-      const outputHeight = e.clientY - topEdge;
-      const memdiaHeight = totalHeight - outputHeight - resizeBarY.offsetHeight;
-
-      outputPanel.style.height = `${outputHeight}px`;
-      memdiaPanel.style.height = `${memdiaHeight}px`;
-    }
-
-    function stopResizeY() {
-      document.removeEventListener("mousemove", resizeY);
-      document.removeEventListener("mouseup", stopResizeY);
-    }
-
-  </script>
-
 </body>
 
 </html>
