@@ -129,7 +129,7 @@ class PythonParser extends Parser {
     if (this.has(TokenType.Indent)) {
       this.advance(); // eat indent
 
-      while (this.hasOtherwise(TokenType.Unindent)) {
+      while (this.hasOtherwise(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
         let firstWhere = null;
 
         // check if instance variable
