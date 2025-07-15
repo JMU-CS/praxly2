@@ -115,6 +115,9 @@ function initialize() {
     });
   }
 
+  srcLang.value = localStorage.getItem('source-language') ?? 'Praxis';
+  dstLang.value = localStorage.getItem('target-language') ?? 'Praxis';
+
   const removeAllMarks = () => {
     editorView.dispatch({
       effects: filterMarks.of((_from, _to) => false),
@@ -163,6 +166,8 @@ function initialize() {
     const source = editorView.state.doc.toString();
 
     localStorage.setItem('latest-source', source);
+    localStorage.setItem('source-language', srcLang.value);
+    localStorage.setItem('target-language', dstLang.value);
 
     try {
       outputPanel.innerText = '';
