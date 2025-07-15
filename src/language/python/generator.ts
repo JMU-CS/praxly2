@@ -402,7 +402,7 @@ export class PythonGenerator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitClassDefinition(node: ast.ClassDefinition, formatter: Formatter): string {
-    let text = `Class ${node.identifier}:`;
+    let text = `class ${node.identifier}:`;
     // if (node.superclass) {
     //   text += ` extends ${node.superclass}`;
     // }
@@ -415,31 +415,23 @@ export class PythonGenerator extends Visitor<Formatter, string> {
     }
 
     text += node.methodDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('\n');
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end class ${node.identifier}`;
 
     return text;
   }
 
   visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, _formatter: Formatter): string {
-    let text = '';
-    if (node.visibility === ast.Visibility.Public) {
-      text += `public `;
-    } else if (node.visibility === ast.Visibility.Private) {
-      text += `private `;
-    }
-    text += `${node.variableType} ${node.identifier}`;
+    let text = `${node.identifier} = ${node.valueNode?.visit(this, {..._formatter, nestingLevel : _formatter.nestingLevel})}`;
     return text;
   }
 
   visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {
-    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
+    let text = `def ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
     return text;
   }
 
   visitInstantiation(node: ast.Instantiation, _formatter: Formatter): string {
-    return `new ${node.identifier}`;
+    return `${node.identifier}()`;
   }
 
   visitMethodCall(node: ast.MethodCall, formatter: Formatter): string {

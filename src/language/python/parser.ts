@@ -129,7 +129,7 @@ class PythonParser extends Parser {
     if (this.has(TokenType.Indent)) {
       this.advance(); // eat indent
 
-      while (this.hasOtherwise(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
+      while (!this.has(TokenType.Unindent) || this.has(TokenType.EndOfSource)) {
         let firstWhere = null;
 
         // check if instance variable
@@ -161,18 +161,13 @@ class PythonParser extends Parser {
           const core = this.functionDefinition();
           const declaration = new ast.MethodDefinition(core.identifier, core.formals, Type.Any, core.body, null, Where.enclose(core.where, core.body.where));
           methodDefinitions.push(declaration);
-
+          lastWhere = declaration.where;
         }
 
         this.skipLinebreaks();
       }
-
-      // if (!this.has(TokenType.Unindent)) {
-      //   throw new ParseError("The class must be closed.", lastWhere);
-      // }
-      this.advance();
     }
-
+    // console.log(this.tokens);
     return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, methodDefinitions, Where.enclose(classToken.where, lastWhere));
   }
 
