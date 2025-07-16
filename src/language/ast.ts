@@ -157,6 +157,12 @@ export class Variable extends Expression {
 // Primitives
 // --------------------------------------------------------------------------- 
 
+export class Null extends Expression {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitNull(this, payload);
+  }
+}
+
 export abstract class Primitive<T> extends Expression {
   rawValue: T;
 

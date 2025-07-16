@@ -878,10 +878,10 @@ class PythonParser extends Parser {
   }
 }
 
-export function parsePython(tokens: Token[], source: string) {
+export function parse(tokens: Token[], source: string) {
   return new PythonParser(tokens, source).parse();
 }
 
-export function parsePythonExpression(tokens: Token[], source: string) {
+export function parseExpression(tokens: Token[], source: string) {
   return new PythonParser(tokens, source).expression();
 }

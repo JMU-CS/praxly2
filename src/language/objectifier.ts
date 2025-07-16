@@ -7,6 +7,13 @@ export class Objectifier extends Visitor<Object, Object> {
   // Primitives
   // --------------------------------------------------------------------------
 
+  visitNull(node: ast.Null, _payload: Object): Object {
+    return {
+      type: 'null',
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   visitPrimitive<T>(node: ast.Primitive<T>, _payload: Object, label: string): Object {
     return {
       type: label,

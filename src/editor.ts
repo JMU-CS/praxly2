@@ -1,21 +1,14 @@
-import { EditorView, Decoration, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, keymap } from '@codemirror/view';
-import { foldGutter, indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldKeymap } from '@codemirror/language';
-import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-import { searchKeymap } from '@codemirror/search';
-import { closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
-import { lintKeymap } from '@codemirror/lint';
-import { EditorState, StateField, StateEffect, Transaction, Range } from '@codemirror/state';
-
 import * as praxis from './language/praxis/index.js';
+import * as cm from './codemirror.js';
 
-export const addMarks = StateEffect.define<Range<Decoration>[]>();
-const filterMarks = StateEffect.define<(from: number, to: number) => boolean>();
+export const addMarks = cm.StateEffect.define<cm.Range<cm.Decoration>[]>();
+const filterMarks = cm.StateEffect.define<(from: number, to: number) => boolean>();
 
-const markField = StateField.define({
+const markField = cm.StateField.define({
   create() {
-    return Decoration.none;
+    return cm.Decoration.none;
   },
-  update(value: any, tr: Transaction) {
+  update(value: any, tr: cm.Transaction) {
     value = value.map(tr.changes);
     for (let effect of tr.effects) {
       if (effect.is(addMarks)) {
@@ -26,17 +19,17 @@ const markField = StateField.define({
     }
     return value;
   },
-  provide: f => EditorView.decorations.from(f),
+  provide: f => cm.EditorView.decorations.from(f),
 });
 
-export const stepMark = Decoration.mark({
+export const stepMark = cm.Decoration.mark({
   attributes: {
     style: "background-color: #2a4160",
   }
 });
 
 export class CodeMirrorEditor {
-  private editorView: EditorView;
+  private editorView: cm.EditorView;
 
   constructor(elementId: string) {
     const parent = document.getElementById(elementId);
@@ -44,34 +37,34 @@ export class CodeMirrorEditor {
       throw new Error(`Element with ID "${elementId}" not found.`);
     }
 
-    this.editorView = new EditorView({
+    this.editorView = new cm.EditorView({
       parent,
       doc: '',
       extensions: [
-        lineNumbers(),
-        highlightActiveLineGutter(),
-        highlightSpecialChars(),
-        history(),
-        foldGutter(),
-        drawSelection(),
-        dropCursor(),
-        EditorState.allowMultipleSelections.of(true),
-        indentOnInput(),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        bracketMatching(),
-        closeBrackets(),
-        autocompletion(),
-        rectangularSelection(),
-        crosshairCursor(),
-        highlightActiveLine(),
-        keymap.of([
-          ...closeBracketsKeymap,
-          ...defaultKeymap,
-          ...searchKeymap,
-          ...historyKeymap,
-          ...foldKeymap,
-          ...completionKeymap,
-          ...lintKeymap,
+        cm.lineNumbers(),
+        cm.highlightActiveLineGutter(),
+        cm.highlightSpecialChars(),
+        cm.history(),
+        cm.foldGutter(),
+        cm.drawSelection(),
+        cm.dropCursor(),
+        cm.EditorState.allowMultipleSelections.of(true),
+        cm.indentOnInput(),
+        cm.syntaxHighlighting(cm.defaultHighlightStyle, { fallback: true }),
+        cm.bracketMatching(),
+        cm.closeBrackets(),
+        cm.autocompletion(),
+        cm.rectangularSelection(),
+        cm.crosshairCursor(),
+        cm.highlightActiveLine(),
+        cm.keymap.of([
+          ...cm.closeBracketsKeymap,
+          ...cm.defaultKeymap,
+          ...cm.searchKeymap,
+          ...cm.historyKeymap,
+          ...cm.foldKeymap,
+          ...cm.completionKeymap,
+          ...cm.lintKeymap,
         ]),
         praxis.plugin(),
         praxis.praxlyTheme,

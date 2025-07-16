@@ -32,6 +32,7 @@ export class Type {
   static Boolean = new Type('boolean');
   static String = new Type('String');
   static IntegerRange = new Type('IntegerRange');
+  static Null = new Type('null');
   static Any: Type;
 }
 
@@ -94,6 +95,9 @@ export class SizedArrayType extends ArrayType {
 }
 
 export class ObjectType extends Type {
+  covers(that: Type): boolean {
+    return this.text === that.text || that === Type.Null;
+  }
 }
 
 export class UnionType extends Type {

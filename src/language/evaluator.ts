@@ -520,6 +520,10 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   // Primitives
   // --------------------------------------------------------------------------
 
+  async visitNull(_node: ast.Null, _runtime: Runtime): Promise<Fruit> {
+    return new Fruit(Type.Null);
+  }
+
   async visitInteger(node: ast.Integer, _runtime: Runtime): Promise<Fruit> {
     return new Fruit(Type.Integer, node.rawValue);
   }

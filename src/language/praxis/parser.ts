@@ -3,7 +3,7 @@ import {Token, TextToken, TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {ParseError} from '../error.js';
 import * as ast from '../ast.js';
-import {Type, ArrayType, SizedArrayType} from '../type.js';
+import {Type, ObjectType, ArrayType, SizedArrayType} from '../type.js';
 
 // https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf
 
@@ -70,7 +70,14 @@ class PraxisParser extends Parser {
 
   type(): Type {
     const scalarTypeToken = this.advance() as TextToken;
-    let type = new Type(scalarTypeToken.text, scalarTypeToken.where);
+    const firstLetter = scalarTypeToken.text.charAt(0);
+
+    let type;
+    if (firstLetter === firstLetter.toUpperCase()) {
+      type = new ObjectType(scalarTypeToken.text, scalarTypeToken.where);
+    } else {
+      type = new Type(scalarTypeToken.text, scalarTypeToken.where);
+    }
 
     // int[0..2][0..1] is a 3-array of 2-arrays. Currently I'm parsing this as
     // (int[0..2])[0..1]. But the brackets are right-associative. Can I parse
@@ -926,6 +933,9 @@ class PraxisParser extends Parser {
     } else if (this.has(TokenType.False)) {
       const token = this.advance();
       return new ast.Boolean(false, token.where);
+    } else if (this.has(TokenType.Null)) {
+      const token = this.advance();
+      return new ast.Null(token.where);
     } else if (this.has(TokenType.Identifier)) {
       return this.variable();
     } else if (this.has(TokenType.LeftCurly)) {
@@ -943,7 +953,7 @@ class PraxisParser extends Parser {
         if (this.has(TokenType.Indent)) {
           throw new ParseError("The code has stray indentation.", this.tokens[this.i].where);
         } else {
-          throw new ParseError(`An unexpected token was encountered: ${this.tokens[this.i].toPretty(this.source)}.`, this.tokens[this.i].where);
+          throw new ParseError(`An expression is missing.`, this.tokens[this.i].where);
         }
       } else {
         throw new Error('The program ended unexpectedly.');

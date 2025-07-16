@@ -3,7 +3,7 @@
 // uses its own barrel file, and some bundlers are tricked into including
 // everything referenced in the barrel file --- even if it's not used
 // elsewhere. I think it's reasonable to use a barrel file here. The language
-// library doesn't import from its own barrel file. And we need everything
+// modules don't import from its own barrel file. And we need everything
 // bundled.
 
 export {lex} from './lexer.js';
