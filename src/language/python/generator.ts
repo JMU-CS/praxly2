@@ -350,7 +350,7 @@ export class PythonGenerator extends Visitor<Formatter, string> {
   }
 
   visitLineComment(node: ast.LineComment, _formatter: Formatter): string {
-    return ` ${node.text}`;
+    return `# ${node.text}`;
   }
 
   // --------------------------------------------------------------------------
@@ -408,6 +408,7 @@ export class PythonGenerator extends Visitor<Formatter, string> {
     // }
     text += "\n";
 
+    text += `def __init__(self, `;node.
     text += node.instanceVariableDeclarations.map(declaration => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${declaration.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('');
 
     if (node.instanceVariableDeclarations.length > 0 && node.methodDefinitions.length > 0) {
@@ -420,7 +421,8 @@ export class PythonGenerator extends Visitor<Formatter, string> {
   }
 
   visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, _formatter: Formatter): string {
-    let text = `${node.identifier} = ${node.valueNode?.visit(this, {..._formatter, nestingLevel : _formatter.nestingLevel})}`;
+    // let text = `${node.identifier} = ${node.valueNode?.visit(this, {..._formatter, nestingLevel : _formatter.nestingLevel})}`;
+    let text = `self.${node.identifier} = ${node.identifier}`;
     return text;
   }
 

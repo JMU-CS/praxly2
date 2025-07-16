@@ -151,14 +151,14 @@ class PythonParser extends Parser {
             rightNode = this.expression();
           }
 
-          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, Type.Any, null, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
+          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, new AnyType, null, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
           instanceVariableDeclarations.push(declaration);
         }
 
         // check if function
         if (this.has(TokenType.Function)) {
           const core = this.functionDefinition();
-          const declaration = new ast.MethodDefinition(core.identifier, core.formals, Type.Any, core.body, null, Where.enclose(core.where, core.body.where));
+          const declaration = new ast.MethodDefinition(core.identifier, core.formals, new AnyType, core.body, null, Where.enclose(core.where, core.body.where));
           methodDefinitions.push(declaration);
           lastWhere = declaration.where;
         }
@@ -183,7 +183,7 @@ class PythonParser extends Parser {
       // }
       const identifierToken = this.advance() as TextToken;
       latestToken = identifierToken;
-      formals.push(new ast.Formal(identifierToken.text, Type.Any));
+      formals.push(new ast.Formal(identifierToken.text, new AnyType));
       while (this.has(TokenType.Comma)) {
         let comma = this.advance(); // pass the ,
         // const type = this.type();
@@ -192,7 +192,7 @@ class PythonParser extends Parser {
         }
         const identifierToken = this.advance() as TextToken;
         latestToken = identifierToken;
-        formals.push(new ast.Formal(identifierToken.text, Type.Any));
+        formals.push(new ast.Formal(identifierToken.text, new AnyType));
       }
     }
 
@@ -222,7 +222,7 @@ class PythonParser extends Parser {
     // }
     const def = this.advance(); // eat def
     const core = this.subroutineCore('function', def.where);
-    return new ast.FunctionDefinition(core.identifier, core.formals, Type.Any, core.block, Where.enclose(def.where, core.block.where));
+    return new ast.FunctionDefinition(core.identifier, core.formals, new AnyType, core.block, Where.enclose(def.where, core.block.where));
   }
 
   block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where): ast.Block {
@@ -308,19 +308,21 @@ class PythonParser extends Parser {
     } else if (this.has(TokenType.LineComment)) {
       const token = this.advance() as TextToken;
       statement = new ast.LineComment(token.text, token.where);
-    } else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
-      // variable will be assigned an array literal
-      if (this.hasAhead(TokenType.LeftBracket, 2)) {
-        statement = this.arrayDeclaration();
-      } else {
-        // variable will be assigned to a literal
-        statement = this.declaration();
-      }
     } else if (this.has(TokenType.Return)) {
       statement = this.returnStatement(inFunctionDefinition);
     } else {
       statement = this.otherStatement();
     }
+
+    // else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
+    //   // variable will be assigned an array literal
+    //   if (this.hasAhead(TokenType.LeftBracket, 2)) {
+    //     statement = this.arrayDeclaration();
+    //   } else {
+    //     // variable will be assigned to a literal
+    //     statement = this.declaration();
+    //   }
+    // }
 
     // Skip past any trailing comment.
     if (this.has(TokenType.LineComment)) {
@@ -347,7 +349,7 @@ class PythonParser extends Parser {
   }
 
   arrayDeclaration(): ast.ArrayDeclaration {
-    const type = Type.Any; // types are not necessary
+    const type = new AnyType; // types are not necessary
 
     if (!this.has(TokenType.Identifier)) {
       throw new ParseError("This array declaration is missing a variable name.", type.where);
@@ -419,7 +421,7 @@ class PythonParser extends Parser {
   }
 
   declaration() {
-    let type = Type.Any; // type can be anything, Where(rightNode.where, rightNode.where)
+    let type = new AnyType; // type can be anything, Where(rightNode.where, rightNode.where)
     const identifierToken = this.advance() as TextToken;
     this.advance(); // eat =
     const rightNode = this.expression();
