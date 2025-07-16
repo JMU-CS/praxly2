@@ -72,7 +72,7 @@ class PythonParser extends Parser {
     const scalarTypeToken = this.advance() as TextToken;
     let type = new Type(scalarTypeToken.text, scalarTypeToken.where);
 
-    // int[0..2][0..1] is  3-array of 2-arrays. Currently I'm parsing this as
+    // int[0..2][0..1] is a 3-array of 2-arrays. Currently I'm parsing this as
     // (int[0..2])[0..1]. But the brackets are right-associative. Can I parse
     // this with a recursive helper?
 
@@ -120,7 +120,6 @@ class PythonParser extends Parser {
     }
     this.advance(); // eat linebreak
 
-
     this.skipLinebreaks();
 
     const instanceVariableDeclarations: ast.InstanceVariableDeclaration[] = [];
@@ -129,7 +128,7 @@ class PythonParser extends Parser {
     if (this.has(TokenType.Indent)) {
       this.advance(); // eat indent
 
-      while (this.hasOtherwise(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
+      while (!this.has(TokenType.Unindent) || this.has(TokenType.EndOfSource)) {
         let firstWhere = null;
 
         // check if instance variable
@@ -152,27 +151,22 @@ class PythonParser extends Parser {
             rightNode = this.expression();
           }
 
-          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, Type.Any, null, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
+          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, new AnyType, null, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
           instanceVariableDeclarations.push(declaration);
         }
 
         // check if function
         if (this.has(TokenType.Function)) {
           const core = this.functionDefinition();
-          const declaration = new ast.MethodDefinition(core.identifier, core.formals, Type.Any, core.body, null, Where.enclose(core.where, core.body.where));
+          const declaration = new ast.MethodDefinition(core.identifier, core.formals, new AnyType, core.body, null, Where.enclose(core.where, core.body.where));
           methodDefinitions.push(declaration);
-
+          lastWhere = declaration.where;
         }
 
         this.skipLinebreaks();
       }
-
-      // if (!this.has(TokenType.Unindent)) {
-      //   throw new ParseError("The class must be closed.", lastWhere);
-      // }
-      this.advance();
     }
-
+    // console.log(this.tokens);
     return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, methodDefinitions, Where.enclose(classToken.where, lastWhere));
   }
 
@@ -189,7 +183,7 @@ class PythonParser extends Parser {
       // }
       const identifierToken = this.advance() as TextToken;
       latestToken = identifierToken;
-      formals.push(new ast.Formal(identifierToken.text, Type.Any));
+      formals.push(new ast.Formal(identifierToken.text, new AnyType));
       while (this.has(TokenType.Comma)) {
         let comma = this.advance(); // pass the ,
         // const type = this.type();
@@ -198,7 +192,7 @@ class PythonParser extends Parser {
         }
         const identifierToken = this.advance() as TextToken;
         latestToken = identifierToken;
-        formals.push(new ast.Formal(identifierToken.text, Type.Any));
+        formals.push(new ast.Formal(identifierToken.text, new AnyType));
       }
     }
 
@@ -228,7 +222,7 @@ class PythonParser extends Parser {
     // }
     const def = this.advance(); // eat def
     const core = this.subroutineCore('function', def.where);
-    return new ast.FunctionDefinition(core.identifier, core.formals, Type.Any, core.block, Where.enclose(def.where, core.block.where));
+    return new ast.FunctionDefinition(core.identifier, core.formals, new AnyType, core.block, Where.enclose(def.where, core.block.where));
   }
 
   block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where): ast.Block {
@@ -314,19 +308,21 @@ class PythonParser extends Parser {
     } else if (this.has(TokenType.LineComment)) {
       const token = this.advance() as TextToken;
       statement = new ast.LineComment(token.text, token.where);
-    } else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
-      // variable will be assigned an array literal
-      if (this.hasAhead(TokenType.LeftBracket, 2)) {
-        statement = this.arrayDeclaration();
-      } else {
-        // variable will be assigned to a literal
-        statement = this.declaration();
-      }
     } else if (this.has(TokenType.Return)) {
       statement = this.returnStatement(inFunctionDefinition);
     } else {
       statement = this.otherStatement();
     }
+
+    // else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
+    //   // variable will be assigned an array literal
+    //   if (this.hasAhead(TokenType.LeftBracket, 2)) {
+    //     statement = this.arrayDeclaration();
+    //   } else {
+    //     // variable will be assigned to a literal
+    //     statement = this.declaration();
+    //   }
+    // }
 
     // Skip past any trailing comment.
     if (this.has(TokenType.LineComment)) {
@@ -353,7 +349,7 @@ class PythonParser extends Parser {
   }
 
   arrayDeclaration(): ast.ArrayDeclaration {
-    const type = Type.Any; // types are not necessary
+    const type = new AnyType; // types are not necessary
 
     if (!this.has(TokenType.Identifier)) {
       throw new ParseError("This array declaration is missing a variable name.", type.where);
@@ -425,7 +421,7 @@ class PythonParser extends Parser {
   }
 
   declaration() {
-    let type = Type.Any; // type can be anything, Where(rightNode.where, rightNode.where)
+    let type = new AnyType; // type can be anything, Where(rightNode.where, rightNode.where)
     const identifierToken = this.advance() as TextToken;
     this.advance(); // eat =
     const rightNode = this.expression();
@@ -882,10 +878,10 @@ class PythonParser extends Parser {
   }
 }
 
-export function parsePython(tokens: Token[], source: string) {
+export function parse(tokens: Token[], source: string) {
   return new PythonParser(tokens, source).parse();
 }
 
-export function parsePythonExpression(tokens: Token[], source: string) {
+export function parseExpression(tokens: Token[], source: string) {
   return new PythonParser(tokens, source).expression();
 }

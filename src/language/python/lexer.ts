@@ -92,20 +92,16 @@ class PythonLexer extends Lexer {
       }
     } else if (this.accept('/')) {
       if (this.accept('/')) {
-        this.emitToken(TokenType.DoubleForwardSlash); // floor division
+        this.emitToken(TokenType.DoubleForwardSlash);
       } else {
-        this.emitToken(TokenType.ForwardSlash); // division
+        this.emitToken(TokenType.ForwardSlash);
       }
     } else if (this.has('-')) {
       if (this.hasDigitAhead(1)) {
         this.lexNumber();
       } else {
         this.advance();
-        if (this.accept('-')) {
-          this.emitToken(TokenType.HyphenHyphen);
-        } else {
-          this.emitToken(TokenType.Hyphen);
-        }
+        this.emitToken(TokenType.Hyphen);
       }
     } else if (this.has('#')) {
          // Skip over leading whitespace.
@@ -188,6 +184,6 @@ class PythonLexer extends Lexer {
   }
 }
 
-export function lexPython(source: string) {
+export function lex(source: string) {
   return new PythonLexer(source).lex();
 }

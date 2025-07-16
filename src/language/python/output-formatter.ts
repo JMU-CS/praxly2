@@ -1,8 +1,8 @@
-import {OutputFormatter} from '../output-formatter.js';
+import {OutputFormatter as DefaultOutputFormatter} from '../output-formatter.js';
 import * as ast from '../ast.js';
 import {Fruit, Type, ArrayType, ObjectType} from '../type.js';
 
-export class PythonOutputFormatter extends OutputFormatter {
+export class OutputFormatter extends DefaultOutputFormatter {
   constructor() {
     super();
     this.operatorMap.set(ast.LogicalAnd, 'and');

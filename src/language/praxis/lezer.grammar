@@ -5,7 +5,7 @@
   relational @left
 }
 
-@top Program { (topLevelStatement linebreak)* }
+@top Program { (topLevelStatement lineEnd | linebreak)* }
 
 @skip { space | LineComment }
 
@@ -17,13 +17,17 @@ block {
   Block { (statement linebreak)* }
 }
 
+curlyBlock {
+  Block { LeftCurly (statement linebreak | linebreak)* RightCurly }
+}
+
 statement {
   Declaration |
   For { For LeftParenthesis statement Semicolon expression Semicolon statement RightParenthesis linebreak block End For} |
   Print { Print expression } |
-  If { If LeftParenthesis expression RightParenthesis linebreak block (Else linebreak block)? End If } |
+  If { If LeftParenthesis expression RightParenthesis (curlyBlock (Else curlyBlock)? | linebreak block (Else linebreak block)? End If) } |
   While { While LeftParenthesis expression RightParenthesis linebreak block End While } |
-  Class { Class Identifier linebreak block End Class } |
+  Class { Class Identifier linebreak block End Class Identifier } |
   Return { Return expression } |
   Assignment { Identifier Equal expression }
 }
@@ -61,7 +65,8 @@ apex {
   Boolean |
   String |
   Integer |
-  LeftParenthesis expression RightParenthesis
+  LeftParenthesis expression RightParenthesis |
+  Null
 }
 
 @tokens {
@@ -76,6 +81,7 @@ apex {
   Else { "else" }
   Return { "return" }
   End { "end" }
+  Null { "null" }
   Semicolon { ";" }
   DoubleLessThan { "<<" }
   DoubleGreaterThan { ">>" }
@@ -90,6 +96,8 @@ apex {
   ForwardSlash { "/" }
   LeftParenthesis { "(" }
   RightParenthesis { ")" }
+  LeftCurly { "{" }
+  RightCurly { "}" }
   comma { "," }
   linebreak { $[\r]? $[\n] }
 
@@ -99,7 +107,9 @@ apex {
 
   space { $[ \t]+ }
 
-  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Identifier }
+  lineEnd { linebreak | @eof }
+
+  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Null, Identifier }
   @precedence { DoubleLessThan, LessThan }
   @precedence { DoubleGreaterThan, GreaterThan }
   @precedence { LineComment, ForwardSlash }

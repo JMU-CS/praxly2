@@ -1,33 +1,19 @@
-import {lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, keymap} from '@codemirror/view';
-import {foldGutter, indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldKeymap} from '@codemirror/language';
-import {history, defaultKeymap, historyKeymap} from '@codemirror/commands';
-import {searchKeymap} from '@codemirror/search';
-import {closeBrackets, autocompletion, closeBracketsKeymap, completionKeymap} from '@codemirror/autocomplete';
-import {lintKeymap} from '@codemirror/lint';
-import {EditorState, EditorSelection} from '@codemirror/state';
-
+import * as ast from './language/ast.js';
 import * as praxis from './language/praxis/index.js';
-
-import {lexPython} from './language/python/lexer.js';
-import {parsePython} from './language/python/parser.js';
-import {PythonGenerator} from './language/python/generator.js';
-import {PythonOutputFormatter} from './language/python/output-formatter.js';
+import * as python from './language/python/index.js';
+import * as cm from './codemirror.js';
 
 import {Objectifier} from './language/objectifier.js';
 import {GlobalRuntime, Evaluator} from './language/evaluator.js';
 import {WhereError} from './language/error.js';
-import * as ast from './language/ast.js';
 import {MemdiaSvg} from './language/memdia.js';
 import {Where} from './language/where.js';
 
-import {StateField, StateEffect, Transaction, Range} from "@codemirror/state";
-import {EditorView, Decoration} from "@codemirror/view";
+const addMarks = cm.StateEffect.define<cm.Range<cm.Decoration>[]>();
+const filterMarks = cm.StateEffect.define<(from: number, to: number) => boolean>();
 
-const addMarks = StateEffect.define<Range<Decoration>[]>();
-const filterMarks = StateEffect.define<(from: number, to: number) => boolean>();
-
-const markField = StateField.define({
-  create() { return Decoration.none },
+const markField = cm.StateField.define({
+  create() { return cm.Decoration.none },
   update(value: any, tr) {
     value = value.map(tr.changes);
     for (let effect of tr.effects) {
@@ -39,13 +25,13 @@ const markField = StateField.define({
     }
     return value;
   },
-  provide: f => EditorView.decorations.from(f),
+  provide: f => cm.EditorView.decorations.from(f),
 });
 
 function removeAllMarks() {
 }
 
-const stepMark = Decoration.mark({
+const stepMark = cm.Decoration.mark({
   attributes: {
     style: "background-color: #2a4160",
   }
@@ -72,34 +58,39 @@ function initialize() {
   inputField.style.display = 'none';
 
   const editor = document.getElementById('editor')!;
-  const editorView = new EditorView({
+  const editorView = new cm.EditorView({
     parent: editor,
     doc: '',
     extensions: [
-      lineNumbers(),
-      highlightActiveLineGutter(),
-      highlightSpecialChars(),
-      history(),
-      foldGutter(),
-      drawSelection(),
-      dropCursor(),
-      EditorState.allowMultipleSelections.of(true),
-      indentOnInput(),
-      syntaxHighlighting(defaultHighlightStyle, {fallback: true}),
-      bracketMatching(),
-      closeBrackets(),
-      autocompletion(),
-      rectangularSelection(),
-      crosshairCursor(),
-      highlightActiveLine(),
-      keymap.of([
-        ...closeBracketsKeymap,
-        ...defaultKeymap,
-        ...searchKeymap,
-        ...historyKeymap,
-        ...foldKeymap,
-        ...completionKeymap,
-        ...lintKeymap,
+      cm.lineNumbers(),
+      cm.highlightActiveLineGutter(),
+      cm.highlightSpecialChars(),
+      cm.history(),
+      cm.foldGutter(),
+      cm.drawSelection(),
+      cm.dropCursor(),
+      cm.EditorState.allowMultipleSelections.of(true),
+      cm.indentOnInput(),
+      cm.syntaxHighlighting(cm.defaultHighlightStyle, {fallback: true}),
+      cm.bracketMatching(),
+      cm.closeBrackets(),
+      cm.autocompletion(),
+      cm.rectangularSelection(),
+      cm.crosshairCursor(),
+      cm.highlightActiveLine(),
+      cm.keymap.of([
+        ...cm.closeBracketsKeymap,
+        ...cm.defaultKeymap,
+        ...cm.searchKeymap,
+        ...cm.historyKeymap,
+        ...cm.foldKeymap,
+        ...cm.completionKeymap,
+        ...cm.lintKeymap,
+        {
+           key: "Mod-/",
+           run: cm.toggleComment,
+           preventDefault: true,
+        },
       ]),
       praxis.plugin(),
       praxis.praxlyTheme,
@@ -183,15 +174,15 @@ function initialize() {
         generator = new praxis.Generator();
         outputFormatter = new praxis.OutputFormatter();
       } else {
-        tokens = lexPython(source);
-        ast = parsePython(tokens, source);
-        outputFormatter = new PythonOutputFormatter();
+        tokens = python.lex(source);
+        ast = python.parse(tokens, source);
+        outputFormatter = new python.OutputFormatter();
       }
 
       if (dstLang.value === "Praxis") {
         generator = new praxis.Generator();
       } else {
-        generator = new PythonGenerator();
+        generator = new python.Generator();
       }
 
       // Update tree-panel
@@ -200,6 +191,10 @@ function initialize() {
 
       // Emit CodeMirror parser log
       if (false) {
+        for (let i = 0; i < tokens.length; ++i) {
+          console.log(tokens[i].toPretty(source));
+        }
+
         const tree = praxis.lezerParser.parse(source);
         let level = 0;
         tree.iterate({
@@ -224,7 +219,8 @@ function initialize() {
       sourcePanel.innerText = generatedSource;
 
       // Update output-panel
-      const runtime = new GlobalRuntime(log, getInput);
+      const allowsUndeclared = srcLang.value === 'Python';
+      const runtime = new GlobalRuntime(log, getInput, allowsUndeclared);
       const evaluator = new Evaluator(outputFormatter, new MemdiaSvg(runtime));
       if (isDebug) {
         evaluator.step = (node: ast.Node) => {
@@ -256,7 +252,7 @@ function initialize() {
           button.innerText = `Line ${lineNumber}`;
           button.addEventListener('click', () => {
             editorView.dispatch({
-              selection: EditorSelection.range(e.where.start, e.where.end),
+              selection: cm.EditorSelection.range(e.where.start, e.where.end),
             });
           });
           outputPanel.appendChild(button);
