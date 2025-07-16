@@ -224,7 +224,8 @@ function initialize() {
       sourcePanel.innerText = generatedSource;
 
       // Update output-panel
-      const runtime = new GlobalRuntime(log, getInput);
+      const allowsUndeclared = srcLang.value === 'Python';
+      const runtime = new GlobalRuntime(log, getInput, allowsUndeclared);
       const evaluator = new Evaluator(outputFormatter, new MemdiaSvg(runtime));
       if (isDebug) {
         evaluator.step = (node: ast.Node) => {

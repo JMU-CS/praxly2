@@ -101,11 +101,7 @@ class PythonLexer extends Lexer {
         this.lexNumber();
       } else {
         this.advance();
-        if (this.accept('-')) {
-          this.emitToken(TokenType.HyphenHyphen);
-        } else {
-          this.emitToken(TokenType.Hyphen);
-        }
+        this.emitToken(TokenType.Hyphen);
       }
     } else if (this.has('#')) {
          // Skip over leading whitespace.
