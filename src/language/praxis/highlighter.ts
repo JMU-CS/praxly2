@@ -66,7 +66,7 @@ export const praxisLanguage = LRLanguage.define({
   name: 'praxis',
   parser: lezerParser,
   languageData: {
-    // commentTokens: {line: "//"}
+    commentTokens: {line: "//"},
   }
 });
 

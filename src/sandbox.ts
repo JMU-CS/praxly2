@@ -86,6 +86,11 @@ function initialize() {
         ...cm.foldKeymap,
         ...cm.completionKeymap,
         ...cm.lintKeymap,
+        {
+           key: "Mod-/",
+           run: cm.toggleComment,
+           preventDefault: true,
+        },
       ]),
       praxis.plugin(),
       praxis.praxlyTheme,
