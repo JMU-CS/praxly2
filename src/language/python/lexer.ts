@@ -92,9 +92,9 @@ class PythonLexer extends Lexer {
       }
     } else if (this.accept('/')) {
       if (this.accept('/')) {
-        this.emitToken(TokenType.DoubleForwardSlash); // floor division
+        this.emitToken(TokenType.DoubleForwardSlash);
       } else {
-        this.emitToken(TokenType.ForwardSlash); // division
+        this.emitToken(TokenType.ForwardSlash);
       }
     } else if (this.has('-')) {
       if (this.hasDigitAhead(1)) {
