@@ -26,6 +26,10 @@ export class Generator extends Visitor<Formatter, string> {
   // Primitives
   // --------------------------------------------------------------------------
 
+  visitNull(_node: ast.Null, _formatter: Formatter): string {
+    return 'null';
+  }
+
   visitPrimitive<T extends ToStringable>(node: ast.Primitive<T>, _formatter: Formatter): string {
     return node.rawValue.toString();
   }

@@ -184,6 +184,6 @@ class PythonLexer extends Lexer {
   }
 }
 
-export function lexPython(source: string) {
+export function lex(source: string) {
   return new PythonLexer(source).lex();
 }

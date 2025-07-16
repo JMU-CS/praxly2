@@ -7,12 +7,27 @@ import {styleTags, tags as t} from "@lezer/highlight";
 export let lezerParser = parser.configure({
   props: [
     styleTags({
-      For: t.keyword,
+      And: t.keyword,
+      Class: t.keyword,
+      Do: t.keyword,
+      Else: t.keyword,
       End: t.keyword,
+      Extends: t.keyword,
+      False: t.keyword,
+      For: t.keyword,
+      If: t.keyword,
+      New: t.keyword,
       Print: t.keyword,
+      Repeat: t.keyword,
+      While: t.keyword,
+      Null: t.keyword,
+
       Identifier: t.variableName,
+
       Type: t.typeName,
+
       String: t.string,
+
       Plus: t.operator,
       Equal: t.operator,
       LessThan: t.operator,
@@ -21,9 +36,12 @@ export let lezerParser = parser.configure({
       GreaterThanOrEqual: t.operator,
       DoubleLessThan: t.operator,
       DoubleGreaterThan: t.operator,
+
       LineComment: t.lineComment,
+
       LeftParenthesis: t.paren,
       RightParenthesis: t.paren,
+
       Integer: t.integer,
     }),
     indentNodeProp.add({
