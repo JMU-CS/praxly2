@@ -1,16 +1,10 @@
-import { CodeMirrorEditor, addMarks, stepMark } from './editor.js';
-import { EditorSelection } from '@codemirror/state';
-
-import * as ast from './language/ast.js';
-import { GlobalRuntime, Evaluator } from './language/evaluator.js';
-import { WhereError } from './language/error.js';
-import { MemdiaSvg } from './language/memdia.js';
-import * as praxis from './language/praxis/index.js';
+import { CodeMirrorEditor } from './editor.js';
+import { run } from './run.js';
 
 // Toolbar buttons
 const runButton = document.getElementById('run-button') as HTMLInputElement;
 const debugButton = document.getElementById('debug-button') as HTMLInputElement;
-const stepButton = document.getElementById('step-button') as HTMLInputElement;
+export const stepButton = document.getElementById('step-button') as HTMLInputElement;
 const exitButton = document.getElementById("exit-button") as HTMLInputElement;
 const shareButton = document.getElementById("share-button") as HTMLInputElement;
 const settingsButton = document.getElementById("settings-button") as HTMLInputElement;
@@ -21,13 +15,17 @@ const resetButton = document.getElementById("reset-button") as HTMLInputElement;
 const leftSide = document.getElementById("left-side") as HTMLElement;
 const resizeBarX = document.getElementById("resize-bar-X") as HTMLElement;
 const rightSide = document.getElementById("right-side") as HTMLElement;
-const outputPanel = document.getElementById('output-panel') as HTMLElement;
+export const outputPanel = document.getElementById('output-panel') as HTMLElement;
 const resizeBarY = document.getElementById("resize-bar-Y") as HTMLElement;
 const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
 
+// left-side toolbar elements
+const langSwitch = document.getElementById("lang-switch") as HTMLButtonElement;
+const langDropdown = document.getElementById("dropdown-content") as HTMLDivElement;
+
 // Code editor
-const editor = new CodeMirrorEditor('editor');
-const editorView = editor.view;
+export const editor = new CodeMirrorEditor('editor');
+export const editorView = editor.view;
 const latestSource = localStorage.getItem('latest-source');
 if (latestSource) {
   editorView.focus();
@@ -35,88 +33,6 @@ if (latestSource) {
     changes: { from: 0, to: editorView.state.doc.length, insert: latestSource },
   });
 }
-
-// ---------------------------------------------------------------------------
-// Running a program
-// ---------------------------------------------------------------------------
-
-const log = (text: string) => {
-  outputPanel.appendChild(document.createTextNode(text));
-};
-
-// TODO implement wobbly input boxes in the output div
-const getInput: () => Promise<string> = () => {
-  return new Promise(resolve => {
-    resolve("Go Dukes!");
-  });
-};
-
-const run = async (isDebug: boolean) => {
-
-  // Clear previous output
-  outputPanel.innerText = '';
-
-  // Save current program
-  const source = editorView.state.doc.toString();
-  localStorage.setItem('latest-source', source);
-
-  try {
-    outputPanel.innerText = '';
-
-    const tokens = praxis.lex(source);
-    const ast = praxis.parse(tokens, source);
-    const outputFormatter = new praxis.OutputFormatter();
-
-    // Update output-panel
-    const runtime = new GlobalRuntime(log, getInput);
-    const evaluator = new Evaluator(outputFormatter, new MemdiaSvg(runtime));
-    if (isDebug) {
-      evaluator.step = (node: ast.Node) => {
-
-        // Highlight node
-        editor.removeAllMarks();
-        editorView.dispatch({
-          effects: addMarks.of([stepMark.range(node.where.start, node.where.end)])
-        })
-
-        return new Promise(resolve => {
-          const listener = () => {
-            stepButton.removeEventListener('click', listener);
-            resolve();
-          };
-          stepButton.addEventListener('click', listener);
-        });
-      };
-    }
-    await ast.visit(evaluator, runtime);
-
-  } catch (e) {
-    if (e instanceof Error) {
-      if (e instanceof WhereError) {
-        const button = document.createElement('button');
-        button.classList.add('jump-button');
-        const lineNumber = editorView.state.doc.lineAt(e.where.start).number;
-        button.innerText = `Line ${lineNumber}`;
-        button.addEventListener('click', () => {
-          editorView.dispatch({
-            selection: EditorSelection.range(e.where.start, e.where.end),
-          });
-        });
-        outputPanel.appendChild(button);
-        // console.error(e.where);
-      }
-
-      const message = e.message.replaceAll(/`(.*?)`/g, '<var>$1</var>');
-      const span = document.createElement('span');
-      span.innerHTML = `: ${message}`;
-      outputPanel.appendChild(span);
-      console.error(e);
-    }
-  }
-
-  // Unhighlight node
-  editor.removeAllMarks();
-};
 
 // ---------------------------------------------------------------------------
 // Toolbar events
@@ -160,6 +76,23 @@ resetButton.addEventListener('click', () => {
   exitButton.style.display = 'none';
   localStorage.removeItem('latest-source');
 });
+
+// ---------------------------------------------------------------------------
+// Left toolbar events
+// ---------------------------------------------------------------------------
+
+langSwitch.addEventListener("click", () => {
+  if (langDropdown.style.display === "block") {
+    langDropdown.style.display = "none";
+  } else {
+    langDropdown.style.display = "block";
+  }
+});
+
+const closeDropdown = () => {
+  langDropdown.style.display = "none";
+};
+
 
 // ---------------------------------------------------------------------------
 // Resize events
