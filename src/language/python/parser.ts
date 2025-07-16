@@ -72,7 +72,7 @@ class PythonParser extends Parser {
     const scalarTypeToken = this.advance() as TextToken;
     let type = new Type(scalarTypeToken.text, scalarTypeToken.where);
 
-    // int[0..2][0..1] is  3-array of 2-arrays. Currently I'm parsing this as
+    // int[0..2][0..1] is a 3-array of 2-arrays. Currently I'm parsing this as
     // (int[0..2])[0..1]. But the brackets are right-associative. Can I parse
     // this with a recursive helper?
 
@@ -119,7 +119,6 @@ class PythonParser extends Parser {
       throw new ParseError("A linebreak is missing after this class header.", Where.enclose(classToken.where, lastWhere));
     }
     this.advance(); // eat linebreak
-
 
     this.skipLinebreaks();
 
