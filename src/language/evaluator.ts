@@ -378,7 +378,9 @@ export class Runtime {
   }
 
   shallowClone() {
-    return new Runtime(this, this.variableBindings, this.functionBindings, this.classBindings, this.expectedType, this.classFruit);
+    const newRuntime = new Runtime(this, this.variableBindings, this.functionBindings, this.classBindings, this.expectedType, this.classFruit);
+    newRuntime.globalRuntime = this.globalRuntime;
+    return newRuntime;
   }
 
   child() {
@@ -391,11 +393,21 @@ export class Runtime {
     this.variableBindings.set(identifier, new VariableEntry(type, null));
   }
 
-  setVariable(identifier: string, entry: VariableEntry) {
+  setUndeclaredVariable(identifier: string, entry: VariableEntry): boolean {
+    if (this.variableBindings.has(identifier) ||
+        (!this.parent || !this.parent.setUndeclaredVariable(identifier, entry))) {
+      this.variableBindings.set(identifier, entry);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  setDeclaredVariable(identifier: string, entry: VariableEntry) {
     if (this.variableBindings.has(identifier)) {
       this.variableBindings.set(identifier, entry);
     } else if (this.parent) {
-      this.parent.setVariable(identifier, entry);
+      this.parent.setDeclaredVariable(identifier, entry);
     } else {
       throw new Error('undeclared variable snuck through');
     }
@@ -441,12 +453,14 @@ export class GlobalRuntime extends Runtime {
   rng!: any;
   log: (text: string) => void;
   getInput: () => Promise<string>;
+  allowsUndeclared: boolean;
 
-  constructor(log: (text: string) => void, getInput: () => Promise<string>) {
+  constructor(log: (text: string) => void, getInput: () => Promise<string>, allowsUndeclared: boolean) {
     super(null, new Map(), new Map(), new Map(), null, null);
     this.globalRuntime = this;
     this.getInput = getInput;
     this.log = log;
+    this.allowsUndeclared = allowsUndeclared;
 
     this.setFunction('int', new IntCastFunctionEntry());
     this.setFunction('float', new FloatCastFunctionEntry());
@@ -832,15 +846,19 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   // --------------------------------------------------------------------------
 
   assignVariable(label: string, where: Where, identifier: string, fruit: Fruit, runtime: Runtime) {
-    const oldFruit = runtime.getVariable(identifier);
-    if (oldFruit) {
-      if (oldFruit.type.covers(fruit.type)) {
-        runtime.setVariable(identifier, new VariableEntry(fruit.type, fruit.value));
-      } else {
-        throw new error.TypeError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
-      }
+    if (runtime.globalRuntime.allowsUndeclared) {
+      runtime.setUndeclaredVariable(identifier, new VariableEntry(fruit.type, fruit.value));
     } else {
-      throw new error.UnknownError(`${label} \`${identifier}\` is undeclared.`, where);
+      const oldFruit = runtime.getVariable(identifier);
+      if (oldFruit) {
+        if (oldFruit.type.covers(fruit.type)) {
+          runtime.setDeclaredVariable(identifier, new VariableEntry(fruit.type, fruit.value));
+        } else {
+          throw new error.TypeError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
+        }
+      } else {
+        throw new error.UnknownError(`${label} \`${identifier}\` is undeclared.`, where);
+      }
     }
   }
 
@@ -1063,14 +1081,14 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       for (let elementFruit of iterableFruit.value) {
         const bodyRuntime = runtime.child();
         bodyRuntime.declareVariable(node.identifier, iterableFruit.type.elementType);
-        bodyRuntime.setVariable(node.identifier, new VariableEntry(iterableFruit.type.elementType, elementFruit.value));
+        bodyRuntime.setDeclaredVariable(node.identifier, new VariableEntry(iterableFruit.type.elementType, elementFruit.value));
         await node.body.visit(this, bodyRuntime);
       }
     } else if (Type.IntegerRange.covers(iterableFruit.type)) {
       for (let i = iterableFruit.value.lo; i < iterableFruit.value.hi; ++i) {
         const bodyRuntime = runtime.child();
         bodyRuntime.declareVariable(node.identifier, Type.Integer);
-        bodyRuntime.setVariable(node.identifier, new VariableEntry(Type.Integer, i));
+        bodyRuntime.setDeclaredVariable(node.identifier, new VariableEntry(Type.Integer, i));
         await node.body.visit(this, bodyRuntime);
       }
     } else {
@@ -1355,7 +1373,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     // Each instance of a class is a runtime that persists the instance's state.
     for (let [name, entry] of classFruit.instanceVariableEntries) {
       instance.runtime.declareVariable(name, entry.type);
-      instance.runtime.setVariable(name, new VariableEntry(entry.type, entry.initialValue));
+      instance.runtime.setDeclaredVariable(name, new VariableEntry(entry.type, entry.initialValue));
     }
 
     // Each instance also carries around a list of the class's methods. It's

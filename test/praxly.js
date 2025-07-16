@@ -174,7 +174,7 @@ describe('Praxis: Expression Generation and Evaluation', () => {
 
       it(`should evaluate to ${sample.evaluation}`, async () => {
         const logger = makeLogger();
-        const runtime = new GlobalRuntime(logger.log, getInput);
+        const runtime = new GlobalRuntime(logger.log, getInput, false);
         const fruit = await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.deepStrictEqual(fruit, sample.evaluation);
       });
@@ -368,7 +368,7 @@ accompany
 
       it(`should output\n${sample.output}`, async () => {
         const logger = makeLogger();
-        const runtime = new GlobalRuntime(logger.log, getInput);
+        const runtime = new GlobalRuntime(logger.log, getInput, false);
         await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
@@ -411,7 +411,7 @@ print 6\n`,
         const ast = praxis.parse(tokens, sample.source);
 
         const logger = makeLogger();
-        const runtime = new GlobalRuntime(logger.log, getInput);
+        const runtime = new GlobalRuntime(logger.log, getInput, false);
         await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
@@ -546,7 +546,7 @@ print nums[2][2]`,
         const ast = praxis.parse(tokens, sample.source);
 
         const logger = makeLogger();
-        const runtime = new GlobalRuntime(logger.log, getInput);
+        const runtime = new GlobalRuntime(logger.log, getInput, false);
         await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
@@ -651,7 +651,7 @@ print s.value`,
         const ast = praxis.parse(tokens, sample.source);
 
         const logger = makeLogger();
-        const runtime = new GlobalRuntime(logger.log, getInput);
+        const runtime = new GlobalRuntime(logger.log, getInput, false);
         await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
         assert.equal(logger.stdout, sample.output);
       });
@@ -732,7 +732,7 @@ print c.radius`,
         const tokens = praxis.lex(sample.source);
         const ast = praxis.parse(tokens, sample.source);
         const logger = makeLogger();
-        const runtime = new GlobalRuntime(logger.log, getInput);
+        const runtime = new GlobalRuntime(logger.log, getInput, false);
         await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
@@ -754,7 +754,7 @@ describe('Praxis: Parse Errors', () => {
         const tokens = praxis.lex(sample.source);
         const ast = praxis.parse(tokens, sample.source);
         const logger = makeLogger();
-        const runtime = new GlobalRuntime(logger.log, getInput);
+        const runtime = new GlobalRuntime(logger.log, getInput, false);
         await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.ParseError));
@@ -816,8 +816,9 @@ xs[2] = 7`,
         const tokens = praxis.lex(sample.source);
         const ast = praxis.parse(tokens, sample.source);
         const logger = makeLogger();
-        const runtime = new GlobalRuntime(logger.log, getInput);
+        const runtime = new GlobalRuntime(logger.log, getInput, false);
         await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
+        console.log("hi");
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
     });
@@ -844,7 +845,7 @@ s++`,
         const tokens = praxis.lex(sample.source);
         const ast = praxis.parse(tokens, sample.source);
         const logger = makeLogger();
-        const runtime = new GlobalRuntime(logger.log, getInput);
+        const runtime = new GlobalRuntime(logger.log, getInput, false);
         await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
       };
       it(`should error on ${sample.message}`, () => assert.rejects(evaluate, error.TypeError));
