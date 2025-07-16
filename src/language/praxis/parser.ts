@@ -375,13 +375,13 @@ class PraxisParser extends Parser {
   }
 
   hasArrayWithoutIndex() {
-    return this.has(TokenType.Identifier) && 
+    return this.has(TokenType.Identifier) &&
            this.hasAhead(TokenType.LeftBracket, 1) &&
            this.hasAhead(TokenType.RightBracket, 2);
   }
 
   hasArrayWithRange() {
-    return this.has(TokenType.Identifier) && 
+    return this.has(TokenType.Identifier) &&
            this.hasAhead(TokenType.LeftBracket, 1) &&
            this.hasAhead(TokenType.Integer, 2) &&
            this.hasAhead(TokenType.DotDot, 3) &&
