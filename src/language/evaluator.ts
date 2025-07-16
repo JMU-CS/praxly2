@@ -875,7 +875,17 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     // Some nodes create an artificial assignment node, but we don't want to
     // pause on these fake nodes.
 
-    const rightFruit = await node.rightNode.visit(this, runtime);
+    // In Praxis, array literals can only appear in declarations. We
+    // communicate across nodes that we're in a declaration-context with
+    // Runtime.expectedType. In languages without declarations, we need
+    // to artificially set this expected type.
+    let rhsRuntime = runtime;
+    if (runtime.globalRuntime.allowsUndeclared) {
+      rhsRuntime = runtime.shallowClone();
+      rhsRuntime.expectedType = Type.Any;
+    }
+
+    const rightFruit = await node.rightNode.visit(this, rhsRuntime);
 
     // Don't evaluate left-hand side because that does an rvalue lookup.
     if (node.leftNode instanceof ast.Variable) {
