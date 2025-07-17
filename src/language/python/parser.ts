@@ -109,6 +109,9 @@ class PythonParser extends Parser {
     let lastWhere = classIdentifierToken.where;
 
     let superclass = null;
+    // extending a class in python would require the class token to have ()
+    // with the name of extending class inside.
+    // Ex : class Dog(Animal): ...
 
     if (!this.has(TokenType.Colon)) {
       throw new ParseError("A : is missing after the class name.", lastWhere);
@@ -128,7 +131,7 @@ class PythonParser extends Parser {
     if (this.has(TokenType.Indent)) {
       this.advance(); // eat indent
 
-      while (!this.has(TokenType.Unindent) || this.has(TokenType.EndOfSource)) {
+      while (!this.has(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
         let firstWhere = null;
 
         // check if instance variable
@@ -165,8 +168,11 @@ class PythonParser extends Parser {
 
         this.skipLinebreaks();
       }
+
+      if (this.has(TokenType.Unindent)) {
+        this.advance();
+      }
     }
-    // console.log(this.tokens);
     return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, methodDefinitions, Where.enclose(classToken.where, lastWhere));
   }
 
