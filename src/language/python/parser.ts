@@ -762,7 +762,7 @@ class PythonParser extends Parser {
 
   postfixUnary(): ast.Expression {
     let leftNode = this.instantiate();
-    while (this.hasAny(TokenType.LeftBracket, TokenType.Period, TokenType.PlusPlus, TokenType.HyphenHyphen)) {
+    while (this.hasAny(TokenType.LeftBracket, TokenType.Period, TokenType.DoublePlus, TokenType.DoubleHyphen)) {
       const operatorToken = this.advance();
       if (operatorToken.type === TokenType.LeftBracket) {
         const indexNode = this.expression();
@@ -771,9 +771,9 @@ class PythonParser extends Parser {
         }
         const rightToken = this.advance();
         leftNode = new ast.ArraySubscript(leftNode, indexNode, Where.enclose(leftNode.where, rightToken.where));
-      } else if (operatorToken.type === TokenType.PlusPlus) {
+      } else if (operatorToken.type === TokenType.DoublePlus) {
         leftNode = new ast.PostIncrement(leftNode, Where.enclose(leftNode.where, operatorToken.where));
-      } else if (operatorToken.type === TokenType.HyphenHyphen) {
+      } else if (operatorToken.type === TokenType.DoubleHyphen) {
         leftNode = new ast.PostDecrement(leftNode, Where.enclose(leftNode.where, operatorToken.where));
       } else {
         if (this.has(TokenType.Identifier)) {

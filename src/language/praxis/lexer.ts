@@ -30,7 +30,7 @@ class PraxisLexer extends Lexer {
       this.emitToken(TokenType.Semicolon);
     } else if (this.accept('+')) {
       if (this.accept('+')) {
-        this.emitToken(TokenType.PlusPlus);
+        this.emitToken(TokenType.DoublePlus);
       } else {
         this.emitToken(TokenType.Plus);
       }
@@ -77,11 +77,7 @@ class PraxisLexer extends Lexer {
     } else if (this.accept('&')) {
       this.emitToken(TokenType.Ampersand);
     } else if (this.accept('|')) {
-      if (this.accept('|')) {
-        this.emitToken(TokenType.DoublePipe);
-      } else {
-        this.emitToken(TokenType.Pipe);
-      }
+      this.emitToken(TokenType.Pipe);
     } else if (this.accept('!')) {
       if (this.accept('=')) {
         this.emitToken(TokenType.NotEqual);
@@ -131,7 +127,7 @@ class PraxisLexer extends Lexer {
       } else {
         this.advance();
         if (this.accept('-')) {
-          this.emitToken(TokenType.HyphenHyphen);
+          this.emitToken(TokenType.DoubleHyphen);
         } else {
           this.emitToken(TokenType.Hyphen);
         }
