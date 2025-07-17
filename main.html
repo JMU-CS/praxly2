@@ -56,12 +56,6 @@
           <button class="dropdown-item">Manual</button>
         </div>
       </li>
-      <!-- <li>
-        <button id="settings-button" class="MainMenu-button" title="Settings">
-          <span class="material-symbols-rounded extra">settings</span>
-          <span class="button-text">Settings</span>
-        </button>
-      </li> -->
       <li>
         <button id="reset-button" class="MainMenu-button" title="Reset the initial code">
           Reset <span class="material-symbols-rounded reset">restart_alt</span>
@@ -72,6 +66,18 @@
 
   <main>
     <div id="left-side">
+      <div id="left-toolbar">
+        <div id="lang-dropdown">
+          <button id="lang-switch" class ="left-tool">Language ▼ </button>
+          <div id="dropdown-content" class="dropdown-content">
+            <button class="dropdown-item">Praxis</button>
+            <button class="dropdown-item">Java</button>
+            <button class="dropdown-item">CSP</button>
+            <button class="dropdown-item">Python</button>
+          </div>
+        </div>
+        <button class="left-tool"></button>
+      </div>
       <div id="editor" class="panel"></div>
     </div>
     <div id="resize-bar-X"></div>

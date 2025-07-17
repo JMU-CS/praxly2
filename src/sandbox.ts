@@ -220,7 +220,8 @@ function initialize() {
 
       // Update output-panel
       const allowsUndeclared = srcLang.value === 'Python';
-      const runtime = new GlobalRuntime(log, getInput, allowsUndeclared);
+      const receiverName = srcLang.value === 'Python' ? 'self' : 'this';
+      const runtime = new GlobalRuntime(log, getInput, allowsUndeclared, receiverName);
       const evaluator = new Evaluator(outputFormatter, new MemdiaSvg(runtime));
       if (isDebug) {
         evaluator.step = (node: ast.Node) => {
