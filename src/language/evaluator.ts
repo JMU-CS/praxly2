@@ -454,13 +454,15 @@ export class GlobalRuntime extends Runtime {
   log: (text: string) => void;
   getInput: () => Promise<string>;
   allowsUndeclared: boolean;
+  receiverName: string;
 
-  constructor(log: (text: string) => void, getInput: () => Promise<string>, allowsUndeclared: boolean) {
+  constructor(log: (text: string) => void, getInput: () => Promise<string>, allowsUndeclared: boolean, receiverName: string) {
     super(null, new Map(), new Map(), new Map(), null, null);
     this.globalRuntime = this;
     this.getInput = getInput;
     this.log = log;
     this.allowsUndeclared = allowsUndeclared;
+    this.receiverName = receiverName;
 
     this.setFunction('int', new IntCastFunctionEntry());
     this.setFunction('float', new FloatCastFunctionEntry());
@@ -985,7 +987,6 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (text) {
       runtime.globalRuntime.log(text + node.trailer);
     } else {
-      // console.log("fruit.type:", fruit.type);
       throw new error.WhereError('Only values may be printed.', node.where);
     }
     return new Fruit(Type.Void);
@@ -1399,7 +1400,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       instance.runtime.setFunction(name, entry);
     }
 
-    return new Fruit(new ObjectType(node.identifier), instance);
+    const instanceType = new ObjectType(node.identifier);
+    const instanceFruit = new Fruit(instanceType, instance);
+    instance.runtime.declareVariable(runtime.globalRuntime.receiverName, instanceType);
+    instance.runtime.setDeclaredVariable(runtime.globalRuntime.receiverName, new VariableEntry(instanceType, instance));
+
+    return instanceFruit;
   }
 
   async visitCall(_context: string, node: ast.MethodCall | ast.FunctionCall, subroutineFruit: MethodEntry | FunctionEntry, runtime: Runtime) {
