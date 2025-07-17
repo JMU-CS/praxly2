@@ -99,6 +99,8 @@ class PraxisLexer extends Lexer {
         this.emitToken(TokenType.DoubleLessThan);
       } else if (this.accept('=')) {
         this.emitToken(TokenType.LessThanOrEqual);
+      } else if (this.accept('-')) {
+        this.emitToken(TokenType.Equal);
       } else {
         this.emitToken(TokenType.LessThan);
       }

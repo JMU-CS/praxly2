@@ -352,6 +352,20 @@ end if
 accompany
 `,
     },
+    {
+      message: 'shadowing',
+      source: `int x \u2b60 5
+for (int x \u2b60 0; x < 3; x \u2b60 x + 1)
+  print x
+end for
+print x
+`,
+      output: `0
+1
+2
+5
+`,
+    },
   ];
 
   for (let sample of samples) {

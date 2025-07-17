@@ -414,10 +414,21 @@ export class Runtime {
   }
 
   getVariable(identifier: string): VariableEntry | undefined {
+    // Consult this runtime first, but traverse its ancestors as needed.
     if (this.variableBindings.has(identifier)) {
       return this.variableBindings.get(identifier);
     } else if (this.parent) {
       return this.parent.getVariable(identifier);
+    } else {
+      return undefined;
+    }
+  }
+
+  getOwnVariable(identifier: string): VariableEntry | undefined {
+    // Consult only this runtime. Declarations should call this instead of
+    // getVariable since variables can shadow variables from parent scopes.
+    if (this.variableBindings.has(identifier)) {
+      return this.variableBindings.get(identifier);
     } else {
       return undefined;
     }
@@ -943,7 +954,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
   async visitDeclaration(node: ast.Declaration, runtime: Runtime): Promise<Fruit> {
     await this.step(node);
-    let oldFruit = runtime.getVariable(node.identifier);
+    let oldFruit = runtime.getOwnVariable(node.identifier);
     if (oldFruit) {
       throw new error.WhereError(`Variable \`${node.identifier}\` is already declared.`, node.where);
     }
