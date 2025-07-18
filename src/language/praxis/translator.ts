@@ -11,14 +11,23 @@ type Formatter = {
   indentation: string,
 };
 
-export class Generator extends Visitor<Formatter, string> {
+// Unicode has several left arrows:
+// ← (\u2190)
+// ⭠ (\u2b60)
+// The second one tends to be easier to read.
+const LEFT_ARROW = "\u2b60";
+const NOT_EQUAL = "\u2260";
+const LESS_THAN_OR_EQUAL = "\u2264";
+const GREATER_THAN_OR_EQUAL = "\u2265";
+
+export class Translator extends Visitor<Formatter, string> {
 
   // --------------------------------------------------------------------------
   // Primitives
   // --------------------------------------------------------------------------
 
   visitNull(_node: ast.Null, _formatter: Formatter): string {
-    return 'nil';
+    return 'null';
   }
 
   visitPrimitive<T extends ToStringable>(node: ast.Primitive<T>, _formatter: Formatter): string {
@@ -30,23 +39,23 @@ export class Generator extends Visitor<Formatter, string> {
   }
 
   visitFloat(node: ast.Float, _formatter: Formatter): string {
-    const floatFormatter = new Intl.NumberFormat('en-US', {
-      minimumIntegerDigits: 1,
-      minimumFractionDigits: 1
+    const floatFormatter = new Intl.NumberFormat('en-US', { 
+      minimumIntegerDigits: 1, 
+      minimumFractionDigits: 1 
     });
     return floatFormatter.format(node.rawValue);
   }
 
   visitDouble(node: ast.Double, _formatter: Formatter): string {
-    const floatFormatter = new Intl.NumberFormat('en-US', {
-      minimumIntegerDigits: 1,
-      minimumFractionDigits: 1
+    const floatFormatter = new Intl.NumberFormat('en-US', { 
+      minimumIntegerDigits: 1, 
+      minimumFractionDigits: 1 
     });
     return floatFormatter.format(node.rawValue);
   }
 
   visitBoolean(node: ast.Boolean, formatter: Formatter): string {
-    return this.visitPrimitive<boolean>(node, formatter).charAt(0).toUpperCase() + this.visitPrimitive<boolean>(node, formatter).slice(1);
+    return this.visitPrimitive<boolean>(node, formatter);
   }
 
   visitString(node: ast.String, _formatter: Formatter): string {
@@ -73,14 +82,7 @@ export class Generator extends Visitor<Formatter, string> {
     let nodePrecedence = precedence.get(node.constructor);
 
     let text = node.operandNode.visit(this, formatter);
-
-    if (operator.slice(0, 2) == '++') {
-      text += ` = ${node.operandNode.visit(this, formatter)} + 1`; // x++
-    } else if (operator.slice(0, 2) == '--') {
-      text += ` = ${node.operandNode.visit(this, formatter)} - 1`; // x--
-    } else {
-      text += operator;
-    }
+    text += operator;
 
     return text;
   }
@@ -184,11 +186,11 @@ export class Generator extends Visitor<Formatter, string> {
   }
 
   visitLessThanOrEqual(node: ast.LessThanOrEqual, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '<=');
+    return this.visitBinaryOperator(node, formatter, LESS_THAN_OR_EQUAL);
   }
 
   visitGreaterThanOrEqual(node: ast.GreaterThanOrEqual, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '>=');
+    return this.visitBinaryOperator(node, formatter, GREATER_THAN_OR_EQUAL);
   }
 
   visitEqual(node: ast.Equal, formatter: Formatter): string {
@@ -196,7 +198,7 @@ export class Generator extends Visitor<Formatter, string> {
   }
 
   visitNotEqual(node: ast.NotEqual, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter,'!=');
+    return this.visitBinaryOperator(node, formatter, NOT_EQUAL);
   }
 
   visitLogicalAnd(node: ast.LogicalAnd, formatter: Formatter): string {
@@ -239,18 +241,15 @@ export class Generator extends Visitor<Formatter, string> {
   }
 
   visitAssignment(node: ast.Assignment, formatter: Formatter): string {
-    return this.maybeSemicolon(node, `${node.leftNode.visit(this, formatter)} = ${node.rightNode.visit(this, formatter)}`);
+    return this.maybeSemicolon(node, `${node.leftNode.visit(this, formatter)} ${LEFT_ARROW} ${node.rightNode.visit(this, formatter)}`);
   }
 
   visitDeclaration(node: ast.Declaration, formatter: Formatter): string {
-    let text = `${node.identifier}`;
+    let text = `${node.variableType} ${node.identifier}`;
     if (node.rightNode) {
-      text += ` = ${node.rightNode.visit(this, formatter)}`;
+      text += ` ${LEFT_ARROW} ${node.rightNode.visit(this, formatter)}`;
     }
-    else {
-      text += ` = None`;
-    }
-    return text;
+    return this.maybeSemicolon(node, text);
   }
 
   visitVariable(node: ast.Variable, _formatter: Formatter): string {
@@ -264,43 +263,42 @@ export class Generator extends Visitor<Formatter, string> {
   }
 
   visitPrint(node: ast.Print, formatter: Formatter): string {
-    return this.maybeSemicolon(node, `print(${node.operandNode.visit(this, formatter)})`);
+    return this.maybeSemicolon(node, `print ${node.operandNode.visit(this, formatter)}`);
   }
 
   visitIf(node: ast.If, formatter: Formatter): string {
-    let text = `if ${node.conditionNodes[0].visit(this, formatter)}:\n`;
+    let text = `if (${node.conditionNodes[0].visit(this, formatter)})\n`;
     text += node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     for (let i = 1; i < node.conditionNodes.length; ++i) {
-      text += `elif (${node.conditionNodes[i].visit(this, formatter)}):\n`;
+      text += `else if (${node.conditionNodes[i].visit(this, formatter)})\n`;
       text += node.thenBlocks[i].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     }
     if (node.elseBlock) {
-      text += `${formatter.indentation.repeat(formatter.nestingLevel)}else:\n`;
+      text += `${formatter.indentation.repeat(formatter.nestingLevel)}else\n`;
       text += node.elseBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     }
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end if`;
     return text;
   }
 
   visitWhile(node: ast.While, formatter: Formatter): string {
-    let text = `while ${node.conditionNode.visit(this, formatter)}:\n`;
+    let text = `while (${node.conditionNode.visit(this, formatter)})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}`;
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end while`;
     return text;
   }
 
   visitDoWhile(node: ast.DoWhile, formatter: Formatter): string {
-    let text = "while True:\n";
+    let text = "do\n";
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel + 1)}if not ${node.conditionNode.visit(this, formatter)}:\n`;
-    text += `${formatter.indentation.repeat(formatter.nestingLevel + 2)}break`
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}while (${node.conditionNode.visit(this, formatter)})`;
     return text;
   }
 
   visitRepeatUntil(node: ast.RepeatUntil, formatter: Formatter): string {
-    let text = "while True:\n";
+    let text = "repeat\n";
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel + 1)}if ${node.conditionNode.visit(this, formatter)}:\n`;
-    text += `${formatter.indentation.repeat(formatter.nestingLevel + 2)}break`;
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}unless (${node.conditionNode.visit(this, formatter)})`;
     return text;
   }
 
@@ -309,10 +307,9 @@ export class Generator extends Visitor<Formatter, string> {
   }
 
   visitFor(node: ast.For, formatter: Formatter): string {
-    let text = `${node.initializationNode?.visit(this, formatter) ?? ''}\n`;
-    text += `while ${node.conditionNode.visit(this, formatter)}:\n`;
+    let text = `for (${node.initializationNode?.visit(this, formatter) ?? ''}; ${node.conditionNode.visit(this, formatter)}; ${this.visitBlockAsSequence(node.incrementBlock, formatter)})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += node.incrementBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end for`;
     return text;
   }
 
@@ -326,8 +323,9 @@ export class Generator extends Visitor<Formatter, string> {
   }
 
   visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
-    let text = `def ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')}):\n`;
+    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
     return text;
   }
 
@@ -354,7 +352,7 @@ export class Generator extends Visitor<Formatter, string> {
   }
 
   visitLineComment(node: ast.LineComment, _formatter: Formatter): string {
-    return `# ${node.text}`;
+    return `// ${node.text}`;
   }
 
   // --------------------------------------------------------------------------
@@ -370,7 +368,7 @@ export class Generator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitArrayLiteral(node: ast.ArrayLiteral, formatter: Formatter): string {
-    return `[${node.elementNodes.map(elementNode => elementNode.visit(this, formatter)).join(', ')}]`;
+    return `{${node.elementNodes.map(elementNode => elementNode.visit(this, formatter)).join(', ')}}`;
   }
 
   visitArrayDeclaration(node: ast.ArrayDeclaration, formatter: Formatter): string {
@@ -406,38 +404,47 @@ export class Generator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitClassDefinition(node: ast.ClassDefinition, formatter: Formatter): string {
-    let text = `class ${node.identifier}:`;
-    // if (node.superclass) {
-    //   text += ` extends ${node.superclass}`;
-    // }
+    let text = `class ${node.identifier}`;
+    if (node.superclass) {
+      text += ` extends ${node.superclass}`;
+    }
     text += "\n";
 
-    text += `def __init__(self, `;
     text += node.instanceVariableDeclarations.map(declaration => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${declaration.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('');
-
+    
     if (node.instanceVariableDeclarations.length > 0 && node.methodDefinitions.length > 0) {
       text += "\n";
     }
 
     text += node.methodDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('\n');
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end class ${node.identifier}`;
 
     return text;
   }
 
-  visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, _formatter: Formatter): string {
-    // let text = `${node.identifier} = ${node.valueNode?.visit(this, {..._formatter, nestingLevel : _formatter.nestingLevel})}`;
-    let text = `self.${node.identifier} = ${node.identifier}`;
+  visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, formatter: Formatter): string {
+    let text = '';
+    if (node.visibility === ast.Visibility.Public) {
+      text += `public `;
+    } else if (node.visibility === ast.Visibility.Private) {
+      text += `private `;
+    }
+    text += `${node.variableType} ${node.identifier}`;
+    if (node.valueNode) {
+      text += ` ${LEFT_ARROW} ${node.valueNode.visit(this, formatter)}`;
+    }
     return text;
   }
 
   visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {
-    let text = `def ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')}):\n`;
+    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
     return text;
   }
 
   visitInstantiation(node: ast.Instantiation, _formatter: Formatter): string {
-    return `${node.identifier}()`;
+    return `new ${node.identifier}`;
   }
 
   visitMethodCall(node: ast.MethodCall, formatter: Formatter): string {
