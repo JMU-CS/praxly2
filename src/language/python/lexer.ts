@@ -103,6 +103,12 @@ class PythonLexer extends Lexer {
         this.advance();
         this.emitToken(TokenType.Hyphen);
       }
+    } else if (this.accept('_')) {
+      if (this.accept('_')) {
+        this.emitToken(TokenType.UnderscoreUnderscore);
+      } else {
+        this.emitToken(TokenType.Underscore);
+      }
     } else if (this.has('#')) {
          // Skip over leading whitespace.
         while (this.accept(' ')) {}

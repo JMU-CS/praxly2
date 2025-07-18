@@ -128,34 +128,74 @@ class PythonParser extends Parser {
     const instanceVariableDeclarations: ast.InstanceVariableDeclaration[] = [];
     const methodDefinitions: ast.MethodDefinition[] = [];
 
+    let constructor_found = false;
+
     if (this.has(TokenType.Indent)) {
-      this.advance(); // eat indent
+      let indent = this.advance(); // eat indent
 
       while (!this.has(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
         let firstWhere = null;
 
-        // check if instance variable
-        // if (!this.has(TokenType.Identifier)) {
-        //   throw new ParseError("A name is missing for this variable.", lastWhere);}
-        if (this.has(TokenType.Identifier)) {
-          const memberIdentifierToken = this.advance() as TextToken;
-          firstWhere = firstWhere ?? memberIdentifierToken.where;
+        // constructor __init__()
+        if (this.has(TokenType.Function) && this.hasAhead(TokenType.UnderscoreUnderscore, 1)) {
+          constructor_found = true;
+          const constructor = this.advance(); // eat def
+          firstWhere = constructor.where;
 
-          // The original Praxis document says nothing about how instance
-          // variables are initialized. On the outside through public access?
-          // On the inside through a constructor? On the inside through direct
-          // assignment in the declaration? For the time being, let's allow
-          // direct assignment, since that's simplest and doesn't depend on
-          // visibility.
-
-          let rightNode = null;
-          if (this.has(TokenType.Equal)) {
-            this.advance(); // eat =
-            rightNode = this.expression();
+          const frontUnderscore = this.advance() as TextToken; // eat __
+          if (!this.has(TokenType.Identifier)) {
+            throw new ParseError(`Constructor is missing required name: "init between __."`, frontUnderscore.where);
           }
 
-          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, new AnyType, null, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
-          instanceVariableDeclarations.push(declaration);
+          const init = this.advance() as TextToken; // eat constructor identifier
+          if (init.text != "init") {
+            throw new ParseError(`It looks like you defined a method named __${init.text}__, but Python expects the constructor method to be named __init__.`, init.where);
+          }
+
+          if (!this.has(TokenType.UnderscoreUnderscore)) {
+            throw new ParseError(`Constructor definition is missing ending __.`, init.where);
+          }
+          const endUnderscore = this.advance() as TextToken;
+
+          if (!this.has(TokenType.LeftParenthesis)) {
+            throw new ParseError("Constructor is missing required opening parenthesis.", endUnderscore.where);
+          }
+          const leftParenthesis = this.advance(); // eat (
+
+          if (!this.has(TokenType.Identifier)) {
+            throw new ParseError(`Constructor is missing required "self" parameter as the first parameter`, leftParenthesis.where);
+          }
+          const selfParam = this.advance() as TextToken;
+          if (selfParam.text != "self") {
+            throw new ParseError("Constructor is missing required self parameter as the first parameter.", selfParam.where);
+          }
+
+          // collect the parameters
+          const constructorFormals: ast.Formal[] = [];
+          while (this.has(TokenType.Comma)) {
+            const comma = this.advance(); // eat ,
+            if (!this.has(TokenType.Identifier)) {
+              throw new ParseError(`A parameter must have a name.`, comma.where);
+            }
+            const identifierToken = this.advance() as TextToken;
+            constructorFormals.push(new ast.Formal(identifierToken.text, new AnyType));
+            lastWhere = identifierToken.where;
+          }
+
+          if (!this.has(TokenType.RightParenthesis)) {
+            throw new ParseError(`Constructor is missing closing parenthesis.`, lastWhere);
+          }
+          const rightParenthesis = this.advance(); // eat )
+
+          if (!this.has(TokenType.Colon)) {
+            throw new ParseError(`Constructor is missing required :`, rightParenthesis.where);
+          }
+          const colon = this.advance(); // eat :
+
+          const block = this.block(true, 'constructor', Where.enclose(firstWhere, colon.where));
+
+          methodDefinitions.push(new ast.MethodDefinition(frontUnderscore.text + init.text + endUnderscore.text, constructorFormals, new AnyType, block, null, Where.enclose(firstWhere, block.where)));
+          lastWhere = block.where;
         }
 
         // check if function

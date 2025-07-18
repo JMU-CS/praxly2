@@ -412,12 +412,10 @@ export class Generator extends Visitor<Formatter, string> {
     // }
     text += "\n";
 
-    text += `${formatter.indentation}def __init__(self,`;
-    text += node.instanceVariableDeclarations.map(declaration => ` ${declaration.identifier}`).join(',') + "):\n";
-    text += node.instanceVariableDeclarations.map(declaration => `${formatter.indentation.repeat(formatter.nestingLevel + 2)}${declaration.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('');
-
-    if (node.instanceVariableDeclarations.length > 0 && node.methodDefinitions.length > 0) {
-      text += "\n";
+    // Usually the first method defined is the constructor
+    if (node.methodDefinitions[0].identifier === node.identifier) {
+      text += `${formatter.indentation}def __init__(self,`;
+      text += node.methodDefinitions.map(definition => ` ${definition.formals.map(formal => `${formal.identifier}`)}`).join(',') + "):\n";
     }
 
     text += node.methodDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('\n');

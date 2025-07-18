@@ -69,6 +69,8 @@ export enum TokenType {
   Tilde,
   True,
   Unindent,
+  Underscore,
+  UnderscoreUnderscore,
   Until,
   While,
   Xor,
