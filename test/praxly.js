@@ -4,20 +4,7 @@ import {Fruit, Type} from '../build/language/type.js';
 import {GlobalRuntime, Evaluator} from '../build/language/evaluator.js';
 import * as error from '../build/language/error.js';
 import {Memdia} from '../build/language/memdia.js';
-
-function makeLogger() {
-  const logger = {
-    stdout: '',
-    log: text => {
-      logger.stdout += text;
-    },
-  };
-  return logger;
-}
-
-function getInput() {
-  return new Promise(resolve => resolve(''));
-}
+import {makeLogger, getInput} from './utilities.js';
 
 // Functions passed to describe can't be async. Only functions passed to it can
 // be asynchronous.
@@ -26,137 +13,110 @@ describe('Praxis: Expression Generation and Evaluation', () => {
   const samples = [
     {
       source: '5 + 1',
-      serialization: "5 + 1",
       evaluation: new Fruit(Type.Integer, 6),
     },
     {
       source: '5 - 4 - 3',
-      serialization: '5 - 4 - 3',
       evaluation: new Fruit(Type.Integer, -2),
     },
     {
       source: 'true and false',
-      serialization: 'true and false',
       evaluation: new Fruit(Type.Boolean, false),
     },
     {
       source: 'false or true',
-      serialization: 'false or true',
       evaluation: new Fruit(Type.Boolean, true),
     },
     {
       source: 'not true',
-      serialization: 'not true',
       evaluation: new Fruit(Type.Boolean, false),
     },
     {
       source: 'not not true',
-      serialization: 'not not true',
       evaluation: new Fruit(Type.Boolean, true),
     },
     {
       source: '6 < 7',
-      serialization: '6 < 7',
       evaluation: new Fruit(Type.Boolean, true),
     },
     {
       source: '"blink" == "blank"',
-      serialization: '"blink" == "blank"',
       evaluation: new Fruit(Type.Boolean, false),
     },
     {
       source: '"blink" != "blank"',
-      serialization: '"blink" ≠ "blank"',
       evaluation: new Fruit(Type.Boolean, true),
     },
     {
       source: 'not false and true',
-      serialization: 'not false and true',
       evaluation: new Fruit(Type.Boolean, true),
     },
     {
       source: 'not false and false',
-      serialization: 'not false and false',
       evaluation: new Fruit(Type.Boolean, false),
     },
     {
       source: '7 / 3',
-      serialization: '7 / 3',
       evaluation: new Fruit(Type.Integer, 2),
     },
     {
       source: '7.0 / 4',
-      serialization: '7.0 / 4',
       evaluation: new Fruit(Type.Float, 1.75),
     },
     {
       source: '10.5 / 0.5',
-      serialization: '10.5 / 0.5',
       evaluation: new Fruit(Type.Float, 21.0),
     },
     {
       source: '5 + 2 * 3.0',
-      serialization: '5 + 2 * 3.0',
       evaluation: new Fruit(Type.Float, 11.0),
     },
     {
       source: '5 + 2 * 3.0',
-      serialization: '5 + 2 * 3.0',
       evaluation: new Fruit(Type.Float, 11.0),
     },
     {
       source: '-2 % 5',
-      serialization: '-2 % 5',
       evaluation: new Fruit(Type.Integer, 3),
     },
     {
       source: 'sqrt(0.25)',
-      serialization: 'sqrt(0.25)',
       evaluation: new Fruit(Type.Float, 0.5),
     },
     {
       source: 'max(5, 689)',
-      serialization: 'max(5, 689)',
       evaluation: new Fruit(Type.Integer, 689),
     },
     {
       source: 'min(5, 689)',
-      serialization: 'min(5, 689)',
       evaluation: new Fruit(Type.Integer, 5),
     },
     {
       source: 'abs(6)',
-      serialization: 'abs(6)',
       evaluation: new Fruit(Type.Integer, 6),
     },
     {
       source: 'abs(-6)',
-      serialization: 'abs(-6)',
       evaluation: new Fruit(Type.Integer, 6),
     },
     {
       source: 'abs(0)',
-      serialization: 'abs(0)',
       evaluation: new Fruit(Type.Integer, 0),
     },
     {
       source: 'log(1.0)',
-      serialization: 'log(1.0)',
       evaluation: new Fruit(Type.Float, 0),
     },
     {
       source: 'log(1)',
-      serialization: 'log(1)',
       evaluation: new Fruit(Type.Float, 0),
     },
     {
       source: 'log(1)',
-      serialization: 'log(1)',
       evaluation: new Fruit(Type.Float, 0),
     },
     {
       source: 'log(10)',
-      serialization: 'log(10)',
       evaluation: new Fruit(Type.Float, 2.302585092994046),
     },
   ];
@@ -165,12 +125,6 @@ describe('Praxis: Expression Generation and Evaluation', () => {
     describe(sample.source, () => {
       const tokens = praxis.lex(sample.source);
       const ast = praxis.parseExpression(tokens, sample.source);
-
-      const generatedSource = ast.visit(new praxis.Generator(), {
-        nestingLevel: 0,
-        indentation: '  ',
-      });
-      it(`should serialize to ${sample.serialization}`, () => assert.equal(generatedSource, sample.serialization));
 
       it(`should evaluate to ${sample.evaluation}`, async () => {
         const logger = makeLogger();
@@ -187,13 +141,11 @@ describe('Praxis: Program Generation and Output', () => {
     {
       message: 'print sum',
       source: 'print 5 + 1',
-      serialization: "print 5 + 1\n",
       output: "6\n",
     },
     {
       message: 'print compound expression',
       source: 'print (7 * (3 + 1))',
-      serialization: "print (7 * (3 + 1))\n",
       output: "28\n",
     },
     {
@@ -352,19 +304,26 @@ end if
 accompany
 `,
     },
+    {
+      message: 'shadowing',
+      source: `int x \u2b60 5
+for (int x \u2b60 0; x < 3; x \u2b60 x + 1)
+  print x
+end for
+print x
+`,
+      output: `0
+1
+2
+5
+`,
+    },
   ];
 
   for (let sample of samples) {
     describe(`// ${sample.message}\n${sample.source}`, () => {
       const tokens = praxis.lex(sample.source);
       const ast = praxis.parse(tokens, sample.source);
-
-      const generatedSource = ast.visit(new praxis.Generator(), {
-        nestingLevel: 0,
-        indentation: '  ',
-      });
-      const expectedSerialization = sample.serialization ?? sample.source;
-      it(`should serialize to\n${expectedSerialization}`, () => assert.equal(generatedSource, expectedSerialization));
 
       it(`should output\n${sample.output}`, async () => {
         const logger = makeLogger();

@@ -166,12 +166,11 @@ function initialize() {
       let tokens;
       let ast;
       let outputFormatter;
-      let generator;
+      let translator;
 
       if (srcLang.value === "Praxis") {
         tokens = praxis.lex(source);
         ast = praxis.parse(tokens, source);
-        generator = new praxis.Generator();
         outputFormatter = new praxis.OutputFormatter();
       } else {
         tokens = python.lex(source);
@@ -180,9 +179,9 @@ function initialize() {
       }
 
       if (dstLang.value === "Praxis") {
-        generator = new praxis.Generator();
+        translator = new praxis.Translator();
       } else {
-        generator = new python.Generator();
+        translator = new python.Translator();
       }
 
       // Update tree-panel
@@ -212,7 +211,7 @@ function initialize() {
       }
 
       // Update source-panel
-      const generatedSource = ast.visit(generator, {
+      const generatedSource = ast.visit(translator, {
         nestingLevel: 0,
         indentation: '  ',
       });

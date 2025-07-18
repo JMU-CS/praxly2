@@ -90,7 +90,7 @@ apex {
   GreaterThan { ">" }
   GreaterThanOrEqual { ">=" | "≥" }
   Plus { "+" }
-  Equal { "=" | "←" | "⭠" }
+  Equal { "=" | "<-" | "←" | "⭠" }
   Asterisk { "*" }
   Percent { "%" }
   ForwardSlash { "/" }

@@ -11,7 +11,7 @@ type Formatter = {
   indentation: string,
 };
 
-export class Generator extends Visitor<Formatter, string> {
+export class Translator extends Visitor<Formatter, string> {
 
   // --------------------------------------------------------------------------
   // Primitives
