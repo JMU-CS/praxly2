@@ -393,7 +393,12 @@ export class Translator extends Visitor<Formatter, string> {
     let operandPrecedence = precedence.get(node.receiverNode.constructor);
     let nodePrecedence = precedence.get(node.constructor);
 
-    let text = node.receiverNode.visit(this, formatter);
+    let text = ''
+    if (node.receiverNode.visit(this, formatter) === "this") {
+      text = "self";
+    } else {
+      text = node.receiverNode.visit(this, formatter);
+    }
     if (operandPrecedence < nodePrecedence) {
       text = `(${text})`;
     }
