@@ -228,7 +228,7 @@ class PraxisParser extends Parser {
         latestToken = identifierToken;
         formals.push(new ast.Formal(identifierToken.text, type));
       }
-    } 
+    }
 
     if (!this.has(TokenType.RightParenthesis)) {
       throw new ParseError(`A ${context}'s parameter must be enclosed in parentheses.`, Where.enclose(firstWhere, latestToken.where));
@@ -331,7 +331,7 @@ class PraxisParser extends Parser {
     } else if (!this.has(TokenType.EndOfSource)) {
       throw new ParseError(`A statement has stray text: \`${this.tokens[this.i].where.text(this.source)}\`.`, this.tokens[this.i].where);
     }
-  } 
+  }
 
   statement(inFunctionDefinition: boolean): ast.Statement {
     let statement;
@@ -423,10 +423,10 @@ class PraxisParser extends Parser {
     const leftToken = this.advance(); // eat {
 
     if (this.hasOtherwise(TokenType.RightCurly)) {
-      elementNodes.push(this.expression());  
+      elementNodes.push(this.expression());
       while (this.has(TokenType.Comma)) {
         this.advance(); // eat ,
-        elementNodes.push(this.expression());  
+        elementNodes.push(this.expression());
       }
     }
 
@@ -708,7 +708,7 @@ class PraxisParser extends Parser {
     while (this.has(TokenType.Pipe)) {
       const operatorToken = this.advance();
       const rightNode = this.xor();
-      leftNode = new ast.Xor(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
+      leftNode = new ast.BitwiseOr(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
     }
     return leftNode;
   }
