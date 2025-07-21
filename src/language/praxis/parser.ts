@@ -13,6 +13,47 @@ enum BlockMode {
 };
 
 class PraxisParser extends Parser {
+  tokenTypeToNode: Map<TokenType, new (leftNode: ast.Node, rightNode: ast.Node, where: Where) => ast.Expression>;
+
+  constructor(tokens: Token[], source: string) {
+    super(tokens, source);
+    this.tokenTypeToNode = new Map([
+      [TokenType.Plus, ast.Add],
+      [TokenType.Hyphen, ast.Subtract],
+      [TokenType.Asterisk, ast.Multiply],
+      [TokenType.ForwardSlash, ast.Divide],
+      [TokenType.Percent, ast.Remainder],
+      [TokenType.DoubleAsterisk, ast.Power],
+      [TokenType.DoubleLessThan, ast.LeftShift],
+      [TokenType.DoubleGreaterThan, ast.RightShift],
+      [TokenType.LessThan, ast.LessThan],
+      [TokenType.GreaterThan, ast.GreaterThan],
+      [TokenType.LessThanOrEqual, ast.LessThanOrEqual],
+      [TokenType.GreaterThanOrEqual, ast.GreaterThanOrEqual],
+      [TokenType.DoubleEqual, ast.Equal],
+      [TokenType.NotEqual, ast.NotEqual],
+      [TokenType.Circumflex, ast.Xor],
+      [TokenType.Ampersand, ast.BitwiseAnd],
+      [TokenType.Pipe, ast.BitwiseOr],
+      [TokenType.And, ast.LogicalAnd],
+      [TokenType.Or, ast.LogicalOr],
+    ]);
+  }
+
+  select(tokens: TokenType[]): TokenType | null {
+    if (this.i < this.tokens.length) {
+      const token = this.tokens[this.i];
+      if (tokens.includes(token.type)) {
+        this.advance();
+        return token.type;
+      } else {
+        return null;
+      }
+    } else {
+      return null;
+    }
+  }
+
   hasTwoIdentifiers() {
     return this.has(TokenType.Identifier) && this.hasAhead(TokenType.Identifier, 1);
   }
@@ -228,7 +269,7 @@ class PraxisParser extends Parser {
         latestToken = identifierToken;
         formals.push(new ast.Formal(identifierToken.text, type));
       }
-    } 
+    }
 
     if (!this.has(TokenType.RightParenthesis)) {
       throw new ParseError(`A ${context}'s parameter must be enclosed in parentheses.`, Where.enclose(firstWhere, latestToken.where));
@@ -331,7 +372,7 @@ class PraxisParser extends Parser {
     } else if (!this.has(TokenType.EndOfSource)) {
       throw new ParseError(`A statement has stray text: \`${this.tokens[this.i].where.text(this.source)}\`.`, this.tokens[this.i].where);
     }
-  } 
+  }
 
   statement(inFunctionDefinition: boolean): ast.Statement {
     let statement;
@@ -423,10 +464,10 @@ class PraxisParser extends Parser {
     const leftToken = this.advance(); // eat {
 
     if (this.hasOtherwise(TokenType.RightCurly)) {
-      elementNodes.push(this.expression());  
+      elementNodes.push(this.expression());
       while (this.has(TokenType.Comma)) {
         this.advance(); // eat ,
-        elementNodes.push(this.expression());  
+        elementNodes.push(this.expression());
       }
     }
 
@@ -683,140 +724,61 @@ class PraxisParser extends Parser {
     return this.logicalOr();
   }
 
-  logicalOr(): ast.Expression {
-    let leftNode = this.logicalAnd();
-    while (this.has(TokenType.Or)) {
-      const operatorToken = this.advance();
-      const rightNode = this.logicalAnd();
-      leftNode = new ast.LogicalOr(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
+  binaryOperator(tokens: TokenType[], higher: () => ast.Expression) {
+    let left = higher.call(this);
+    let tokenType = this.select(tokens);
+    // Since the type can be 0, we must explicitly compare to null.
+    while (tokenType !== null) {
+      const right = higher.call(this);
+      const ctor = this.tokenTypeToNode.get(tokenType)!;
+      left = new ctor(left, right, Where.enclose(left.where, right.where));
+      tokenType = this.select(tokens);
     }
-    return leftNode;
+    return left;
+  }
+
+  logicalOr(): ast.Expression {
+    return this.binaryOperator([TokenType.Or], this.logicalAnd);
   }
 
   logicalAnd(): ast.Expression {
-    let leftNode = this.bitwiseOr();
-    while (this.has(TokenType.And)) {
-      const operatorToken = this.advance();
-      const rightNode = this.bitwiseOr();
-      leftNode = new ast.LogicalAnd(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.And], this.bitwiseOr);
   }
 
   bitwiseOr(): ast.Expression {
-    let leftNode = this.xor();
-    while (this.has(TokenType.Pipe)) {
-      const operatorToken = this.advance();
-      const rightNode = this.xor();
-      leftNode = new ast.Xor(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.Pipe], this.xor);
   }
 
   xor(): ast.Expression {
-    let leftNode = this.bitwiseAnd();
-    while (this.has(TokenType.Circumflex)) {
-      const operatorToken = this.advance();
-      const rightNode = this.bitwiseAnd();
-      leftNode = new ast.Xor(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.Circumflex], this.bitwiseAnd);
   }
 
   bitwiseAnd(): ast.Expression {
-    let leftNode = this.equality();
-    while (this.has(TokenType.Ampersand)) {
-      const operatorToken = this.advance();
-      const rightNode = this.equality();
-      leftNode = new ast.BitwiseAnd(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.Ampersand], this.equality);
   }
 
   equality(): ast.Expression {
-    let leftNode = this.relational();
-    while (this.has(TokenType.DoubleEqual) || this.has(TokenType.NotEqual)) {
-      const operatorToken = this.advance();
-      const rightNode = this.relational();
-      if (operatorToken.type === TokenType.DoubleEqual) {
-        leftNode = new ast.Equal(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.NotEqual(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.DoubleEqual, TokenType.NotEqual], this.relational);
   }
 
   relational(): ast.Expression {
-    let leftNode = this.shift();
-    while (this.has(TokenType.LessThan) || this.has(TokenType.GreaterThan) || this.has(TokenType.LessThanOrEqual) || this.has(TokenType.GreaterThanOrEqual)) {
-      const operatorToken = this.advance();
-      const rightNode = this.shift();
-      if (operatorToken.type === TokenType.LessThan) {
-        leftNode = new ast.LessThan(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else if (operatorToken.type === TokenType.GreaterThan) {
-        leftNode = new ast.GreaterThan(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else if (operatorToken.type === TokenType.LessThanOrEqual) {
-        leftNode = new ast.LessThanOrEqual(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.GreaterThanOrEqual(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.LessThan, TokenType.GreaterThan, TokenType.LessThanOrEqual, TokenType.GreaterThanOrEqual], this.shift);
   }
 
   shift(): ast.Expression {
-    let leftNode = this.additive();
-    while (this.has(TokenType.DoubleLessThan) || this.has(TokenType.DoubleGreaterThan)) {
-      const operatorToken = this.advance();
-      const rightNode = this.additive();
-      if (operatorToken.type === TokenType.DoubleLessThan) {
-        leftNode = new ast.LeftShift(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.RightShift(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.DoubleLessThan, TokenType.DoubleGreaterThan], this.additive);
   }
 
   additive(): ast.Expression {
-    let leftNode = this.multiplicative();
-    while (this.has(TokenType.Plus) || this.has(TokenType.Hyphen)) {
-      const operatorToken = this.advance();
-      const rightNode = this.multiplicative();
-      if (operatorToken.type === TokenType.Plus) {
-        leftNode = new ast.Add(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.Subtract(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.Plus, TokenType.Hyphen], this.multiplicative);
   }
 
   multiplicative(): ast.Expression {
-    let leftNode = this.power();
-    while (this.has(TokenType.Asterisk) || this.has(TokenType.ForwardSlash) || this.has(TokenType.Percent)) {
-      const operatorToken = this.advance();
-      const rightNode = this.power();
-      if (operatorToken.type === TokenType.Asterisk) {
-        leftNode = new ast.Multiply(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else if (operatorToken.type === TokenType.ForwardSlash) {
-        leftNode = new ast.Divide(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.Remainder(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.Asterisk, TokenType.ForwardSlash, TokenType.Percent], this.power);
   }
 
   power(): ast.Expression {
-    let leftNode = this.prefixUnary();
-    if (this.has(TokenType.DoubleAsterisk)) {
-      const operatorToken = this.advance();
-      const rightNode = this.prefixUnary();
-      leftNode = new ast.Power(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
+    return this.binaryOperator([TokenType.DoubleAsterisk], this.prefixUnary);
   }
 
   prefixUnary(): ast.Expression {

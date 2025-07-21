@@ -27,6 +27,8 @@ export class OutputFormatter extends DefaultOutputFormatter {
         Type.String.covers(fruit.type) ||
         fruit.type instanceof ObjectType) {
       return fruit.value.toString();
+    } else if (Type.Boolean.covers(fruit.type)) {
+      return this.boolean(fruit);
     } else {
       return null;
     }
