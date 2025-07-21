@@ -141,32 +141,4 @@ export abstract class Lexer {
 
   abstract initialize(): void;
   abstract lexToken(): void;
-
-  static keywords: {[index: string]: TokenType} = {
-    and: TokenType.And,
-    class: TokenType.Class,
-    do: TokenType.Do,
-    else: TokenType.Else,
-    end: TokenType.End,
-    extends: TokenType.Extends,
-    false: TokenType.False,
-    for: TokenType.For,
-    if: TokenType.If,
-    new: TokenType.New,
-    not: TokenType.Not,
-    null: TokenType.Null,
-    or: TokenType.Or,
-    print: TokenType.Print,
-    private: TokenType.Private,
-    public: TokenType.Public,
-    repeat: TokenType.Repeat,
-    return: TokenType.Return,
-    true: TokenType.True,
-    until: TokenType.Until,
-    while: TokenType.While,
-
-    // python specific
-    def: TokenType.Function,
-
-  };
 }
