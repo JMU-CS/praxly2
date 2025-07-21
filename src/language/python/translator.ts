@@ -259,8 +259,8 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitBlock(node: ast.Block, formatter: Formatter): string {
     return node.statements.map(statement => {
-      return `${formatter.indentation.repeat(formatter.nestingLevel)}${statement.visit(this, formatter)}\n`;
-    }).join('');
+      return `${formatter.indentation.repeat(formatter.nestingLevel)}${statement.visit(this, formatter)}`;
+    }).join('\n');
   }
 
   visitPrint(node: ast.Print, formatter: Formatter): string {
@@ -269,13 +269,13 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitIf(node: ast.If, formatter: Formatter): string {
     let text = `if ${node.conditionNodes[0].visit(this, formatter)}:\n`;
-    text += node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1}) + '\n';
     for (let i = 1; i < node.conditionNodes.length; ++i) {
-      text += `elif (${node.conditionNodes[i].visit(this, formatter)}):\n`;
+      text += `elif ${node.conditionNodes[i].visit(this, formatter)}:\n`;
       text += node.thenBlocks[i].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     }
     if (node.elseBlock) {
-      text += `${formatter.indentation.repeat(formatter.nestingLevel)}else:\n`;
+      text += `\n${formatter.indentation.repeat(formatter.nestingLevel)}else:\n`;
       text += node.elseBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     }
     return text;
@@ -402,7 +402,18 @@ export class Translator extends Visitor<Formatter, string> {
     if (operandPrecedence < nodePrecedence) {
       text = `(${text})`;
     }
-    text += `.${node.identifier}`;
+
+    // will update and move
+    let builtins = ["length"];
+
+    if (builtins.includes(node.identifier)) {
+      if (node.identifier == "length") {
+        text = `len(${node.receiverNode.visit(this, formatter)})`
+      }
+    } else {
+        text += `.${node.identifier}`;
+
+    }
     return text;
   }
 

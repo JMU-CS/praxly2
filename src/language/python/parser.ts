@@ -360,16 +360,6 @@ class PythonParser extends Parser {
       statement = this.otherStatement();
     }
 
-    // else if (this.has(TokenType.Identifier) && this.hasAhead(TokenType.Equal, 1)) {
-    //   // variable will be assigned an array literal
-    //   if (this.hasAhead(TokenType.LeftBracket, 2)) {
-    //     statement = this.arrayDeclaration();
-    //   } else {
-    //     // variable will be assigned to a literal
-    //     statement = this.declaration();
-    //   }
-    // }
-
     // Skip past any trailing comment.
     if (this.has(TokenType.LineComment)) {
       this.advance();
@@ -392,28 +382,6 @@ class PythonParser extends Parser {
            this.hasAhead(TokenType.DotDot, 3) &&
            this.hasAhead(TokenType.Integer, 4) &&
            this.hasAhead(TokenType.RightBracket, 5);
-  }
-
-  arrayDeclaration(): ast.ArrayDeclaration {
-    const type = new AnyType; // types are not necessary
-
-    if (!this.has(TokenType.Identifier)) {
-      throw new ParseError("This array declaration is missing a variable name.", type.where);
-    }
-    const identifierToken = this.advance() as TextToken;
-
-    if (!this.has(TokenType.Equal)) {
-      throw new ParseError("This array declaration is missing an assignment.", Where.enclose(identifierToken.where, identifierToken.where));
-    }
-    const equalToken = this.advance(); // eat =
-
-    if (!this.has(TokenType.LeftBracket)) {
-      throw new ParseError("This array declaration is missing an array literal enclosed in [].", Where.enclose(identifierToken.where, equalToken.where));
-    }
-
-    const rightNode = this.expression();
-
-    return new ast.ArrayDeclaration(identifierToken.text, type as ArrayType, rightNode, Where.enclose(type.where, rightNode.where));
   }
 
   arrayLiteral(): ast.ArrayLiteral {
@@ -450,28 +418,6 @@ class PythonParser extends Parser {
     } else {
       return new ast.Return(null, returnToken.where);
     }
-  }
-
-  initializedDeclaration() {
-    const type = this.type();
-    const identifierToken = this.advance() as TextToken;
-    this.advance(); // eat =
-    const rightNode = this.expression();
-    return new ast.Declaration(identifierToken.text, type, rightNode, Where.enclose(type.where, rightNode.where));
-  }
-
-  uninitializedDeclaration() {
-    const type = this.type();
-    const identifierToken = this.advance() as TextToken;
-    return new ast.Declaration(identifierToken.text, type, null, Where.enclose(type.where, identifierToken.where));
-  }
-
-  declaration() {
-    let type = new AnyType; // type can be anything, Where(rightNode.where, rightNode.where)
-    const identifierToken = this.advance() as TextToken;
-    this.advance(); // eat =
-    const rightNode = this.expression();
-    return new ast.Declaration(identifierToken.text, type, rightNode, Where.enclose(identifierToken.where, rightNode.where));
   }
 
   ifStatement(inFunctionDefinition: boolean): ast.Statement {
@@ -530,60 +476,6 @@ class PythonParser extends Parser {
     let lastWhere = block.where;
 
     return new ast.While(conditionNode, block, Where.enclose(whileToken.where, lastWhere));
-  }
-
-  forStatement(inFunctionDefinition: boolean): ast.Statement {
-    const forToken = this.advance(); // eat for
-    let lastWhere = forToken.where;
-
-    if (!this.has(TokenType.LeftParenthesis)) {
-      throw new ParseError('The for loop is missing a left parenthesis in its header.', forToken.where);
-    }
-    this.advance(); // eat (
-
-    let initializationNode = null;
-    if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.Equal, 2)) {
-      initializationNode = this.initializedDeclaration();
-      lastWhere = initializationNode.where;
-    } else if (this.hasOtherwise(TokenType.Semicolon)) {
-      initializationNode = this.otherStatement();
-      lastWhere = initializationNode.where;
-    }
-
-    if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("The for loop is missing a semicolon between its initialization and condition.", lastWhere);
-    }
-    this.advance(); // eat ;
-
-    const conditionNode = this.expression();
-
-    if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("The for loop is missing a semicolon between its condition and increment.", conditionNode.where);
-    }
-    const semicolonTokenB = this.advance(); // eat ;
-
-    const increments = [];
-    if (this.hasOtherwise(TokenType.RightParenthesis)) {
-      increments.push(this.otherStatement());
-      while (this.has(TokenType.Comma)) {
-        this.advance(); // eat ,
-        increments.push(this.otherStatement());
-      }
-    }
-
-    const incrementBlockWhere = increments.length === 0 ? semicolonTokenB.where : Where.enclose(increments[0].where, increments[increments.length - 1].where);
-    const incrementBlock = new ast.Block(increments, incrementBlockWhere);
-    lastWhere = incrementBlockWhere;
-
-    if (!this.has(TokenType.RightParenthesis)) {
-      throw new ParseError("The for loop is missing a right parenthesis in its header.", Where.enclose(forToken.where, lastWhere));
-    }
-    const rightToken = this.advance(); // eat )
-
-    const block = this.block(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where));
-    lastWhere = block.where;
-
-    return new ast.For(initializationNode, conditionNode, incrementBlock, block, Where.enclose(forToken.where, lastWhere));
   }
 
   printStatement(): ast.Print {
