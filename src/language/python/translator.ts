@@ -239,7 +239,7 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitAssignment(node: ast.Assignment, formatter: Formatter): string {
-    return this.maybeSemicolon(node, `${node.leftNode.visit(this, formatter)} = ${node.rightNode.visit(this, formatter)}`);
+    return this.maybeSemicolon(node, `${node.leftNode.visit(this, formatter)} = ${node.rightNode.visit(this, formatter)}\n`);
   }
 
   visitDeclaration(node: ast.Declaration, formatter: Formatter): string {
@@ -248,8 +248,9 @@ export class Translator extends Visitor<Formatter, string> {
       text += ` = ${node.rightNode.visit(this, formatter)}`;
     }
     else {
-      text += ` = None`;
+      text += ` = None\n`;
     }
+
     return text;
   }
 
@@ -309,11 +310,12 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitFor(node: ast.For, formatter: Formatter): string {
-    let text = `${node.initializationNode?.visit(this, formatter) ?? ''}\n`;
-    text += `while ${node.conditionNode.visit(this, formatter)}:\n`;
-    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += node.incrementBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    return text;
+    let text: string[] = [];
+    text.push(`${node.initializationNode?.visit(this, formatter) ?? ''}`);
+    text.push(`while ${node.conditionNode.visit(this, formatter)}:`);
+    text.push(node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1}));
+    text.push(node.incrementBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1}).trimEnd());
+    return text.join('\n');
   }
 
   visitForEach(_node: ast.ForEach, _formatter: Formatter): string {
