@@ -9,17 +9,32 @@ const NS = "http://www.w3.org/2000/svg";
 export class Memdia {
   protected runtime: GlobalRuntime;
 
+  /**
+   * Constructs a new memory visualizer.
+   * @param runtime The GlobalRuntime object holding program memory state.
+   */
   constructor(runtime: GlobalRuntime) {
     this.runtime = runtime;
   }
 
-  // Declares a new variable with a given type, and updates the diagram
+  /**
+   * Declares a new variable in the current memory context (overridden by subclasses).
+   */
   declaration(_identifier: string, _variableType: Type): void { }
 
-  // Assigns a value to an existing variable, and updates the diagram
+  /**
+   * Assigns a value to an existing variable in the current memory context (overridden by subclasses).
+   */
   assignment(_identifier: string, _rightFruit: Fruit): void { }
 
-  functionCall(_name: string): void { }
+  /**
+   * Visualizes a function call (overridden by subclasses).
+   */
+  functionCall(_scopeName: string): void { }
+
+  /**
+   * Visualizes returning from a function (overridden by subclasses).
+   */
   functionReturn(): void { }
 }
 
@@ -29,30 +44,42 @@ export class Memdia {
 export class MemdiaSvg extends Memdia {
   protected svg: SVGSVGElement;
 
+  /**
+   * Constructs a new MemdiaSvg instance and initializes the SVG panel.
+   * @param runtime The runtime environment storing memory state.
+   */
   constructor(runtime: GlobalRuntime) {
     super(runtime);
 
-    // create the top-level svg element
+    // create the top-level SVG element
     this.svg = document.createElementNS(NS, 'svg');
     this.svg.setAttribute('width', '100%');
     this.svg.setAttribute('height', '100%');
     this.svg.setAttribute('viewBox', '0 0 300 300');
     this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-    // add the svg to the memdia div
+    // Clear and attach the SVG to the memdia container in the DOM.
     let panel = document.getElementById('memdia-panel') as HTMLElement;
     panel.innerHTML = "";
     panel.appendChild(this.svg);
   }
 
-  // Declares a variable inside the current (most recent) function box
+  /**
+   * Renders a declaration for a new variable inside the most recent function box.
+   * @param identifier The variable name
+   * @param variableType The declared type of the variable
+   */
   override declaration(identifier: string, variableType: Type): void {
     const funcBox = this.getCurrentFunction();
-    const varBox = this.renderPrimitiveVariableBox(identifier, variableType, null);
+    const varBox = this.renderPrimitiveVariableBox(identifier, identifier, variableType, null);
     funcBox.appendChild(varBox);
   }
 
-  // Assigns a value to a variable inside the current function box
+  /**
+   * Renders an assignment of a value to an existing variable.
+   * @param identifier The variable name
+   * @param rightFruit The value being assigned
+   */
   override assignment(identifier: string, rightFruit: Fruit): void {
     const funcBox = this.getCurrentFunction();
     const vars = funcBox.querySelectorAll('.memdia-variable');
@@ -66,87 +93,65 @@ export class MemdiaSvg extends Memdia {
         return;
       }
     }
-    //console.warn(`[memdia] Variable '${name}' not found in current function box.`);
   }
 
-  // Creates and displays a new function box with the given name
-  override functionCall(name: string): void {
+  getVariableYPosition(index: number): number {
+    return 60 + index * 40;
+  }
 
+  getFunctionBoxHeight(varCount: number): number {
+    return 60 + varCount * 40;
+  }
+
+  getFunctionBoxWidth(maxNameLength: number): number {
+    const charWidth = 8;
+    const minWidth = 100;
+    return Math.max(minWidth, 50 + maxNameLength * charWidth);
+  }
+
+  /**
+   * Renders a complete function scope box and its variables.
+   * Box height is adjusted based on number of variables.
+   *
+   * @param scopeName The name of the function or scope
+   * @param variables Map of variable names to their types and values
+   * @returns The SVG group element representing the full scope
+   */
+  override functionCall(
+    scopeName: string
+  ): SVGElement {
+    let variables: Map<string, { type: Type, value: Fruit | null }> = new Map();
     const group = document.createElementNS(NS, 'g');
     group.setAttribute('class', 'memdia-function');
-    this.svg.appendChild(group);
 
-    const funcName = document.createElementNS(NS, 'text');
-    funcName.setAttribute("class", "function-name");
-    funcName.textContent = name;
-    funcName.setAttribute('x', '10');
-    funcName.setAttribute('y', '20');
-    group.appendChild(funcName);
-
-    const funcBox = document.createElementNS(NS, 'rect');
-    funcBox.setAttribute("class", "function-box");
-    funcBox.setAttribute('x', '10');
-    funcBox.setAttribute('y', '30');
-    funcBox.setAttribute('width', '200');
-    funcBox.setAttribute('height', '100');
-    group.appendChild(funcBox);
-  }
-
-  // Removes the most recently added function box from the diagram
-  override functionReturn(): void {
-    const exitingBox = this.getCurrentFunction();
-    if (exitingBox != this.svg) {
-      exitingBox?.parentElement?.remove();
+    // Find max variable name length for width calculation
+    let maxNameLength = scopeName.length;
+    for (const varName of variables.keys()) {
+      if (varName.length > maxNameLength) maxNameLength = varName.length;
     }
-  }
 
-  getCurrentFunction(): SVGElement {
-    // TODO need find the "last" function rectangle
-    // if there are no functions, return this.svg
-    return this.svg;
-  }
-
-  /*
-    // Clears and redraws the entire memory diagram based on current global memory state
-    renderMemoryDiagram(): void {
-      const panel = this.getOrCreatePanel();
-
-      const centerGroup = document.createElementNS(NS, 'g');
-      centerGroup.setAttribute('transform', 'translate(50, 50)');
-
-      const scopeBox = this.renderScopeBox("main", this.memory);
-      centerGroup.appendChild(scopeBox);
-      panel.appendChild(centerGroup);
-
-      if (this.memory.size > 0 && this.callStack.length === 0) {
-        panel.innerHTML = '';
-        const box = this.renderScopeBox('main', this.memory);
-        panel.appendChild(box);
-      }
-    }
-  */
-
-  // Creates a box (function-style) for a given scope and its variables
-  renderScopeBox(
-    scopeName: string,
-    variables: Map<string, { type: Type, value: Fruit | null }>): SVGElement {
-    const group = document.createElementNS(NS, 'g');
+    // Calculate dynamic dimensions
+    const varCount = variables.size;
+    const height = this.getFunctionBoxHeight(varCount);
+    const width = this.getFunctionBoxWidth(maxNameLength);
 
     const funcName = document.createElementNS(NS, 'text');
     funcName.setAttribute('class', 'function-name');
     funcName.textContent = scopeName;
-    funcName.setAttribute('x', '75');
-    funcName.setAttribute('y', '80');
+    funcName.setAttribute('x', `${width / 2}`);
+    funcName.setAttribute('y', '40');
     group.appendChild(funcName);
 
     const funcBox = document.createElementNS(NS, 'rect');
     funcBox.setAttribute('class', 'function-box');
-    funcBox.setAttribute('x', '100');
-    funcBox.setAttribute('y', '30');
-    funcBox.setAttribute('width', '100');
-    funcBox.setAttribute('height', '100');
+    funcBox.setAttribute('x', '10');
+    funcBox.setAttribute('y', '50');
+    funcBox.setAttribute('width', `${width}`);
+    funcBox.setAttribute('height', `${height}`);
     group.appendChild(funcBox);
 
+    // Add variables dynamically positioned inside the function box
+    let index = 0;
     for (const [varName, { type, value }] of variables.entries()) {
       let varGroup: SVGElement;
       if (
@@ -154,24 +159,75 @@ export class MemdiaSvg extends Memdia {
         type instanceof ObjectType ||
         type.toString() === 'String'
       ) {
-        varGroup = this.renderReferenceBox(varName, type);
+        // varGroup = this.renderReferenceBox(scopeName, varName, type);
+        // Placeholder until renderReferenceBox is implemented
+        varGroup = document.createElementNS(NS, 'g');
       } else {
-        varGroup = this.renderPrimitiveVariableBox(varName, type, value);
+        varGroup = this.renderPrimitiveVariableBox(scopeName + '.' + varName, varName, type, value);
       }
 
+      // Position variable group vertically inside the function box
+      varGroup.setAttribute('transform', `translate(20, ${this.getVariableYPosition(index)})`);
       group.appendChild(varGroup);
+      index++;
     }
 
     return group;
   }
 
-  // Creates a reusable box layout for a variable (name, type, box)
-  // The fillBox function customizes the content inside the box
-  renderBaseVariableBox(
+  /**
+   * Removes the most recently added function call box from the diagram.
+   */
+  override functionReturn(): void {
+    const exitingBox = this.getCurrentFunction();
+    if (exitingBox != this.svg) {
+      exitingBox?.parentElement?.remove();
+    }
+  }
+
+  /**
+   * Returns the most recent function group box (<g>) or the root SVG element if none exists.
+   */
+  getCurrentFunction(): SVGElement {
+    const functions = this.svg.querySelectorAll('.memdia-function');
+    return functions.length > 0
+      ? functions[functions.length - 1] as SVGElement
+      : this.svg;
+  }
+
+  /*
+    // Clears and redraws the entire memory diagram based on current global memory state
+    renderMemoryDiagram(): void {
+      const panel = this.getOrCreatePanel();
+      panel.innerHTML = '';
+
+      const centerGroup = document.createElementNS(NS, 'g');
+      centerGroup.setAttribute('transform', 'translate(50, 50)');
+
+      const scopeBox = this.renderScopeBox("main", this.memory); // updated call if you want to test
+      centerGroup.appendChild(scopeBox);
+      panel.appendChild(centerGroup);
+    }
+  */
+
+  /**
+   * Renders a variable box with name, type, and (if primitive) its value.
+   * Suitable for primitives (int, bool, etc). Reference variables should be handled separately.
+   *
+   * @param id Unique ID for the SVG group
+   * @param name Variable name
+   * @param type Variable type
+   * @param fruit Value to display (assumes primitive)
+   * @returns SVG group representing the variable
+   */
+  renderPrimitiveVariableBox(
+    id: string,
     name: string,
     type: Type,
-    fillBox: (boxGroup: SVGGElement) => void): SVGGElement {
+    fruit: Fruit | null
+  ): SVGGElement {
     const group = document.createElementNS(NS, 'g');
+    group.setAttribute('id', id);
     group.setAttribute('class', 'memdia-variable');
 
     const nameX = 115;
@@ -203,39 +259,34 @@ export class MemdiaSvg extends Memdia {
 
     const boxGroup = document.createElementNS(NS, 'g');
     boxGroup.setAttribute('transform', `translate(${boxX}, ${boxY})`);
-    fillBox(boxGroup);
-    group.appendChild(boxGroup)
 
+    if (fruit instanceof Fruit && fruit.value !== null) {
+      const text = document.createElementNS(NS, 'text');
+      text.textContent = type.serializeValue(fruit.value);
+      text.setAttribute('x', `${boxX+20}`);
+      text.setAttribute('y', `${boxY+20}`);
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('class', 'primitive-value');
+      boxGroup.appendChild(text);
+    }
+
+    group.appendChild(boxGroup)
     return group;
   }
 
-  // Renders a variable box for a primitive value (e.g. int, bool)
-  renderPrimitiveVariableBox(
-    name: string,
-    type: Type,
-    value: Fruit | null): SVGGElement {
-    return this.renderBaseVariableBox(name, type, boxGroup => {
-      if (value instanceof Fruit && value.value !== null) {
-        const text = document.createElementNS(NS, 'text');
-        text.textContent = type.serializeValue(value.value);
-        text.setAttribute('x', '20');
-        text.setAttribute('y', '20');
-        text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('class', 'primitive-value');
-        boxGroup.appendChild(text);
-      }
-    });
-  }
-
-  // Renders a variable box for a reference type (e.g. string, array, object) (dot shown inside the box for now)
-  renderReferenceBox(name: string, type: Type): SVGGElement {
-    return this.renderBaseVariableBox(name, type, boxGroup => {
-      const dot = document.createElementNS(NS, 'circle');
-      dot.setAttribute('cx', '20');
-      dot.setAttribute('cy', '20');
-      dot.setAttribute('r', '4');
-      dot.setAttribute('fill', 'black');
-      boxGroup.appendChild(dot);
-    })
-  }
+  /*
+    // Renders a variable box for a reference type (e.g., arrays, objects, strings).
+    // Currently displays a black dot to indicate a reference.
+    renderReferenceBox(scopeName: string, name: string, type: Type): SVGGElement {
+      const id = `${scopeName}.${name}`;
+      return this.renderPrimitiveVariableBox(id, name, type, boxGroup => {
+        const dot = document.createElementNS(NS, 'circle');
+        dot.setAttribute('cx', '20');
+        dot.setAttribute('cy', '20');
+        dot.setAttribute('r', '4');
+        dot.setAttribute('fill', 'black');
+        boxGroup.appendChild(dot);
+      })
+    }
+  */
 }

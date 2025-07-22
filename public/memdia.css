@@ -1,16 +1,7 @@
-#memdia-panel {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding-top: 150px;
-  background-color: #d9c4ec;
-}
-
-#memory-panel {
-  width: 100%;
-  height: auto;
-  display: block;
-  margin: auto;
+:root {
+  --md-type: gainsboro;
+  --md-name: white;
+  --md-line: white;
 }
 
 .memory-variable {
@@ -24,19 +15,19 @@
 .var-name {
   font-weight: normal;
   font-size: 16px;
-  fill: black;
+  fill: var(--md-name);
   text-anchor: start;
 }
 
 .var-type {
   font-style: italic;
-  fill: #444;
+  fill: var(--md-type);
   font-size: 12px;
   text-anchor: start;
 }
 
 .var-box {
-  stroke: black;
+  stroke: var(--md-line);
   fill: none;
   stroke-width: 1;
   rx: 2;
@@ -53,7 +44,7 @@
 }
 
 .reference-dot {
-  fill: black;
+  fill: var(--md-line);
 }
 
 .function-name {
@@ -64,26 +55,8 @@
 }
 
 .function-box {
-  stroke: black;
+  stroke: var(--md-line);
   fill: none;
   rx: 2;
   ry: 2;
-}
-
-@media (max-width: 600px) {
-  #memory-panel {
-    position: static;
-    margin: 10px auto;
-    width: 90%;
-  }
-
-  .memory-variable {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .var-box {
-    width: 100%;
-    text-align: left;
-  }
 }
