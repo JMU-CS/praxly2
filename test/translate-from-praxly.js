@@ -591,6 +591,42 @@ print(x)
 `,
       },
     },
+    {
+      message: 'Classes',
+      source:
+`class Foo
+  int x = 5
+  void set(int x)
+    this.x = x
+  end set
+end class Foo
+Foo f = new Foo
+f.set(10)
+print f.x
+`,
+      translation: {
+        praxis:
+`class Foo
+  int x \u2b60 5
+
+  void set(int x)
+    this.x \u2b60 x
+  end set
+end class Foo
+Foo f \u2b60 new Foo
+f.set(10)
+print f.x
+`,
+        python:
+`class Foo:
+  def set(self, x):
+    self.x = x
+f = Foo()
+f.set(10)
+print(f.x)
+`
+      }
+    }
   ];
 
   for (let sample of samples) {
@@ -602,7 +638,7 @@ print(x)
         {language: 'praxis', module: praxis},
         {language: 'python', module: python},
       ];
-      
+
       for (let {language, module} of platforms) {
         const generatedSource = ast.visit(new module.Translator(), {
           nestingLevel: 0,
