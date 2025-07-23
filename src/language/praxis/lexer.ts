@@ -4,7 +4,7 @@ import {Where} from '../where.js';
 import {LexError} from '../error.js';
 
 class PraxisLexer extends Lexer {
-  indents: string[];
+  private indents: string[];
 
   constructor(source: string) {
     super(source);
@@ -196,12 +196,36 @@ class PraxisLexer extends Lexer {
       this.advance();
     }
 
-    if (Lexer.keywords.hasOwnProperty(text)) {
-      this.emitToken(Lexer.keywords[text]);
+    if (PraxisLexer.keywords.hasOwnProperty(text)) {
+      this.emitToken(PraxisLexer.keywords[text]);
     } else {
       this.emitTextToken(TokenType.Identifier, text);
     }
   }
+
+  static keywords: {[index: string]: TokenType} = {
+    and: TokenType.And,
+    class: TokenType.Class,
+    do: TokenType.Do,
+    else: TokenType.Else,
+    end: TokenType.End,
+    extends: TokenType.Extends,
+    false: TokenType.False,
+    for: TokenType.For,
+    if: TokenType.If,
+    new: TokenType.New,
+    not: TokenType.Not,
+    null: TokenType.Null,
+    or: TokenType.Or,
+    print: TokenType.Print,
+    private: TokenType.Private,
+    public: TokenType.Public,
+    repeat: TokenType.Repeat,
+    return: TokenType.Return,
+    true: TokenType.True,
+    until: TokenType.Until,
+    while: TokenType.While,
+  };
 }
 
 export function lex(source: string) {

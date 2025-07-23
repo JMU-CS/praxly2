@@ -182,12 +182,37 @@ class PythonLexer extends Lexer {
       this.advance();
     }
 
-    if (Lexer.keywords.hasOwnProperty(text)) {
-      this.emitToken(Lexer.keywords[text]);
+    if (PythonLexer.keywords.hasOwnProperty(text)) {
+      this.emitToken(PythonLexer.keywords[text]);
     } else {
       this.emitTextToken(TokenType.Identifier, text);
     }
   }
+
+  static keywords: {[index: string]: TokenType} = {
+    and: TokenType.And,
+    class: TokenType.Class,
+    do: TokenType.Do,
+    else: TokenType.Else,
+    end: TokenType.End,
+    extends: TokenType.Extends,
+    False: TokenType.False,
+    for: TokenType.For,
+    if: TokenType.If,
+    new: TokenType.New,
+    not: TokenType.Not,
+    null: TokenType.Null,
+    or: TokenType.Or,
+    print: TokenType.Print,
+    private: TokenType.Private,
+    public: TokenType.Public,
+    repeat: TokenType.Repeat,
+    return: TokenType.Return,
+    True: TokenType.True,
+    until: TokenType.Until,
+    while: TokenType.While,
+    def: TokenType.Function,
+  };
 }
 
 export function lex(source: string) {
