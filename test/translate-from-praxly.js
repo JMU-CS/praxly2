@@ -231,7 +231,7 @@ describe('Translate Full Programs', () => {
       source: 'print (7 * (3 + 1))',
       translation: {
         praxis: "print (7 * (3 + 1))\n",
-        python: "print(7 * (3 + 1))\n",
+        python: "print((7 * (3 + 1)))\n",
       },
     },
     {
