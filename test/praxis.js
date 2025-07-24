@@ -18,11 +18,29 @@ const platforms = [
 function testTranslation(sample, ast) {
   for (let {language, module} of platforms) {
     if (sample.translation[language] !== 'TODO') {
-      const generatedSource = ast.visit(new module.Translator(), {
+      let targetSource = ast.visit(new module.Translator(), {
         nestingLevel: 0,
         indentation: '  ',
       });
-      it(`should translate from praxis to ${language}`, () => assert.equal(generatedSource, sample.translation[language]));
+      it(`should translate from praxis to ${language}`, () => assert.equal(targetSource, sample.translation[language]));
+
+      // Seeing if the generated code translates back into original Praxis is a
+      // dead-end. The languages aren't isomorphic enough to make this reliable.
+      // For example, consider this translation chain:
+      //
+      // Praxis: x++
+      // Python: x = x + 1
+      // Praxis: x = x + 1
+
+      // it(`should translate back into praxis from this generated ${language}:\n${targetSource}`, () => {
+        // const tokens = module.lex(targetSource);
+        // const targetAst = module.parse(tokens, targetSource);
+        // const praxisSource = targetAst.visit(new praxis.Translator(), {
+          // nestingLevel: 0,
+          // indentation: '  ',
+        // });
+        // assert.equal(praxisSource, sample.translation.praxis);
+      // });
     }
   }
 }
@@ -74,7 +92,7 @@ function testError(sample) {
   });
 }
 
-describe('Expressions', () => {
+describe('Praxis: Expressions', () => {
   const samples = [
     {
       source: '5 + 1',
@@ -289,7 +307,7 @@ describe('Expressions', () => {
   samples.forEach(testExpression);
 });
 
-describe('Programs', () => {
+describe('Praxis: Programs', () => {
   const samples = [
     {
       message: 'print sum',
@@ -707,7 +725,7 @@ print(x)
   samples.forEach(testProgram);
 });
 
-describe('Print', () => {
+describe('Praxis: Print', () => {
   const samples = [
     {
       message: 'space',
@@ -763,7 +781,7 @@ print 6
   samples.forEach(testProgram);
 });
 
-describe('Array Generation and Output', () => {
+describe('Praxis: Array Generation and Output', () => {
   const samples = [
     {
       message: 'basic initialization and access',
@@ -1002,7 +1020,7 @@ print nums[2][2]
   samples.forEach(testProgram);
 });
 
-describe('Objects', () => {
+describe('Praxis: Objects', () => {
   const samples = [
     {
       message: 'basic object',
@@ -1203,7 +1221,7 @@ print s.value
   samples.forEach(testProgram);
 });
 
-describe('Object Errors', () => {
+describe('Praxis: Object Errors', () => {
   const samples = [
     {
       message: 'private access',
@@ -1270,7 +1288,7 @@ print c.radius`,
   samples.forEach(testError);
 });
 
-describe('Parse Errors', () => {
+describe('Praxis: Parse Errors', () => {
   const samples = [
     {
       message: 'bad separator',
@@ -1282,7 +1300,7 @@ describe('Parse Errors', () => {
   samples.forEach(testError);
 });
 
-describe('Illegal Array', () => {
+describe('Praxis: Illegal Array', () => {
   const samples = [
     {
       message: 'bad element type',
@@ -1333,7 +1351,7 @@ xs[2] = 7`,
   samples.forEach(testError);
 });
 
-describe('Type Errors', () => {
+describe('Praxis: Type Errors', () => {
   const samples = [
     {
       message: 'increment boolean',
