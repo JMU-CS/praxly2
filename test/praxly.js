@@ -1070,6 +1070,16 @@ end class Dog
 Dog d = new Dog
 d.name = "Bizness"
 print d.name`,
+      translation: {
+        praxis: `class Dog
+  public String name
+end class Dog
+Dog d \u2b60 new Dog
+d.name \u2b60 "Bizness"
+print d.name
+`,
+        python: `TODO`,
+      },
       output: "Bizness\n",
     },
     {
@@ -1091,6 +1101,29 @@ c.inc2()
 c.inc2()
 c.inc2()
 print c.n`,
+      translation: {
+        praxis: `class Count
+  public int n
+
+  void inc()
+    n \u2b60 n + 1
+  end inc
+
+  void inc2()
+    inc()
+    inc()
+  end inc2
+end class Count
+Count c \u2b60 new Count
+c.n \u2b60 0
+print c.n
+c.inc2()
+c.inc2()
+c.inc2()
+print c.n
+`,
+        python: `TODO`,
+      },
       output: "0\n6\n",
     },
     {
@@ -1108,6 +1141,24 @@ s.add(3)
 s.add(400)
 s.add(-5)
 print s.value`,
+      translation: {
+        praxis: `class Smallest
+  public int value
+
+  void add(int x)
+    value \u2b60 min(x, value)
+  end add
+end class Smallest
+Smallest s \u2b60 new Smallest
+s.value \u2b60 999999
+s.add(6)
+s.add(3)
+s.add(400)
+s.add(-5)
+print s.value
+`,
+        python: `TODO`,
+      },
       output: "-5\n",
     },
     {
@@ -1126,6 +1177,25 @@ print s.add(3)
 print s.add(400)
 print s.add(-5)
 print s.value`,
+      translation: {
+        praxis: `class Smallest
+  public int value
+
+  int add(int x)
+    value \u2b60 min(x, value)
+    return value
+  end add
+end class Smallest
+Smallest s \u2b60 new Smallest
+s.value \u2b60 999999
+print s.add(6)
+print s.add(3)
+print s.add(400)
+print s.add(-5)
+print s.value
+`,
+        python: `TODO`,
+      },
       output: "6\n3\n3\n-5\n-5\n",
     },
   ];
