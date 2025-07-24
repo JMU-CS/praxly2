@@ -237,6 +237,9 @@ export class Translator extends Visitor<Formatter, string> {
     if (node.hasSemicolon) {
       text += ';';
     }
+    if (node.comment) {
+      text += ' // ' + node.comment;
+    }
     return text;
   }
 
@@ -264,6 +267,12 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitPrint(node: ast.Print, formatter: Formatter): string {
     return this.maybeSemicolon(node, `print ${node.operandNode.visit(this, formatter)}`);
+    // if (node.trailer === ' ') {
+      // text += ' // space';
+    // } else if (node.trailer === '') {
+      // text += ' // nothing';
+    // }
+    // return text;
   }
 
   visitIf(node: ast.If, formatter: Formatter): string {

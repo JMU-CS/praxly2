@@ -96,7 +96,7 @@ class PraxisParser extends Parser {
           throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
         }
         const rightToken = this.advance(); // eat ]
-        return new SizedArrayType(this.arrayType(elementType), size, Where.enclose(elementType.where, rightToken.where));
+        return new SizedArrayType(this.arrayType(elementType), size, true, Where.enclose(elementType.where, rightToken.where));
       } else {
         if (!this.has(TokenType.RightBracket)) {
           throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
@@ -415,7 +415,7 @@ class PraxisParser extends Parser {
 
     // Skip past any trailing comment.
     if (this.has(TokenType.LineComment)) {
-      this.advance();
+      statement.comment = (this.advance() as TextToken).text;
     }
 
     this.statementLinebreak();
@@ -676,7 +676,10 @@ class PraxisParser extends Parser {
     // other text leads to linebreak.
     let trailer = "\n";
     if (this.has(TokenType.LineComment)) {
-      const commentToken = this.advance() as TextToken;
+      // Don't advance past the comment token. The statement parser will affix
+      // it to the statement node so it can be reconstructed during
+      // translation.
+      const commentToken = this.tokens[this.i] as TextToken;
       if (commentToken.text.toLowerCase() === 'space') {
         trailer = ' ';
       } else if (commentToken.text.toLowerCase() === 'nothing') {

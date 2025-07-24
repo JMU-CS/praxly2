@@ -33,10 +33,12 @@ export abstract class Node {
 
 export abstract class Statement extends Node {
   hasSemicolon: boolean;
+  comment: string | null;
 
   constructor(where: Where) {
     super(where);
     this.hasSemicolon = false;
+    this.comment = null;
   }
 }
 

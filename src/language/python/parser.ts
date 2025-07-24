@@ -55,7 +55,7 @@ class PythonParser extends Parser {
           throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
         }
         const rightToken = this.advance(); // eat ]
-        return new SizedArrayType(this.arrayType(elementType), size, Where.enclose(elementType.where, rightToken.where));
+        return new SizedArrayType(this.arrayType(elementType), size, true, Where.enclose(elementType.where, rightToken.where));
       } else {
         if (!this.has(TokenType.RightBracket)) {
           throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
