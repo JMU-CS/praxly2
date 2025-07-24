@@ -323,7 +323,7 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
-    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
+    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
     return text;
@@ -437,7 +437,7 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {
-    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => formal.identifier).join(', ')})\n`;
+    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')})\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
     return text;
