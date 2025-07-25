@@ -46,6 +46,10 @@ body {
   background-color: rgb(230, 230, 230);
 }
 
+#memdia-panel {
+  background-color: #1e1e1e;
+}
+
 #controls {
   padding: 1ex;
 }

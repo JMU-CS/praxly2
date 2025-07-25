@@ -182,6 +182,7 @@ main {
 
 #memdia-panel {
   padding: 10px;
+  background-color: #1e1e1e;
   font-family: monospace;
   white-space: pre-wrap;
   background-color: #1e1e1e;

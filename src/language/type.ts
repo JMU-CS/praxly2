@@ -58,13 +58,32 @@ export class AnyType extends Type {
 export class ArrayType extends Type {
   elementType: Type;
 
-  constructor(elementType: Type, size: number | null = null, where: Where = Where.Nowhere) {
-    super(`${elementType.text}[${size === null ? '' : size}]`, where);
+  // If elementType is an array, we want:
+  // itemType[parentSize][childSize]
+  //
+  // itemType[grandParentSize][parentSize][childSize]
+
+  constructor(elementType: Type, size: string | null = null, where: Where = Where.Nowhere) {
+    super(`${elementType.text}[${size ?? ''}]`, where);
     this.elementType = elementType;
   }
 
   serializeValue(value: any): string {
     return `${(value as Fruit[]).map(element => element.type.serializeValue(element.value)).join(', ')}`;
+  }
+
+  brackets(): string {
+    return '[]';
+  }
+
+  toString(): string {
+    let bracketChain = this.brackets();
+    let nestedType = this.elementType;
+    while (nestedType instanceof ArrayType) {
+      bracketChain += nestedType.brackets();
+      nestedType = nestedType.elementType;
+    }
+    return `${nestedType}${bracketChain}`;
   }
 
   equals(that: Type) {
@@ -83,10 +102,20 @@ export class ArrayType extends Type {
 
 export class SizedArrayType extends ArrayType {
   size: number;
+  hasRange: boolean;
 
-  constructor(elementType: Type, size: number, where: Where = Where.Nowhere) {
-    super(elementType, size, where);
+  constructor(elementType: Type, size: number, hasRange: boolean = false, where: Where = Where.Nowhere) {
+    super(elementType, hasRange ? `0..${size - 1}` : `${size}`, where);
     this.size = size;
+    this.hasRange = hasRange;
+  }
+
+  brackets(): string {
+    if (this.hasRange) {
+      return `[0..${this.size - 1}]`;
+    } else {
+      return `[${this.size}]`;
+    }
   }
 
   equals(that: Type): boolean {
