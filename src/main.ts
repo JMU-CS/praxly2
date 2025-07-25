@@ -10,6 +10,13 @@ const shareButton = document.getElementById("share-button") as HTMLInputElement;
 const settingsButton = document.getElementById("settings-button") as HTMLInputElement;
 const dropdownContent = document.querySelector(".dropdown-content") as HTMLElement;
 const resetButton = document.getElementById("reset-button") as HTMLInputElement;
+const resetModal = document.getElementById('reset-confirm') as HTMLElement;
+const confirmReset = document.getElementById('confirm-reset') as HTMLButtonElement;
+const cancelReset = document.getElementById('cancel-reset') as HTMLButtonElement;
+const examplesButton = document.getElementById("examples-button") as HTMLButtonElement;
+const examplesModal = document.getElementById("examples-modal")as HTMLButtonElement;
+const closeExamples = document.getElementById("close-examples")as HTMLButtonElement;
+
 
 // Main elements
 const leftSide = document.getElementById("left-side") as HTMLElement;
@@ -20,12 +27,13 @@ const resizeBarY = document.getElementById("resize-bar-Y") as HTMLElement;
 const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
 
 // left-side toolbar elements
-const langSwitch = document.getElementById("lang-switch") as HTMLButtonElement;
-const langDropdown = document.getElementById("dropdown-content") as HTMLDivElement;
+const langSwitch = document.getElementById("language-button") as HTMLButtonElement;
+const langDropdown = document.getElementById("language-menu") as HTMLDivElement;
 
 // Code editor
 export const editor = new CodeMirrorEditor('editor');
 export const editorView = editor.view;
+
 const latestSource = localStorage.getItem('latest-source');
 if (latestSource) {
   editorView.focus();
@@ -64,9 +72,16 @@ settingsButton.addEventListener("click", () => {
     dropdownContent.style.display = "block";
   }
 });
+// ---------------------------------------------------------------------------
+// Reset notifications
+// ---------------------------------------------------------------------------
 
-// reset button
 resetButton.addEventListener('click', () => {
+  resetModal.style.display = 'flex';
+
+});
+
+confirmReset.addEventListener('click', () => {
   editorView.dispatch({
     changes: { from: 0, to: editorView.state.doc.length, insert: '' }
   });
@@ -75,7 +90,45 @@ resetButton.addEventListener('click', () => {
   stepButton.style.display = 'none';
   exitButton.style.display = 'none';
   localStorage.removeItem('latest-source');
+  resetModal.style.display = 'none';
 });
+
+cancelReset.addEventListener('click', () => {
+  resetModal.style.display = 'none';
+});
+
+// ---------------------------------------------------------------------------
+// Share buttons
+// ---------------------------------------------------------------------------
+
+shareButton.addEventListener('click', generateUrl);
+
+export function generateUrl() {
+  // yank the text in ace
+  const code = editorView.state.doc.toString();
+  const encoded = encodeURIComponent(code);
+  window.location.hash = ''; //this should clear it before replacing it
+  window.location.hash = `code=${encoded}`
+  saveToLocal();
+  const dummy = document.createElement('input');
+  dummy.value = window.location.href;
+  document.body.appendChild(dummy);
+  dummy.select();
+  document.execCommand('copy');
+  document.body.removeChild(dummy);
+  const toast = document.getElementById('toast');
+  if (toast) {
+    toast.style.display = 'block';
+    setTimeout(() => {
+      toast.style.display = 'none';
+    }, 3000);
+  } // Hide the toast after 3 seconds (adjust as needed)
+}
+
+export function saveToLocal() {
+  const code = editorView.state.doc.toString();
+  window.localStorage.setItem(`${new Date().toLocaleDateString()}`, code);
+}
 
 // ---------------------------------------------------------------------------
 // Left toolbar events
@@ -146,5 +199,20 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'F5') {
     e.preventDefault();
     runButton.click();
+  }
+});
+
+// EXAMPLES MODAL CONTENT
+examplesButton.addEventListener("click", () => {
+  examplesModal.style.display = "flex";
+});
+
+closeExamples.addEventListener("click", () => {
+  examplesModal.style.display = "none";
+});
+
+examplesModal.addEventListener("click", (e) => {
+  if (e.target === examplesModal) {
+    examplesModal.style.display = "none";
   }
 });

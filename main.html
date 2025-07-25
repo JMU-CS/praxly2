@@ -16,6 +16,11 @@
   <header class="nav-bar">
     <div id="title-version">
       <h1 id="titleRefresh">Praxly 🍂</h1>
+      <!-- <div id="examples-trigger-container">
+        <button id="examples-button" class="MainMenu-button" title="Example Programs">
+          <span class="material-symbols-rounded">menu_book</span>
+        </button>
+      </div> -->
     </div>
 
     <!-- Toolbar buttons -->
@@ -41,14 +46,19 @@
         </button>
       </li>
       <li>
+        <li>
+        <button id="examples-button" class="MainMenu-button" title="Example Programs">
+          Examples<span class="material-symbols-rounded">menu_book</span>
+        </button>
+      </li>
         <button id="share-button" class="MainMenu-button" title="Create link for sharing">
           Share <span class="material-symbols-rounded share">share</span>
         </button>
       </li>
-      <li class="dropdown">
+      <li id="settings-dropdown">
         <button id="settings-button" class="MainMenu-button" title="Settings">
-          <span class="material-symbols-rounded extra">settings</span>
-          <span class="button-text">Settings</span>
+          Settings <span class="material-symbols-rounded extra">settings</span>
+          <!-- <span class="button-text">Settings</span> -->
         </button>
         <div class="dropdown-content">
           <button class="dropdown-item">Help</button>
@@ -66,17 +76,17 @@
 
   <main>
     <div id="left-side">
-      <div id="left-toolbar">
-        <div id="lang-dropdown">
-          <button id="lang-switch" class ="left-tool">Language ▼ </button>
-          <div id="dropdown-content" class="dropdown-content">
-            <button class="dropdown-item">Praxis</button>
-            <button class="dropdown-item">Java</button>
-            <button class="dropdown-item">CSP</button>
-            <button class="dropdown-item">Python</button>
+      <div class="left-toolbar">
+        <div id="language-dropdown">
+          <button id="language-button">Language ▼</button>
+          <div id="language-menu">
+            <button>Praxis</button>
+            <button>Java</button>
+            <button>CSP</button>
+            <button>Python</button>
           </div>
         </div>
-        <button class="left-tool"></button>
+        <button id="new-editor" class="left-toolbar" title="Add a new editor"> + </button>
       </div>
       <div id="editor" class="panel"></div>
     </div>
@@ -87,6 +97,35 @@
       <div id="memdia-panel" class="panel"></div>
     </div>
   </main>
+
+  <!-- notification for Share button -->
+  <div id="toast"
+    style="display: none; position: fixed; bottom: 20px; right: 20px; background: #333; color: white; padding: 10px; border-radius: 5px;">
+    Link copied to clipboard!
+  </div>
+
+  <!-- notification for reset button -->
+  <div id="reset-confirm">
+    <div class="reset-modal">
+      <p>Are you sure you want to reset?</p>
+      <div class="modal-buttons">
+        <button id="confirm-reset">Yes</button>
+        <button id="cancel-reset" class="cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="examples-modal">
+  <div class="examples-modal-content">
+    <h2>Example Programs</h2>
+    <ul>
+      <li><button class="example-option">Variables</button></li>
+      <li><button class="example-option">Hello World</button></li>
+      <li><button class="example-option">Fibonacci</button></li>
+    </ul>
+    <button id="close-examples" class="close-button">Close</button>
+  </div>
+</div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>
