@@ -95,6 +95,66 @@ main {
   background-color: #1e1e1e;
 }
 
+/* LEFT TOOLBAR */
+.left-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  background-color: #565656;
+  border: 1px solid #444;
+  border-radius: 10px;
+  flex-wrap: nowrap;
+}
+
+/* Buttons inside left-toolbar */
+#language-button,
+#new-editor {
+  background-color: #444;
+  color: white;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* Language dropdown wrapper */
+#language-dropdown {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Dropdown menu */
+#language-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #2b2b2b;
+  padding: 5px;
+  border-radius: 6px;
+  z-index: 100;
+}
+
+#language-menu button {
+  display: block;
+  width: 100%;
+  background: none;
+  color: white;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+}
+
+#language-menu button:hover {
+  background-color: #555;
+}
+
+
 #right-side {
   display: flex;
   flex-direction: column;
@@ -125,6 +185,7 @@ main {
   background-color: #1e1e1e;
   font-family: monospace;
   white-space: pre-wrap;
+  background-color: #1e1e1e;
 }
 
 /* resize bars */
@@ -175,4 +236,105 @@ main {
 
 .dropdown-item:hover {
   background-color: #3d3d3d;
+}
+
+/* RESET MODAL CONTENT */
+#reset-confirm {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+#reset-confirm .modal-content {
+  background-color: #444;
+  padding: 24px 32px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  max-width: 400px;
+  width: 80%;
+  color: white;
+}
+
+#reset-confirm p {
+  font-size: 16px;
+  margin: 0;
+}
+
+#reset-confirm .modal-buttons {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+#reset-confirm button {
+  background-color: #d87456;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#reset-confirm button.cancel {
+  background-color: lightslategray;
+}
+
+/* EXAMPLES MODAL CONTENT */
+
+#examples-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 999;
+  justify-content: center;
+  align-items: center;
+}
+
+.examples-modal-content {
+  background-color: white;
+  color: black;
+  padding: 24px 32px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  width: 400px;
+  max-width: 90%;
+  text-align: center;
+}
+
+.examples-modal-content ul {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.examples-modal-content li {
+  margin-bottom: 10px;
+}
+
+.examples-modal-content button {
+  background-color: #444;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+}
+
+.close-button {
+  margin-top: 16px;
+  background-color: lightslategray;
 }
