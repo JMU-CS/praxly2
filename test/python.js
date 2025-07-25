@@ -183,6 +183,121 @@ describe('Python: Interpret, Translate, and Execute Programs', () => {
 describe('Python: Parse Errors', () => {
   const samples = [
     {
+      message: 'print statement without opening (',
+      python: 'print 5)',
+      error: error.ParseError
+    },
+    {
+      message: 'print statement without surrounding',
+      python: 'print 5',
+      error: error.ParseError
+    },
+    {
+      message: 'print statement without closing )',
+      python: 'print(5',
+      error: error.ParseError
+    },
+    {
+      message: 'if statement without :',
+      python:
+      `x = 1
+      if x < 3
+        print("small")
+      `,
+      error: error.ParseError
+    },
+    {
+      message: 'if statement without linebreak',
+      python:
+      `x = 1
+      if x < 3: print("Hello")`,
+      error: error.ParseError
+    },
+    {
+      message: 'else without :',
+      python:
+      `x = 1
+      if x < 3:
+        print("small")
+      else
+        print("big")
+      `,
+      error: error.ParseError
+    },
+        {
+      message: 'elif without :',
+      python:
+      `x = 1
+      if x < 3:
+        print("small")
+      elif x == 3
+        print("same")
+      else:
+        print("big")
+      `,
+      error: error.ParseError
+    },
+    {
+      message: 'function definition with no identifier',
+      python:
+      `def (self, a, b):
+        return a + b
+      `,
+      error: error.ParseError
+    },
+    {
+      message: 'function parameters with no closing )',
+      python:
+      `def add(self, a, b:
+        return a + b
+      `,
+      error: error.ParseError
+    },
+    {
+      message: 'function definition with no :',
+      python:
+      `def add(self, a, b)
+        return a + b
+      `,
+      error: error.ParseError
+    },
+    // {
+    //   message: 'actuals with no closing )',
+    //   python:
+    //   `def add(self, a, b):
+    //     return a + b
+    //   sum = add(3, 4
+    //   print(sum)
+    //   `,
+    //   error: error.ParseError
+    // },
+    {
+      message: 'for loops not supported',
+      python:
+      `for i in range(5):
+        print(i)
+      `,
+      error: error.ParseError
+    },
+    {
+      message: 'while loop with no :',
+      python:
+      `i = 5
+       while i != 0
+        print(i)
+        i = i - 1
+      `,
+      error: error.ParseError
+    },
+    {
+      message: 'while loop with no linebreak',
+      python:
+      `i = 1
+       while i < 3: print(i)
+      `,
+      error: error.ParseError
+    },
+    {
       message: 'illegal adjacent identifiers',
       python: `x x`,
       error: error.ParseError,

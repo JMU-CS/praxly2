@@ -272,41 +272,7 @@ class PythonParser extends Parser {
   }
 
   block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where): ast.Block {
-    // if (this.has(TokenType.LeftCurly)) {
-    //   return [this.curlyBlock(inFunctionDefinition, contextLabel, contextWhere), BlockMode.Curly];
-    // } else {
       return this.indentedBlock(inFunctionDefinition, contextLabel, contextWhere)
-    // }
-  }
-
-  curlyBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where) {
-    const leftToken = this.advance(); // eat {
-
-    if (!this.has(TokenType.Linebreak)) {
-      throw new ParseError(`A linebreak is missing after the header of this ${contextLabel}.`, contextWhere);
-    }
-    this.advance();
-
-    let statements = [];
-    if (this.has(TokenType.Indent)) {
-      const indentToken = this.advance();
-      while (!this.has(TokenType.Unindent)) {
-        const statement = this.statement(inFunctionDefinition);
-        statements.push(statement);
-      }
-
-      if (!this.has(TokenType.Unindent)) {
-        throw new ParseError(`The block in this ${contextLabel} doesn't end.`, contextWhere);
-      }
-      this.advance();
-    }
-
-    if (!this.has(TokenType.RightCurly)) {
-      throw new ParseError(`The block in this ${contextLabel} must be closed with \`}\`.`, contextWhere);
-    }
-    const rightToken = this.advance(); // eat }
-
-    return new ast.Block(statements, Where.enclose(leftToken.where, rightToken.where));
   }
 
   indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where) {
@@ -436,7 +402,7 @@ class PythonParser extends Parser {
     while (this.has(TokenType.Else) && this.hasAhead(TokenType.If, 1)) {
       this.advance(); // eat else
       const ifToken = this.advance();
-      const conditionNode = this.parenthesizedExpression(ifToken.where, "An elif statement's condition").node;
+      const conditionNode = this.eatCondition(ifToken.where, "An elif statement's condition").node;
       thenBlock = this.block(inFunctionDefinition, 'elif statement', Where.enclose(ifToken.where, conditionNode.where));
       lastWhere = thenBlock.where;
       conditionNodes.push(conditionNode);
@@ -482,7 +448,7 @@ class PythonParser extends Parser {
     const printToken = this.advance(); // eat print
 
     if (!this.has(TokenType.LeftParenthesis)) {
-      throw new ParseError(`Print statement needs a opening parenthesis`, printToken.where);
+      throw new ParseError(`Print statement needs surrounding parenthesis`, printToken.where);
     }
     const leftParenthesis = this.advance(); // eat (
     const parameterNode = this.expression();
@@ -717,7 +683,7 @@ class PythonParser extends Parser {
         if (this.has(TokenType.Identifier)) {
           const propertyToken = this.advance() as TextToken;
           if (this.has(TokenType.LeftParenthesis)) {
-            const actualsPayload = this.actuals('method', propertyToken.where);
+            const actualsPayload = this.actuals('function', propertyToken.where);
             leftNode = new ast.MethodCall(leftNode, propertyToken.text, actualsPayload.actuals, Where.enclose(leftNode.where, actualsPayload.where));
           } else {
             leftNode = new ast.Member(leftNode, propertyToken.text, Where.enclose(leftNode.where, propertyToken.where));
