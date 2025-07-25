@@ -43,6 +43,7 @@ export class Memdia {
  */
 export class MemdiaSvg extends Memdia {
   protected svg: SVGSVGElement;
+  protected currentScopeName: string = '';
 
   /**
    * Constructs a new MemdiaSvg instance and initializes the SVG panel.
@@ -51,14 +52,10 @@ export class MemdiaSvg extends Memdia {
   constructor(runtime: GlobalRuntime) {
     super(runtime);
 
-    // create the top-level SVG element
     this.svg = document.createElementNS(NS, 'svg');
     this.svg.setAttribute('width', '100%');
     this.svg.setAttribute('height', '100%');
-    this.svg.setAttribute('viewBox', '0 0 300 300');
-    this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-    // Clear and attach the SVG to the memdia container in the DOM.
     let panel = document.getElementById('memdia-panel') as HTMLElement;
     panel.innerHTML = "";
     panel.appendChild(this.svg);
@@ -70,9 +67,20 @@ export class MemdiaSvg extends Memdia {
    * @param variableType The declared type of the variable
    */
   override declaration(identifier: string, variableType: Type): void {
-    const funcBox = this.getCurrentFunction();
-    const varBox = this.renderPrimitiveVariableBox(identifier, identifier, variableType, null);
-    funcBox.appendChild(varBox);
+    const funcGroup = this.getCurrentFunction();
+    const vars = funcGroup.querySelectorAll('.memdia-variable');
+    const varBox = this.renderVariableBoxWithoutValue(this.currentScopeName, identifier, variableType);
+
+    const index = vars.length;
+    const yPos = this.getVariableYPosition(index);
+    varBox.setAttribute('transform', `translate(20, ${yPos})`);
+
+    funcGroup.appendChild(varBox);
+
+    const funcBox = funcGroup.querySelector('.function-box') as SVGRectElement;
+    if (funcBox) {
+      funcBox.setAttribute('height', `${this.getFunctionBoxHeight(vars.length + 1)}`);
+    }
   }
 
   /**
@@ -81,22 +89,36 @@ export class MemdiaSvg extends Memdia {
    * @param rightFruit The value being assigned
    */
   override assignment(identifier: string, rightFruit: Fruit): void {
-    const funcBox = this.getCurrentFunction();
-    const vars = funcBox.querySelectorAll('.memdia-variable');
+    const funcGroup = this.getCurrentFunction();
+    const vars = funcGroup.querySelectorAll('.memdia-variable');
     for (const variable of vars) {
       const nameDiv = variable.querySelector('.var-name');
-      const boxDiv = variable.querySelector('.var-box');
-      if (nameDiv?.textContent === identifier && boxDiv) {
-        boxDiv.textContent = rightFruit.value !== null
-          ? rightFruit.type.serializeValue(rightFruit.value)
-          : '';
+      if (nameDiv?.textContent === identifier) {
+        if (rightFruit.value !== null) {
+          if (
+            rightFruit.type instanceof ArrayType ||
+            rightFruit.type instanceof ObjectType ||
+            rightFruit.type.toString() === 'string'
+          ) {
+            this.setReferenceValueInBox(variable as SVGGElement);
+          } else {
+            this.setPrimitiveValueInBox(variable as SVGGElement, rightFruit);
+          }
+        } else {
+          const existingText = variable.querySelector('.primitive-value');
+          if (existingText) existingText.remove();
+          const existingDot = variable.querySelector('.reference-value');
+          if (existingDot) existingDot.remove();
+        }
         return;
       }
     }
   }
 
   getVariableYPosition(index: number): number {
-    return 60 + index * 40;
+    const boxHeight = 40;
+    const verticalPadding = 30;
+    return 60 + index * (boxHeight + verticalPadding);
   }
 
   getFunctionBoxHeight(varCount: number): number {
@@ -114,26 +136,15 @@ export class MemdiaSvg extends Memdia {
    * Box height is adjusted based on number of variables.
    *
    * @param scopeName The name of the function or scope
-   * @param variables Map of variable names to their types and values
    * @returns The SVG group element representing the full scope
    */
-  override functionCall(
-    scopeName: string
-  ): SVGElement {
-    let variables: Map<string, { type: Type, value: Fruit | null }> = new Map();
+  override functionCall(scopeName: string): SVGElement {
+    this.currentScopeName = scopeName;
+
     const group = document.createElementNS(NS, 'g');
     group.setAttribute('class', 'memdia-function');
 
-    // Find max variable name length for width calculation
-    let maxNameLength = scopeName.length;
-    for (const varName of variables.keys()) {
-      if (varName.length > maxNameLength) maxNameLength = varName.length;
-    }
-
-    // Calculate dynamic dimensions
-    const varCount = variables.size;
-    const height = this.getFunctionBoxHeight(varCount);
-    const width = this.getFunctionBoxWidth(maxNameLength);
+    const width = this.getFunctionBoxWidth(scopeName.length);
 
     const funcName = document.createElementNS(NS, 'text');
     funcName.setAttribute('class', 'function-name');
@@ -147,30 +158,8 @@ export class MemdiaSvg extends Memdia {
     funcBox.setAttribute('x', '10');
     funcBox.setAttribute('y', '50');
     funcBox.setAttribute('width', `${width}`);
-    funcBox.setAttribute('height', `${height}`);
+    funcBox.setAttribute('height', '60');
     group.appendChild(funcBox);
-
-    // Add variables dynamically positioned inside the function box
-    let index = 0;
-    for (const [varName, { type, value }] of variables.entries()) {
-      let varGroup: SVGElement;
-      if (
-        type instanceof ArrayType ||
-        type instanceof ObjectType ||
-        type.toString() === 'String'
-      ) {
-        // varGroup = this.renderReferenceBox(scopeName, varName, type);
-        // Placeholder until renderReferenceBox is implemented
-        varGroup = document.createElementNS(NS, 'g');
-      } else {
-        varGroup = this.renderPrimitiveVariableBox(scopeName + '.' + varName, varName, type, value);
-      }
-
-      // Position variable group vertically inside the function box
-      varGroup.setAttribute('transform', `translate(20, ${this.getVariableYPosition(index)})`);
-      group.appendChild(varGroup);
-      index++;
-    }
 
     return group;
   }
@@ -211,35 +200,33 @@ export class MemdiaSvg extends Memdia {
   */
 
   /**
-   * Renders a variable box with name, type, and (if primitive) its value.
-   * Suitable for primitives (int, bool, etc). Reference variables should be handled separately.
+   * Renders an SVG group representing a variable with its name and type, but without assigning a value.
+   * The variable with be uniquely identified by combining the function scope name and the variable name.
+   * This is suitable for declaring primitive or reference variables.
    *
-   * @param id Unique ID for the SVG group
+   * @param scopeName Name of the function or scope to which the variable belongs
    * @param name Variable name
    * @param type Variable type
-   * @param fruit Value to display (assumes primitive)
    * @returns SVG group representing the variable
    */
-  renderPrimitiveVariableBox(
-    id: string,
+  renderVariableBoxWithoutValue(
+    scopeName: string,
     name: string,
-    type: Type,
-    fruit: Fruit | null
+    type: Type
   ): SVGGElement {
+    const id = `${scopeName}.${name}`;
     const group = document.createElementNS(NS, 'g');
     group.setAttribute('id', id);
     group.setAttribute('class', 'memdia-variable');
 
-    const nameX = 115;
-    const nameY = 84;
     const boxX = 130;
     const boxY = 60;
 
     const varName = document.createElementNS(NS, 'text');
     varName.textContent = name;
     varName.setAttribute('class', 'var-name');
-    varName.setAttribute('x', `${nameX}`);
-    varName.setAttribute('y', `${nameY}`);
+    varName.setAttribute('x', `${boxX - 7}`);
+    varName.setAttribute('y', `${boxY + 25}`);
     group.appendChild(varName);
 
     const varType = document.createElementNS(NS, 'text');
@@ -257,36 +244,95 @@ export class MemdiaSvg extends Memdia {
     rect.setAttribute('class', 'var-box');
     group.appendChild(rect);
 
-    const boxGroup = document.createElementNS(NS, 'g');
-    boxGroup.setAttribute('transform', `translate(${boxX}, ${boxY})`);
-
-    if (fruit instanceof Fruit && fruit.value !== null) {
-      const text = document.createElementNS(NS, 'text');
-      text.textContent = type.serializeValue(fruit.value);
-      text.setAttribute('x', `${boxX+20}`);
-      text.setAttribute('y', `${boxY+20}`);
-      text.setAttribute('text-anchor', 'middle');
-      text.setAttribute('class', 'primitive-value');
-      boxGroup.appendChild(text);
-    }
-
-    group.appendChild(boxGroup)
     return group;
   }
 
-  /*
-    // Renders a variable box for a reference type (e.g., arrays, objects, strings).
-    // Currently displays a black dot to indicate a reference.
-    renderReferenceBox(scopeName: string, name: string, type: Type): SVGGElement {
-      const id = `${scopeName}.${name}`;
-      return this.renderPrimitiveVariableBox(id, name, type, boxGroup => {
-        const dot = document.createElementNS(NS, 'circle');
-        dot.setAttribute('cx', '20');
-        dot.setAttribute('cy', '20');
-        dot.setAttribute('r', '4');
-        dot.setAttribute('fill', 'black');
-        boxGroup.appendChild(dot);
-      })
+  getBoxWidthForValue(valueStr: string): number {
+    const charWidth = 8;
+    const padding = 20;
+    const minWidth = 40;
+    return Math.max(minWidth, valueStr.length * charWidth + padding);
+  }
+
+  getCenteredTextX(boxWidth: number): number {
+    return boxWidth / 2;
+  }
+
+  /**
+   * Adds a primitive value (e.g., number, boolean, string) to a previously rendered variable box.
+   * The value is displayed inside the box using the type's serialization method.
+   *
+   * @param variableGroup The SVG group returned by renderVariableBoxWithoutValue
+   * @param fruit The Fruit object containing the value to assign (must be non-null)
+   */
+  setPrimitiveValueInBox(
+    variableGroup: SVGGElement,
+    fruit: Fruit
+  ): void {
+    if (!(fruit instanceof Fruit) || fruit.value === null) return;
+
+    const box = variableGroup.querySelector('.var-box') as SVGRectElement;
+    if (!box) return;
+
+    const valueStr = fruit.type.serializeValue(fruit.value);
+
+    const oldValueGroup = variableGroup.querySelector('.primitive-value-group');
+    if (oldValueGroup) {
+      oldValueGroup.remove();
     }
-  */
+
+    const newBoxWidth = this.getBoxWidthForValue(valueStr);
+    const currentBoxWidth = parseFloat(box.getAttribute('width') || '40');
+    if (newBoxWidth > currentBoxWidth) {
+      box.setAttribute('width', `${newBoxWidth}`);
+    }
+
+    const text = document.createElementNS(NS, 'text');
+    text.textContent = valueStr;
+    text.setAttribute('x', `${this.getCenteredTextX(newBoxWidth)}`);
+    text.setAttribute('y', '20');
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('class', 'primitive-value');
+
+    const boxX = parseFloat(box.getAttribute('x') || '130');
+    const boxY = parseFloat(box.getAttribute('y') || '60');
+
+    const boxGroup = document.createElementNS(NS, 'g');
+    boxGroup.setAttribute('class', 'primitive-value-group');
+    boxGroup.setAttribute('transform', `translate(${boxX}, ${boxY})`);
+    boxGroup.appendChild(text);
+
+    variableGroup.appendChild(boxGroup);
+  }
+
+  /**
+   * Adds a reference value indicator (a small black dot) inside the variable's SVG box.
+   *
+   * @param variableGroup The SVG group element representing the variable container.
+   */
+  setReferenceValueInBox(variableGroup: SVGGElement) {
+    const box = variableGroup.querySelector('.var-box') as SVGRectElement;
+    if (!box) return;
+
+    const oldRef = variableGroup.querySelector('.reference-value-group');
+    if (oldRef) {
+      oldRef.remove();
+    }
+
+    const boxX = parseFloat(box.getAttribute('x') || '130');
+    const boxY = parseFloat(box.getAttribute('y') || '60');
+
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', '20');
+    dot.setAttribute('cy', '20');
+    dot.setAttribute('r', '4');
+    dot.setAttribute('class', 'reference-dot');
+
+    const dotGroup = document.createElementNS(NS, 'g');
+    dotGroup.setAttribute('class', 'reference-value-group');
+    dotGroup.setAttribute('transform', `translate(${boxX}, ${boxY})`);
+    dotGroup.appendChild(dot);
+
+    variableGroup.appendChild(dotGroup);
+  }
 }
