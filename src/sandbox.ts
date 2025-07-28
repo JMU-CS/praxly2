@@ -1,6 +1,7 @@
 import * as ast from './language/ast.js';
 import * as praxis from './language/praxis/index.js';
 import * as python from './language/python/index.js';
+import * as english from './language/english/index.js';
 import * as cm from './codemirror.js';
 
 import {Objectifier} from './language/objectifier.js';
@@ -180,8 +181,10 @@ function initialize() {
 
       if (dstLang.value === "Praxis") {
         translator = new praxis.Translator();
-      } else {
+      } else if (dstLang.value === "Python") {
         translator = new python.Translator();
+      } else {
+        translator = new english.Translator();
       }
 
       // Update tree-panel
