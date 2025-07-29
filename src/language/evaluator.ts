@@ -953,8 +953,6 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
     if (node.rightNode) {
       const rightFruit = await node.rightNode.visit(this, runtime);
-      rightFruit.type = resolvedType;
-      // TODO: do I need this?
       this.assignVariable('Variable', node.where, node.identifier, rightFruit, runtime);
       this.mem.assignment(node.identifier, rightFruit);
     }
@@ -1145,9 +1143,9 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       const newRuntime = definerRuntime.child();
 
       for (let [i, formal] of lambda.type.formals.entries()) {
-        newRuntime.declareVariable(formal.identifier, formal.type);
-        this.mem.declaration(formal.identifier, formal.type);
         const fruit = await node.actuals[i].visit(this, runtime);
+        newRuntime.declareVariable(formal.identifier, fruit.type);
+        this.mem.declaration(formal.identifier, fruit.type);
         this.assignVariable('Parameter', node.actuals[i].where, formal.identifier, fruit, newRuntime);
       }
 
