@@ -1,5 +1,5 @@
 import { Type, Fruit, ArrayType, ClassType } from './type.js';
-import { GlobalRuntime } from './evaluator.js';
+import { GlobalRuntime } from './runtime.js';
 
 const NS = "http://www.w3.org/2000/svg";
 

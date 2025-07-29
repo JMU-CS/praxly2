@@ -3,7 +3,8 @@ import * as praxis from '../build/language/praxis/index.js';
 import * as python from '../build/language/python/index.js';
 import * as error from '../build/language/error.js';
 import {makeLogger, getInput} from './utilities.js';
-import {GlobalRuntime, Evaluator} from '../build/language/evaluator.js';
+import {Evaluator} from '../build/language/evaluator.js';
+import {GlobalRuntime} from '../build/language/runtime.js';
 import {Memdia} from '../build/language/memdia.js';
 
 function testTranslation(sample, ast) {

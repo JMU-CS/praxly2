@@ -2,7 +2,8 @@ import { addMarks, stepMark } from './editor.js';
 import { EditorSelection } from '@codemirror/state';
 
 import * as ast from './language/ast.js';
-import { GlobalRuntime, Evaluator } from './language/evaluator.js';
+import { Evaluator } from './language/evaluator.js';
+import { GlobalRuntime } from './language/runtime.js';
 import { WhereError } from './language/error.js';
 import { MemdiaSvg } from './language/memdia.js';
 import * as praxis from './language/praxis/index.js';
