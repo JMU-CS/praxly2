@@ -1,5 +1,6 @@
 import {Visitor} from '../visitor.js';
 import * as ast from '../ast.js';
+import {Visibility} from '../type.js';
 import {precedence, associativity, Associativity} from './precedence.js';
 
 type ToStringable = {
@@ -433,9 +434,9 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, formatter: Formatter): string {
     let text = '';
-    if (node.visibility === ast.Visibility.Public) {
+    if (node.visibility === Visibility.Public) {
       text += `public `;
-    } else if (node.visibility === ast.Visibility.Private) {
+    } else if (node.visibility === Visibility.Private) {
       text += `private `;
     }
     text += `${node.variableType} ${node.identifier}`;

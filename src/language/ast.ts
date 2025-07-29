@@ -1,6 +1,6 @@
 import {Where} from './where.js';
 import {Visitor} from './visitor.js';
-import {Type, ArrayType} from './type.js';
+import {Type, ArrayType, Visibility} from './type.js';
 
 // ---------------------------------------------------------------------------
 
@@ -12,11 +12,6 @@ export class Formal {
     this.identifier = identifier;
     this.type = type;
   }
-}
-
-export enum Visibility {
-  Public,
-  Private,
 }
 
 // ---------------------------------------------------------------------------

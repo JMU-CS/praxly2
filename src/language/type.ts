@@ -123,7 +123,7 @@ export class SizedArrayType extends ArrayType {
   }
 }
 
-export class ObjectType extends Type {
+export class LazyClassType extends Type {
   covers(that: Type): boolean {
     return this.text === that.text || that === Type.Null;
   }
@@ -144,6 +144,110 @@ export class UnionType extends Type {
 }
 
 export const NumberType = new UnionType([Type.Double, Type.Float, Type.Integer]);
+
+export class FormalType {
+  identifier: string;
+  type: Type;
+
+  constructor(identifier: string, type: Type) {
+    this.identifier = identifier;
+    this.type = type;
+  }
+}
+
+export class FunctionType {
+  formals: FormalType[];
+  returnType: Type;
+
+  constructor(formals: FormalType[], returnType: Type) {
+    this.formals = formals;
+    this.returnType = returnType;
+  }
+}
+
+export enum Visibility {
+  Public,
+  Private,
+}
+
+export class MethodType {
+  formals: FormalType[];
+  returnType: Type;
+  visibility: Visibility;
+
+  constructor(formals: FormalType[], returnType: Type, visibility: Visibility) {
+    this.formals = formals;
+    this.returnType = returnType;
+    this.visibility = visibility;
+  }
+}
+
+export class InstanceVariableType {
+  type: Type;
+  visibility: Visibility;
+  initialValue: string | number | boolean | null;
+
+  constructor(type: Type, visibility: Visibility, initialValue: any) {
+    this.type = type;
+    this.visibility = visibility;
+    this.initialValue = initialValue;
+  }
+}
+
+export class ClassType extends Type {
+  superclass: ClassType | null;
+  instanceVariableTypes: Map<string, InstanceVariableType>;
+  instanceMethodTypes: Map<string, MethodType>;
+  where: Where;
+
+  constructor(name: string, superclass: ClassType | null, where: Where) {
+    super(name);
+    this.superclass = superclass;
+    this.instanceVariableTypes = new Map();
+    this.instanceMethodTypes = new Map();
+    this.where = where;
+  }
+
+  instanceVariable(identifier: string): InstanceVariableType | null {
+    let instanceVariableType = this.instanceVariableTypes.get(identifier);
+    if (instanceVariableType) {
+      return instanceVariableType;
+    } else if (this.superclass) {
+      return this.superclass.instanceVariable(identifier);
+    } else {
+      return null;
+    }
+  }
+
+  instanceMethod(identifier: string): MethodType | null {
+    let methodType = this.instanceMethodTypes.get(identifier);
+    if (methodType) {
+      return methodType;
+    } else if (this.superclass) {
+      return this.superclass.instanceMethod(identifier);
+    } else {
+      return null;
+    }
+  }
+
+  covers(that: Type): boolean {
+    if (that === Type.Null) {
+      return true;
+    } else if (!(that instanceof ClassType)) {
+      return false;
+    }
+
+    let thatAncestor: ClassType | null = that;
+    while (thatAncestor) {
+      if (this === thatAncestor) {
+        return true;
+      }
+      thatAncestor = thatAncestor.superclass;
+    }
+
+    return false;
+  }
+}
 
 export class Fruit {
   type: Type;

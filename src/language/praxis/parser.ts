@@ -3,7 +3,7 @@ import {Token, TextToken, TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {ParseError} from '../error.js';
 import * as ast from '../ast.js';
-import {Type, ObjectType, ArrayType, SizedArrayType} from '../type.js';
+import {Type, LazyClassType, ArrayType, SizedArrayType, Visibility} from '../type.js';
 
 // https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf
 
@@ -115,14 +115,10 @@ class PraxisParser extends Parser {
 
     let type;
     if (firstLetter === firstLetter.toUpperCase()) {
-      type = new ObjectType(scalarTypeToken.text, scalarTypeToken.where);
+      type = new LazyClassType(scalarTypeToken.text, scalarTypeToken.where);
     } else {
       type = new Type(scalarTypeToken.text, scalarTypeToken.where);
     }
-
-    // int[0..2][0..1] is a 3-array of 2-arrays. Currently I'm parsing this as
-    // (int[0..2])[0..1]. But the brackets are right-associative. Can I parse
-    // this with a recursive helper?
 
     // Gobble up arrays.
     if (this.has(TokenType.LeftBracket)) {
@@ -184,7 +180,7 @@ class PraxisParser extends Parser {
         let firstWhere = null;
         if (this.has(TokenType.Public) || this.has(TokenType.Private)) {
           const visibilityToken = this.advance(); // eat public/private
-          visibility = visibilityToken.type === TokenType.Public ? ast.Visibility.Public : ast.Visibility.Private;
+          visibility = visibilityToken.type === TokenType.Public ? Visibility.Public : Visibility.Private;
           lastWhere = visibilityToken.where;
           firstWhere = visibilityToken.where;
         }

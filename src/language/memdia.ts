@@ -1,4 +1,4 @@
-import { Type, Fruit, ArrayType, ObjectType } from './type.js';
+import { Type, Fruit, ArrayType, ClassType } from './type.js';
 import { GlobalRuntime } from './evaluator.js';
 
 const NS = "http://www.w3.org/2000/svg";
@@ -97,7 +97,7 @@ export class MemdiaSvg extends Memdia {
         if (rightFruit.value !== null) {
           if (
             rightFruit.type instanceof ArrayType ||
-            rightFruit.type instanceof ObjectType ||
+            rightFruit.type instanceof ClassType ||
             rightFruit.type.toString() === 'string'
           ) {
             this.setReferenceValueInBox(variable as SVGGElement);

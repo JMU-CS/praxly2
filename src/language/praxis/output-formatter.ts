@@ -1,6 +1,6 @@
 import {OutputFormatter as DefaultOutputFormatter} from '../output-formatter.js';
 import * as ast from '../ast.js';
-import {ArrayType, ObjectType, Type, Fruit} from '../type.js';
+import {ArrayType, ClassType, Type, Fruit} from '../type.js';
 
 export class OutputFormatter extends DefaultOutputFormatter {
   constructor() {
@@ -25,7 +25,7 @@ export class OutputFormatter extends DefaultOutputFormatter {
         Type.Float.covers(fruit.type) ||
         Type.Double.covers(fruit.type) ||
         Type.String.covers(fruit.type) ||
-        fruit.type instanceof ObjectType) {
+        fruit.type instanceof ClassType) {
       return fruit.value.toString();
     } else if (Type.Boolean.covers(fruit.type)) {
       return this.boolean(fruit);

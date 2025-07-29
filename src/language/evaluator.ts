@@ -4,37 +4,27 @@ import {Visitor} from './visitor.js';
 import * as error from './error.js';
 import {Where} from './where.js';
 import type {NodeClass, OutputFormatter} from './output-formatter.js';
-import {Type, ArrayType, SizedArrayType, NumberType, UnionType, ObjectType, typeMap, Fruit} from './type.js';
+import {Type, ArrayType, SizedArrayType, NumberType, UnionType, LazyClassType, ClassType, typeMap, Fruit, Visibility, FunctionType, FormalType, MethodType, InstanceVariableType} from './type.js';
 import {Memdia} from './memdia.js';
 
-class FormalEntry {
-  identifier: string;
-  type: Type;
+// -- Functions ---------------------------------------------------------------
 
-  constructor(identifier: string, type: Type) {
-    this.identifier = identifier;
+abstract class FunctionDefinition {
+  type: FunctionType;
+
+  constructor(type: FunctionType) {
     this.type = type;
-  }
-}
-
-abstract class FunctionEntry {
-  formals: FormalEntry[];
-  returnType: Type;
-
-  constructor(formals: FormalEntry[], returnType: Type) {
-    this.formals = formals;
-    this.returnType = returnType;
   }
 
   abstract call(evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit>;
 }
 
-class FunctionFruit extends FunctionEntry {
+class FunctionFruit extends FunctionDefinition {
   body: ast.Block;
   where: Where;
 
-  constructor(formals: FormalEntry[], returnType: Type, body: ast.Block, where: Where) {
-    super(formals, returnType);
+  constructor(type: FunctionType, body: ast.Block, where: Where) {
+    super(type);
     this.body = body;
     this.where = where;
   }
@@ -44,11 +34,11 @@ class FunctionFruit extends FunctionEntry {
   }
 }
 
-class RandomSeedFunctionEntry extends FunctionEntry {
+class RandomSeedFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('seed', Type.Integer),
-    ], Type.Void);
+    super(new FunctionType([
+      new FormalType('seed', Type.Integer),
+    ], Type.Void));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -58,9 +48,9 @@ class RandomSeedFunctionEntry extends FunctionEntry {
   }
 }
 
-class RandomFloatFunctionEntry extends FunctionEntry {
+class RandomFloatFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([], Type.Float);
+    super(new FunctionType([], Type.Float));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -72,9 +62,9 @@ class RandomFloatFunctionEntry extends FunctionEntry {
   }
 }
 
-class InputFunctionEntry extends FunctionEntry {
+class InputFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([], Type.String);
+    super(new FunctionType([], Type.String));
   }
 
   async call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -83,11 +73,11 @@ class InputFunctionEntry extends FunctionEntry {
   }
 }
 
-class RandomIntegerFunctionEntry extends FunctionEntry {
+class RandomIntegerFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('max', Type.Integer),
-    ], Type.Integer);
+    super(new FunctionType([
+      new FormalType('max', Type.Integer),
+    ], Type.Integer));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -100,12 +90,12 @@ class RandomIntegerFunctionEntry extends FunctionEntry {
   }
 }
 
-class MinimumFunctionEntry extends FunctionEntry {
+class MinimumFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('a', NumberType),
-      new FormalEntry('b', NumberType),
-    ], NumberType);
+    super(new FunctionType([
+      new FormalType('a', NumberType),
+      new FormalType('b', NumberType),
+    ], NumberType));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -126,12 +116,12 @@ class MinimumFunctionEntry extends FunctionEntry {
   }
 }
 
-class MaximumFunctionEntry extends FunctionEntry {
+class MaximumFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('a', NumberType),
-      new FormalEntry('b', NumberType),
-    ], NumberType);
+    super(new FunctionType([
+      new FormalType('a', NumberType),
+      new FormalType('b', NumberType),
+    ], NumberType));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -152,11 +142,11 @@ class MaximumFunctionEntry extends FunctionEntry {
   }
 }
 
-class AbsoluteValueFunctionEntry extends FunctionEntry {
+class AbsoluteValueFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('x', NumberType),
-    ], NumberType);
+    super(new FunctionType([
+      new FormalType('x', NumberType),
+    ], NumberType));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -176,11 +166,11 @@ class AbsoluteValueFunctionEntry extends FunctionEntry {
   }
 }
 
-class LogFunctionEntry extends FunctionEntry {
+class LogFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('x', NumberType),
-    ], NumberType);
+    super(new FunctionType([
+      new FormalType('x', NumberType),
+    ], NumberType));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -201,11 +191,11 @@ class LogFunctionEntry extends FunctionEntry {
   }
 }
 
-class SquareRootFunctionEntry extends FunctionEntry {
+class SquareRootFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('x', NumberType),
-    ], NumberType);
+    super(new FunctionType([
+      new FormalType('x', NumberType),
+    ], NumberType));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -226,11 +216,11 @@ class SquareRootFunctionEntry extends FunctionEntry {
   }
 }
 
-class IntCastFunctionEntry extends FunctionEntry {
+class IntCastFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('x', new UnionType([Type.Double, Type.Float, Type.Integer, Type.String])),
-    ], Type.Integer);
+    super(new FunctionType([
+      new FormalType('x', new UnionType([Type.Double, Type.Float, Type.Integer, Type.String])),
+    ], Type.Integer));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -250,11 +240,11 @@ class IntCastFunctionEntry extends FunctionEntry {
   }
 }
 
-class FloatCastFunctionEntry extends FunctionEntry {
+class FloatCastFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('x', new UnionType([Type.Double, Type.Float, Type.Integer, Type.String])),
-    ], Type.Float);
+    super(new FunctionType([
+      new FormalType('x', new UnionType([Type.Double, Type.Float, Type.Integer, Type.String])),
+    ], Type.Float));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -272,11 +262,11 @@ class FloatCastFunctionEntry extends FunctionEntry {
   }
 }
 
-class DoubleCastFunctionEntry extends FunctionEntry {
+class DoubleCastFunctionEntry extends FunctionDefinition {
   constructor() {
-    super([
-      new FormalEntry('x', new UnionType([Type.Double, Type.Float, Type.Integer, Type.String])),
-    ], Type.Double);
+    super(new FunctionType([
+      new FormalType('x', new UnionType([Type.Double, Type.Float, Type.Integer, Type.String])),
+    ], Type.Double));
   }
 
   call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
@@ -294,26 +284,24 @@ class DoubleCastFunctionEntry extends FunctionEntry {
   }
 }
 
-abstract class MethodEntry {
-  formals: FormalEntry[];
-  returnType: Type;
-  visibility: ast.Visibility;
+// --------------------------------------------------------------------------- 
 
-  constructor(formals: FormalEntry[], returnType: Type, visibility: ast.Visibility) {
-    this.formals = formals;
-    this.returnType = returnType;
-    this.visibility = visibility;
+abstract class MethodDefinition {
+  type: MethodType;
+
+  constructor(type: MethodType) {
+    this.type = type;
   }
 
   abstract call(evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit>;
 }
 
-class MethodFruit extends MethodEntry {
+class MethodFruit extends MethodDefinition {
   body: ast.Block;
   where: Where;
 
-  constructor(formals: FormalEntry[], returnType: Type, visibility: ast.Visibility, body: ast.Block, where: Where) {
-    super(formals, returnType, visibility);
+  constructor(type: MethodType, body: ast.Block, where: Where) {
+    super(type);
     this.body = body;
     this.where = where;
   }
@@ -323,7 +311,9 @@ class MethodFruit extends MethodEntry {
   }
 }
 
-class VariableEntry {
+// --------------------------------------------------------------------------- 
+
+class VariableDefinition {
   type: Type;
   value: string | number | boolean | null;
 
@@ -333,42 +323,30 @@ class VariableEntry {
   }
 }
 
-class InstanceVariableEntry {
-  type: Type;
-  visibility: ast.Visibility;
-  initialValue: string | number | boolean | null;
+// --------------------------------------------------------------------------- 
 
-  constructor(type: Type, visibility: ast.Visibility, initialValue: any) {
+class ClassDefinition {
+  type: ClassType;
+  methodBindings: Map<string, MethodDefinition>;
+
+  constructor(type: ClassType) {
     this.type = type;
-    this.visibility = visibility;
-    this.initialValue = initialValue;
+    this.methodBindings = new Map();
   }
 }
 
-class ClassEntry {
-  superclass: string | null;
-  instanceVariableEntries: Map<string, InstanceVariableEntry>;
-  instanceMethodEntries: Map<string, FunctionEntry>;
-  where: Where;
-
-  constructor(superclass: string | null, where: Where) {
-    this.superclass = superclass;
-    this.instanceVariableEntries = new Map();
-    this.instanceMethodEntries = new Map();
-    this.where = where;
-  }
-}
+// --------------------------------------------------------------------------- 
 
 export class Runtime {
-  variableBindings: Map<string, VariableEntry>;
-  functionBindings: Map<string, FunctionEntry>;
-  classBindings: Map<string, ClassEntry>;
+  variableBindings: Map<string, VariableDefinition>;
+  functionBindings: Map<string, FunctionDefinition>;
+  classBindings: Map<string, ClassDefinition>;
   expectedType: Type | null;
-  classFruit: ClassEntry | null;
+  classFruit: ClassDefinition | null;
   globalRuntime!: GlobalRuntime;
   parent: Runtime | null;
 
-  constructor(parent: Runtime | null, variableBindings: Map<string, VariableEntry>, functionBindings: Map<string, FunctionEntry>, classBindings: Map<string, ClassEntry>, expectedType: Type | null, classFruit: ClassEntry | null) {
+  constructor(parent: Runtime | null, variableBindings: Map<string, VariableDefinition>, functionBindings: Map<string, FunctionDefinition>, classBindings: Map<string, ClassDefinition>, expectedType: Type | null, classFruit: ClassDefinition | null) {
     this.parent = parent;
     this.variableBindings = variableBindings;
     this.functionBindings = functionBindings;
@@ -390,10 +368,10 @@ export class Runtime {
   }
 
   declareVariable(identifier: string, type: Type) {
-    this.variableBindings.set(identifier, new VariableEntry(type, null));
+    this.variableBindings.set(identifier, new VariableDefinition(type, null));
   }
 
-  setUndeclaredVariable(identifier: string, entry: VariableEntry): boolean {
+  setUndeclaredVariable(identifier: string, entry: VariableDefinition): boolean {
     if (this.variableBindings.has(identifier) ||
         (!this.parent || !this.parent.setUndeclaredVariable(identifier, entry))) {
       this.variableBindings.set(identifier, entry);
@@ -403,7 +381,7 @@ export class Runtime {
     }
   }
 
-  setDeclaredVariable(identifier: string, entry: VariableEntry) {
+  setDeclaredVariable(identifier: string, entry: VariableDefinition) {
     if (this.variableBindings.has(identifier)) {
       this.variableBindings.set(identifier, entry);
     } else if (this.parent) {
@@ -413,7 +391,7 @@ export class Runtime {
     }
   }
 
-  getVariable(identifier: string): VariableEntry | undefined {
+  getVariable(identifier: string): VariableDefinition | undefined {
     // Consult this runtime first, but traverse its ancestors as needed.
     if (this.variableBindings.has(identifier)) {
       return this.variableBindings.get(identifier);
@@ -424,7 +402,18 @@ export class Runtime {
     }
   }
 
-  getOwnVariable(identifier: string): VariableEntry | undefined {
+  getClassDefinition(identifier: string): ClassDefinition | null {
+    // Consult this runtime first, but traverse its ancestors as needed.
+    if (this.classBindings.has(identifier)) {
+      return this.classBindings.get(identifier)!;
+    } else if (this.parent) {
+      return this.parent.getClassDefinition(identifier);
+    } else {
+      return null;
+    }
+  }
+
+  getOwnVariable(identifier: string): VariableDefinition | undefined {
     // Consult only this runtime. Declarations should call this instead of
     // getVariable since variables can shadow variables from parent scopes.
     if (this.variableBindings.has(identifier)) {
@@ -434,11 +423,11 @@ export class Runtime {
     }
   }
 
-  setFunction(identifier: string, lambda: FunctionEntry) {
+  setFunction(identifier: string, lambda: FunctionDefinition) {
     this.functionBindings.set(identifier, lambda);
   }
 
-  getFunction(identifier: string): FunctionEntry | undefined {
+  getFunction(identifier: string): FunctionDefinition | undefined {
     if (this.functionBindings.has(identifier)) {
       return this.functionBindings.get(identifier);
     } else if (this.parent) {
@@ -864,12 +853,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
   assignVariable(label: string, where: Where, identifier: string, fruit: Fruit, runtime: Runtime) {
     if (runtime.globalRuntime.allowsUndeclared) {
-      runtime.setUndeclaredVariable(identifier, new VariableEntry(fruit.type, fruit.value));
+      runtime.setUndeclaredVariable(identifier, new VariableDefinition(fruit.type, fruit.value));
     } else {
       const oldFruit = runtime.getVariable(identifier);
       if (oldFruit) {
         if (oldFruit.type.covers(fruit.type)) {
-          runtime.setDeclaredVariable(identifier, new VariableEntry(fruit.type, fruit.value));
+          runtime.setDeclaredVariable(identifier, new VariableDefinition(oldFruit.type, fruit.value));
         } else {
           throw new error.TypeError(`${label} \`${identifier}\` has type \`${oldFruit.type}\`. A value of type \`${fruit.type}\` cannot be assigned to it.`, where);
         }
@@ -924,17 +913,16 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       }
     } else if (node.leftNode instanceof ast.Member) {
       const receiverFruit = await node.leftNode.receiverNode.visit(this, runtime);
-      if (!(receiverFruit.type instanceof ObjectType)) {
+      if (!(receiverFruit.type instanceof ClassType)) {
         throw new error.WhereError(`A value of type \`${receiverFruit.type}\` has no properties.`, node.leftNode.where);
       }
 
       const identifier = node.leftNode.identifier;
 
       // Ensure that variable is public.
-      const template = receiverFruit.value.template;
-      const declaration = template.instanceVariableEntries.get(identifier);
+      const declaration = receiverFruit.type.instanceVariable(identifier);
       if (declaration) {
-        if (declaration.visibility !== ast.Visibility.Public) {
+        if (declaration.visibility !== Visibility.Public) {
           throw new error.WhereError(`Variable \`${identifier}\` is private.`, node.where);
         }
       } else {
@@ -959,11 +947,14 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       throw new error.WhereError(`Variable \`${node.identifier}\` is already declared.`, node.where);
     }
 
-    runtime.declareVariable(node.identifier, node.variableType);
-    this.mem.declaration(node.identifier, node.variableType);
+    const resolvedType = this.resolveType(node.variableType, runtime, node.where);
+    runtime.declareVariable(node.identifier, resolvedType);
+    this.mem.declaration(node.identifier, resolvedType);
 
     if (node.rightNode) {
       const rightFruit = await node.rightNode.visit(this, runtime);
+      rightFruit.type = resolvedType;
+      // TODO: do I need this?
       this.assignVariable('Variable', node.where, node.identifier, rightFruit, runtime);
       this.mem.assignment(node.identifier, rightFruit);
     }
@@ -1107,14 +1098,14 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       for (let elementFruit of iterableFruit.value) {
         const bodyRuntime = runtime.child();
         bodyRuntime.declareVariable(node.identifier, iterableFruit.type.elementType);
-        bodyRuntime.setDeclaredVariable(node.identifier, new VariableEntry(iterableFruit.type.elementType, elementFruit.value));
+        bodyRuntime.setDeclaredVariable(node.identifier, new VariableDefinition(iterableFruit.type.elementType, elementFruit.value));
         await node.body.visit(this, bodyRuntime);
       }
     } else if (Type.IntegerRange.covers(iterableFruit.type)) {
       for (let i = iterableFruit.value.lo; i < iterableFruit.value.hi; ++i) {
         const bodyRuntime = runtime.child();
         bodyRuntime.declareVariable(node.identifier, Type.Integer);
-        bodyRuntime.setDeclaredVariable(node.identifier, new VariableEntry(Type.Integer, i));
+        bodyRuntime.setDeclaredVariable(node.identifier, new VariableDefinition(Type.Integer, i));
         await node.body.visit(this, bodyRuntime);
       }
     } else {
@@ -1135,8 +1126,8 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   // --------------------------------------------------------------------------
 
   async visitFunctionDefinition(node: ast.FunctionDefinition, runtime: Runtime): Promise<Fruit> {
-    const formalEntries = node.formals.map(formal => new FormalEntry(formal.identifier, formal.type));
-    runtime.functionBindings.set(node.identifier, new FunctionFruit(formalEntries, node.returnType, node.body, node.where));
+    const formalTypes = node.formals.map(formal => new FormalType(formal.identifier, formal.type));
+    runtime.functionBindings.set(node.identifier, new FunctionFruit(new FunctionType(formalTypes, node.returnType), node.body, node.where));
     return new Fruit(Type.Void);
   }
 
@@ -1146,14 +1137,14 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       // getFunction will succeed because definerRuntime owns the function.
       const lambda = definerRuntime.getFunction(node.identifier)!;
 
-      if (node.actuals.length !== lambda.formals.length) {
-        throw new error.WhereError(`Function \`${node.identifier}\` expects ${lambda.formals.length} parameter${lambda.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
+      if (node.actuals.length !== lambda.type.formals.length) {
+        throw new error.WhereError(`Function \`${node.identifier}\` expects ${lambda.type.formals.length} parameter${lambda.type.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
       }
 
       this.mem.functionCall(node.identifier);
       const newRuntime = definerRuntime.child();
 
-      for (let [i, formal] of lambda.formals.entries()) {
+      for (let [i, formal] of lambda.type.formals.entries()) {
         newRuntime.declareVariable(formal.identifier, formal.type);
         this.mem.declaration(formal.identifier, formal.type);
         const fruit = await node.actuals[i].visit(this, runtime);
@@ -1164,23 +1155,23 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       try {
         await lambda.call(this, newRuntime, node.where);
         if (lambda instanceof FunctionFruit) {
-          if (!Type.Void.covers(lambda.returnType)) {
-            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It didn't return anything.`, lambda.where);
+          if (!Type.Void.covers(lambda.type.returnType)) {
+            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.type.returnType}\`. It didn't return anything.`, lambda.where);
           }
         }
         fruit = new Fruit(Type.Void);
       } catch (e) {
         if (e instanceof ReturnSomethingException) {
-          if (Type.Void.covers(lambda.returnType)) {
+          if (Type.Void.covers(lambda.type.returnType)) {
             throw new error.WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
-          } else if (!lambda.returnType.covers(e.fruit.type)) {
-            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
+          } else if (!lambda.type.returnType.covers(e.fruit.type)) {
+            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.type.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
           } else {
             fruit = e.fruit;
           }
         } else if (e instanceof ReturnNothingException) {
-          if (!(Type.Void.covers(lambda.returnType))) {
-            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.returnType}\`. It returned nothing.`, e.returnWhere);
+          if (!(Type.Void.covers(lambda.type.returnType))) {
+            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.type.returnType}\`. It returned nothing.`, e.returnWhere);
           } else {
             fruit = new Fruit(Type.Void);
           }
@@ -1268,7 +1259,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     // The array literal needs to know what type its elements should have. We
     // pass the element type through the runtime.
     const newRuntime = runtime.shallowClone();
-    newRuntime.expectedType = node.variableType;
+    newRuntime.expectedType = this.resolveType(node.variableType, runtime, node.where);
     const fruit = await this.visitDeclaration(node, newRuntime);
     return fruit;
   }
@@ -1295,12 +1286,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const receiverFruit = await node.receiverNode.visit(this, runtime);
     if (receiverFruit.type instanceof ArrayType && node.identifier === 'length') {
       return new Fruit(Type.Integer, receiverFruit.value.length);
-    } else if (receiverFruit.type instanceof ObjectType) {
+    } else if (receiverFruit.type instanceof ClassType) {
       // Ensure that variable is public.
-      const template = receiverFruit.value.template;
-      const declaration = template.instanceVariableEntries.get(node.identifier);
+      const declaration = receiverFruit.type.instanceVariable(node.identifier);
       if (declaration) {
-        if (declaration.visibility !== ast.Visibility.Public) {
+        if (declaration.visibility !== Visibility.Public) {
           throw new error.VisibilityError(`Variable \`${node.identifier}\` is private.`, node.where);
         }
       } else {
@@ -1326,9 +1316,31 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   // --------------------------------------------------------------------------
 
   async visitClassDefinition(node: ast.ClassDefinition, runtime: Runtime): Promise<Fruit> {
-    const classFruit = new ClassEntry(node.superclass, node.where);
+    const superclassType = this.resolveClassName(node.superclass, runtime);
+    const classFruit = new ClassDefinition(new ClassType(node.identifier, superclassType, node.where));
     const newRuntime = runtime.shallowClone();
     newRuntime.classFruit = classFruit;
+
+    const ancestorTypes = [];
+    let ancestorType: ClassType | null = classFruit.type.superclass;
+    while (ancestorType) {
+      ancestorTypes.push(ancestorType);
+      ancestorType = ancestorType.superclass;
+    }
+    ancestorTypes.reverse();
+
+    for (let ancestorType of ancestorTypes) {
+      const ancestorDefinition = runtime.classBindings.get(ancestorType.text)!;
+
+      for (const [identifier, type] of ancestorType.instanceVariableTypes) {
+        classFruit.type.instanceVariableTypes.set(identifier, type);
+      }
+
+      for (const [identifier, type] of ancestorType.instanceMethodTypes) {
+        classFruit.type.instanceMethodTypes.set(identifier, type);
+        classFruit.methodBindings.set(identifier, ancestorDefinition.methodBindings.get(identifier)!);
+      }
+    }
 
     for (let declaration of node.instanceVariableDeclarations) {
       await declaration.visit(this, newRuntime);
@@ -1346,11 +1358,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   async visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, runtime: Runtime): Promise<Fruit> {
     const classFruit = runtime.classFruit!;
 
-    if (classFruit.instanceVariableEntries.has(node.identifier)) {
+    if (classFruit.type.instanceVariableTypes.has(node.identifier)) {
       throw new error.WhereError(`Variable \`${node.identifier}\` has already been declared.`, node.where);
     }
 
-    const instanceVariableEntry = classFruit.instanceVariableEntries.get(node.identifier);
+    const instanceVariableEntry = classFruit.type.instanceVariableTypes.get(node.identifier);
 
     // If the declaration provides an initial value, we eagerly evaluate the
     // expression and store it as part of the declaration.
@@ -1364,8 +1376,8 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       }
     }
 
-    const visibility = node.visibility ?? ast.Visibility.Public;
-    classFruit.instanceVariableEntries.set(node.identifier, new InstanceVariableEntry(node.variableType, visibility, initialValue));
+    const visibility = node.visibility ?? Visibility.Public;
+    classFruit.type.instanceVariableTypes.set(node.identifier, new InstanceVariableType(node.variableType, visibility, initialValue));
 
     return new Fruit(Type.Void);
   }
@@ -1373,14 +1385,17 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   async visitMethodDefinition(node: ast.MethodDefinition, runtime: Runtime): Promise<Fruit> {
     const classFruit = runtime.classFruit!;
 
-    if (classFruit.instanceMethodEntries.has(node.identifier)) {
+    if (classFruit.type.instanceMethodTypes.has(node.identifier)) {
       throw new error.WhereError(`Method \`${node.identifier}\` has already been defined.`, node.where);
     }
 
-    const formalEntries = node.formals.map(formal => new FormalEntry(formal.identifier, formal.type));
+    const formalTypes = node.formals.map(formal => new FormalType(formal.identifier, formal.type));
 
-    const visibility = node.visibility ?? ast.Visibility.Public;
-    classFruit.instanceMethodEntries.set(node.identifier, new MethodFruit(formalEntries, node.returnType, visibility, node.body, node.where));
+    const visibility = node.visibility ?? Visibility.Public;
+    const methodType = new MethodType(formalTypes, node.returnType, visibility);
+
+    classFruit.type.instanceMethodTypes.set(node.identifier, methodType);
+    classFruit.methodBindings.set(node.identifier, new MethodFruit(methodType, node.body, node.where));
 
     return new Fruit(Type.Void);
   }
@@ -1392,40 +1407,49 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     }
 
     const instance = {
-      template: classFruit,
+      classDefinition: classFruit,
       runtime: runtime.globalRuntime.child(),
     };
 
     // Each instance of a class is a runtime that persists the instance's state.
-    for (let [name, entry] of classFruit.instanceVariableEntries) {
+    // let ancestorType: ClassType | null = classFruit.type;
+    // while (ancestorType) {
+      // for (let [name, entry] of ancestorType.instanceVariableTypes) {
+        // instance.runtime.declareVariable(name, entry.type);
+        // instance.runtime.setDeclaredVariable(name, new VariableDefinition(entry.type, entry.initialValue));
+      // }
+      // ancestorType = ancestorType.superclass;
+    // }
+
+    for (let [name, entry] of classFruit.type.instanceVariableTypes) {
       instance.runtime.declareVariable(name, entry.type);
-      instance.runtime.setDeclaredVariable(name, new VariableEntry(entry.type, entry.initialValue));
+      instance.runtime.setDeclaredVariable(name, new VariableDefinition(entry.type, entry.initialValue));
     }
 
-    // Each instance also carries around a list of the class's methods. It's
-    // really not necessary for each instance to carry such a list around. A
-    // vtable, for example, is stored with the class. Perhaps we could
-    // eliminate this redundancy someday. For now, it's the easiest
-    // implementation given how Runtime performs lookups.
-    for (let [name, entry] of classFruit.instanceMethodEntries) {
+    // Each instance also carries around a list of the class's methods. Having
+    // each instance carry around such a list is not necessary. A vtable, for
+    // example, could be stored with the class. Perhaps we could eliminate this
+    // redundancy someday. For now, it's the easiest implementation given how
+    // Runtime performs lookups.
+    for (let [name, entry] of classFruit.methodBindings) {
       instance.runtime.setFunction(name, entry);
     }
 
-    const instanceType = new ObjectType(node.identifier);
+    const instanceType = classFruit.type;
     const instanceFruit = new Fruit(instanceType, instance);
     instance.runtime.declareVariable(runtime.globalRuntime.receiverName, instanceType);
-    instance.runtime.setDeclaredVariable(runtime.globalRuntime.receiverName, new VariableEntry(instanceType, instance));
+    instance.runtime.setDeclaredVariable(runtime.globalRuntime.receiverName, new VariableDefinition(instanceType, instance));
 
     return instanceFruit;
   }
 
-  async visitCall(_context: string, node: ast.MethodCall | ast.FunctionCall, subroutineFruit: MethodEntry | FunctionEntry, runtime: Runtime) {
-    if (node.actuals.length !== subroutineFruit.formals.length) {
-      throw new error.WhereError(`Function \`${node.identifier}\` expects ${subroutineFruit.formals.length} parameter${subroutineFruit.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
+  async visitCall(_context: string, node: ast.MethodCall | ast.FunctionCall, subroutine: MethodDefinition | FunctionDefinition, runtime: Runtime) {
+    if (node.actuals.length !== subroutine.type.formals.length) {
+      throw new error.WhereError(`Function \`${node.identifier}\` expects ${subroutine.type.formals.length} parameter${subroutine.type.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
     }
 
     const newRuntime = runtime.child();
-    for (let [i, formal] of subroutineFruit.formals.entries()) {
+    for (let [i, formal] of subroutine.type.formals.entries()) {
       newRuntime.declareVariable(formal.identifier, formal.type);
       const fruit = await node.actuals[i].visit(this, runtime);
       this.assignVariable('Parameter', node.actuals[i].where, formal.identifier, fruit, newRuntime);
@@ -1433,25 +1457,25 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
     let fruit;
     try {
-      await subroutineFruit.call(this, newRuntime, node.where);
-      if (subroutineFruit instanceof FunctionFruit) {
-        if (!Type.Void.covers(subroutineFruit.returnType)) {
-          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It didn't return anything.`, subroutineFruit.where);
+      await subroutine.call(this, newRuntime, node.where);
+      if (subroutine instanceof FunctionFruit) {
+        if (!Type.Void.covers(subroutine.type.returnType)) {
+          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutine.type.returnType}\`. It didn't return anything.`, subroutine.where);
         }
       }
       fruit = new Fruit(Type.Void);
     } catch (e) {
       if (e instanceof ReturnSomethingException) {
-        if (Type.Void.covers(subroutineFruit.returnType)) {
+        if (Type.Void.covers(subroutine.type.returnType)) {
           throw new error.WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
-        } else if (!subroutineFruit.returnType.covers(e.fruit.type)) {
-          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
+        } else if (!subroutine.type.returnType.covers(e.fruit.type)) {
+          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutine.type.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
         } else {
           fruit = e.fruit;
         }
       } else if (e instanceof ReturnNothingException) {
-        if (!Type.Void.covers(subroutineFruit.returnType)) {
-          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutineFruit.returnType}\`. It returned nothing.`, e.returnWhere);
+        if (!Type.Void.covers(subroutine.type.returnType)) {
+          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutine.type.returnType}\`. It returned nothing.`, e.returnWhere);
         } else {
           fruit = new Fruit(Type.Void);
         }
@@ -1465,20 +1489,45 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
   async visitMethodCall(node: ast.MethodCall, runtime: Runtime): Promise<Fruit> {
     const receiverFruit = await node.receiverNode.visit(this, runtime);
-    if (!(receiverFruit.type instanceof ObjectType)) {
+    if (!(receiverFruit.type instanceof ClassType)) {
       throw new error.TypeError(`A value of type \`${receiverFruit.type}\` is not an object. Methods cannot be called on it.`, node.receiverNode.where);
     }
 
     // TODO: will classFruit be defined?
     const classFruit = runtime.classBindings.get(receiverFruit.type.text)!;
 
-    const lambda = classFruit.instanceMethodEntries.get(node.identifier);
-    if (!lambda) {
-      throw new error.WhereError(`Function ${node.identifier} is not defined.`, node.where);
+    const declaration = receiverFruit.type.instanceMethod(node.identifier);
+    if (!declaration) {
+      throw new error.WhereError(`Method ${node.identifier} is not defined.`, node.where);
     }
+
+    const lambda = classFruit.methodBindings.get(node.identifier)!;
 
     return await this.visitCall('method', node, lambda, receiverFruit.value.runtime);
   }
 
-  // --------------------------------------------------------------------------
+  // ------------------------------------------------------------------------- 
+
+  resolveClassName(name: string | null, runtime: Runtime): ClassType | null {
+    if (name) {
+      const classDefinition = runtime.getClassDefinition(name);
+      if (classDefinition) {
+        return classDefinition.type;
+      }
+    }
+    return null;
+  }
+
+  resolveType(type: Type, runtime: Runtime, where: Where) {
+    if (type instanceof LazyClassType) {
+      let classDefinition = runtime.getClassDefinition(type.text);
+      if (classDefinition) {
+        return classDefinition.type;
+      } else {
+        throw new error.TypeError(`The type \`${type.text}\` is unknown.`, where);
+      }
+    } else {
+      return type;
+    }
+  }
 }
