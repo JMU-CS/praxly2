@@ -83,6 +83,8 @@ apex {
   If { "if" }
   Else { "else" }
   Return { "return" }
+  Public { "public" }
+  Private { "private" }
   End { "end" }
   Null { "null" }
   Semicolon { ";" }
@@ -113,7 +115,7 @@ apex {
   lineEnd { linebreak | @eof }
 
   // High-precedence on left.
-  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Null, Void, Extends, Identifier }
+  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Null, Void, Extends, Public, Private, Identifier }
   @precedence { DoubleLessThan, LessThan }
   @precedence { DoubleGreaterThan, GreaterThan }
   @precedence { LineComment, ForwardSlash }

@@ -1,4 +1,4 @@
-import {Type, FormalType, FunctionType, Fruit, NumberType, UnionType, MethodType, ClassType} from './type.js';
+import {Type, FormalType, FunctionType, Fruit, NumberType, UnionType, MethodType, ClassType, InstanceVariableType, Visibility, StringType} from './type.js';
 import {Evaluator} from './evaluator.js';
 import {Where} from './where.js';
 import * as ast from './ast.js';
@@ -234,6 +234,8 @@ export class GlobalRuntime extends Runtime {
     this.setFunction('random', new RandomFloatFunction());
     this.setFunction('randomInt', new RandomIntegerFunction());
     this.setFunction('input', new InputFunction());
+
+    this.classBindings.set('String', new StringClass());
 
     this.seedRng(Date.now() ^ (Math.random() * 0x100000000));
   }
@@ -494,3 +496,20 @@ export class DoubleCastFunction extends FunctionDefinition {
   }
 }
 
+export class StringClass extends ClassDefinition {
+  constructor() {
+    super(Type.String2);
+    this.methodBindings.set('length', new StringLengthMethod());
+  }
+}
+
+export class StringLengthMethod extends MethodDefinition {
+  constructor() {
+    super(Type.String2.instanceMethodTypes.get('length')!);
+  }
+
+  async call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
+    const text = runtime.getVariable('text')!.value as String;
+    throw new ReturnSomethingException(new Fruit(Type.Integer, text.length), where);;
+  }
+}

@@ -21,6 +21,8 @@ export let lezerParser = parser.configure({
       Repeat: t.keyword,
       While: t.keyword,
       Null: t.keyword,
+      Public: t.keyword,
+      Private: t.keyword,
       Identifier: t.variableName,
 
       Type: t.typeName,

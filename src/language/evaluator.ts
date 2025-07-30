@@ -43,8 +43,10 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     return new Fruit(Type.Boolean, node.rawValue);
   }
 
-  async visitString(node: ast.String, _runtime: Runtime): Promise<Fruit> {
-    return new Fruit(Type.String, node.rawValue);
+  async visitString(node: ast.String, runtime: Runtime): Promise<Fruit> {
+    const fruit = await new ast.Instantiation('String', Where.Nowhere).visit(this, runtime);
+    fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.PrivateString, node.rawValue));
+    return fruit;
   }
 
   // --------------------------------------------------------------------------
@@ -876,7 +878,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     }
 
     const visibility = node.visibility ?? Visibility.Public;
-    classFruit.type.instanceVariableTypes.set(node.identifier, new InstanceVariableType(node.variableType, visibility, initialValue));
+    classFruit.type.instanceVariableTypes.set(node.identifier, new InstanceVariableType(this.resolveType(node.variableType, runtime, node.where), visibility, initialValue));
 
     return new Fruit(Type.Void);
   }
@@ -909,16 +911,6 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       classDefinition: classFruit,
       runtime: runtime.globalRuntime.child(),
     };
-
-    // Each instance of a class is a runtime that persists the instance's state.
-    // let ancestorType: ClassType | null = classFruit.type;
-    // while (ancestorType) {
-      // for (let [name, entry] of ancestorType.instanceVariableTypes) {
-        // instance.runtime.declareVariable(name, entry.type);
-        // instance.runtime.setDeclaredVariable(name, new VariableDefinition(entry.type, entry.initialValue));
-      // }
-      // ancestorType = ancestorType.superclass;
-    // }
 
     for (let [name, entry] of classFruit.type.instanceVariableTypes) {
       instance.runtime.declareVariable(name, entry.type);
