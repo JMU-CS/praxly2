@@ -59,6 +59,10 @@ class PraxisParser extends Parser {
   }
 
   parse(): ast.Block {
+    // for (let i = 0; i < this.tokens.length; ++i) {
+      // console.log(this.tokens[i].toPretty(this.source));
+    // }
+
     const statements = [];
     let blank = this.skipLinebreaks();
     if (blank.n > 0) {

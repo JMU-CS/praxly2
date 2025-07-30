@@ -993,7 +993,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
     const declaration = receiverFruit.type.instanceMethod(node.identifier);
     if (!declaration) {
-      throw new error.WhereError(`Method ${node.identifier} is not defined.`, node.where);
+      throw new error.UnknownError(`Method \`${node.identifier}\` is not defined.`, node.where);
     }
 
     const lambda = classFruit.methodBindings.get(node.identifier)!;

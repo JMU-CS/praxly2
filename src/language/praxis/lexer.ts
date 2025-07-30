@@ -165,7 +165,12 @@ class PraxisLexer extends Lexer {
     // If the whole line is whitespace, we do not give it any influence over
     // the indentation.
     if (this.i === this.source.length || this.has("\r") || this.has("\n")) {
-      this.abandon();
+      if (this.has("\n")) {
+        this.advance();
+        this.emitToken(TokenType.Linebreak);
+      } else {
+        this.abandon();
+      }
     }
 
     // Issue an indent token only if the indent extends the previous indent.
