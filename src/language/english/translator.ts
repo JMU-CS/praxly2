@@ -249,14 +249,44 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitDeclaration(node: ast.Declaration, formatter: Formatter): string {
-    let text = `Declare ${node.identifier}`;
+    let text = '';
 
-    if (node.variableType && node.rightNode) {
-      text += ` as a ${node.variableType} with value ${node.rightNode.visit(this, formatter)}`;
-    } else if (node.variableType) {
-      text += ` as a ${node.variableType}`;
-    } else if (node.rightNode) {
-      text += ` with value ${node.rightNode.visit(this, formatter)}`;
+    if ((node.variableType && node.rightNode) && (node.variableType.text !== "Any")) {
+      switch (node.variableType.text) {
+        case "int":
+          text += `Create a number called ${node.identifier} with the value ${node.rightNode.visit(this, formatter)}`;
+          break;
+        case "boolean":
+          text += `Create a boolean value called ${node.identifier} and set it to ${node.rightNode.visit(this, formatter)}`;
+          break;
+        case "float":
+        case "double":
+          text += `Create a decimal number called ${node.identifier} with the value ${node.rightNode.visit(this, formatter)}`;
+          break;
+        case "String":
+          text += `Make a string named ${node.identifier} with the value ${node.rightNode.visit(this, formatter)}`;
+          break;
+      }
+    } else if (node.variableType && (node.variableType.text !== "Any")) {
+      switch (node.variableType.text) {
+        case "int":
+          text += `Create a number called ${node.identifier}`;
+          break;
+        case "boolean":
+          text += `Create a boolean called ${node.identifier}`;
+          break;
+        case "float":
+        case "double":
+          text += `Create a ${node.variableType} called ${node.identifier}`;
+          break;
+        case "String":
+          // TODO: Should the empty be included
+          text += `Make an empty string called ${node.identifier}`;
+          break;
+
+      }
+    } else if (node.variableType.text === "Any") {
+      text += `Create a variable named ${node.identifier}`;
     }
 
     return text;
