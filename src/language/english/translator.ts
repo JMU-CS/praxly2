@@ -433,7 +433,50 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitArrayDeclaration(node: ast.ArrayDeclaration, formatter: Formatter): string {
-    return this.visitDeclaration(node, formatter);
+    let text = ''
+
+    // a simple check to know if there are any elements in the array
+    let empty = false;
+    if (node.rightNode instanceof ast.ArrayLiteral && node.rightNode.elementNodes.length === 0) {
+      empty = true
+    }
+
+    if (node.variableType.text === "Any") {
+      if (empty) {
+        text += `Create an empty array called ${node.identifier}`
+      } else {
+        text += `Create an array with the elements ${formatting.format((node.rightNode as ast.ArrayLiteral).elementNodes.map(value => `${value.visit(this, formatter)}`))}`
+      }
+    } else {
+      // there is a type
+      switch(node.variableType.text) {
+        case "int[]":
+          // TODO: "array" or "list"?, "for numbers" or "of numbers"?
+          text += `Make a list of numbers called ${node.identifier}`;
+          if (!empty)
+            text += ` with ${formatting.format((node.rightNode as ast.ArrayLiteral).elementNodes.map(value => `${value.visit(this, formatter)}`))} in it`;
+          break;
+        case "boolean[]":
+          text += `Make a list of type boolean called ${node.identifier}`;
+          if (!empty)
+            // TODO : should the values be included in the sentence for booleans ?
+            text += ` with ${(node.rightNode as ast.ArrayLiteral).elementNodes.length} elements`;
+          break;
+        case "float[]":
+        case "double[]":
+          text += `Create a list of type ${node.variableType.text.slice(0, -2)} called ${node.identifier}`;
+          if (!empty)
+            text += ` with the values ${formatting.format((node.rightNode as ast.ArrayLiteral).elementNodes.map(value => `${value.visit(this, formatter)}`))}`;
+          break;
+        case "String[]":
+          text += `Create a list of strings called ${node.identifier}`;
+          if (!empty)
+            text += ` with the elements ${formatting.format((node.rightNode as ast.ArrayLiteral).elementNodes.map(value => `${value.visit(this, formatter)}`))}`;
+          break
+      }
+    }
+
+    return text;
   }
 
   visitArraySubscript(node: ast.ArraySubscript, formatter: Formatter): string {
