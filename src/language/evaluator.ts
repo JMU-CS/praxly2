@@ -3,7 +3,7 @@ import {Visitor} from './visitor.js';
 import * as error from './error.js';
 import {Where} from './where.js';
 import type {NodeClass, OutputFormatter} from './output-formatter.js';
-import {Type, ArrayType, SizedArrayType, NumberType, UnionType, LazyClassType, ClassType, typeMap, Fruit, Visibility, FunctionType, FormalType, MethodType, InstanceVariableType} from './type.js';
+import {Type, ArrayType, SizedArrayType, NumberType, UnionType, LazyClassType, ClassType, Fruit, Visibility, FunctionType, FormalType, MethodType, InstanceVariableType} from './type.js';
 import {Memdia} from './memdia.js';
 import {Runtime, VariableDefinition, FunctionFruit, ReturnSomethingException, ReturnNothingException, ClassDefinition, MethodDefinition, MethodFruit, FunctionDefinition} from './runtime.js';
 
@@ -247,9 +247,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const rightFruit = await node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
       throw new error.WhereError(`${this.outputFormatter.operator(ast.Equal)} can only be applied to values of the same type.`, node.where);
-    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.String.covers(leftFruit.type) || Type.Boolean.covers(leftFruit.type)) &&
-               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.String.covers(rightFruit.type) || Type.Boolean.covers(rightFruit.type))) {
+    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.Boolean.covers(leftFruit.type)) &&
+               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.Boolean.covers(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value === rightFruit.value);
+    } else if (Type.String.covers(leftFruit.type) && Type.String.covers(rightFruit.type)) {
+      return new Fruit(Type.Boolean, leftFruit.value.runtime.variableBindings.get('text')!.value === rightFruit.value.runtime.variableBindings.get('text')!.value);
     } else {
       throw new error.WhereError(`${this.outputFormatter.operator(ast.Equal)} can only be applied to values of the same type.`, node.where);
     }
@@ -260,9 +262,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const rightFruit = await node.rightNode.visit(this, runtime);
     if (leftFruit.constructor.name !== rightFruit.constructor.name) {
       throw new error.WhereError(`${this.outputFormatter.operator(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
-    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.String.covers(leftFruit.type) || Type.Boolean.covers(leftFruit.type)) &&
-               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.String.covers(rightFruit.type) || Type.Boolean.covers(rightFruit.type))) {
+    } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type) || Type.Boolean.covers(leftFruit.type)) &&
+               (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type) || Type.Boolean.covers(rightFruit.type))) {
       return new Fruit(Type.Boolean, leftFruit.value !== rightFruit.value);
+    } else if (Type.String.covers(leftFruit.type) && Type.String.covers(rightFruit.type)) {
+      return new Fruit(Type.Boolean, leftFruit.value.runtime.variableBindings.get('text')!.value !== rightFruit.value.runtime.variableBindings.get('text')!.value);
     } else {
       throw new error.WhereError(`${this.outputFormatter.operator(ast.NotEqual)} can only be applied to values of the same type.`, node.where);
     }
@@ -902,7 +906,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitInstantiation(node: ast.Instantiation, runtime: Runtime): Promise<Fruit> {
-    const classFruit = runtime.classBindings.get(node.identifier);
+    const classFruit = runtime.getClassDefinition(node.identifier);
     if (!classFruit) {
       throw new error.WhereError(`Class ${node.identifier} is not defined.`, node.where);
     }

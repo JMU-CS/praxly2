@@ -57,7 +57,7 @@ export class MethodFruit extends MethodDefinition {
 
 export class VariableDefinition {
   type: Type;
-  value: string | number | boolean | null;
+  value: any; //string | number | boolean | null;
 
   constructor(type: Type, value: any) {
     this.type = type;
@@ -279,9 +279,13 @@ export class InputFunction extends FunctionDefinition {
     super(new FunctionType([], Type.String));
   }
 
-  async call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
+  async call(evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
     const text: string = await runtime.globalRuntime.getInput();
-    throw new ReturnSomethingException(new Fruit(Type.String, text), where);
+
+    const fruit = await new ast.Instantiation('String', Where.Nowhere).visit(evaluator, runtime);
+    fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.PrivateString, text));
+
+    throw new ReturnSomethingException(fruit, where);
   }
 }
 
@@ -443,9 +447,10 @@ export class IntCastFunction extends FunctionDefinition {
     } else if (Type.Integer.covers(variable.type)) {
       newValue = variable.value as number;
     } else {
-      newValue = Number(variable.value);
+      const text = variable.value!.runtime.variableBindings.get('text')!.value;
+      newValue = Number(text);
       if (Number.isNaN(newValue)) {
-        throw new error.WhereError(`The value \`"${variable.value}"\` cannot be converted to an integer.`, where);
+        throw new error.WhereError(`The value \`"${text}"\` cannot be converted to an integer.`, where);
       }
     }
     throw new ReturnSomethingException(new Fruit(Type.Integer, newValue), where);
@@ -465,9 +470,10 @@ export class FloatCastFunction extends FunctionDefinition {
     if (Type.Double.covers(variable.type) || Type.Float.covers(variable.type) || Type.Integer.covers(variable.type)) {
       newValue = variable.value as number;
     } else {
-      newValue = Number(variable.value);
+      const text = variable.value!.runtime.variableBindings.get('text')!.value;
+      newValue = Number(text);
       if (Number.isNaN(newValue)) {
-        throw new error.WhereError(`The value \`"${variable.value}"\` cannot be converted to a float.`, where);
+        throw new error.WhereError(`The value \`"${text}"\` cannot be converted to a float.`, where);
       }
     }
     throw new ReturnSomethingException(new Fruit(Type.Float, newValue), where);
@@ -487,9 +493,10 @@ export class DoubleCastFunction extends FunctionDefinition {
     if (Type.Double.covers(variable.type) || Type.Float.covers(variable.type) || Type.Integer.covers(variable.type)) {
       newValue = variable.value as number;
     } else {
-      newValue = Number(variable.value);
+      const text = variable.value!.runtime.variableBindings.get('text')!.value;
+      newValue = Number(text);
       if (Number.isNaN(newValue)) {
-        throw new error.WhereError(`The value \`"${variable.value}"\` cannot be converted to a double.`, where);
+        throw new error.WhereError(`The value \`"${text}"\` cannot be converted to a double.`, where);
       }
     }
     throw new ReturnSomethingException(new Fruit(Type.Double, newValue), where);
@@ -498,14 +505,14 @@ export class DoubleCastFunction extends FunctionDefinition {
 
 export class StringClass extends ClassDefinition {
   constructor() {
-    super(Type.String2);
+    super(Type.String);
     this.methodBindings.set('length', new StringLengthMethod());
   }
 }
 
 export class StringLengthMethod extends MethodDefinition {
   constructor() {
-    super(Type.String2.instanceMethodTypes.get('length')!);
+    super(Type.String.instanceMethodTypes.get('length')!);
   }
 
   async call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {

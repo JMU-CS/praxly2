@@ -30,22 +30,21 @@ export class Type {
   static Double = new Type('double');
   static Void = new Type('void');
   static Boolean = new Type('boolean');
-  static String = new Type('String');
+  // static String = new Type('String');
   static PrivateString = new Type('PrivateString');
   static IntegerRange = new Type('IntegerRange');
   static Null = new Type('null');
   static Any: Type;
-  static String2: ClassType;
+  static String: ClassType;
 }
 
-export const typeMap: {[index: string]: Type} = {
-  'int': Type.Integer,
-  'float': Type.Float,
-  'double': Type.Double,
-  'void': Type.Void,
-  'boolean': Type.Boolean,
-  // 'String': Type.String,
-};
+// export const typeMap: {[index: string]: Type} = {
+  // 'int': Type.Integer,
+  // 'float': Type.Float,
+  // 'double': Type.Double,
+  // 'void': Type.Void,
+  // 'boolean': Type.Boolean,
+// };
 
 export class AnyType extends Type {
   constructor() {
@@ -274,4 +273,4 @@ export class Fruit {
 }
 
 Type.Any = new AnyType();
-Type.String2 = new StringType();
+Type.String = new StringType();

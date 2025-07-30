@@ -21,7 +21,7 @@ export class OutputFormatter extends DefaultOutputFormatter {
   value(fruit: Fruit) {
     if (fruit.type instanceof ArrayType) {
       return this.array(fruit);
-    } else if (Type.String2.covers(fruit.type)) {
+    } else if (Type.String.covers(fruit.type)) {
       return fruit.value.runtime.variableBindings.get('text')!.value as String;
     } else if (Type.Integer.covers(fruit.type) ||
         Type.Float.covers(fruit.type) ||
