@@ -11,6 +11,11 @@ type Formatter = {
   indentation: string,
 };
 
+const formatting = new Intl.ListFormat("en", {
+  style: "long",
+  type: "conjunction",
+});
+
 export class Translator extends Visitor<Formatter, string> {
 
   // --------------------------------------------------------------------------
@@ -72,8 +77,12 @@ export class Translator extends Visitor<Formatter, string> {
     let operandPrecedence = precedence.get(node.operandNode.constructor);
     let nodePrecedence = precedence.get(node.constructor);
 
-    let text = node.operandNode.visit(this, formatter);
-    text += operator;
+    let text = ''
+    if (operator === "++") {
+      text += `increment ${node.operandNode.visit(this, formatter)} by 1`;
+    } else {
+      text += `decrement ${node.operandNode.visit(this, formatter)} by 1`;
+    }
 
     return text;
   }
@@ -169,27 +178,27 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitLessThan(node: ast.LessThan, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '<');
+    return this.visitBinaryOperator(node, formatter, 'less than');
   }
 
   visitGreaterThan(node: ast.GreaterThan, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '>');
+    return this.visitBinaryOperator(node, formatter, 'is greater than');
   }
 
   visitLessThanOrEqual(node: ast.LessThanOrEqual, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, "<=");
+    return this.visitBinaryOperator(node, formatter, "is less than or equal to");
   }
 
   visitGreaterThanOrEqual(node: ast.GreaterThanOrEqual, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, ">=");
+    return this.visitBinaryOperator(node, formatter, "is greater than or equal to");
   }
 
   visitEqual(node: ast.Equal, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '==');
+    return this.visitBinaryOperator(node, formatter, 'is equal to');
   }
 
   visitNotEqual(node: ast.NotEqual, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, "!=");
+    return this.visitBinaryOperator(node, formatter, "is not equal to");
   }
 
   visitLogicalAnd(node: ast.LogicalAnd, formatter: Formatter): string {
@@ -258,26 +267,27 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitBlock(node: ast.Block, formatter: Formatter): string {
     return node.statements.map(statement => {
-      return `${formatter.indentation.repeat(formatter.nestingLevel)}${statement.visit(this, formatter)}\n`;
+      return `${formatter.indentation.repeat(formatter.nestingLevel)}${statement.visit(this, formatter)} `;
     }).join('');
   }
 
   visitPrint(node: ast.Print, formatter: Formatter): string {
+    // "print node to the screen"
     return `print ${node.operandNode.visit(this, formatter)}`;
   }
 
   visitIf(node: ast.If, formatter: Formatter): string {
-    let text = `if (${node.conditionNodes[0].visit(this, formatter)})\n`;
-    text += node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    let text = `if ${node.conditionNodes[0].visit(this, formatter)}`;
+
+    text += ` then ${node.thenBlocks[0].visit(this, formatter)}`;
     for (let i = 1; i < node.conditionNodes.length; ++i) {
-      text += `else if (${node.conditionNodes[i].visit(this, formatter)})\n`;
-      text += node.thenBlocks[i].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+      text += `if ${node.conditionNodes[i].visit(this, formatter)} `;
+      text +=`then ${node.thenBlocks[i].visit(this, formatter)}`;
     }
     if (node.elseBlock) {
-      text += `${formatter.indentation.repeat(formatter.nestingLevel)}else\n`;
-      text += node.elseBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+      text += `otherwise ${node.elseBlock.visit(this, formatter)}`;
     }
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end if`;
+
     return text;
   }
 
@@ -288,16 +298,18 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitDoWhile(node: ast.DoWhile, formatter: Formatter): string {
-    let text = "do ";
-    text += node.body.visit(this, formatter);
+    let text = "do "; // change
+    // text += node.body.visit(this, formatter);
+    text += formatting.format(node.body.statements.filter(statement => !(statement instanceof ast.LineComment)).map(statement => `${statement.visit(this, formatter)}`));
     text += ` while ${node.conditionNode.visit(this, formatter)}`;
     return text;
   }
 
   visitRepeatUntil(node: ast.RepeatUntil, formatter: Formatter): string {
     let text = "repeat ";
-    text += node.body.visit(this, formatter);
-    text += `until ${node.conditionNode.visit(this, formatter)}`;
+    // text += node.body.visit(this, formatter);
+    text += formatting.format(node.body.statements.filter(statement => !(statement instanceof ast.LineComment)).map(statement => `${statement.visit(this, formatter)}`));
+    text += ` until ${node.conditionNode.visit(this, formatter)}`;
     return text;
   }
 
@@ -306,9 +318,26 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitFor(node: ast.For, formatter: Formatter): string {
-    let text = `for (${node.initializationNode?.visit(this, formatter) ?? ''}; ${node.conditionNode.visit(this, formatter)}; ${this.visitBlockAsSequence(node.incrementBlock, formatter)})\n`;
-    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end for`;
+    // console.log(node.initializationNode, node.conditionNode, node.incrementBlock, node.body);
+    // let text = `for (${node.initializationNode?.visit(this, formatter) ?? ''}; ${node.conditionNode.visit(this, formatter)}; ${this.visitBlockAsSequence(node.incrementBlock, formatter)})\n`;
+    // text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    // text += `${formatter.indentation.repeat(formatter.nestingLevel)}end for`;
+    // return text;
+    let text = ''
+    const start = node.initializationNode instanceof ast.Declaration ? node.initializationNode.rightNode?.visit(this, formatter) : '';
+
+    if (node.conditionNode instanceof ast.LessThan) {
+      let end = node.conditionNode.rightNode.visit(this, formatter);
+      text += `Count from ${start} to ${end} and `;
+    }
+
+    text += formatting.format(node.body.statements.filter(statement => !(statement instanceof ast.LineComment)).map(statement => `${statement.visit(this, formatter)}`));
+
+    // console.log(start);
+
+    // Count from start to end
+    // let text = `Count from ${start} to ${} and `
+
     return text;
   }
 
