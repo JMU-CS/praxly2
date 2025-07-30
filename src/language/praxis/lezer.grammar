@@ -27,7 +27,7 @@ statement {
   Print { Print expression } |
   If { If LeftParenthesis expression RightParenthesis (curlyBlock (Else curlyBlock)? | linebreak block (Else linebreak block)? End If) } |
   While { While LeftParenthesis expression RightParenthesis linebreak block End While } |
-  Class { Class Identifier linebreak block End Class Identifier } |
+  Class { Class Identifier (Extends Identifier)? linebreak block End Class Identifier } |
   Return { Return expression } |
   Assignment { Identifier Equal expression }
 }
@@ -38,7 +38,8 @@ Declaration {
 }
 
 type {
-  Type { Identifier }
+  Type { Identifier } |
+  Void
 }
 
 expression {
@@ -73,6 +74,8 @@ apex {
   Integer { "-"? $[0-9]+ }
   Identifier { $[a-zA-Z_]$[a-zA-Z0-9_]* }
   Print { "print" }
+  Void { "void" }
+  Extends { "extends" }
   Boolean { "true" | "false" }
   For { "for" }
   Class { "class" }
@@ -80,6 +83,8 @@ apex {
   If { "if" }
   Else { "else" }
   Return { "return" }
+  Public { "public" }
+  Private { "private" }
   End { "end" }
   Null { "null" }
   Semicolon { ";" }
@@ -109,7 +114,8 @@ apex {
 
   lineEnd { linebreak | @eof }
 
-  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Null, Identifier }
+  // High-precedence on left.
+  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Null, Void, Extends, Public, Private, Identifier }
   @precedence { DoubleLessThan, LessThan }
   @precedence { DoubleGreaterThan, GreaterThan }
   @precedence { LineComment, ForwardSlash }

@@ -88,7 +88,8 @@ const highlightStyles = HighlightStyle.define([
   },
   {
     tag: [tags.typeName],
-    color: "#ebcb8b"
+    // color: "#ebcb8b",
+    color: "green"
   },
   {
     tag: [tags.className],

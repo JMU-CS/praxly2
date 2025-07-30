@@ -21,7 +21,8 @@ export let lezerParser = parser.configure({
       Repeat: t.keyword,
       While: t.keyword,
       Null: t.keyword,
-
+      Public: t.keyword,
+      Private: t.keyword,
       Identifier: t.variableName,
 
       Type: t.typeName,
@@ -43,6 +44,8 @@ export let lezerParser = parser.configure({
       RightParenthesis: t.paren,
 
       Integer: t.integer,
+      Void: t.keyword,
+
     }),
     indentNodeProp.add({
       // Block: context => context.column(context.node.from) + context.unit,

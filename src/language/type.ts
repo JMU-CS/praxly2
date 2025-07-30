@@ -30,20 +30,21 @@ export class Type {
   static Double = new Type('double');
   static Void = new Type('void');
   static Boolean = new Type('boolean');
-  static String = new Type('String');
+  // static String = new Type('String');
+  static PrivateString = new Type('PrivateString');
   static IntegerRange = new Type('IntegerRange');
   static Null = new Type('null');
   static Any: Type;
+  static String: ClassType;
 }
 
-export const typeMap: {[index: string]: Type} = {
-  'int': Type.Integer,
-  'float': Type.Float,
-  'double': Type.Double,
-  'void': Type.Void,
-  'boolean': Type.Boolean,
-  'String': Type.String,
-};
+// export const typeMap: {[index: string]: Type} = {
+  // 'int': Type.Integer,
+  // 'float': Type.Float,
+  // 'double': Type.Double,
+  // 'void': Type.Void,
+  // 'boolean': Type.Boolean,
+// };
 
 export class AnyType extends Type {
   constructor() {
@@ -123,7 +124,7 @@ export class SizedArrayType extends ArrayType {
   }
 }
 
-export class ObjectType extends Type {
+export class LazyClassType extends Type {
   covers(that: Type): boolean {
     return this.text === that.text || that === Type.Null;
   }
@@ -145,6 +146,118 @@ export class UnionType extends Type {
 
 export const NumberType = new UnionType([Type.Double, Type.Float, Type.Integer]);
 
+export class FormalType {
+  identifier: string;
+  type: Type;
+
+  constructor(identifier: string, type: Type) {
+    this.identifier = identifier;
+    this.type = type;
+  }
+}
+
+export class FunctionType {
+  formals: FormalType[];
+  returnType: Type;
+
+  constructor(formals: FormalType[], returnType: Type) {
+    this.formals = formals;
+    this.returnType = returnType;
+  }
+}
+
+export enum Visibility {
+  Public,
+  Private,
+}
+
+export class MethodType {
+  formals: FormalType[];
+  returnType: Type;
+  visibility: Visibility;
+
+  constructor(formals: FormalType[], returnType: Type, visibility: Visibility) {
+    this.formals = formals;
+    this.returnType = returnType;
+    this.visibility = visibility;
+  }
+}
+
+export class InstanceVariableType {
+  type: Type;
+  visibility: Visibility;
+  initialValue: string | number | boolean | null;
+
+  constructor(type: Type, visibility: Visibility, initialValue: any) {
+    this.type = type;
+    this.visibility = visibility;
+    this.initialValue = initialValue;
+  }
+}
+
+export class ClassType extends Type {
+  superclass: ClassType | null;
+  instanceVariableTypes: Map<string, InstanceVariableType>;
+  instanceMethodTypes: Map<string, MethodType>;
+  where: Where;
+
+  constructor(name: string, superclass: ClassType | null, where: Where) {
+    super(name);
+    this.superclass = superclass;
+    this.instanceVariableTypes = new Map();
+    this.instanceMethodTypes = new Map();
+    this.where = where;
+  }
+
+  instanceVariable(identifier: string): InstanceVariableType | null {
+    let instanceVariableType = this.instanceVariableTypes.get(identifier);
+    if (instanceVariableType) {
+      return instanceVariableType;
+    } else if (this.superclass) {
+      return this.superclass.instanceVariable(identifier);
+    } else {
+      return null;
+    }
+  }
+
+  instanceMethod(identifier: string): MethodType | null {
+    let methodType = this.instanceMethodTypes.get(identifier);
+    if (methodType) {
+      return methodType;
+    } else if (this.superclass) {
+      return this.superclass.instanceMethod(identifier);
+    } else {
+      return null;
+    }
+  }
+
+  covers(that: Type): boolean {
+    if (that === Type.Null) {
+      return true;
+    } else if (!(that instanceof ClassType)) {
+      return false;
+    }
+
+    let thatAncestor: ClassType | null = that;
+    while (thatAncestor) {
+      if (this === thatAncestor) {
+        return true;
+      }
+      thatAncestor = thatAncestor.superclass;
+    }
+
+    return false;
+  }
+}
+
+export class StringType extends ClassType {
+  constructor() {
+    super('String', null, Where.Nowhere);
+    this.instanceVariableTypes.set('text', new InstanceVariableType(Type.PrivateString, Visibility.Private, null));
+    this.instanceMethodTypes.set('length', new MethodType([], Type.Integer, Visibility.Private));
+  }
+}
+
 export class Fruit {
   type: Type;
   value: any;
@@ -160,3 +273,4 @@ export class Fruit {
 }
 
 Type.Any = new AnyType();
+Type.String = new StringType();

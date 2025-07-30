@@ -2,7 +2,8 @@ import assert from 'node:assert';
 import * as praxis from '../build/language/praxis/index.js';
 import * as python from '../build/language/python/index.js';
 import {Fruit, Type} from '../build/language/type.js';
-import {GlobalRuntime, Evaluator} from '../build/language/evaluator.js';
+import {Evaluator} from '../build/language/evaluator.js';
+import {GlobalRuntime} from '../build/language/runtime.js';
 import * as error from '../build/language/error.js';
 import {Memdia} from '../build/language/memdia.js';
 import {makeLogger, getInput} from './utilities.js';
@@ -1221,6 +1222,180 @@ print s.value
   samples.forEach(testProgram);
 });
 
+describe('Praxis: Inheritance', () => {
+  const samples = [
+    {
+      message: 'subclass inherits instance variables',
+      source: `class Person
+  String name
+end class Person
+
+class AgedPerson extends Person
+  int age
+end class AgedPerson
+
+AgedPerson p = new AgedPerson
+p.name = "Biz"
+p.age = 15
+print p.name
+print p.age
+`,
+      translation: {
+        praxis: `class Person
+  String name
+end class Person
+
+class AgedPerson extends Person
+  int age
+end class AgedPerson
+
+AgedPerson p \u2b60 new AgedPerson
+p.name \u2b60 "Biz"
+p.age \u2b60 15
+print p.name
+print p.age
+`,
+        python: "TODO",
+      },
+      output: "Biz\n15\n",
+    },
+    {
+      message: 'grandparent to grandchild inherits instance variables',
+      source: `class Person
+  String name
+end class Person
+
+class AgedPerson extends Person
+  int age
+end class AgedPerson
+
+class MoneyedAgedPerson extends AgedPerson
+  int moneys
+end class MoneyedAgedPerson
+
+MoneyedAgedPerson p = new MoneyedAgedPerson
+p.name = "Rich"
+p.age = 26
+p.moneys = 12345678
+print p.name
+print p.age
+print p.moneys
+`,
+      translation: {
+        praxis: `class Person
+  String name
+end class Person
+
+class AgedPerson extends Person
+  int age
+end class AgedPerson
+
+class MoneyedAgedPerson extends AgedPerson
+  int moneys
+end class MoneyedAgedPerson
+
+MoneyedAgedPerson p \u2b60 new MoneyedAgedPerson
+p.name \u2b60 "Rich"
+p.age \u2b60 26
+p.moneys \u2b60 12345678
+print p.name
+print p.age
+print p.moneys
+`,
+        python: "TODO",
+      },
+      output: "Rich\n26\n12345678\n",
+    },
+    {
+      message: 'super reference to sub',
+      source: `class Super
+  int a
+end class Super
+
+class Sub extends Super
+  int b
+end class Sub
+
+Super s = new Sub
+s.a = 17
+print s.a
+`,
+      translation: {
+        praxis: `class Super
+  int a
+end class Super
+
+class Sub extends Super
+  int b
+end class Sub
+
+Super s \u2b60 new Sub
+s.a \u2b60 17
+print s.a
+`,
+        python: "TODO",
+      },
+      output: "17\n",
+    },
+    {
+      message: 'sub inherits methods',
+      source: `class Super
+  String text
+  String getText()
+    return text
+  end getText
+end class Super
+
+class Sub extends Super
+  int x
+  int getX()
+    return x
+  end getX
+end class Sub
+
+Sub s = new Sub
+s.text = "flirt"
+s.x = 93
+print s.text
+print s.x
+print s.getText()
+print s.getX()
+`,
+      translation: {
+        praxis: `class Super
+  String text
+
+  String getText()
+    return text
+  end getText
+end class Super
+
+class Sub extends Super
+  int x
+
+  int getX()
+    return x
+  end getX
+end class Sub
+
+Sub s \u2b60 new Sub
+s.text \u2b60 "flirt"
+s.x \u2b60 93
+print s.text
+print s.x
+print s.getText()
+print s.getX()
+`,
+        python: "TODO",
+      },
+      output: "flirt\n93\nflirt\n93\n",
+    },
+  ];
+
+  samples.forEach(testProgram);
+});
+
+
 describe('Praxis: Object Errors', () => {
   const samples = [
     {
@@ -1282,6 +1457,40 @@ end class Circle
 Circle c = new Circle
 print c.radius`,
       error: error.UninitializedError,
+    },
+    {
+      message: 'sub instance variable on super ref',
+      source: `class Super
+end class Super
+
+class Sub extends Super
+  String text
+  String getText()
+    return text
+  end getText
+end class Sub
+
+Super s = new Sub
+print s.text
+`,
+      error: error.UnknownError,
+    },
+    {
+      message: 'sub method call on super ref',
+      source: `class Super
+end class Super
+
+class Sub extends Super
+  String text
+  String getText()
+    return text
+  end getText
+end class Sub
+
+Super s = new Sub
+print s.getText()
+`,
+      error: error.UnknownError,
     },
   ];
 
