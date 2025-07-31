@@ -10,16 +10,17 @@ const debugButton = document.getElementById('debug-button') as HTMLInputElement;
 export const stepButton = document.getElementById('step-button') as HTMLInputElement;
 const exitButton = document.getElementById("exit-button") as HTMLInputElement;
 const shareButton = document.getElementById("share-button") as HTMLInputElement;
-const settingsButton = document.getElementById("settings-button") as HTMLInputElement;
-const dropdownContent = document.querySelector(".dropdown-content") as HTMLElement;
+const infoButton = document.getElementById("info-button") as HTMLInputElement;
 const resetButton = document.getElementById("reset-button") as HTMLInputElement;
+
+// Info modal
+const infoModal = document.getElementById("info-modal")as HTMLButtonElement;
+const closeInfo = document.getElementById("close-info")as HTMLButtonElement;
+
+// Reset modal
 const resetModal = document.getElementById('reset-confirm') as HTMLElement;
 const confirmReset = document.getElementById('confirm-reset') as HTMLButtonElement;
 const cancelReset = document.getElementById('cancel-reset') as HTMLButtonElement;
-const examplesButton = document.getElementById("examples-button") as HTMLButtonElement;
-const examplesModal = document.getElementById("examples-modal")as HTMLButtonElement;
-const closeExamples = document.getElementById("close-examples")as HTMLButtonElement;
-
 
 // Main elements
 const leftSide = document.getElementById("left-side") as HTMLElement;
@@ -95,13 +96,6 @@ exitButton.addEventListener('click', () => {
   exitButton.style.display = 'none';
 });
 
-settingsButton.addEventListener("click", () => {
-  if (dropdownContent.style.display === "block") {
-    dropdownContent.style.display = "none";
-  } else {
-    dropdownContent.style.display = "block";
-  }
-});
 // ---------------------------------------------------------------------------
 // Reset notifications
 // ---------------------------------------------------------------------------
@@ -296,16 +290,16 @@ document.addEventListener('keydown', (e) => {
 });
 
 // EXAMPLES MODAL CONTENT
-examplesButton.addEventListener("click", () => {
-  examplesModal.style.display = "flex";
+infoButton.addEventListener("click", () => {
+  infoModal.style.display = "flex";
 });
 
-closeExamples.addEventListener("click", () => {
-  examplesModal.style.display = "none";
+closeInfo.addEventListener("click", () => {
+  infoModal.style.display = "none";
 });
 
-examplesModal.addEventListener("click", (e) => {
-  if (e.target === examplesModal) {
-    examplesModal.style.display = "none";
+infoModal.addEventListener("click", (e) => {
+  if (e.target === infoModal) {
+    infoModal.style.display = "none";
   }
 });

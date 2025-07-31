@@ -19,12 +19,7 @@ body {
 
 }
 
-#title-version {
-  display: flex;
-  align-items: center;
-}
-
-.nav-bar ul {
+ul.nav-bar {
   display: flex;
   gap: 6px;
   list-style: none;
@@ -60,15 +55,15 @@ body {
   background-color: #7ae57d;
 }
 
-#stop-button:hover {
+#exit-button:hover {
   background-color: #d87456;
 }
 
-#settings-button:hover {
+#share-button:hover {
   background-color: #7981ee;
 }
 
-#share-button:hover {
+#info-button:hover {
   background-color: #7981ee;
 }
 
@@ -212,31 +207,6 @@ main {
   box-shadow: #90d9ff;
 }
 
-/* dropdown menu */
-.dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-.dropdown-content {
-  display: none;
-  position: absolute;
-  min-width: 150px;
-  z-index: 100;
-  border-radius: 5px;
-  padding: 6px 0;
-}
-
-.dropdown-item {
-  padding: 10px 16px;
-  width: 100%;
-  cursor: pointer;
-}
-
-.dropdown-item:hover {
-  background-color: #3d3d3d;
-}
-
 /* RESET MODAL CONTENT */
 #reset-confirm {
   display: none;
@@ -290,7 +260,7 @@ main {
 
 /* EXAMPLES MODAL CONTENT */
 
-#examples-modal {
+#info-modal {
   display: none;
   position: fixed;
   top: 0;
@@ -303,7 +273,7 @@ main {
   align-items: center;
 }
 
-.examples-modal-content {
+.info-modal-content {
   background-color: white;
   color: black;
   padding: 24px 32px;
@@ -314,17 +284,17 @@ main {
   text-align: center;
 }
 
-.examples-modal-content ul {
+.info-modal-content ul {
   list-style: none;
   padding: 0;
   margin: 16px 0;
 }
 
-.examples-modal-content li {
+.info-modal-content li {
   margin-bottom: 10px;
 }
 
-.examples-modal-content button {
+.info-modal-content button {
   background-color: #444;
   color: white;
   padding: 6px 12px;
