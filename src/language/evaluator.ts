@@ -5,7 +5,7 @@ import {Where} from './where.js';
 import type {NodeClass, OutputFormatter} from './output-formatter.js';
 import {Type, ArrayType, SizedArrayType, NumberType, UnionType, LazyClassType, ClassType, Fruit, Visibility, FunctionType, FormalType, MethodType, InstanceVariableType} from './type.js';
 import {Memdia} from './memdia.js';
-import {Runtime, VariableDefinition, FunctionFruit, ReturnSomethingException, ReturnNothingException, ClassDefinition, MethodDefinition, MethodFruit, FunctionDefinition} from './runtime.js';
+import {Runtime, VariableDefinition, FunctionFruit, ReturnSomethingException, ReturnNothingException, ClassDefinition, MethodDefinition, MethodFruit, FunctionDefinition, StringClass} from './runtime.js';
 
 export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   outputFormatter: OutputFormatter;
@@ -129,8 +129,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     } else if ((Type.Integer.covers(leftFruit.type) || Type.Float.covers(leftFruit.type)) &&
                (Type.Integer.covers(rightFruit.type) || Type.Float.covers(rightFruit.type))) {
       return new Fruit(Type.Float, leftFruit.value + rightFruit.value);
+    } else if (Type.String.covers(leftFruit.type) && Type.String.covers(rightFruit.type)) {
+      const leftText = leftFruit.value.runtime.getVariable('text')!.value as string;
+      const rightText = rightFruit.value.runtime.getVariable('text')!.value as string;
+      return StringClass.instance(leftText + rightText, this, runtime);
     } else {
-      throw new error.WhereError(`${this.outputFormatter.operator(ast.Add)} can only be applied to numbers.`, node.where);
+      throw new error.WhereError(`${this.outputFormatter.operator(ast.Add)} can only be applied to numbers and strings.`, node.where);
     }
   }
 

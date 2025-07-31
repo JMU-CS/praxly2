@@ -534,7 +534,7 @@ export class StringSubstringMethod extends MethodDefinition {
   }
 
   async call(evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
-    const text = runtime.getVariable('text')!.value as String;
+    const text = runtime.getVariable('text')!.value as string;
     const start = runtime.getVariable('start')!.value as number;
     const end = runtime.getVariable('end')!.value as number;
     const subText = text.substring(start, end);

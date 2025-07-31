@@ -1414,6 +1414,17 @@ print s.substring(0, 2)
       },
       output: "dog\n3\ndo\n",
     },
+    {
+      message: 'string concatenation',
+      source: `print "A" + "z"
+`,
+      translation: {
+        praxis: `print "A" + "z"
+`,
+        python: "TODO",
+      },
+      output: "Az\n",
+    },
   ];
 
   samples.forEach(testProgram);
