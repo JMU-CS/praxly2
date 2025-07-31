@@ -13,66 +13,6 @@
 </head>
 
 <body>
-  <header class="nav-bar">
-    <div id="title-version">
-      <h1 id="titleRefresh">Praxly 🍂</h1>
-      <!-- <div id="examples-trigger-container">
-        <button id="examples-button" class="MainMenu-button" title="Example Programs">
-          <span class="material-symbols-rounded">menu_book</span>
-        </button>
-      </div> -->
-    </div>
-
-    <!-- Toolbar buttons -->
-    <ul>
-      <li>
-        <button id="run-button" class="MainMenu-button" title="Run the entire program">
-          Run <span class="material-symbols-rounded run">play_arrow</span>
-        </button>
-      </li>
-      <li>
-        <button id="debug-button" class="MainMenu-button" title="Run one step at a time">
-          Debug <span class="material-symbols-rounded bug">pest_control</span>
-        </button>
-      </li>
-      <li>
-        <button id="step-button" class="MainMenu-button debugOptions" title="Run the next step" style="display: none;">
-          Step <span class="material-symbols-rounded step">step</span>
-        </button>
-      </li>
-      <li>
-        <button id="exit-button" class="MainMenu-button debugOptions" title="Exit the debugger" style="display: none;">
-          Exit <span class="material-symbols-rounded stop">stop</span>
-        </button>
-      </li>
-      <li>
-      <li>
-        <button id="examples-button" class="MainMenu-button" title="Example Programs">
-          Examples<span class="material-symbols-rounded">menu_book</span>
-        </button>
-      </li>
-      <button id="share-button" class="MainMenu-button" title="Create link for sharing">
-        Share <span class="material-symbols-rounded share">share</span>
-      </button>
-      </li>
-      <li id="settings-dropdown">
-        <button id="settings-button" class="MainMenu-button" title="Settings">
-          Settings <span class="material-symbols-rounded extra">settings</span>
-          <!-- <span class="button-text">Settings</span> -->
-        </button>
-        <div class="dropdown-content">
-          <button class="dropdown-item">Help</button>
-          <button class="dropdown-item">Language</button>
-          <button class="dropdown-item">Manual</button>
-        </div>
-      </li>
-      <li>
-        <button id="reset-button" class="MainMenu-button" title="Reset the initial code">
-          Reset <span class="material-symbols-rounded reset">restart_alt</span>
-        </button>
-      </li>
-    </ul>
-  </header>
 
   <main>
     <div id="left-side">
@@ -104,6 +44,46 @@
     </div>
     <div id="resize-bar-X"></div>
     <div id="right-side">
+
+      <!-- Toolbar buttons -->
+      <ul class="nav-bar">
+        <li>
+          <button id="run-button" title="Run the entire program">
+            <span class="material-symbols-rounded">play_arrow</span>
+          </button>
+        </li>
+        <li>
+          <button id="debug-button" title="Debug one step at a time">
+            <span class="material-symbols-rounded">pest_control</span>
+          </button>
+        </li>
+        <li>
+          <button id="step-button" title="Run the next step" style="display: none;">
+            <span class="material-symbols-rounded">step</span>
+          </button>
+        </li>
+        <li>
+          <button id="exit-button" title="Exit the debugger" style="display: none;">
+            <span class="material-symbols-rounded">stop</span>
+          </button>
+        </li>
+        <li>
+          <button id="share-button" title="Create link for sharing">
+            <span class="material-symbols-rounded share">share</span>
+          </button>
+        </li>
+        <li>
+          <button id="info-button" title="Information and examples">
+            <span class="material-symbols-rounded">info</span>
+          </button>
+        </li>
+        <li>
+          <button id="reset-button" title="Reset to the initial code">
+            <span class="material-symbols-rounded">restart_alt</span>
+          </button>
+        </li>
+      </ul>
+
       <div id="output-panel" class="panel"></div>
       <div id="resize-bar-Y"></div>
       <div id="memdia-panel" class="panel"></div>
@@ -126,15 +106,15 @@
     </div>
   </div>
 
-  <div id="examples-modal">
-    <div class="examples-modal-content">
-      <h2>Example Programs</h2>
+  <div id="info-modal">
+    <div class="info-modal-content">
+      <h1>Praxly 🍂</h1>
       <ul>
         <li><button class="example-option">Variables</button></li>
         <li><button class="example-option">Hello World</button></li>
         <li><button class="example-option">Fibonacci</button></li>
       </ul>
-      <button id="close-examples" class="close-button">Close</button>
+      <button id="close-info" class="close-button">Close</button>
     </div>
   </div>
 
