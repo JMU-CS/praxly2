@@ -507,6 +507,13 @@ export class StringClass extends ClassDefinition {
   constructor() {
     super(Type.String);
     this.methodBindings.set('length', new StringLengthMethod());
+    this.methodBindings.set('substring', new StringSubstringMethod());
+  }
+
+  static async instance(text: string, evaluator: Evaluator, runtime: Runtime) {
+    const fruit = await new ast.Instantiation('String', Where.Nowhere).visit(evaluator, runtime);
+    fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.PrivateString, text));
+    return fruit;
   }
 }
 
@@ -518,5 +525,20 @@ export class StringLengthMethod extends MethodDefinition {
   async call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
     const text = runtime.getVariable('text')!.value as String;
     throw new ReturnSomethingException(new Fruit(Type.Integer, text.length), where);;
+  }
+}
+
+export class StringSubstringMethod extends MethodDefinition {
+  constructor() {
+    super(Type.String.instanceMethodTypes.get('substring')!);
+  }
+
+  async call(evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
+    const text = runtime.getVariable('text')!.value as String;
+    const start = runtime.getVariable('start')!.value as number;
+    const end = runtime.getVariable('end')!.value as number;
+    const subText = text.substring(start, end);
+    const fruit = await StringClass.instance(subText, evaluator, runtime);
+    throw new ReturnSomethingException(fruit, where);;
   }
 }

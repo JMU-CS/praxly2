@@ -30,21 +30,12 @@ export class Type {
   static Double = new Type('double');
   static Void = new Type('void');
   static Boolean = new Type('boolean');
-  // static String = new Type('String');
   static PrivateString = new Type('PrivateString');
   static IntegerRange = new Type('IntegerRange');
   static Null = new Type('null');
   static Any: Type;
   static String: ClassType;
 }
-
-// export const typeMap: {[index: string]: Type} = {
-  // 'int': Type.Integer,
-  // 'float': Type.Float,
-  // 'double': Type.Double,
-  // 'void': Type.Void,
-  // 'boolean': Type.Boolean,
-// };
 
 export class AnyType extends Type {
   constructor() {
@@ -254,7 +245,11 @@ export class StringType extends ClassType {
   constructor() {
     super('String', null, Where.Nowhere);
     this.instanceVariableTypes.set('text', new InstanceVariableType(Type.PrivateString, Visibility.Private, null));
-    this.instanceMethodTypes.set('length', new MethodType([], Type.Integer, Visibility.Private));
+    this.instanceMethodTypes.set('length', new MethodType([], Type.Integer, Visibility.Public));
+    this.instanceMethodTypes.set('substring', new MethodType([
+      new FormalType('start', Type.Integer),
+      new FormalType('end', Type.Integer),
+    ], this, Visibility.Public));
   }
 }
 

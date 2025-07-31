@@ -1395,6 +1395,30 @@ print s.getX()
   samples.forEach(testProgram);
 });
 
+describe('Praxis: Strings', () => {
+  const samples = [
+    {
+      message: 'string initialization and methods',
+      source: `String s = "dog"
+print s
+print s.length()
+print s.substring(0, 2)
+`,
+      translation: {
+        praxis: `String s \u2b60 "dog"
+print s
+print s.length()
+print s.substring(0, 2)
+`,
+        python: "TODO",
+      },
+      output: "dog\n3\ndo\n",
+    },
+  ];
+
+  samples.forEach(testProgram);
+});
+
 
 describe('Praxis: Object Errors', () => {
   const samples = [
