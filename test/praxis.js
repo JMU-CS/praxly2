@@ -1390,6 +1390,43 @@ print s.getX()
       },
       output: "flirt\n93\nflirt\n93\n",
     },
+    {
+      message: 'private access within class',
+      source: `class Hider
+  private void show()
+    print "peep"
+  end show
+
+  public void sneak()
+    this.show()
+    Hider h \u2b60 new Hider
+    h.show()
+  end sneak
+end class Hider
+
+Hider h = new Hider
+h.sneak()
+`,
+      translation: {
+        praxis: `class Hider
+  private void show()
+    print "peep"
+  end show
+
+  public void sneak()
+    this.show()
+    Hider h \u2b60 new Hider
+    h.show()
+  end sneak
+end class Hider
+
+Hider h \u2b60 new Hider
+h.sneak()
+`,
+        python: "TODO",
+      },
+      output: "peep\npeep\n",
+    },
   ];
 
   samples.forEach(testProgram);
@@ -1524,6 +1561,18 @@ end class Sub
 
 Super s = new Sub
 print s.getText()
+`,
+      error: error.UnknownError,
+    },
+    {
+      message: 'private method call',
+      source: `class Hider
+  private void show()
+    print "peep"
+  end show
+end class Hider
+Hider h = new Hider
+h.show()
 `,
       error: error.UnknownError,
     },

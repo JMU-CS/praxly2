@@ -80,27 +80,27 @@ export class Runtime {
   functionBindings: Map<string, FunctionDefinition>;
   classBindings: Map<string, ClassDefinition>;
   expectedType: Type | null;
-  classFruit: ClassDefinition | null;
+  classContext: ClassDefinition | null;
   globalRuntime!: GlobalRuntime;
   parent: Runtime | null;
 
-  constructor(parent: Runtime | null, variableBindings: Map<string, VariableDefinition>, functionBindings: Map<string, FunctionDefinition>, classBindings: Map<string, ClassDefinition>, expectedType: Type | null, classFruit: ClassDefinition | null) {
+  constructor(parent: Runtime | null, variableBindings: Map<string, VariableDefinition>, functionBindings: Map<string, FunctionDefinition>, classBindings: Map<string, ClassDefinition>, expectedType: Type | null, classContext: ClassDefinition | null) {
     this.parent = parent;
     this.variableBindings = variableBindings;
     this.functionBindings = functionBindings;
     this.classBindings = classBindings;
     this.expectedType = expectedType;
-    this.classFruit = classFruit;
+    this.classContext = classContext;
   }
 
   shallowClone() {
-    const newRuntime = new Runtime(this, this.variableBindings, this.functionBindings, this.classBindings, this.expectedType, this.classFruit);
+    const newRuntime = new Runtime(this, this.variableBindings, this.functionBindings, this.classBindings, this.expectedType, this.classContext);
     newRuntime.globalRuntime = this.globalRuntime;
     return newRuntime;
   }
 
   child() {
-    const newRuntime = new Runtime(this, new Map(), new Map(), new Map(), this.expectedType, this.classFruit);
+    const newRuntime = new Runtime(this, new Map(), new Map(), new Map(), this.expectedType, this.classContext);
     newRuntime.globalRuntime = this.globalRuntime;
     return newRuntime;
   }

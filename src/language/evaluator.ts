@@ -826,12 +826,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
   async visitClassDefinition(node: ast.ClassDefinition, runtime: Runtime): Promise<Fruit> {
     const superclassType = this.resolveClassName(node.superclass, runtime);
-    const classFruit = new ClassDefinition(new ClassType(node.identifier, superclassType, node.where));
+    const classDefinition = new ClassDefinition(new ClassType(node.identifier, superclassType, node.where));
     const newRuntime = runtime.shallowClone();
-    newRuntime.classFruit = classFruit;
+    newRuntime.classContext = classDefinition;
 
     const ancestorTypes = [];
-    let ancestorType: ClassType | null = classFruit.type.superclass;
+    let ancestorType: ClassType | null = classDefinition.type.superclass;
     while (ancestorType) {
       ancestorTypes.push(ancestorType);
       ancestorType = ancestorType.superclass;
@@ -842,12 +842,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       const ancestorDefinition = runtime.classBindings.get(ancestorType.text)!;
 
       for (const [identifier, type] of ancestorType.instanceVariableTypes) {
-        classFruit.type.instanceVariableTypes.set(identifier, type);
+        classDefinition.type.instanceVariableTypes.set(identifier, type);
       }
 
       for (const [identifier, type] of ancestorType.instanceMethodTypes) {
-        classFruit.type.instanceMethodTypes.set(identifier, type);
-        classFruit.methodBindings.set(identifier, ancestorDefinition.methodBindings.get(identifier)!);
+        classDefinition.type.instanceMethodTypes.set(identifier, type);
+        classDefinition.methodBindings.set(identifier, ancestorDefinition.methodBindings.get(identifier)!);
       }
     }
 
@@ -859,19 +859,19 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       await definition.visit(this, newRuntime);
     }
 
-    runtime.classBindings.set(node.identifier, classFruit);
+    runtime.classBindings.set(node.identifier, classDefinition);
 
     return new Fruit(Type.Void);
   }
 
   async visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, runtime: Runtime): Promise<Fruit> {
-    const classFruit = runtime.classFruit!;
+    const classDefinition = runtime.classContext!;
 
-    if (classFruit.type.instanceVariableTypes.has(node.identifier)) {
+    if (classDefinition.type.instanceVariableTypes.has(node.identifier)) {
       throw new error.WhereError(`Variable \`${node.identifier}\` has already been declared.`, node.where);
     }
 
-    const instanceVariableEntry = classFruit.type.instanceVariableTypes.get(node.identifier);
+    const instanceVariableEntry = classDefinition.type.instanceVariableTypes.get(node.identifier);
 
     // If the declaration provides an initial value, we eagerly evaluate the
     // expression and store it as part of the declaration.
@@ -886,15 +886,15 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     }
 
     const visibility = node.visibility ?? Visibility.Public;
-    classFruit.type.instanceVariableTypes.set(node.identifier, new InstanceVariableType(this.resolveType(node.variableType, runtime, node.where), visibility, initialValue));
+    classDefinition.type.instanceVariableTypes.set(node.identifier, new InstanceVariableType(this.resolveType(node.variableType, runtime, node.where), visibility, initialValue));
 
     return new Fruit(Type.Void);
   }
 
   async visitMethodDefinition(node: ast.MethodDefinition, runtime: Runtime): Promise<Fruit> {
-    const classFruit = runtime.classFruit!;
+    const classDefinition = runtime.classContext!;
 
-    if (classFruit.type.instanceMethodTypes.has(node.identifier)) {
+    if (classDefinition.type.instanceMethodTypes.has(node.identifier)) {
       throw new error.WhereError(`Method \`${node.identifier}\` has already been defined.`, node.where);
     }
 
@@ -903,24 +903,26 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     const visibility = node.visibility ?? Visibility.Public;
     const methodType = new MethodType(formalTypes, node.returnType, visibility);
 
-    classFruit.type.instanceMethodTypes.set(node.identifier, methodType);
-    classFruit.methodBindings.set(node.identifier, new MethodFruit(methodType, node.body, node.where));
+    classDefinition.type.instanceMethodTypes.set(node.identifier, methodType);
+    classDefinition.methodBindings.set(node.identifier, new MethodFruit(methodType, node.body, node.where));
 
     return new Fruit(Type.Void);
   }
 
   async visitInstantiation(node: ast.Instantiation, runtime: Runtime): Promise<Fruit> {
-    const classFruit = runtime.getClassDefinition(node.identifier);
-    if (!classFruit) {
+    const classDefinition = runtime.getClassDefinition(node.identifier);
+    if (!classDefinition) {
       throw new error.WhereError(`Class ${node.identifier} is not defined.`, node.where);
     }
 
     const instance = {
-      classDefinition: classFruit,
+      classDefinition: classDefinition,
       runtime: runtime.globalRuntime.child(),
     };
 
-    for (let [name, entry] of classFruit.type.instanceVariableTypes) {
+    instance.runtime.classContext = classDefinition;
+
+    for (let [name, entry] of classDefinition.type.instanceVariableTypes) {
       instance.runtime.declareVariable(name, entry.type);
       instance.runtime.setDeclaredVariable(name, new VariableDefinition(entry.type, entry.initialValue));
     }
@@ -930,11 +932,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     // example, could be stored with the class. Perhaps we could eliminate this
     // redundancy someday. For now, it's the easiest implementation given how
     // Runtime performs lookups.
-    for (let [name, entry] of classFruit.methodBindings) {
+    for (let [name, entry] of classDefinition.methodBindings) {
       instance.runtime.setFunction(name, entry);
     }
 
-    const instanceType = classFruit.type;
+    const instanceType = classDefinition.type;
     const instanceFruit = new Fruit(instanceType, instance);
     instance.runtime.declareVariable(runtime.globalRuntime.receiverName, instanceType);
     instance.runtime.setDeclaredVariable(runtime.globalRuntime.receiverName, new VariableDefinition(instanceType, instance));
@@ -992,15 +994,18 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       throw new error.TypeError(`A value of type \`${receiverFruit.type}\` is not an object. Methods cannot be called on it.`, node.receiverNode.where);
     }
 
-    // TODO: will classFruit be defined?
-    const classFruit = runtime.classBindings.get(receiverFruit.type.text)!;
+    const classDefinition = runtime.getClassDefinition(receiverFruit.type.text)!;
 
     const declaration = receiverFruit.type.instanceMethod(node.identifier);
     if (!declaration) {
       throw new error.UnknownError(`Method \`${node.identifier}\` is not defined.`, node.where);
     }
 
-    const lambda = classFruit.methodBindings.get(node.identifier)!;
+    if (declaration.visibility === Visibility.Private && classDefinition !== runtime.classContext) {
+      throw new error.UnknownError(`Method \`${node.identifier}\` is private.`, node.where);
+    }
+
+    const lambda = classDefinition.methodBindings.get(node.identifier)!;
 
     return await this.visitCall('method', node, lambda, receiverFruit.value.runtime);
   }
