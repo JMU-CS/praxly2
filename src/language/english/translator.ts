@@ -507,21 +507,21 @@ export class Translator extends Visitor<Formatter, string> {
   // Classes
   // --------------------------------------------------------------------------
 
-  visitClassDefinition(node: ast.ClassDefinition, formatter: Formatter): string {
-    let text = `class ${node.identifier}`;
-    if (node.superclass) {
-      text += ` extends ${node.superclass}`;
+  visitClassDefinition(node: ast.ClassDefinition, _formatter: Formatter): string {
+    let text = `Create a class called ${node.identifier}`;
+    const instances = node.instanceVariableDeclarations.length, methods = node.methodDefinitions.length;
+
+    if (instances > 0 && methods > 0) {
+      text += ` with instance variables ${formatting.format(node.instanceVariableDeclarations.map(declaration => `${declaration.identifier}`))}`;
+      text += `, and ${methods == 1 ? "a method" : "methods"} called ${formatting.format(node.methodDefinitions.map(definition => `${definition.identifier}`))}`;
+    } else if (instances > 0 && methods == 0) {
+      // instances variables but no methods
+      text += ` with instance variables ${formatting.format(node.instanceVariableDeclarations.map(declaration => `${declaration.identifier}`))}`;
+    } else if (instances == 0 && methods > 0) {
+      // methods but no instance variables
+      text += ` with ${methods == 1 ? "a method" : "methods"} called ${formatting.format(node.methodDefinitions.map(definition => `${definition.identifier}`))}`;
     }
-    text += "\n";
-
-    text += node.instanceVariableDeclarations.map(declaration => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${declaration.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('');
-
-    if (node.instanceVariableDeclarations.length > 0 && node.methodDefinitions.length > 0) {
-      text += "\n";
-    }
-
-    text += node.methodDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('\n');
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end class ${node.identifier}`;
+     // have more text explaining the methods ?
 
     return text;
   }
