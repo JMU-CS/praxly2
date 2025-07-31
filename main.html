@@ -46,14 +46,14 @@
         </button>
       </li>
       <li>
-        <li>
+      <li>
         <button id="examples-button" class="MainMenu-button" title="Example Programs">
           Examples<span class="material-symbols-rounded">menu_book</span>
         </button>
       </li>
-        <button id="share-button" class="MainMenu-button" title="Create link for sharing">
-          Share <span class="material-symbols-rounded share">share</span>
-        </button>
+      <button id="share-button" class="MainMenu-button" title="Create link for sharing">
+        Share <span class="material-symbols-rounded share">share</span>
+      </button>
       </li>
       <li id="settings-dropdown">
         <button id="settings-button" class="MainMenu-button" title="Settings">
@@ -78,9 +78,8 @@
     <div id="left-side">
       <div class="left-toolbar">
         <div id="language-dropdown">
-          <button id="language-button">Language ▼</button>
+          <button id="language-button">Praxis ▼</button>
           <div id="language-menu">
-            <button>Praxis</button>
             <button>Java</button>
             <button>CSP</button>
             <button>Python</button>
@@ -88,7 +87,20 @@
         </div>
         <button id="new-editor" class="left-toolbar" title="Add a new editor"> + </button>
       </div>
-      <div id="editor" class="panel"></div>
+      <div id="editor-container">
+        <div class="editor-wrapper" id="editor-wrapper-0">
+          <div class="editor panel" id="editor-0"></div>
+        </div>
+        <div class="resize-bar-editor-x"></div>
+        <div class="editor-wrapper" id="editor-wrapper-1">
+          <div class="editor panel" id="editor-1"></div>
+        </div>
+        <div class="resize-bar-editor-xx"></div>
+        <div class="editor-wrapper" id="editor-wrapper-2">
+          <div class="editor panel" id="editor-2"></div>
+        </div>
+      </div>
+      <!-- <div id="editor" class="panel"></div> -->
     </div>
     <div id="resize-bar-X"></div>
     <div id="right-side">
@@ -99,9 +111,8 @@
   </main>
 
   <!-- notification for Share button -->
-  <div id="toast"
-    style="display: none; position: fixed; bottom: 20px; right: 20px; background: #333; color: white; padding: 10px; border-radius: 5px;">
-    Link copied to clipboard!
+  <div id="toast"></div>
+  Link copied to clipboard!
   </div>
 
   <!-- notification for reset button -->
@@ -116,16 +127,16 @@
   </div>
 
   <div id="examples-modal">
-  <div class="examples-modal-content">
-    <h2>Example Programs</h2>
-    <ul>
-      <li><button class="example-option">Variables</button></li>
-      <li><button class="example-option">Hello World</button></li>
-      <li><button class="example-option">Fibonacci</button></li>
-    </ul>
-    <button id="close-examples" class="close-button">Close</button>
+    <div class="examples-modal-content">
+      <h2>Example Programs</h2>
+      <ul>
+        <li><button class="example-option">Variables</button></li>
+        <li><button class="example-option">Hello World</button></li>
+        <li><button class="example-option">Fibonacci</button></li>
+      </ul>
+      <button id="close-examples" class="close-button">Close</button>
+    </div>
   </div>
-</div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

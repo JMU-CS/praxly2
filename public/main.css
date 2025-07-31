@@ -81,15 +81,12 @@ body {
 main {
   display: flex;
   height: 100vh;
-  position: relative;
   overflow: hidden;
-  gap: 0;
 }
 
 #left-side {
   display: flex;
   flex-grow: 1;
-  height: 100%;
   width: 4%;
   flex-direction: column;
   background-color: #1e1e1e;
@@ -121,7 +118,7 @@ main {
   white-space: nowrap;
 }
 
-/* Language dropdown wrapper */
+/* Language dropdown */
 #language-dropdown {
   position: relative;
   display: flex;
@@ -198,6 +195,8 @@ main {
   pointer-events: auto;
   flex-grow: 0;
 }
+
+
 
 #resize-bar-Y {
   height: 6px;
@@ -337,4 +336,51 @@ main {
 .close-button {
   margin-top: 16px;
   background-color: lightslategray;
+}
+
+#toast {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #333;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+/* EDITOR POPUP*/
+#editor-container {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.editor-wrapper {
+  flex: 1;
+  min-width: 100px;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor {
+  flex: 1;
+  height: 100%;
+}
+
+.resize-bar-editor-x {
+  width: 6px;
+  background-color: #2d485a;
+  cursor: col-resize;
+  flex-shrink: 0;
+}
+
+.resize-bar-editor-xx {
+  width: 6px;
+  background-color: #2d485a;
+  cursor: col-resize;
+  flex-shrink: 0;
 }

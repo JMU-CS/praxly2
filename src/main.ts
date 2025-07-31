@@ -1,5 +1,8 @@
 import { CodeMirrorEditor } from './editor.js';
 import { run } from './run.js';
+let isResizingHoriz = false;
+let isResizingVert = false;
+
 
 // Toolbar buttons
 const runButton = document.getElementById('run-button') as HTMLInputElement;
@@ -25,14 +28,41 @@ const rightSide = document.getElementById("right-side") as HTMLElement;
 export const outputPanel = document.getElementById('output-panel') as HTMLElement;
 const resizeBarY = document.getElementById("resize-bar-Y") as HTMLElement;
 const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
+const resizeEditorX = document.querySelector(".resize-bar-editor-x") as HTMLElement;
+const resizeEditorXX = document.querySelector(".resize-bar-editor-xx") as HTMLElement;
+const editorWrapper0 = document.getElementById("editor-wrapper-0") as HTMLElement;
+const editorWrapper1 = document.getElementById("editor-wrapper-1") as HTMLElement;
+const editorWrapper2 = document.getElementById("editor-wrapper-2") as HTMLElement;
+
+// hiding editor 1 and 2 and resize bars
+editorWrapper1.style.display = "none";
+editorWrapper2.style.display = "none";
+resizeEditorX.style.display = "none";
+resizeEditorXX.style.display = "none";
 
 // left-side toolbar elements
 const langSwitch = document.getElementById("language-button") as HTMLButtonElement;
 const langDropdown = document.getElementById("language-menu") as HTMLDivElement;
 
 // Code editor
-export const editor = new CodeMirrorEditor('editor');
-export const editorView = editor.view;
+// export const editor = new CodeMirrorEditor('editor');
+export const editor0 = new CodeMirrorEditor("editor-0");
+export const editor1 = new CodeMirrorEditor("editor-1");
+export const editor2 = new CodeMirrorEditor("editor-2");
+// export const editor = editor0;
+export let editor = editor0;
+export let editorView = editor.view;
+const newEditorButton = document.getElementById("new-editor")!;
+const editorContainer = document.getElementById("editor-container")!;
+let editorCount = 1;
+
+export function setActiveEditor(index: number) {
+  if (index === 0) editor = editor0;
+  else if (index === 1) editor = editor1;
+  else if (index === 2) editor = editor2;
+
+  editorView = editor.view;
+}
 
 const latestSource = localStorage.getItem('latest-source');
 if (latestSource) {
@@ -104,10 +134,9 @@ cancelReset.addEventListener('click', () => {
 shareButton.addEventListener('click', generateUrl);
 
 export function generateUrl() {
-  // yank the text in ace
   const code = editorView.state.doc.toString();
   const encoded = encodeURIComponent(code);
-  window.location.hash = ''; //this should clear it before replacing it
+  window.location.hash = '';
   window.location.hash = `code=${encoded}`
   saveToLocal();
   const dummy = document.createElement('input');
@@ -122,7 +151,7 @@ export function generateUrl() {
     setTimeout(() => {
       toast.style.display = 'none';
     }, 3000);
-  } // Hide the toast after 3 seconds (adjust as needed)
+  }
 }
 
 export function saveToLocal() {
@@ -151,45 +180,109 @@ const closeDropdown = () => {
 // Resize events
 // ---------------------------------------------------------------------------
 
-resizeBarX.addEventListener("mousedown", () => {
-  document.addEventListener("mousemove", resizeX);
-  document.addEventListener("mouseup", stopResizeX);
+resizeBarX.addEventListener('mousedown', () => {
+  isResizingHoriz = true;
+  document.addEventListener('mousemove', resizeHandler);
 });
 
-function resizeX(e: MouseEvent) {
-  const leftEdge = leftSide.getBoundingClientRect().left;
-  const totalWidth = leftSide.offsetWidth;
-  const leftWidth = e.clientX - leftEdge;
-  const rightWidth = totalWidth - leftWidth - resizeBarX.offsetWidth;
-
-  leftSide.style.width = `${leftWidth}px`;
-  rightSide.style.width = `${rightWidth}px`;
-}
-
-function stopResizeX() {
-  document.removeEventListener("mousemove", resizeX);
-  document.removeEventListener("mouseup", stopResizeX);
-}
-
-resizeBarY.addEventListener("mousedown", () => {
-  document.addEventListener("mousemove", resizeY);
-  document.addEventListener("mouseup", stopResizeY);
+resizeBarY.addEventListener('mousedown', () => {
+  isResizingVert = true;
+  document.addEventListener('mousemove', resizeHandler);
 });
 
-function resizeY(e: MouseEvent) {
-  const topEdge = rightSide.getBoundingClientRect().top;
-  const totalHeight = rightSide.offsetHeight;
-  const outputHeight = e.clientY - topEdge;
-  const memdiaHeight = totalHeight - outputHeight - resizeBarY.offsetHeight;
 
-  outputPanel.style.height = `${outputHeight}px`;
-  memdiaPanel.style.height = `${memdiaHeight}px`;
+document.addEventListener("mouseup", () => {
+  isResizingHoriz = false;
+  isResizingVert = false;
+  document.removeEventListener("mousemove", resizeHandler);
+});
+
+
+
+function resizeHandler(e: MouseEvent) {
+  if (isResizingHoriz) {
+    const leftEdge = leftSide.getBoundingClientRect().left;
+    const totalWidth = leftSide.offsetWidth + rightSide.offsetWidth + resizeBarX.offsetWidth;
+
+    const leftWidth = e.clientX - leftEdge;
+    const rightWidth = totalWidth - leftWidth - resizeBarX.offsetWidth;
+
+    if (leftWidth > 100 && rightWidth > 100) {
+      leftSide.style.width = `${leftWidth}px`;
+      rightSide.style.width = `${rightWidth}px`;
+    }
+  }
+
+  if (isResizingVert) {
+    const topEdge = rightSide.getBoundingClientRect().top;
+    const totalHeight = outputPanel.offsetHeight + memdiaPanel.offsetHeight + resizeBarY.offsetHeight;
+
+    const outputHeight = e.clientY - topEdge;
+    const memdiaHeight = totalHeight - outputHeight - resizeBarY.offsetHeight;
+
+    if (outputHeight > 100 && memdiaHeight > 100) {
+      outputPanel.style.height = `${outputHeight}px`;
+      memdiaPanel.style.height = `${memdiaHeight}px`;
+    }
+  }
+
 }
 
-function stopResizeY() {
-  document.removeEventListener("mousemove", resizeY);
-  document.removeEventListener("mouseup", stopResizeY);
+let visibleEditors = 1;
+
+newEditorButton.addEventListener("click", () => {
+  if (visibleEditors === 1) {
+    editorWrapper1.style.display = "flex";
+    resizeEditorX.style.display = "block";
+    setActiveEditor(1);
+    visibleEditors++;
+  } else if (visibleEditors === 2) {
+    editorWrapper2.style.display = "flex";
+    resizeEditorXX.style.display = "block";
+    setActiveEditor(2);
+    visibleEditors++;
+  }
+});
+
+// individual function for resize bars in between editors 0, 1, 2
+
+function startEditorResize(bar: HTMLElement, leftEditor: HTMLElement, rightEditor: HTMLElement) {
+  let isDragging = false;
+
+  bar.addEventListener("mousedown", () => {
+    isDragging = true;
+    document.body.style.cursor = "col-resize";
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+
+    function onMouseMove(e: MouseEvent) {
+      if (!isDragging) return;
+      const container = bar.parentElement as HTMLElement;
+      const containerRect = container.getBoundingClientRect();
+      const totalWidth = leftEditor.offsetWidth + rightEditor.offsetWidth + bar.offsetWidth;
+      const offsetLeft = leftEditor.getBoundingClientRect().left;
+      const leftWidth = e.clientX - offsetLeft;
+      const rightWidth = totalWidth - leftWidth - bar.offsetWidth;
+
+      if (leftWidth > 100 && rightWidth > 100) {
+        leftEditor.style.flex = `0 0 ${leftWidth}px`;
+        rightEditor.style.flex = `0 0 ${rightWidth}px`;
+      }
+    }
+
+    function onMouseUp() {
+      isDragging = false;
+      document.body.style.cursor = "default";
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    }
+  });
 }
+
+startEditorResize(resizeEditorX, editorWrapper0, editorWrapper1);
+startEditorResize(resizeEditorXX, editorWrapper1, editorWrapper2);
+
+
 
 // ---------------------------------------------------------------------------
 // Keyboard shortcuts
