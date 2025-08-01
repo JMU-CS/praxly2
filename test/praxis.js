@@ -1,12 +1,12 @@
 import assert from 'node:assert';
 import * as praxis from '../build/language/praxis/index.js';
 import * as python from '../build/language/python/index.js';
-import {Fruit, Type} from '../build/language/type.js';
-import {Evaluator} from '../build/language/evaluator.js';
-import {GlobalRuntime} from '../build/language/runtime.js';
+import { Fruit, Type } from '../build/language/type.js';
+import { Evaluator } from '../build/language/evaluator.js';
+import { GlobalRuntime } from '../build/language/runtime.js';
 import * as error from '../build/language/error.js';
-import {Memdia} from '../build/language/memdia.js';
-import {makeLogger, getInput} from './utilities.js';
+import { Memdia } from '../build/language/memdia.js';
+import { makeLogger, getInput } from './utilities.js';
 
 // Functions passed to describe can't be async. Only functions passed to it can
 // be asynchronous.
@@ -301,6 +301,46 @@ describe('Praxis: Expressions', () => {
       translation: {
         praxis: 'log(10)',
         python: 'log(10)',
+      },
+    },
+    {
+      source: "'?'",
+      evaluation: new Fruit(Type.Character, '?'),
+      translation: {
+        praxis: "'?'",
+        python: "TODO",
+      },
+    },
+    {
+      source: "'\\n'",
+      evaluation: new Fruit(Type.Character, '\n'),
+      translation: {
+        praxis: "'\\n'",
+        python: "TODO",
+      },
+    },
+    {
+      source: "'\\\''",
+      evaluation: new Fruit(Type.Character, '\''),
+      translation: {
+        praxis: "'\\''",
+        python: "TODO",
+      },
+    },
+    {
+      source: "'\\r'",
+      evaluation: new Fruit(Type.Character, '\r'),
+      translation: {
+        praxis: "'\\r'",
+        python: "TODO",
+      },
+    },
+    {
+      source: "'\\t'",
+      evaluation: new Fruit(Type.Character, '\t'),
+      translation: {
+        praxis: "'\\t'",
+        python: "TODO",
       },
     },
   ];
@@ -1435,21 +1475,51 @@ h.sneak()
 describe('Praxis: Strings', () => {
   const samples = [
     {
-      message: 'string initialization and methods',
+      message: 'string initialization',
       source: `String s = "dog"
+String t = "boondoggle"
 print s
-print s.length()
+print t
+`,
+      translation: {
+        praxis: `String s \u2b60 "dog"
+String t \u2b60 "boondoggle"
+print s
+print t
+`,
+        python: "TODO",
+      },
+      output: "dog\nboondoggle\n",
+    },
+    {
+      message: 'string substring',
+      source: `String s = "dog"
 print s.substring(0, 2)
 `,
       translation: {
         praxis: `String s \u2b60 "dog"
-print s
-print s.length()
 print s.substring(0, 2)
 `,
         python: "TODO",
       },
-      output: "dog\n3\ndo\n",
+      output: "do\n",
+    },
+    {
+      message: 'string length',
+      source: `String s = "dog"
+String t = "alligator"
+print s.length()
+print t.length()
+`,
+      translation: {
+        praxis: `String s \u2b60 "dog"
+String t \u2b60 "alligator"
+print s.length()
+print t.length()
+`,
+        python: "TODO",
+      },
+      output: "3\n9\n",
     },
     {
       message: 'string concatenation',
@@ -1461,6 +1531,63 @@ print s.substring(0, 2)
         python: "TODO",
       },
       output: "Az\n",
+    },
+    {
+      message: 'indexOf and lastIndexOf',
+      source: `String s = "abcbabcba"
+print s.indexOf('a')
+print s.indexOf('b')
+print s.indexOf('c')
+print s.lastIndexOf('a')
+print s.lastIndexOf('b')
+print s.lastIndexOf('c')
+`,
+      translation: {
+        praxis: `String s \u2b60 "abcbabcba"
+print s.indexOf('a')
+print s.indexOf('b')
+print s.indexOf('c')
+print s.lastIndexOf('a')
+print s.lastIndexOf('b')
+print s.lastIndexOf('c')
+`,
+        python: "TODO",
+      },
+      output: "0\n1\n2\n8\n7\n6\n",
+    },
+    {
+      message: 'charAt',
+      source: `String s = "^$#"
+print s.charAt(0)
+print s.charAt(1)
+print s.charAt(2)
+`,
+      translation: {
+        praxis: `String s \u2b60 "^$#"
+print s.charAt(0)
+print s.charAt(1)
+print s.charAt(2)
+`,
+        python: "TODO",
+      },
+      output: "^\n$\n#\n",
+    },
+    {
+      message: 'character loop',
+      source: `String vowels = "aeiou"
+for (int i = 0; i < vowels.length(); i = i + 1)
+  print vowels.charAt(i)
+end for
+`,
+      translation: {
+        praxis: `String vowels \u2b60 "aeiou"
+for (int i \u2b60 0; i < vowels.length(); i \u2b60 i + 1)
+  print vowels.charAt(i)
+end for
+`,
+        python: "TODO",
+      },
+      output: "a\ne\ni\no\nu\n",
     },
   ];
 
@@ -1581,16 +1708,34 @@ h.show()
   samples.forEach(testError);
 });
 
+describe('Praxis: Lex Errors', () => {
+  const samples = [
+    {
+      message: 'bad character escaping',
+      source: `char c = '\\a'`,
+    },
+    {
+      message: 'too many characters',
+      source: `char c = 'abc'`,
+    },
+    {
+      message: 'too few characters',
+      source: `char c = ''`,
+    },
+  ];
+
+  samples.forEach(sample => testError({...sample, error: error.LexError}));
+});
+
 describe('Praxis: Parse Errors', () => {
   const samples = [
     {
       message: 'bad separator',
       source: `int[] xs = {5; 6}`,
-      error: error.ParseError,
     },
   ];
 
-  samples.forEach(testError);
+  samples.forEach(sample => testError({...sample, error: error.ParseError}));
 });
 
 describe('Praxis: Illegal Array', () => {

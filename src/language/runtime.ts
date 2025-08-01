@@ -508,6 +508,9 @@ export class StringClass extends ClassDefinition {
     super(Type.String);
     this.methodBindings.set('length', new StringLengthMethod());
     this.methodBindings.set('substring', new StringSubstringMethod());
+    this.methodBindings.set('charAt', new StringCharAtMethod());
+    this.methodBindings.set('indexOf', new StringIndexOfMethod());
+    this.methodBindings.set('lastIndexOf', new StringLastIndexOfMethod());
   }
 
   static async instance(text: string, evaluator: Evaluator, runtime: Runtime) {
@@ -539,6 +542,49 @@ export class StringSubstringMethod extends MethodDefinition {
     const end = runtime.getVariable('end')!.value as number;
     const subText = text.substring(start, end);
     const fruit = await StringClass.instance(subText, evaluator, runtime);
+    throw new ReturnSomethingException(fruit, where);;
+  }
+}
+
+export class StringCharAtMethod extends MethodDefinition {
+  constructor() {
+    super(Type.String.instanceMethodTypes.get('charAt')!);
+  }
+
+  async call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
+    const text = runtime.getVariable('text')!.value as string;
+    const index = runtime.getVariable('index')!.value as number;
+    if (0 <= index && index < text.length) {
+      const fruit = new Fruit(Type.Character, text.charAt(index));
+      throw new ReturnSomethingException(fruit, where);;
+    } else {
+      throw new error.IllegalIndexError(`Index ${index} is invalid.`, where);
+    }
+  }
+}
+
+export class StringIndexOfMethod extends MethodDefinition {
+  constructor() {
+    super(Type.String.instanceMethodTypes.get('indexOf')!);
+  }
+
+  async call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
+    const text = runtime.getVariable('text')!.value as string;
+    const c = runtime.getVariable('c')!.value as string;
+    const fruit = new Fruit(Type.Integer, text.indexOf(c));
+    throw new ReturnSomethingException(fruit, where);;
+  }
+}
+
+export class StringLastIndexOfMethod extends MethodDefinition {
+  constructor() {
+    super(Type.String.instanceMethodTypes.get('lastIndexOf')!);
+  }
+
+  async call(_evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
+    const text = runtime.getVariable('text')!.value as string;
+    const c = runtime.getVariable('c')!.value as string;
+    const fruit = new Fruit(Type.Integer, text.lastIndexOf(c));
     throw new ReturnSomethingException(fruit, where);;
   }
 }

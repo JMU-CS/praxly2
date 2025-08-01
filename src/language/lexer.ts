@@ -1,6 +1,6 @@
-import {TokenType, Token, TextToken} from './token.js';
-import {Where} from './where.js';
-import {WhereError} from './error.js';
+import { TokenType, Token, TextToken } from './token.js';
+import { Where } from './where.js';
+import { LexError } from './error.js';
 
 export abstract class Lexer {
   source: string;
@@ -97,7 +97,7 @@ export abstract class Lexer {
       if (this.has('\\')) {
         this.advance();
         if (this.i >= this.source.length) {
-          throw new WhereError('A string literal is not closed.', new Where(this.start, this.i));
+          throw new LexError('A string literal is not closed.', new Where(this.start, this.i));
         }
       }
       text += this.source[this.i];
@@ -105,7 +105,7 @@ export abstract class Lexer {
     }
 
     if (!this.has('"')) {
-      throw new WhereError('A string literal is not closed.', new Where(this.start, this.i));
+      throw new LexError('A string literal is not closed.', new Where(this.start, this.i));
     } else {
       this.advance();
       this.emitTextToken(TokenType.String, text);
@@ -119,18 +119,36 @@ export abstract class Lexer {
     while (this.hasOtherwise('\'')) {
       if (this.has('\\')) {
         this.advance();
-        if (this.i >= this.source.length) {
-          throw new WhereError('A character literal is not closed.', new Where(this.start, this.i));
+        if (this.has('n')) {
+          this.i += 1;
+          text += '\n';
+        } else if (this.has('t')) {
+          this.i += 1;
+          text += '\t';
+        } else if (this.has('r')) {
+          this.i += 1;
+          text += '\r';
+        } else if (this.has('n')) {
+          this.i += 1;
+          text += '\n';
+        } else if (this.has('\'')) {
+          this.i += 1;
+          text += '\'';
+        } else if (this.i < this.source.length) {
+          throw new LexError('A character is unnecessarily escaped.', new Where(this.i - 1, this.i));
+        } else {
+          throw new LexError('A character literal is not closed.', new Where(this.start, this.i));
         }
+      } else {
+        text += this.source[this.i];
+        this.advance();
       }
-      text += this.source[this.i];
-      this.advance();
     }
 
     if (!this.has("'")) {
-      throw new WhereError('A character literal is not closed.', new Where(this.start, this.i));
+      throw new LexError('A character literal is not closed.', new Where(this.start, this.i));
     } else if (text.length !== 1) {
-      throw new WhereError('A character literal must contain exactly one character.', new Where(this.start, this.i));
+      throw new LexError('A character literal must contain exactly one character.', new Where(this.start, this.i));
     } else {
       this.advance();
       this.emitTextToken(TokenType.Character, text);

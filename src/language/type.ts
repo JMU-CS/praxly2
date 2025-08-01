@@ -245,12 +245,23 @@ export class ClassType extends Type {
 export class StringType extends ClassType {
   constructor() {
     super('String', null, Where.Nowhere);
+
     this.instanceVariableTypes.set('text', new InstanceVariableType(Type.Internal, Visibility.Private, null));
+
     this.instanceMethodTypes.set('length', new MethodType([], Type.Integer, Visibility.Public));
     this.instanceMethodTypes.set('substring', new MethodType([
       new FormalType('start', Type.Integer),
       new FormalType('end', Type.Integer),
     ], this, Visibility.Public));
+    this.instanceMethodTypes.set('charAt', new MethodType([
+      new FormalType('index', Type.Integer),
+    ], Type.Character, Visibility.Public));
+    this.instanceMethodTypes.set('indexOf', new MethodType([
+      new FormalType('c', Type.Character),
+    ], Type.Integer, Visibility.Public));
+    this.instanceMethodTypes.set('lastIndexOf', new MethodType([
+      new FormalType('c', Type.Character),
+    ], Type.Integer, Visibility.Public));
   }
 }
 

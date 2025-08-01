@@ -484,6 +484,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         return new Fruit(entry.type, entry.value);
       }
     } else {
+      console.log("runtime:", runtime);
       throw new error.UnknownError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
     }
   }
@@ -645,55 +646,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitFunctionCall(node: ast.FunctionCall, runtime: Runtime): Promise<Fruit> {
-    const definerRuntime = runtime.functionOwner(node.identifier);
-    if (definerRuntime) {
-      // getFunction will succeed because definerRuntime owns the function.
-      const lambda = definerRuntime.getFunction(node.identifier)!;
-
-      if (node.actuals.length !== lambda.type.formals.length) {
-        throw new error.WhereError(`Function \`${node.identifier}\` expects ${lambda.type.formals.length} parameter${lambda.type.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
-      }
-
-      this.mem.functionCall(node.identifier);
-      const newRuntime = definerRuntime.child();
-
-      for (let [i, formal] of lambda.type.formals.entries()) {
-        const fruit = await node.actuals[i].visit(this, runtime);
-        newRuntime.declareVariable(formal.identifier, fruit.type);
-        this.mem.declaration(formal.identifier, fruit.type);
-        this.assignVariable('Parameter', node.actuals[i].where, formal.identifier, fruit, newRuntime);
-      }
-
-      let fruit;
-      try {
-        await lambda.call(this, newRuntime, node.where);
-        if (lambda instanceof FunctionFruit) {
-          if (!Type.Void.covers(lambda.type.returnType)) {
-            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.type.returnType}\`. It didn't return anything.`, lambda.where);
-          }
-        }
-        fruit = new Fruit(Type.Void);
-      } catch (e) {
-        if (e instanceof ReturnSomethingException) {
-          if (Type.Void.covers(lambda.type.returnType)) {
-            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
-          } else if (!lambda.type.returnType.covers(e.fruit.type)) {
-            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.type.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
-          } else {
-            fruit = e.fruit;
-          }
-        } else if (e instanceof ReturnNothingException) {
-          if (!(Type.Void.covers(lambda.type.returnType))) {
-            throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${lambda.type.returnType}\`. It returned nothing.`, e.returnWhere);
-          } else {
-            fruit = new Fruit(Type.Void);
-          }
-        } else {
-          throw e;
-        }
-      }
-
-      return fruit;
+    const calleeRuntime = runtime.functionOwner(node.identifier);
+    if (calleeRuntime) {
+      // getFunction will succeed because calleeRuntime owns the function.
+      const lambda = calleeRuntime.getFunction(node.identifier)!;
+      return this.visitCall('Function', node, lambda, runtime, calleeRuntime);
     } else {
       throw new error.WhereError(`Function \`${node.identifier}\` is not defined.`, node.where);
     }
@@ -948,15 +905,19 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     return instanceFruit;
   }
 
-  async visitCall(_context: string, node: ast.MethodCall | ast.FunctionCall, subroutine: MethodDefinition | FunctionDefinition, runtime: Runtime) {
+  async visitCall(context: string, node: ast.MethodCall | ast.FunctionCall, subroutine: MethodDefinition | FunctionDefinition, callerRuntime: Runtime, calleeRuntime: Runtime) {
     if (node.actuals.length !== subroutine.type.formals.length) {
-      throw new error.WhereError(`Function \`${node.identifier}\` expects ${subroutine.type.formals.length} parameter${subroutine.type.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
+      throw new error.WhereError(`${context} \`${node.identifier}\` expects ${subroutine.type.formals.length} parameter${subroutine.type.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
     }
 
-    const newRuntime = runtime.child();
+    this.mem.functionCall(node.identifier);
+    const newRuntime = calleeRuntime.child();
+
     for (let [i, formal] of subroutine.type.formals.entries()) {
-      newRuntime.declareVariable(formal.identifier, formal.type);
-      const fruit = await node.actuals[i].visit(this, runtime);
+      const fruit = await node.actuals[i].visit(this, callerRuntime);
+      // TODO: Should the variable have the formal's type or the fruit's type?
+      newRuntime.declareVariable(formal.identifier, fruit.type);
+      this.mem.declaration(formal.identifier, fruit.type);
       this.assignVariable('Parameter', node.actuals[i].where, formal.identifier, fruit, newRuntime);
     }
 
@@ -965,22 +926,22 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       await subroutine.call(this, newRuntime, node.where);
       if (subroutine instanceof FunctionFruit) {
         if (!Type.Void.covers(subroutine.type.returnType)) {
-          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutine.type.returnType}\`. It didn't return anything.`, subroutine.where);
+          throw new error.WhereError(`${context} \`${node.identifier}\` is declared to return a value of type \`${subroutine.type.returnType}\`. It didn't return anything.`, subroutine.where);
         }
       }
       fruit = new Fruit(Type.Void);
     } catch (e) {
       if (e instanceof ReturnSomethingException) {
         if (Type.Void.covers(subroutine.type.returnType)) {
-          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
+          throw new error.WhereError(`${context} \`${node.identifier}\` is declared to return nothing. It returned something.`, e.returnWhere);
         } else if (!subroutine.type.returnType.covers(e.fruit.type)) {
-          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutine.type.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
+          throw new error.WhereError(`${context} \`${node.identifier}\` is declared to return a value of type \`${subroutine.type.returnType}\`. It returned a value of type \`${e.fruit.type}\`.`, e.returnWhere);
         } else {
           fruit = e.fruit;
         }
       } else if (e instanceof ReturnNothingException) {
         if (!Type.Void.covers(subroutine.type.returnType)) {
-          throw new error.WhereError(`Function \`${node.identifier}\` is declared to return a value of type \`${subroutine.type.returnType}\`. It returned nothing.`, e.returnWhere);
+          throw new error.WhereError(`${context} \`${node.identifier}\` is declared to return a value of type \`${subroutine.type.returnType}\`. It returned nothing.`, e.returnWhere);
         } else {
           fruit = new Fruit(Type.Void);
         }
@@ -1011,7 +972,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
     const lambda = classDefinition.methodBindings.get(node.identifier)!;
 
-    return await this.visitCall('method', node, lambda, receiverFruit.value.runtime);
+    return await this.visitCall('method', node, lambda, runtime, receiverFruit.value.runtime);
   }
 
   // ------------------------------------------------------------------------- 

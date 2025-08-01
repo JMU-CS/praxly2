@@ -60,7 +60,18 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitCharacter(node: ast.Character, _formatter: Formatter): string {
-    return `'${node.rawValue}'`;
+    const code = node.rawValue.charCodeAt(0);
+    if (code === 9) {
+      return "'\\t'";
+    } else if (code === 10) {
+      return "'\\n'";
+    } else if (code === 13) {
+      return "'\\r'";
+    } else if (code === 39) {
+      return "'\\''";
+    } else {
+      return `'${node.rawValue}'`;
+    }
   }
 
   visitString(node: ast.String, _formatter: Formatter): string {
