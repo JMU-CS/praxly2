@@ -122,9 +122,8 @@ export class MemdiaSvg extends Memdia {
    */
   override functionCall(identifier: string): void {
 
-    const id = `${MD}${identifier}`;
     const funcGroup = document.createElementNS(NS, 'g');
-    funcGroup.setAttribute('id', id);
+    funcGroup.setAttribute('id', `${MD}${identifier}`);
     funcGroup.setAttribute('class', 'memdia-function');
 
     const width = this.getFunctionRectWidth(identifier.length);
@@ -214,10 +213,10 @@ export class MemdiaSvg extends Memdia {
    * @returns SVG group representing the variable
    */
   renderVariableWithoutValue(funcGroup: SVGElement, name: string, type: Type): SVGGElement {
-    const id = `${funcGroup.getAttribute('id')}.${name}`;
-    const group = document.createElementNS(NS, 'g');
-    group.setAttribute('id', id);
-    group.setAttribute('class', 'memdia-variable');
+
+    const varGroup = document.createElementNS(NS, 'g');
+    varGroup.setAttribute('id', `${funcGroup.getAttribute('id')}.${name}`);
+    varGroup.setAttribute('class', 'memdia-variable');
 
     const rectX = 130;  // TODO relative to function's X and Y
     const rectY = 60;
@@ -227,14 +226,14 @@ export class MemdiaSvg extends Memdia {
     varName.setAttribute('class', 'var-name');
     varName.setAttribute('x', `${rectX - 7}`);
     varName.setAttribute('y', `${rectY + 20}`);
-    group.appendChild(varName);
+    varGroup.appendChild(varName);
 
     const varType = document.createElementNS(NS, 'text');
     varType.textContent = type.toString();
     varType.setAttribute('class', 'var-type');
     varType.setAttribute('x', `${rectX}`);
     varType.setAttribute('y', `${rectY - 7}`);
-    group.appendChild(varType);
+    varGroup.appendChild(varType);
 
     const rect = document.createElementNS(NS, 'rect');
     rect.setAttribute('x', `${rectX}`);
@@ -242,9 +241,9 @@ export class MemdiaSvg extends Memdia {
     rect.setAttribute('width', '40');
     rect.setAttribute('height', '40');
     rect.setAttribute('class', 'var-rect');
-    group.appendChild(rect);
+    varGroup.appendChild(rect);
 
-    return group;
+    return varGroup;
   }
 
   /**
