@@ -30,9 +30,10 @@ export class Type {
   static Double = new Type('double');
   static Void = new Type('void');
   static Boolean = new Type('boolean');
-  static PrivateString = new Type('PrivateString');
+  static Character = new Type('char');
   static IntegerRange = new Type('IntegerRange');
   static Null = new Type('null');
+  static Internal = new Type('internal');
   static Any: Type;
   static String: ClassType;
 }
@@ -244,7 +245,7 @@ export class ClassType extends Type {
 export class StringType extends ClassType {
   constructor() {
     super('String', null, Where.Nowhere);
-    this.instanceVariableTypes.set('text', new InstanceVariableType(Type.PrivateString, Visibility.Private, null));
+    this.instanceVariableTypes.set('text', new InstanceVariableType(Type.Internal, Visibility.Private, null));
     this.instanceMethodTypes.set('length', new MethodType([], Type.Integer, Visibility.Public));
     this.instanceMethodTypes.set('substring', new MethodType([
       new FormalType('start', Type.Integer),

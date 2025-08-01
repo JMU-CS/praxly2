@@ -112,6 +112,31 @@ export abstract class Lexer {
     }
   }
 
+  lexCharacter() {
+    this.advance(); // eat '
+
+    let text = "";
+    while (this.hasOtherwise('\'')) {
+      if (this.has('\\')) {
+        this.advance();
+        if (this.i >= this.source.length) {
+          throw new WhereError('A character literal is not closed.', new Where(this.start, this.i));
+        }
+      }
+      text += this.source[this.i];
+      this.advance();
+    }
+
+    if (!this.has("'")) {
+      throw new WhereError('A character literal is not closed.', new Where(this.start, this.i));
+    } else if (text.length !== 1) {
+      throw new WhereError('A character literal must contain exactly one character.', new Where(this.start, this.i));
+    } else {
+      this.advance();
+      this.emitTextToken(TokenType.Character, text);
+    }
+  }
+
   lexNumber() {
     let text = '';
     if (this.has('-')) {

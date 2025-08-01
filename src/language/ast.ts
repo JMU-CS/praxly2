@@ -187,6 +187,12 @@ export class Double extends Primitive<number> {
   }
 }
 
+export class Character extends Primitive<string> {
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitCharacter(this, payload);
+  }
+}
+
 export class String extends Primitive<string> {
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
     return visitor.visitString(this, payload);

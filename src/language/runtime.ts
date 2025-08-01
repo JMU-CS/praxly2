@@ -283,7 +283,7 @@ export class InputFunction extends FunctionDefinition {
     const text: string = await runtime.globalRuntime.getInput();
 
     const fruit = await new ast.Instantiation('String', Where.Nowhere).visit(evaluator, runtime);
-    fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.PrivateString, text));
+    fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.Internal, text));
 
     throw new ReturnSomethingException(fruit, where);
   }
@@ -512,7 +512,7 @@ export class StringClass extends ClassDefinition {
 
   static async instance(text: string, evaluator: Evaluator, runtime: Runtime) {
     const fruit = await new ast.Instantiation('String', Where.Nowhere).visit(evaluator, runtime);
-    fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.PrivateString, text));
+    fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.Internal, text));
     return fruit;
   }
 }

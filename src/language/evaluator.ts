@@ -43,9 +43,13 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     return new Fruit(Type.Boolean, node.rawValue);
   }
 
+  async visitCharacter(node: ast.Character, _runtime: Runtime): Promise<Fruit> {
+    return new Fruit(Type.Character, node.rawValue);
+  }
+
   async visitString(node: ast.String, runtime: Runtime): Promise<Fruit> {
     const fruit = await new ast.Instantiation('String', Where.Nowhere).visit(this, runtime);
-    fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.PrivateString, node.rawValue));
+    fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.Internal, node.rawValue));
     return fruit;
   }
 

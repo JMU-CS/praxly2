@@ -38,6 +38,10 @@ export class Objectifier extends Visitor<Object, Object> {
     return this.visitPrimitive<boolean>(node, payload, 'boolean');
   }
 
+  visitCharacter(node: ast.Character, payload: Object): Object {
+    return this.visitPrimitive<string>(node, payload, 'character');
+  }
+
   visitString(node: ast.String, payload: Object): Object {
     return this.visitPrimitive<string>(node, payload, 'string');
   }

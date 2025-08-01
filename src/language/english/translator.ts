@@ -55,6 +55,11 @@ export class Translator extends Visitor<Formatter, string> {
     return this.visitPrimitive<boolean>(node, formatter);
   }
 
+  visitCharacter(node: ast.Character, _formatter: Formatter): string {
+    // TODO
+    return `'${node.rawValue}'`;
+  }
+
   visitString(node: ast.String, _formatter: Formatter): string {
     return `"${node.rawValue}"`;
   }
