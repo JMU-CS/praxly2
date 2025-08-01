@@ -117,33 +117,7 @@ export class MemdiaSvg extends Memdia {
   }
 
   /**
-   * Calculate the Y position of the nth variable.
-   */
-  getVariableYPosition(index: number): number {
-    const rectHeight = 40;
-    const verticalPadding = 30;
-    return 60 + index * (rectHeight + verticalPadding);
-  }
-
-  /**
-   * Calculate function rectangle height based on the number of variables.
-   */
-  getFunctionRectHeight(varCount: number): number {
-    return 60 + varCount * 40;
-  }
-
-  /**
-   * Calculate function rectangle width based on the longest variable name.
-   */
-  getFunctionRectWidth(maxNameLength: number): number {
-    const charWidth = 8;
-    const minWidth = 100;
-    return Math.max(minWidth, 50 + maxNameLength * charWidth);
-  }
-
-  /**
    * Renders a complete function group and its variables.
-   *
    * @param identifier The name of the function
    */
   override functionCall(identifier: string): void {
@@ -194,6 +168,42 @@ export class MemdiaSvg extends Memdia {
   }
 
   /**
+   * Calculate the Y position of the nth variable.
+   */
+  getVariableYPosition(index: number): number {
+    const rectHeight = 40;
+    const verticalPadding = 30;
+    return 60 + index * (rectHeight + verticalPadding);
+  }
+
+  /**
+   * Calculate function rectangle height based on the number of variables.
+   */
+  getFunctionRectHeight(varCount: number): number {
+    return 60 + varCount * 40;
+  }
+
+  /**
+   * Calculate function rectangle width based on the longest variable name.
+   */
+  getFunctionRectWidth(maxNameLength: number): number {
+    const charWidth = 8;
+    const minWidth = 100;
+    const padding = 50;
+    return Math.max(minWidth, maxNameLength * charWidth + padding);
+  }
+
+  /**
+   * Calculate the width of a variable rectangle based on the value length.
+   */
+  getRectWidthForValue(valueStr: string): number {
+    const charWidth = 8;
+    const padding = 20;
+    const minWidth = 40;
+    return Math.max(minWidth, valueStr.length * charWidth + padding);
+  }
+
+  /**
    * Renders an SVG group representing a variable with its name and type, but without assigning a value.
    * The variable with be uniquely identified by combining the prefix, function name, and variable name.
    * This is suitable for declaring primitive or reference variables.
@@ -203,11 +213,7 @@ export class MemdiaSvg extends Memdia {
    * @param type Variable type
    * @returns SVG group representing the variable
    */
-  renderVariableWithoutValue(
-    funcGroup: SVGElement,
-    name: string,
-    type: Type
-  ): SVGGElement {
+  renderVariableWithoutValue(funcGroup: SVGElement, name: string, type: Type): SVGGElement {
     const id = `${funcGroup.getAttribute('id')}.${name}`;
     const group = document.createElementNS(NS, 'g');
     group.setAttribute('id', id);
@@ -241,17 +247,6 @@ export class MemdiaSvg extends Memdia {
     return group;
   }
 
-  getRectWidthForValue(valueStr: string): number {
-    const charWidth = 8;
-    const padding = 20;
-    const minWidth = 40;
-    return Math.max(minWidth, valueStr.length * charWidth + padding);
-  }
-
-  getCenteredTextX(rectWidth: number): number {
-    return rectWidth / 2;
-  }
-
   /**
    * Adds a primitive value (e.g., number, boolean) to a previously rendered variable group.
    * The value is displayed inside the rectangle using the type's serialization method.
@@ -259,10 +254,7 @@ export class MemdiaSvg extends Memdia {
    * @param variableGroup The SVG group returned by renderVariableWithoutValue
    * @param fruit The Fruit object containing the value to assign (must be non-null)
    */
-  setPrimitiveValueInRect(
-    variableGroup: SVGGElement,
-    fruit: Fruit
-  ): void {
+  setPrimitiveValueInRect(variableGroup: SVGGElement, fruit: Fruit): void {
     if (!(fruit instanceof Fruit) || fruit.value === null) return;
 
     const varRect = variableGroup.querySelector('.var-rect') as SVGRectElement;
@@ -283,7 +275,7 @@ export class MemdiaSvg extends Memdia {
 
     const text = document.createElementNS(NS, 'text');
     text.textContent = valueStr;
-    text.setAttribute('x', `${this.getCenteredTextX(newRectWidth)}`);
+    text.setAttribute('x', `${newRectWidth / 2}`);  // centered
     text.setAttribute('y', '20');
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('class', 'var-value');
