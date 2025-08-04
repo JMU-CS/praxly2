@@ -137,6 +137,8 @@ class PraxisParser extends Parser {
       const defineNode = this.functionDefinition();
       this.statementLinebreak();
       return defineNode;
+    } else if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.Linebreak, 2) && this.hasAhead(TokenType.Indent, 3)) {
+      throw new ParseError("This function is missing parentheses.", this.tokens[this.i + 1].where);
     } else if (this.has(TokenType.Class)) {
       const defineNode = this.classDefinition();
       this.statementLinebreak();
