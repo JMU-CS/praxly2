@@ -1,11 +1,11 @@
 :root {
-  --md-type: gainsboro;
   --md-name: white;
+  --md-type: gainsboro;
   --md-line: white;
   --md-value: white;
 }
 
-.memory-variable {
+.memdia-variable {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -29,7 +29,7 @@
   dominant-baseline: middle;
 }
 
-.var-box {
+.var-rect {
   stroke: var(--md-line);
   fill: none;
   stroke-width: 1;
@@ -37,7 +37,7 @@
   ry: 2;
 }
 
-.primitive-value {
+.var-value {
   fill: var(--md-value);
   font-size: 16px;
   text-anchor: middle;
@@ -49,7 +49,7 @@
   fill: var(--md-line);
 }
 
-.function-name {
+.func-name {
   fill: var(--md-name);
   font-weight: bold;
   font-size: 16px;
@@ -57,7 +57,7 @@
   dominant-baseline: middle;
 }
 
-.function-box {
+.func-rect {
   stroke: var(--md-line);
   fill: none;
   rx: 2;
