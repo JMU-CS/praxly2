@@ -219,6 +219,8 @@ class PraxisParser extends Parser {
           if (this.has(TokenType.Equal)) {
             this.advance();
             rightNode = this.expression();
+          } else if (this.has(TokenType.Linebreak) && this.hasAhead(TokenType.Indent, 1)) {
+            throw new ParseError("This method is missing parentheses.", memberIdentifierToken.where);
           }
 
           const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, type, visibility, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
