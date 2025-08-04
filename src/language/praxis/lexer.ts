@@ -169,7 +169,7 @@ class PraxisLexer extends Lexer {
     if (this.i === this.source.length || this.has("\r") || this.has("\n")) {
       if (this.has("\n")) {
         this.advance();
-        this.emitToken(TokenType.Linebreak);
+        this.lexLinebreak();
       } else {
         this.abandon();
       }

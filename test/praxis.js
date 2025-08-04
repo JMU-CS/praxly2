@@ -7,6 +7,7 @@ import { GlobalRuntime } from '../build/language/runtime.js';
 import * as error from '../build/language/error.js';
 import { Memdia } from '../build/language/memdia.js';
 import { makeLogger, getInput } from './utilities.js';
+import { TokenType } from '../build/language/token.js';
 
 // Functions passed to describe can't be async. Only functions passed to it can
 // be asynchronous.
@@ -90,6 +91,17 @@ function testError(sample) {
       await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
     };
     it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
+  });
+}
+
+function testLex(sample) {
+  describe(sample.source, () => {
+    it(`should lex to tokens`, async () => {
+      const tokens = praxis.lex(sample.source);
+      console.log("tokens:", tokens);
+      console.log("sample.tokens:", sample.tokens);
+      assert.deepStrictEqual(tokens.map(token => token.type), sample.tokens);
+    });
   });
 }
 
@@ -1806,4 +1818,95 @@ s++`,
   ];
 
   samples.forEach(testError);
+});
+
+describe('Praxis: Lexing', () => {
+  const samples = [
+    {
+      message: 'integer literal',
+      source: `3`,
+      tokens: [TokenType.Integer, TokenType.EndOfSource],
+    },
+    {
+      message: 'boolean literal',
+      source: `true`,
+      tokens: [TokenType.True, TokenType.EndOfSource],
+    },
+    {
+      message: 'skip line with only spaces',
+      source: `    `,
+      tokens: [TokenType.EndOfSource],
+    },
+    {
+      message: 'lines with spaces are only breaks',
+      source: `    
+
+         
+`,
+      tokens: [TokenType.Linebreak, TokenType.Linebreak, TokenType.Linebreak, TokenType.EndOfSource],
+    },
+    {
+      message: 'indented literal',
+      source: `  5 `,
+      tokens: [TokenType.Indent, TokenType.Integer, TokenType.EndOfSource],
+    },
+    {
+      message: 'indented literals',
+      source: `"dog"
+      "cat"`,
+      tokens: [TokenType.String, TokenType.Linebreak, TokenType.Indent, TokenType.String, TokenType.EndOfSource],
+    },
+    {
+      message: 'empty class',
+      source: `class Folder
+end class Folder`,
+      tokens: [TokenType.Class, TokenType.Identifier, TokenType.Linebreak, TokenType.End, TokenType.Class, TokenType.Identifier, TokenType.EndOfSource],
+    },
+    {
+      message: 'class with one instance variable',
+      source: `class Folder
+  public int x
+end class Folder`,
+      tokens: [
+        TokenType.Class,
+        TokenType.Identifier,
+        TokenType.Linebreak,
+        TokenType.Indent,
+        TokenType.Public,
+        TokenType.Identifier,
+        TokenType.Identifier,
+        TokenType.Linebreak,
+        TokenType.Unindent,
+        TokenType.End,
+        TokenType.Class,
+        TokenType.Identifier,
+        TokenType.EndOfSource
+      ],
+    },
+    {
+      message: 'class with extra space',
+      source: `class Folder
+  public int x
+
+end class Folder`,
+      tokens: [
+        TokenType.Class,
+        TokenType.Identifier,
+        TokenType.Linebreak,
+        TokenType.Indent,
+        TokenType.Public,
+        TokenType.Identifier,
+        TokenType.Identifier,
+        TokenType.Linebreak,
+        TokenType.Linebreak,
+        TokenType.Unindent,
+        TokenType.End,
+        TokenType.Class,
+        TokenType.Identifier,
+        TokenType.EndOfSource
+      ],
+    },
+  ];
+
+  samples.forEach(testLex);
 });

@@ -68,7 +68,7 @@ class PraxisParser extends Parser {
     if (blank.n > 0) {
       statements.push(new ast.Blank(blank.n, blank.where));
     }
-    while (!this.has(TokenType.EndOfSource)) {
+    while (this.hasOtherwise(TokenType.EndOfSource)) {
       statements.push(this.topLevelStatement());
       let blank = this.skipLinebreaks();
       if (blank.n > 0) {
@@ -192,7 +192,7 @@ class PraxisParser extends Parser {
         if (this.has(TokenType.Indent)) {
           throw new ParseError("The code has stray indentation.", this.tokens[this.i].where);
         } else if (!this.has(TokenType.Identifier)) {
-          throw new ParseError("A type is missing.", lastWhere);
+          throw new ParseError("A type is missing.", this.tokens[this.i].where);
         }
         const type = this.type();
         firstWhere = firstWhere ?? type.where;

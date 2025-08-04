@@ -1,11 +1,13 @@
 @precedence {
+  dot @left
   multiplicative @left,
   additive @left, 
   shift @left,
-  relational @left
+  relational @left,
+  dot @left
 }
 
-@top Program { (topLevelStatement lineEnd | linebreak)* }
+@top Program { (topLevelStatement LineEnd | linebreak)* }
 
 @skip { space | LineComment }
 
@@ -21,52 +23,69 @@ curlyBlock {
   Block { LeftCurly (statement linebreak | linebreak)* RightCurly }
 }
 
-statement {
-  Declaration |
-  For { For LeftParenthesis statement Semicolon expression Semicolon statement RightParenthesis linebreak block End For} |
-  Print { Print expression } |
-  If { If LeftParenthesis expression RightParenthesis (curlyBlock (Else curlyBlock)? | linebreak block (Else linebreak block)? End If) } |
-  While { While LeftParenthesis expression RightParenthesis linebreak block End While } |
-  Class { Class Identifier (Extends Identifier)? linebreak block End Class Identifier } |
-  Return { Return expression } |
-  Assignment { Identifier Equal expression }
+classStatement {
+  visibility? declaration
 }
 
-Declaration {
+statement {
+  declaration |
+  For { For leftParenthesis statement Semicolon expression Semicolon statement rightParenthesis linebreak block End For} |
+  Print { Print expression } |
+  If { If leftParenthesis expression rightParenthesis (curlyBlock (Else curlyBlock)? | linebreak block (Else linebreak block)? End If) } |
+  While { While leftParenthesis expression rightParenthesis linebreak block End While } |
+  Class { Class Identifier (Extends Identifier)? linebreak (classStatement linebreak | linebreak)* End Class Identifier } |
+  Return { Return expression } |
+  Assignment { Identifier Equal expression } |
+  expression
+}
+
+declaration {
   initialized { type Identifier Equal expression } |
+  SubroutineDefinition { type Identifier leftParenthesis Parameters rightParenthesis (curlyBlock | linebreak block End Identifier) } |
   uninitialized { type Identifier }
 }
 
+Parameters {
+  (type Identifier (comma type Identifier)*)?
+}
+
 type {
-  Type { Identifier } |
+  Identifier |
   Void
 }
 
-expression {
-  BinaryExpression | apex
+visibility {
+  public |
+  private
 }
 
-// expression !relational GreaterThan expression |
-// expression !relational LessThanOrEqual expression |
-// expression !relational GreaterThanOrEqual expression |
+expression {
+  binaryExpression | unaryExpression | apex
+}
 
-BinaryExpression {
+unaryExpression {
+  new Identifier
+}
+
+binaryExpression {
   expression !relational ( LessThan | GreaterThan | LessThanOrEqual | GreaterThanOrEqual ) expression |
   expression !shift DoubleLessThan expression |
   expression !shift DoubleGreaterThan expression |
   expression !multiplicative Asterisk expression |
   expression !multiplicative ForwardSlash expression |
   expression !multiplicative Percent expression |
-  expression !additive Plus expression
+  expression !additive Plus expression |
+  expression !dot Dot expression
 }
 
 apex {
-  Call { Identifier LeftParenthesis (expression (comma expression)*)? RightParenthesis } |
+  Call { Identifier leftParenthesis (expression (comma expression)*)? rightParenthesis } |
   Identifier |
   Boolean |
   String |
+  Character |
   Integer |
-  LeftParenthesis expression RightParenthesis |
+  leftParenthesis expression rightParenthesis |
   Null
 }
 
@@ -83,8 +102,9 @@ apex {
   If { "if" }
   Else { "else" }
   Return { "return" }
-  Public { "public" }
-  Private { "private" }
+  public { "public" }
+  private { "private" }
+  new { "new" }
   End { "end" }
   Null { "null" }
   Semicolon { ";" }
@@ -99,26 +119,40 @@ apex {
   Asterisk { "*" }
   Percent { "%" }
   ForwardSlash { "/" }
-  LeftParenthesis { "(" }
-  RightParenthesis { ")" }
+  leftParenthesis { "(" }
+  rightParenthesis { ")" }
   LeftCurly { "{" }
   RightCurly { "}" }
+  Dot { "." }
   comma { "," }
   linebreak { $[\r]? $[\n] }
 
   String { '"' (!["\\] | "\\" _)* '"' }
+  Character { "'" (!['\\] | "\\" $['nrt]) "'" }
 
   LineComment { "//" ![\n]* }
 
   space { $[ \t]+ }
 
-  lineEnd { linebreak | @eof }
+  LineEnd { linebreak | @eof }
 
   // High-precedence on left.
-  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Null, Void, Extends, Public, Private, Identifier }
+  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Null, Void, Extends, public, private, new, Identifier }
   @precedence { DoubleLessThan, LessThan }
   @precedence { DoubleGreaterThan, GreaterThan }
   @precedence { LineComment, ForwardSlash }
 }
+
+// Lezer Notes
+
+// There's no case distinction between terminals and non-terminals in the
+// grammar. A capitalized name means the structure will get a node in the
+// resulting tree. An uncapitalized name will not have a node. The takeaway:
+// if the structure has semantic significance, capitalize it. If it's just
+// there to give a reusable name to a pattern, don't capitalize it.
+
+// Some regex patterns have different syntax.
+// _ - match any single character, like .
+// $[abc] - match any character from set, like [abc]
 
 // @detectDelim

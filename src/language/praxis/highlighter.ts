@@ -16,18 +16,19 @@ export let lezerParser = parser.configure({
       False: t.keyword,
       For: t.keyword,
       If: t.keyword,
-      New: t.keyword,
+      new: t.keyword,
       Print: t.keyword,
       Repeat: t.keyword,
       While: t.keyword,
       Null: t.keyword,
-      Public: t.keyword,
-      Private: t.keyword,
+      public: t.keyword,
+      private: t.keyword,
       Identifier: t.variableName,
 
       Type: t.typeName,
 
       String: t.string,
+      Character: t.character,
 
       Plus: t.operator,
       Equal: t.operator,
@@ -62,7 +63,8 @@ export let lezerParser = parser.configure({
       // Else: foldInside,
       // Class: foldInside,
     // }),
-  ]
+  ],
+  // strict: true,
 });
 
 export const praxisLanguage = LRLanguage.define({
