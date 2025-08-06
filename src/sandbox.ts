@@ -1,7 +1,7 @@
 import * as ast from './language/ast.js';
 import * as praxis from './language/praxis/index.js';
 import * as python from './language/python/index.js';
-import * as english from './language/english/index.js';
+import * as english from './language/explain/index.js';
 import * as cm from './codemirror.js';
 
 import {Objectifier} from './language/objectifier.js';

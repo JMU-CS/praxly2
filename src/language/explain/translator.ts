@@ -155,31 +155,31 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitAdd(node: ast.Add, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '+');
+    return this.visitBinaryOperator(node, formatter, 'plus');
   }
 
   visitSubtract(node: ast.Subtract, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '-');
+    return this.visitBinaryOperator(node, formatter, 'subtract');
   }
 
   visitMultiply(node: ast.Multiply, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '*');
+    return this.visitBinaryOperator(node, formatter, 'multiply');
   }
 
   visitDivide(node: ast.Divide, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '/');
+    return this.visitBinaryOperator(node, formatter, 'divided by');
   }
 
   visitRemainder(node: ast.Remainder, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '%');
+    return this.visitBinaryOperator(node, formatter, 'get the remainder');
   }
 
   visitPower(node: ast.Power, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '**');
+    return this.visitBinaryOperator(node, formatter, 'raise');
   }
 
   visitLessThan(node: ast.LessThan, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, 'less than');
+    return this.visitBinaryOperator(node, formatter, 'is less than');
   }
 
   visitGreaterThan(node: ast.GreaterThan, formatter: Formatter): string {
@@ -251,42 +251,15 @@ export class Translator extends Visitor<Formatter, string> {
   visitDeclaration(node: ast.Declaration, formatter: Formatter): string {
     let text = '';
 
+    // variable with a specific type and a value
     if ((node.variableType && node.rightNode) && (node.variableType.text !== "Any")) {
-      switch (node.variableType.text) {
-        case "int":
-          text += `Create a number called ${node.identifier} with the value ${node.rightNode.visit(this, formatter)}`;
-          break;
-        case "boolean":
-          text += `Create a boolean value called ${node.identifier} and set it to ${node.rightNode.visit(this, formatter)}`;
-          break;
-        case "float":
-        case "double":
-          text += `Create a decimal number called ${node.identifier} with the value ${node.rightNode.visit(this, formatter)}`;
-          break;
-        case "String":
-          text += `Make a string named ${node.identifier} with the value ${node.rightNode.visit(this, formatter)}`;
-          break;
-      }
-    } else if (node.variableType && (node.variableType.text !== "Any")) {
-      switch (node.variableType.text) {
-        case "int":
-          text += `Create a number called ${node.identifier}`;
-          break;
-        case "boolean":
-          text += `Create a boolean called ${node.identifier}`;
-          break;
-        case "float":
-        case "double":
-          text += `Create a ${node.variableType} called ${node.identifier}`;
-          break;
-        case "String":
-          // TODO: Should the empty be included
-          text += `Make an empty string called ${node.identifier}`;
-          break;
-
-      }
-    } else if (node.variableType.text === "Any") {
-      text += `Create a variable named ${node.identifier}`;
+      text += `Declare a ${node.variableType} named ${node.identifier} with the value ${node.rightNode.visit(this, formatter)}.`;
+    } else if (node.variableType.text === "Any" && node.rightNode) {
+      // variable with no specific type and a value
+      text += `Declare a variable named ${node.identifier} with the value ${node.rightNode.visit(this, formatter)}.`;
+    } else if (node.variableType.text !== "Any" && !(node.rightNode)) {
+      // variable with a specific type and no a value
+      text += `Declare a ${node.variableType} named ${node.identifier}.`;
     }
 
     return text;
@@ -298,12 +271,11 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitBlock(node: ast.Block, formatter: Formatter): string {
     return node.statements.map(statement => {
-      return `${formatter.indentation.repeat(formatter.nestingLevel)}${statement.visit(this, formatter)} `;
-    }).join('');
+      return `${statement.visit(this, formatter)}`;
+    }).join('\n');
   }
 
   visitPrint(node: ast.Print, formatter: Formatter): string {
-    // "print node to the screen"
     return `print ${node.operandNode.visit(this, formatter)}`;
   }
 
@@ -312,33 +284,32 @@ export class Translator extends Visitor<Formatter, string> {
 
     text += ` then ${node.thenBlocks[0].visit(this, formatter)}`;
     for (let i = 1; i < node.conditionNodes.length; ++i) {
-      text += `if ${node.conditionNodes[i].visit(this, formatter)} `;
+      text += `, if ${node.conditionNodes[i].visit(this, formatter)} `;
       text +=`then ${node.thenBlocks[i].visit(this, formatter)}`;
     }
+    text += '.';
     if (node.elseBlock) {
-      text += `otherwise ${node.elseBlock.visit(this, formatter)}`;
+      text += ` Otherwise ${node.elseBlock.visit(this, formatter)}.`;
     }
 
     return text;
   }
 
   visitWhile(node: ast.While, formatter: Formatter): string {
-    let text = `while ${node.conditionNode.visit(this, formatter)} `;
-    text += node.body.visit(this, formatter);
+    let text = `While ${node.conditionNode.visit(this, formatter)}, `;
+    text += formatting.format(node.body.statements.map(statement => statement.visit(this, formatter))) + '.';
     return text;
   }
 
   visitDoWhile(node: ast.DoWhile, formatter: Formatter): string {
-    let text = "do "; // change
-    // text += node.body.visit(this, formatter);
-    text += formatting.format(node.body.statements.filter(statement => !(statement instanceof ast.LineComment)).map(statement => `${statement.visit(this, formatter)}`));
-    text += ` while ${node.conditionNode.visit(this, formatter)}`;
+    let text = formatting.format(node.body.statements.filter(statement => !(statement instanceof ast.LineComment)).map(statement => `${statement.visit(this, formatter)}`));
+    text += " at least once.";
+    text += ` Then check if ${node.conditionNode.visit(this, formatter)}. If it's true, repeat.`;
     return text;
   }
 
   visitRepeatUntil(node: ast.RepeatUntil, formatter: Formatter): string {
-    let text = "repeat ";
-    // text += node.body.visit(this, formatter);
+    let text = "Continue to "; // "Continue to repeat" ?
     text += formatting.format(node.body.statements.filter(statement => !(statement instanceof ast.LineComment)).map(statement => `${statement.visit(this, formatter)}`));
     text += ` until ${node.conditionNode.visit(this, formatter)}`;
     return text;
@@ -349,25 +320,12 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitFor(node: ast.For, formatter: Formatter): string {
-    // console.log(node.initializationNode, node.conditionNode, node.incrementBlock, node.body);
-    // let text = `for (${node.initializationNode?.visit(this, formatter) ?? ''}; ${node.conditionNode.visit(this, formatter)}; ${this.visitBlockAsSequence(node.incrementBlock, formatter)})\n`;
-    // text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    // text += `${formatter.indentation.repeat(formatter.nestingLevel)}end for`;
-    // return text;
     let text = ''
-    const start = node.initializationNode instanceof ast.Declaration ? node.initializationNode.rightNode?.visit(this, formatter) : '';
 
-    if (node.conditionNode instanceof ast.LessThan) {
-      let end = node.conditionNode.rightNode.visit(this, formatter);
-      text += `Count from ${start} to ${end} and `;
-    }
-
-    text += formatting.format(node.body.statements.filter(statement => !(statement instanceof ast.LineComment)).map(statement => `${statement.visit(this, formatter)}`));
-
-    // console.log(start);
-
-    // Count from start to end
-    // let text = `Count from ${start} to ${} and `
+    text += `${node.initializationNode?.visit(this, formatter)}`;
+    text += ` As long as ${node.conditionNode.visit(this, formatter)},`;
+    text += ` ${formatting.format(node.body.statements.filter(statement => !(statement instanceof ast.LineComment)).map(statement => statement.visit(this, formatter)))}.`;
+    text += ` After each loop ${node.incrementBlock.visit(this, formatter)}.`;
 
     return text;
   }
@@ -382,14 +340,27 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
-    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')})\n`;
-    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
+    let text = `Define a function named ${node.identifier}`;
+
+    if (node.formals.length > 0) {
+      text += ` that takes ${node.formals.length} arguments, ${formatting.format(node.formals.map(formal => formal.identifier))}`;
+    } else {
+      text += ` that takes no arguments`;
+    }
+
+    if (node.returnType.text === "void") {
+      text += `, and does not return a value.`;
+    } else {
+      text += `, and returns a ${node.returnType}.`;
+    }
+
+    text += ` Inside the function ${formatting.format(node.body.statements.map(statement => statement.visit(this, formatter)))}.`;
+
     return text;
   }
 
   visitFunctionCall(node: ast.FunctionCall, formatter: Formatter): string {
-    return `${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
+    return `Call the function ${node.identifier} with ${formatting.format(node.actuals.map(actual => actual.visit(this, formatter)))}.`;
   }
 
   visitReturn(node: ast.Return, formatter: Formatter): string {
@@ -429,91 +400,52 @@ export class Translator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitArrayLiteral(node: ast.ArrayLiteral, formatter: Formatter): string {
-    return `{${node.elementNodes.map(elementNode => elementNode.visit(this, formatter)).join(', ')}}`;
+    // return `{${node.elementNodes.map(elementNode => elementNode.visit(this, formatter)).join(', ')}}`;
+    return `${formatting.format(node.elementNodes.map(element => element.visit(this, formatter)))}`;
   }
 
   visitArrayDeclaration(node: ast.ArrayDeclaration, formatter: Formatter): string {
     let text = ''
 
-    // a simple check to know if there are any elements in the array
-    let empty = false;
-    if (node.rightNode instanceof ast.ArrayLiteral && node.rightNode.elementNodes.length === 0) {
-      empty = true
+    // empty array
+    if ((node.rightNode as ast.ArrayLiteral).elementNodes.length == 0) {
+      text += `Declare an empty array with the type ${node.variableType}.`;
     }
 
     if (node.variableType.text === "Any") {
-      if (empty) {
-        text += `Create an empty array called ${node.identifier}`
-      } else {
-        text += `Create an array with the elements ${formatting.format((node.rightNode as ast.ArrayLiteral).elementNodes.map(value => `${value.visit(this, formatter)}`))}`
-      }
-    } else {
-      // there is a type
-      switch(node.variableType.text) {
-        case "int[]":
-          // TODO: "array" or "list"?, "for numbers" or "of numbers"?
-          text += `Make a list of numbers called ${node.identifier}`;
-          if (!empty)
-            text += ` with ${formatting.format((node.rightNode as ast.ArrayLiteral).elementNodes.map(value => `${value.visit(this, formatter)}`))} in it`;
-          break;
-        case "boolean[]":
-          text += `Make a list of type boolean called ${node.identifier}`;
-          if (!empty)
-            // TODO : should the values be included in the sentence for booleans ?
-            text += ` with ${(node.rightNode as ast.ArrayLiteral).elementNodes.length} elements`;
-          break;
-        case "float[]":
-        case "double[]":
-          text += `Create a list of type ${node.variableType.text.slice(0, -2)} called ${node.identifier}`;
-          if (!empty)
-            text += ` with the values ${formatting.format((node.rightNode as ast.ArrayLiteral).elementNodes.map(value => `${value.visit(this, formatter)}`))}`;
-          break;
-        case "String[]":
-          text += `Create a list of strings called ${node.identifier}`;
-          if (!empty)
-            text += ` with the elements ${formatting.format((node.rightNode as ast.ArrayLiteral).elementNodes.map(value => `${value.visit(this, formatter)}`))}`;
-          break
-      }
+      text += `Declare an array with the elements ${node.rightNode?.visit(this, formatter)}.`;
     }
+
+    text += `Declare an array of type ${node.variableType.text.slice(0, -2)} with the elements ${node.rightNode?.visit(this, formatter)}.`;
 
     return text;
   }
 
   visitArraySubscript(node: ast.ArraySubscript, formatter: Formatter): string {
-    let operandPrecedence = precedence.get(node.arrayNode.constructor);
-    let nodePrecedence = precedence.get(node.constructor);
-
-    let text = node.arrayNode.visit(this, formatter);
-    if (operandPrecedence < nodePrecedence) {
-      text = `(${text})`;
-    }
-    text += `[${node.indexNode.visit(this, formatter)}]`;
-    return text;
+    return `The element at index ${node.indexNode.visit(this,formatter)} of ${node.arrayNode.visit(this, formatter)}`;
   }
 
   visitMember(node: ast.Member, formatter: Formatter): string {
-    let operandPrecedence = precedence.get(node.receiverNode.constructor);
-    let nodePrecedence = precedence.get(node.constructor);
-
-    let text = node.receiverNode.visit(this, formatter);
-    if (operandPrecedence < nodePrecedence) {
-      text = `(${text})`;
-    }
-    text += `.${node.identifier}`;
-    return text;
+    return `the ${node.receiverNode.visit(this, formatter)} of the ${node.identifier}`;
   }
 
   // --------------------------------------------------------------------------
   // Classes
   // --------------------------------------------------------------------------
 
-  visitClassDefinition(node: ast.ClassDefinition, _formatter: Formatter): string {
-    let text = `Create a class called ${node.identifier}`;
+  visitClassDefinition(node: ast.ClassDefinition, formatter: Formatter): string {
+    let text = `Define a class named ${node.identifier}`;
+    if (node.superclass) {
+      text += ` that extends the ${node.superclass} class.`;
+    } else {
+      text += '.';
+    }
+
     const instances = node.instanceVariableDeclarations.length, methods = node.methodDefinitions.length;
 
     if (instances > 0 && methods > 0) {
-      text += ` with instance variables ${formatting.format(node.instanceVariableDeclarations.map(declaration => `${declaration.identifier}`))}`;
-      text += `, and ${methods == 1 ? "a method" : "methods"} called ${formatting.format(node.methodDefinitions.map(definition => `${definition.identifier}`))}`;
+      text += ` It includes ${instances} instance variables, ${formatting.format(node.instanceVariableDeclarations.map(declaration => `${declaration.visit(this, formatter)}`))}`;
+      text += `, and ${methods == 1 ? "a method" : `${methods} methods`} called ${formatting.format(node.methodDefinitions.map(definition => `${definition.identifier}`))}`;
     } else if (instances > 0 && methods == 0) {
       // instances variables but no methods
       text += ` with instance variables ${formatting.format(node.instanceVariableDeclarations.map(declaration => `${declaration.identifier}`))}`;
@@ -527,7 +459,7 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, formatter: Formatter): string {
-    let text = 'Declare a ';
+    let text = 'a';
     if (node.visibility === Visibility.Public) {
       text += `public variable `;
     } else if (node.visibility === Visibility.Private) {
@@ -549,19 +481,31 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {
-    let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')})\n`;
-    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
+    // let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')})\n`;
+    // text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    // text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
+    // return text;
+    let text = `${node.identifier} is a method`;
+
+    if (node.formals.length === 0) {
+      text += `that takes no parameters.`;
+    } else {
+      text += `that takes ${node.formals.length} parameters, ${formatting.format(node.formals.map(formal => formal.identifier))}.`;
+    }
+
+    text += `It ${formatting.format(node.body.visit(this, formatter))}`;
+
     return text;
   }
 
   visitInstantiation(node: ast.Instantiation, _formatter: Formatter): string {
-    return `new ${node.identifier}`;
+    return `Create a new ${node.identifier}`;
   }
 
   visitMethodCall(node: ast.MethodCall, formatter: Formatter): string {
     // TODO: parenthesize receiver maybe
-    return `${node.receiverNode.visit(this, formatter)}.${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
+    // return `${node.receiverNode.visit(this, formatter)}.${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
+    return `Call the method ${node.identifier} on ${node.receiverNode.visit(this, formatter)}`;
   }
 
   // --------------------------------------------------------------------------
