@@ -1,6 +1,6 @@
 :root {
   --md-name: white;
-  --md-type: gainsboro;
+  --md-type: silver;
   --md-line: white;
   --md-value: white;
 }
@@ -47,6 +47,10 @@
 
 .reference-dot {
   fill: var(--md-line);
+}
+
+.memdia-function{
+  display: flex;
 }
 
 .func-name {

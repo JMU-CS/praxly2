@@ -3,6 +3,7 @@ import { GlobalRuntime } from './runtime.js';
 
 const NS = "http://www.w3.org/2000/svg";
 const MD = "md__";  // id prefix
+const MARGIN = 20;
 
 /**
  * Superclass that doesn't draw anything; used during unit testing.
@@ -72,9 +73,6 @@ export class MemdiaSvg extends Memdia {
     const vars = funcGroup.querySelectorAll('.memdia-variable');
     const varGroup = this.renderVariableWithoutValue(funcGroup, identifier, variableType);
 
-    const yPos = this.getVariableYPosition(vars.length);
-    varGroup.setAttribute('transform', `translate(20, ${yPos})`);
-
     funcGroup.appendChild(varGroup);
 
     const funcRect = funcGroup.querySelector('.func-rect') as SVGRectElement;
@@ -128,17 +126,33 @@ export class MemdiaSvg extends Memdia {
 
     const width = this.getFunctionRectWidth(identifier.length);
 
+    const prevFunctions = this.svg.querySelectorAll('.memdia-function');
+    let x = MARGIN;
+    let y = MARGIN;
+
+    if (prevFunctions.length > 0) {
+    const prev = prevFunctions[prevFunctions.length - 1] as SVGGElement;
+    const prevRect = prev.querySelector('.func-rect') as SVGRectElement;
+    if (prevRect) {
+      const prevY = parseFloat(prev.getAttribute('data-y') || '0');
+      const prevHeight = parseFloat(prevRect.getAttribute('height') || '0');
+      y = prevY + prevHeight + MARGIN;
+    }
+  }
+
+    funcGroup.setAttribute('data-y', `${y}`);
+
     const funcName = document.createElementNS(NS, 'text');
     funcName.setAttribute('class', 'func-name');
     funcName.textContent = identifier;
-    funcName.setAttribute('x', `${width / 2}`);
-    funcName.setAttribute('y', '40');
+    funcName.setAttribute('x', `${width / 2 + MARGIN}`);
+    funcName.setAttribute('y', `${y + MARGIN}`);
     funcGroup.appendChild(funcName);
 
     const funcRect = document.createElementNS(NS, 'rect');
     funcRect.setAttribute('class', 'func-rect');
-    funcRect.setAttribute('x', '10');
-    funcRect.setAttribute('y', '50');
+    funcRect.setAttribute('x', `${x}`);
+    funcRect.setAttribute('y', `${y + 30}`);
     funcRect.setAttribute('width', `${width}`);
     funcRect.setAttribute('height', '60');
     funcGroup.appendChild(funcRect);
@@ -169,17 +183,16 @@ export class MemdiaSvg extends Memdia {
   /**
    * Calculate the Y position of the nth variable.
    */
-  getVariableYPosition(index: number): number {
-    const rectHeight = 40;
-    const verticalPadding = 30;
-    return 60 + index * (rectHeight + verticalPadding);
-  }
+  // getVariableYPosition(index: number): number {
+  //   const rectHeight = 40;
+  //   return MARGIN + index * (rectHeight + MARGIN);
+  // }
 
   /**
    * Calculate function rectangle height based on the number of variables.
    */
   getFunctionRectHeight(varCount: number): number {
-    return 60 + varCount * 40;
+    return varCount * (40 + MARGIN) + MARGIN;
   }
 
   /**
@@ -218,22 +231,44 @@ export class MemdiaSvg extends Memdia {
     varGroup.setAttribute('id', `${funcGroup.getAttribute('id')}.${name}`);
     varGroup.setAttribute('class', 'memdia-variable');
 
-    const rectX = 130;  // TODO relative to function's X and Y
-    const rectY = 60;
+    let funcX = 0;
+    let funcY = 0;
 
-    const varName = document.createElementNS(NS, 'text');
-    varName.textContent = name;
-    varName.setAttribute('class', 'var-name');
-    varName.setAttribute('x', `${rectX - 7}`);
-    varName.setAttribute('y', `${rectY + 20}`);
-    varGroup.appendChild(varName);
+    const funcRect = funcGroup.querySelector('.func-rect') as SVGRectElement;
+
+    if (funcRect) {
+      funcX = parseFloat(funcRect.getAttribute('x') ?? '0');
+      funcY = parseFloat(funcRect.getAttribute('y') ?? '0');
+    }
+
+    const allVars = funcGroup.querySelectorAll('.memdia-variable');
+    let rectX = funcX + MARGIN;
+    let rectY = funcY + MARGIN;
+
+    if (allVars.length > 0) {
+      const prevVar = allVars[allVars.length - 1] as SVGGElement;
+      const prevRect = prevVar.querySelector('.var-rect') as SVGRectElement;
+
+      if (prevRect) {
+        const prevY = parseFloat(prevRect.getAttribute('y') || '0');
+        const prevHeight = parseFloat(prevRect.getAttribute('height') || '40');
+        rectY = prevY + prevHeight + MARGIN;
+      }
+    }
 
     const varType = document.createElementNS(NS, 'text');
     varType.textContent = type.toString();
     varType.setAttribute('class', 'var-type');
     varType.setAttribute('x', `${rectX}`);
-    varType.setAttribute('y', `${rectY - 7}`);
+    varType.setAttribute('y', `${rectY - MARGIN / 2}`);
     varGroup.appendChild(varType);
+
+    const varName = document.createElementNS(NS, 'text');
+    varName.textContent = name;
+    varName.setAttribute('class', 'var-name');
+    varName.setAttribute('x', `${rectX - MARGIN / 2}`);
+    varName.setAttribute('y', `${rectY + MARGIN}`);
+    varGroup.appendChild(varName);
 
     const rect = document.createElementNS(NS, 'rect');
     rect.setAttribute('x', `${rectX}`);
@@ -261,26 +296,26 @@ export class MemdiaSvg extends Memdia {
 
     const valueStr = fruit.type.serializeValue(fruit.value);
 
-    // Remove the previous value if exists
-    if (variableGroup.children.length > 3) {
-      variableGroup.lastChild?.remove();
-    }
+    const existingValue = variableGroup.querySelector('.var-value');
+    if (existingValue) existingValue.remove();
 
     const newRectWidth = this.getRectWidthForValue(valueStr);
     const currRectWidth = parseFloat(varRect.getAttribute('width') || '40');
+    const rectHeight = parseFloat(varRect.getAttribute('height') || '40');
+
     if (newRectWidth > currRectWidth) {
       varRect.setAttribute('width', `${newRectWidth}`);
     }
 
+    const rectX = parseFloat(varRect.getAttribute('x') || '0');
+    const rectY = parseFloat(varRect.getAttribute('y') || '0');
+
     const text = document.createElementNS(NS, 'text');
     text.textContent = valueStr;
-    text.setAttribute('x', `${newRectWidth / 2}`);  // centered
-    text.setAttribute('y', '20');
-    text.setAttribute('text-anchor', 'middle');
     text.setAttribute('class', 'var-value');
-
-    const rectX = parseFloat(varRect.getAttribute('x') || '130');
-    const rectY = parseFloat(varRect.getAttribute('y') || '60');
+    text.setAttribute('x', `${rectX + newRectWidth / 2}`);
+    text.setAttribute('y', `${rectY + rectHeight / 2 + 2}`);
+    text.setAttribute('text-anchor', 'middle');
 
     variableGroup.appendChild(text);
   }
@@ -290,18 +325,21 @@ export class MemdiaSvg extends Memdia {
    *
    * @param variableGroup The SVG group element representing the variable container.
    */
-  setReferenceValueInRect(variableGroup: SVGGElement) {
+  setReferenceValueInRect(variableGroup: SVGGElement): void {
     const varRect = variableGroup.querySelector('.var-rect') as SVGRectElement;
+    if (!varRect) return;
 
     const oldRef = variableGroup.querySelector('.reference-value-group');
     oldRef?.remove();
 
-    const rectX = parseFloat(varRect.getAttribute('x') || '130');
-    const rectY = parseFloat(varRect.getAttribute('y') || '60');
+    const rectX = parseFloat(varRect.getAttribute('x') || '0');
+    const rectY = parseFloat(varRect.getAttribute('y') || '0');
+    const rectWidth = parseFloat(varRect.getAttribute('width') || '40');
+    const rectHeight = parseFloat(varRect.getAttribute('height') || '40');
 
     const dot = document.createElementNS(NS, 'circle');
-    dot.setAttribute('cx', '20');
-    dot.setAttribute('cy', '20');
+    dot.setAttribute('cx', `${rectWidth / 2}`);
+    dot.setAttribute('cy', `${rectHeight / 2}`);
     dot.setAttribute('r', '4');
     dot.setAttribute('class', 'reference-dot');
 
