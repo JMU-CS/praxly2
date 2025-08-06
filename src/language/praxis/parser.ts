@@ -68,7 +68,7 @@ class PraxisParser extends Parser {
     if (blank.n > 0) {
       statements.push(new ast.Blank(blank.n, blank.where));
     }
-    while (!this.has(TokenType.EndOfSource)) {
+    while (this.hasOtherwise(TokenType.EndOfSource)) {
       statements.push(this.topLevelStatement());
       let blank = this.skipLinebreaks();
       if (blank.n > 0) {
@@ -132,11 +132,40 @@ class PraxisParser extends Parser {
     return type;
   }
 
+  hasSubroutine() {
+    let i = 0;
+
+    // Look for type first, which always starts with an identifier.
+    if (!this.hasAhead(TokenType.Identifier, i)) {
+      return false;
+    }
+    i += 1;
+
+    // Allow for array markers.
+    while (this.hasAhead(TokenType.LeftBracket, i)) {
+      i += 1;
+      if (!this.hasAhead(TokenType.RightBracket, i)) {
+        return false;
+      }
+      i += 1;
+    }
+
+    // Look for subroutine name next.
+    if (!this.hasAhead(TokenType.Identifier, i)) {
+      return false;
+    }
+    i += 1;
+
+    return this.hasAhead(TokenType.LeftParenthesis, i);
+  }
+
   topLevelStatement(): ast.Statement {
-    if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.LeftParenthesis, 2)) {
+    if (this.hasSubroutine()) {
       const defineNode = this.functionDefinition();
       this.statementLinebreak();
       return defineNode;
+    } else if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.Linebreak, 2) && this.hasAhead(TokenType.Indent, 3)) {
+      throw new ParseError("This function is missing parentheses.", this.tokens[this.i + 1].where);
     } else if (this.has(TokenType.Class)) {
       const defineNode = this.classDefinition();
       this.statementLinebreak();
@@ -192,7 +221,7 @@ class PraxisParser extends Parser {
         if (this.has(TokenType.Indent)) {
           throw new ParseError("The code has stray indentation.", this.tokens[this.i].where);
         } else if (!this.has(TokenType.Identifier)) {
-          throw new ParseError("A type is missing.", lastWhere);
+          throw new ParseError("A type is missing.", this.tokens[this.i].where);
         }
         const type = this.type();
         firstWhere = firstWhere ?? type.where;
@@ -219,6 +248,8 @@ class PraxisParser extends Parser {
           if (this.has(TokenType.Equal)) {
             this.advance();
             rightNode = this.expression();
+          } else if (this.has(TokenType.Linebreak) && this.hasAhead(TokenType.Indent, 1)) {
+            throw new ParseError("This method is missing parentheses.", memberIdentifierToken.where);
           }
 
           const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, type, visibility, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
@@ -450,9 +481,9 @@ class PraxisParser extends Parser {
     }
     const equalToken = this.advance(); // eat =
 
-    if (!this.has(TokenType.LeftCurly)) {
-      throw new ParseError("This array declaration is missing an array literal enclosed in {}.", Where.enclose(type.where, equalToken.where));
-    }
+    // if (this.has(TokenType.LeftCurly)) {
+      // throw new ParseError("This array declaration is missing an array literal enclosed in {}.", Where.enclose(type.where, equalToken.where));
+    // }
 
     const rightNode = this.expression();
 
@@ -889,6 +920,9 @@ class PraxisParser extends Parser {
     } else if (this.has(TokenType.Double)) {
       const token = this.advance() as TextToken;
       return new ast.Double(parseFloat(token.text), token.where);
+    } else if (this.has(TokenType.Character)) {
+      const token = this.advance() as TextToken;
+      return new ast.Character(token.text, token.where);
     } else if (this.has(TokenType.String)) {
       const token = this.advance() as TextToken;
       return new ast.String(token.text, token.where);

@@ -1,8 +1,10 @@
 @precedence {
+  dot @left
   multiplicative @left,
   additive @left, 
   shift @left,
-  relational @left
+  relational @left,
+  dot @left
 }
 
 @top Program { (topLevelStatement lineEnd | linebreak)* }
@@ -18,73 +20,125 @@ block {
 }
 
 curlyBlock {
-  Block { LeftCurly (statement linebreak | linebreak)* RightCurly }
+  Block { leftCurly (statement linebreak | linebreak)* rightCurly }
+}
+
+classStatement {
+  visibility? declaration
+}
+
+elseCurlyBlock {
+  Else { Else curlyBlock }
+}
+
+elseIfCurlyBlock {
+  ElseIf { Else If Condition curlyBlock }
+}
+
+elseIfBlock {
+  ElseIf { Else If Condition linebreak block }
+}
+
+elseBlock {
+  Else { Else linebreak block }
+}
+
+ifPostHeader {
+  curlyBlock elseIfCurlyBlock* elseCurlyBlock? |
+  linebreak block elseIfBlock* elseBlock? End If
+}
+
+Condition {
+  leftParenthesis expression rightParenthesis
 }
 
 statement {
-  Declaration |
-  For { For LeftParenthesis statement Semicolon expression Semicolon statement RightParenthesis linebreak block End For} |
+  declaration |
+  For { For leftParenthesis statement Semicolon expression Semicolon statement rightParenthesis linebreak block End For} |
   Print { Print expression } |
-  If { If LeftParenthesis expression RightParenthesis (curlyBlock (Else curlyBlock)? | linebreak block (Else linebreak block)? End If) } |
-  While { While LeftParenthesis expression RightParenthesis linebreak block End While } |
-  Class { Class Identifier (Extends Identifier)? linebreak block End Class Identifier } |
+  If { If Condition ifPostHeader } |
+  Do { Do (curlyBlock | linebreak block) ~while While leftParenthesis expression rightParenthesis } |
+  While { ~while While leftParenthesis expression rightParenthesis linebreak block End While } |
+  Repeat { Repeat (curlyBlock | linebreak block) Until leftParenthesis expression rightParenthesis } |
+  Class { Class Identifier (Extends Identifier)? linebreak (classStatement linebreak | linebreak)* End Class Identifier } |
   Return { Return expression } |
-  Assignment { Identifier Equal expression }
+  Assignment { Identifier (leftBracket expression rightBracket)* Equal expression } |
+  expression
 }
 
-Declaration {
+declaration {
   initialized { type Identifier Equal expression } |
+  SubroutineDefinition { type Identifier leftParenthesis Parameters rightParenthesis (curlyBlock | linebreak block End Identifier) } |
   uninitialized { type Identifier }
 }
 
+Parameters {
+  (type Identifier (comma type Identifier)*)?
+}
+
 type {
-  Type { Identifier } |
+  Identifier (leftBracket (expression DotDot expression)? rightBracket)* |
   Void
 }
 
-expression {
-  BinaryExpression | apex
+visibility {
+  Public |
+  Private
 }
 
-// expression !relational GreaterThan expression |
-// expression !relational LessThanOrEqual expression |
-// expression !relational GreaterThanOrEqual expression |
+expression {
+  binaryExpression | unaryExpression | apex
+}
 
-BinaryExpression {
+unaryExpression {
+  New Identifier |
+  expression PlusPlus |
+  expression HyphenHyphen
+}
+
+binaryExpression {
   expression !relational ( LessThan | GreaterThan | LessThanOrEqual | GreaterThanOrEqual ) expression |
   expression !shift DoubleLessThan expression |
   expression !shift DoubleGreaterThan expression |
   expression !multiplicative Asterisk expression |
   expression !multiplicative ForwardSlash expression |
   expression !multiplicative Percent expression |
-  expression !additive Plus expression
+  expression !additive Plus expression |
+  expression !additive Hyphen expression |
+  expression !dot Dot expression
 }
 
 apex {
-  Call { Identifier LeftParenthesis (expression (comma expression)*)? RightParenthesis } |
+  Call { Identifier leftParenthesis (expression (comma expression)*)? rightParenthesis } |
   Identifier |
   Boolean |
   String |
+  Character |
   Integer |
-  LeftParenthesis expression RightParenthesis |
+  leftParenthesis expression rightParenthesis |
+  leftCurly (apex (comma apex)*)? rightCurly |
   Null
 }
 
 @tokens {
   Integer { "-"? $[0-9]+ }
   Identifier { $[a-zA-Z_]$[a-zA-Z0-9_]* }
-  Print { "print" }
   Void { "void" }
   Extends { "extends" }
   Boolean { "true" | "false" }
   For { "for" }
   Class { "class" }
   While { "while" }
+  Do { "do" }
+  Repeat { "repeat" }
+  Print { "print" }
   If { "if" }
   Else { "else" }
   Return { "return" }
   Public { "public" }
   Private { "private" }
+  Until { "until" }
+  New { "new" }
   End { "end" }
   Null { "null" }
   Semicolon { ";" }
@@ -95,18 +149,26 @@ apex {
   GreaterThan { ">" }
   GreaterThanOrEqual { ">=" | "≥" }
   Plus { "+" }
+  Hyphen { "-" }
+  PlusPlus { "++" }
+  HyphenHyphen { "--" }
   Equal { "=" | "<-" | "←" | "⭠" }
   Asterisk { "*" }
   Percent { "%" }
   ForwardSlash { "/" }
-  LeftParenthesis { "(" }
-  RightParenthesis { ")" }
-  LeftCurly { "{" }
-  RightCurly { "}" }
+  leftParenthesis { "(" }
+  rightParenthesis { ")" }
+  leftBracket { "[" }
+  rightBracket { "]" }
+  leftCurly { "{" }
+  rightCurly { "}" }
+  Dot { "." }
+  DotDot { ".." }
   comma { "," }
   linebreak { $[\r]? $[\n] }
 
   String { '"' (!["\\] | "\\" _)* '"' }
+  Character { "'" (!['\\] | "\\" $['nrt]) "'" }
 
   LineComment { "//" ![\n]* }
 
@@ -115,10 +177,28 @@ apex {
   lineEnd { linebreak | @eof }
 
   // High-precedence on left.
-  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Null, Void, Extends, Public, Private, Identifier }
+  @precedence { Boolean, Else, Do, While, Repeat, Until, If, Return, Class, For, Print, End, Null, Void, Extends, Public, Private, New, Identifier }
   @precedence { DoubleLessThan, LessThan }
   @precedence { DoubleGreaterThan, GreaterThan }
   @precedence { LineComment, ForwardSlash }
 }
+
+// Lezer Notes
+
+// There's no case distinction between terminals and non-terminals in the
+// grammar. A capitalized name means the structure will get a node in the
+// resulting tree. An uncapitalized name will not have a node. Only capitalized
+// nodes can be styled distinctly. Uncapitalized nodes will inherit the styles
+// of their capitalized ancestor.
+
+// Some regex patterns have different syntax.
+// _ - match any single character, like .
+// $[abc] - match any character from set, like [abc]
+
+// While and do/while are a major pain. They are ambiguous given the Praxis
+// specification. Lezer complains of a shift-reduce conflict. Our hand-written
+// parser uses indentation to disambiguate, but the Lezer grammar doesn't
+// currently. A temporary workaround is to let the Lezer parser go
+// non-deterministic with a ~while branching command.
 
 // @detectDelim

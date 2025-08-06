@@ -31,7 +31,11 @@ body {
   padding: 10px;
   font-family: monospace;
   overflow-y: scroll;
-  white-space: pre-wrap;
+}
+
+#tree-panel, #source-panel, #output-panel {
+  overflow-x: auto;
+  white-space: pre;
 }
 
 #tree-panel {

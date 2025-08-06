@@ -17,17 +17,21 @@ export let lezerParser = parser.configure({
       For: t.keyword,
       If: t.keyword,
       New: t.keyword,
-      Print: t.keyword,
       Repeat: t.keyword,
+      Until: t.keyword,
+      Return: t.keyword,
       While: t.keyword,
       Null: t.keyword,
       Public: t.keyword,
       Private: t.keyword,
+      Print: t.keyword,
+
       Identifier: t.variableName,
 
       Type: t.typeName,
 
       String: t.string,
+      Character: t.character,
 
       Plus: t.operator,
       Equal: t.operator,
@@ -45,7 +49,6 @@ export let lezerParser = parser.configure({
 
       Integer: t.integer,
       Void: t.keyword,
-
     }),
     indentNodeProp.add({
       // Block: context => context.column(context.node.from) + context.unit,
@@ -62,7 +65,8 @@ export let lezerParser = parser.configure({
       // Else: foldInside,
       // Class: foldInside,
     // }),
-  ]
+  ],
+  // strict: true,
 });
 
 export const praxisLanguage = LRLanguage.define({

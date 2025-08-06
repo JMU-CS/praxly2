@@ -64,6 +64,8 @@ class PraxisLexer extends Lexer {
       this.emitToken(TokenType.Equal);
     } else if (this.accept('\u27f5')) { // ⟵
       this.emitToken(TokenType.Equal);
+    } else if (this.has('\'')) {
+      this.lexCharacter();
     } else if (this.has('"')) {
       this.lexString();
     } else if (this.hasAlphabetic()) {
@@ -167,7 +169,7 @@ class PraxisLexer extends Lexer {
     if (this.i === this.source.length || this.has("\r") || this.has("\n")) {
       if (this.has("\n")) {
         this.advance();
-        this.emitToken(TokenType.Linebreak);
+        this.lexLinebreak();
       } else {
         this.abandon();
       }

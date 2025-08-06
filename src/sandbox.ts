@@ -30,9 +30,6 @@ const markField = cm.StateField.define({
   provide: f => cm.EditorView.decorations.from(f),
 });
 
-function removeAllMarks() {
-}
-
 const stepMark = cm.Decoration.mark({
   attributes: {
     style: "background-color: #2a4160",
@@ -112,6 +109,7 @@ function initialize() {
   dstLang.value = localStorage.getItem('target-language') ?? 'Praxis';
 
   const removeAllMarks = () => {
+    console.trace("remove 'em all");
     editorView.dispatch({
       effects: filterMarks.of((_from, _to) => false),
     });
@@ -194,9 +192,9 @@ function initialize() {
 
       // Emit CodeMirror parser log
       if (false) {
-        for (let i = 0; i < tokens.length; ++i) {
-          console.log(tokens[i].toPretty(source));
-        }
+        // for (let i = 0; i < tokens.length; ++i) {
+          // console.log(tokens[i].toPretty(source));
+        // }
 
         const tree = praxis.lezerParser.parse(source);
         let level = 0;
@@ -204,6 +202,15 @@ function initialize() {
           enter: node => {
             console.log(`${'  '.repeat(level)}${node.name} [${node.from} ${node.to}]`);
             if (node.type.isError) {
+              if (node.from !== node.to) {
+                editorView.dispatch({
+                  effects: addMarks.of([stepMark.range(node.from, node.to)])
+                })
+              } else {
+                editorView.dispatch({
+                  effects: addMarks.of([stepMark.range(node.from - 1, node.to)])
+                })
+              }
               console.log(`${'  '.repeat(level)}error ${node} ${node.from} ${node.to}`);
             }
             level += 1;
@@ -272,7 +279,7 @@ function initialize() {
     }
 
     stepButton.disabled = true;
-    removeAllMarks();
+    // removeAllMarks();
   };
 
   stepButton.disabled = true;

@@ -23,6 +23,8 @@ export class OutputFormatter extends DefaultOutputFormatter {
       return this.array(fruit);
     } else if (Type.String.covers(fruit.type)) {
       return fruit.value.runtime.variableBindings.get('text')!.value as String;
+    } else if (Type.Character.covers(fruit.type)) {
+      return fruit.value;
     } else if (Type.Integer.covers(fruit.type) ||
         Type.Float.covers(fruit.type) ||
         Type.Double.covers(fruit.type)) {

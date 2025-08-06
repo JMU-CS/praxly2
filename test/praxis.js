@@ -1,12 +1,13 @@
 import assert from 'node:assert';
 import * as praxis from '../build/language/praxis/index.js';
 import * as python from '../build/language/python/index.js';
-import {Fruit, Type} from '../build/language/type.js';
-import {Evaluator} from '../build/language/evaluator.js';
-import {GlobalRuntime} from '../build/language/runtime.js';
+import { Fruit, Type } from '../build/language/type.js';
+import { Evaluator } from '../build/language/evaluator.js';
+import { GlobalRuntime } from '../build/language/runtime.js';
 import * as error from '../build/language/error.js';
-import {Memdia} from '../build/language/memdia.js';
-import {makeLogger, getInput} from './utilities.js';
+import { Memdia } from '../build/language/memdia.js';
+import { makeLogger, getInput } from './utilities.js';
+import { TokenType } from '../build/language/token.js';
 
 // Functions passed to describe can't be async. Only functions passed to it can
 // be asynchronous.
@@ -90,6 +91,17 @@ function testError(sample) {
       await ast.visit(new Evaluator(new praxis.OutputFormatter(), new Memdia()), runtime);
     };
     it(`should error on ${sample.message}`, () => assert.rejects(evaluate, sample.error));
+  });
+}
+
+function testLex(sample) {
+  describe(sample.source, () => {
+    it(`should lex to tokens`, async () => {
+      const tokens = praxis.lex(sample.source);
+      console.log("tokens:", tokens);
+      console.log("sample.tokens:", sample.tokens);
+      assert.deepStrictEqual(tokens.map(token => token.type), sample.tokens);
+    });
   });
 }
 
@@ -301,6 +313,46 @@ describe('Praxis: Expressions', () => {
       translation: {
         praxis: 'log(10)',
         python: 'log(10)',
+      },
+    },
+    {
+      source: "'?'",
+      evaluation: new Fruit(Type.Character, '?'),
+      translation: {
+        praxis: "'?'",
+        python: "TODO",
+      },
+    },
+    {
+      source: "'\\n'",
+      evaluation: new Fruit(Type.Character, '\n'),
+      translation: {
+        praxis: "'\\n'",
+        python: "TODO",
+      },
+    },
+    {
+      source: "'\\\''",
+      evaluation: new Fruit(Type.Character, '\''),
+      translation: {
+        praxis: "'\\''",
+        python: "TODO",
+      },
+    },
+    {
+      source: "'\\r'",
+      evaluation: new Fruit(Type.Character, '\r'),
+      translation: {
+        praxis: "'\\r'",
+        python: "TODO",
+      },
+    },
+    {
+      source: "'\\t'",
+      evaluation: new Fruit(Type.Character, '\t'),
+      translation: {
+        praxis: "'\\t'",
+        python: "TODO",
       },
     },
   ];
@@ -782,7 +834,7 @@ print 6
   samples.forEach(testProgram);
 });
 
-describe('Praxis: Array Generation and Output', () => {
+describe('Praxis: Arrays', () => {
   const samples = [
     {
       message: 'basic initialization and access',
@@ -1015,6 +1067,50 @@ print nums[2][2]
         python: `TODO`,
       },
       output: "{{5}, {7, 8}, {13, 14, 15}}\n3\n1\n2\n3\n5\n7\n8\n13\n14\n15\n",
+    },
+    {
+      message: 'arrays as aliases',
+      source: `int[] xs = {10, 20}
+int[] ys = xs
+xs[0] = 99
+print xs
+print ys
+`,
+      translation: {
+        praxis: `int[] xs \u2b60 {10, 20}
+int[] ys \u2b60 xs
+xs[0] \u2b60 99
+print xs
+print ys
+`,
+        python: `TODO`,
+      },
+      output: "{99, 20}\n{99, 20}\n",
+    },
+    {
+      message: 'arrays transfer to alias',
+      source: `int[] xs = {1, 2, 3}
+int[] ys = xs
+int[] zs = {0}
+xs = zs
+zs[0] = 4
+print xs
+print ys
+print zs
+`,
+      translation: {
+        praxis: `int[] xs \u2b60 {1, 2, 3}
+int[] ys \u2b60 xs
+int[] zs \u2b60 {0}
+xs \u2b60 zs
+zs[0] \u2b60 4
+print xs
+print ys
+print zs
+`,
+        python: `TODO`,
+      },
+      output: "{4}\n{1, 2, 3}\n{4}\n",
     },
   ];
 
@@ -1435,21 +1531,51 @@ h.sneak()
 describe('Praxis: Strings', () => {
   const samples = [
     {
-      message: 'string initialization and methods',
+      message: 'string initialization',
       source: `String s = "dog"
+String t = "boondoggle"
 print s
-print s.length()
+print t
+`,
+      translation: {
+        praxis: `String s \u2b60 "dog"
+String t \u2b60 "boondoggle"
+print s
+print t
+`,
+        python: "TODO",
+      },
+      output: "dog\nboondoggle\n",
+    },
+    {
+      message: 'string substring',
+      source: `String s = "dog"
 print s.substring(0, 2)
 `,
       translation: {
         praxis: `String s \u2b60 "dog"
-print s
-print s.length()
 print s.substring(0, 2)
 `,
         python: "TODO",
       },
-      output: "dog\n3\ndo\n",
+      output: "do\n",
+    },
+    {
+      message: 'string length',
+      source: `String s = "dog"
+String t = "alligator"
+print s.length()
+print t.length()
+`,
+      translation: {
+        praxis: `String s \u2b60 "dog"
+String t \u2b60 "alligator"
+print s.length()
+print t.length()
+`,
+        python: "TODO",
+      },
+      output: "3\n9\n",
     },
     {
       message: 'string concatenation',
@@ -1461,6 +1587,117 @@ print s.substring(0, 2)
         python: "TODO",
       },
       output: "Az\n",
+    },
+    {
+      message: 'indexOf and lastIndexOf',
+      source: `String s = "abcbabcba"
+print s.indexOf('a')
+print s.indexOf('b')
+print s.indexOf('c')
+print s.lastIndexOf('a')
+print s.lastIndexOf('b')
+print s.lastIndexOf('c')
+`,
+      translation: {
+        praxis: `String s \u2b60 "abcbabcba"
+print s.indexOf('a')
+print s.indexOf('b')
+print s.indexOf('c')
+print s.lastIndexOf('a')
+print s.lastIndexOf('b')
+print s.lastIndexOf('c')
+`,
+        python: "TODO",
+      },
+      output: "0\n1\n2\n8\n7\n6\n",
+    },
+    {
+      message: 'charAt',
+      source: `String s = "^$#"
+print s.charAt(0)
+print s.charAt(1)
+print s.charAt(2)
+`,
+      translation: {
+        praxis: `String s \u2b60 "^$#"
+print s.charAt(0)
+print s.charAt(1)
+print s.charAt(2)
+`,
+        python: "TODO",
+      },
+      output: "^\n$\n#\n",
+    },
+    {
+      message: 'character loop',
+      source: `String vowels = "aeiou"
+for (int i = 0; i < vowels.length(); i = i + 1)
+  print vowels.charAt(i)
+end for
+`,
+      translation: {
+        praxis: `String vowels \u2b60 "aeiou"
+for (int i \u2b60 0; i < vowels.length(); i \u2b60 i + 1)
+  print vowels.charAt(i)
+end for
+`,
+        python: "TODO",
+      },
+      output: "a\ne\ni\no\nu\n",
+    },
+  ];
+
+  samples.forEach(testProgram);
+});
+
+describe('Praxis: Functions', () => {
+  const samples = [
+    {
+      message: 'immediate use of returned array',
+      source: `int[] gets()
+  int[] nums = {4, 6, 9}
+  return nums
+end gets
+
+print gets()[0]
+print gets()[1]
+print gets()[2]`,
+      translation: {
+        praxis: `int[] gets()
+  int[] nums \u2b60 {4, 6, 9}
+  return nums
+end gets
+
+print gets()[0]
+print gets()[1]
+print gets()[2]
+`,
+        python: "TODO",
+      },
+      output: "4\n6\n9\n",
+    },
+    {
+      message: 'saved reference of returned array',
+      source: `int[] gets()
+  int[] nums = {4, 6, 9}
+  return nums
+end gets
+
+int[] xs = gets()
+print xs
+`,
+      translation: {
+        praxis: `int[] gets()
+  int[] nums \u2b60 {4, 6, 9}
+  return nums
+end gets
+
+int[] xs \u2b60 gets()
+print xs
+`,
+        python: "TODO",
+      },
+      output: "{4, 6, 9}\n",
     },
   ];
 
@@ -1581,16 +1818,34 @@ h.show()
   samples.forEach(testError);
 });
 
+describe('Praxis: Lex Errors', () => {
+  const samples = [
+    {
+      message: 'bad character escaping',
+      source: `char c = '\\a'`,
+    },
+    {
+      message: 'too many characters',
+      source: `char c = 'abc'`,
+    },
+    {
+      message: 'too few characters',
+      source: `char c = ''`,
+    },
+  ];
+
+  samples.forEach(sample => testError({...sample, error: error.LexError}));
+});
+
 describe('Praxis: Parse Errors', () => {
   const samples = [
     {
       message: 'bad separator',
       source: `int[] xs = {5; 6}`,
-      error: error.ParseError,
     },
   ];
 
-  samples.forEach(testError);
+  samples.forEach(sample => testError({...sample, error: error.ParseError}));
 });
 
 describe('Praxis: Illegal Array', () => {
@@ -1661,4 +1916,95 @@ s++`,
   ];
 
   samples.forEach(testError);
+});
+
+describe('Praxis: Lexing', () => {
+  const samples = [
+    {
+      message: 'integer literal',
+      source: `3`,
+      tokens: [TokenType.Integer, TokenType.EndOfSource],
+    },
+    {
+      message: 'boolean literal',
+      source: `true`,
+      tokens: [TokenType.True, TokenType.EndOfSource],
+    },
+    {
+      message: 'skip line with only spaces',
+      source: `    `,
+      tokens: [TokenType.EndOfSource],
+    },
+    {
+      message: 'lines with spaces are only breaks',
+      source: `    
+
+         
+`,
+      tokens: [TokenType.Linebreak, TokenType.Linebreak, TokenType.Linebreak, TokenType.EndOfSource],
+    },
+    {
+      message: 'indented literal',
+      source: `  5 `,
+      tokens: [TokenType.Indent, TokenType.Integer, TokenType.EndOfSource],
+    },
+    {
+      message: 'indented literals',
+      source: `"dog"
+      "cat"`,
+      tokens: [TokenType.String, TokenType.Linebreak, TokenType.Indent, TokenType.String, TokenType.EndOfSource],
+    },
+    {
+      message: 'empty class',
+      source: `class Folder
+end class Folder`,
+      tokens: [TokenType.Class, TokenType.Identifier, TokenType.Linebreak, TokenType.End, TokenType.Class, TokenType.Identifier, TokenType.EndOfSource],
+    },
+    {
+      message: 'class with one instance variable',
+      source: `class Folder
+  public int x
+end class Folder`,
+      tokens: [
+        TokenType.Class,
+        TokenType.Identifier,
+        TokenType.Linebreak,
+        TokenType.Indent,
+        TokenType.Public,
+        TokenType.Identifier,
+        TokenType.Identifier,
+        TokenType.Linebreak,
+        TokenType.Unindent,
+        TokenType.End,
+        TokenType.Class,
+        TokenType.Identifier,
+        TokenType.EndOfSource
+      ],
+    },
+    {
+      message: 'class with extra space',
+      source: `class Folder
+  public int x
+
+end class Folder`,
+      tokens: [
+        TokenType.Class,
+        TokenType.Identifier,
+        TokenType.Linebreak,
+        TokenType.Indent,
+        TokenType.Public,
+        TokenType.Identifier,
+        TokenType.Identifier,
+        TokenType.Linebreak,
+        TokenType.Linebreak,
+        TokenType.Unindent,
+        TokenType.End,
+        TokenType.Class,
+        TokenType.Identifier,
+        TokenType.EndOfSource
+      ],
+    },
+  ];
+
+  samples.forEach(testLex);
 });
