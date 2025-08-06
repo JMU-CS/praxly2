@@ -191,7 +191,7 @@ function initialize() {
       treePanel.innerText = JSON.stringify(object, null, 2);
 
       // Emit CodeMirror parser log
-      if (true) {
+      if (false) {
         // for (let i = 0; i < tokens.length; ++i) {
           // console.log(tokens[i].toPretty(source));
         // }
