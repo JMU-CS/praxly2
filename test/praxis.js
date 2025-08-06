@@ -1087,6 +1087,31 @@ print ys
       },
       output: "{99, 20}\n{99, 20}\n",
     },
+    {
+      message: 'arrays transfer to alias',
+      source: `int[] xs = {1, 2, 3}
+int[] ys = xs
+int[] zs = {0}
+xs = zs
+zs[0] = 4
+print xs
+print ys
+print zs
+`,
+      translation: {
+        praxis: `int[] xs \u2b60 {1, 2, 3}
+int[] ys \u2b60 xs
+int[] zs \u2b60 {0}
+xs \u2b60 zs
+zs[0] \u2b60 4
+print xs
+print ys
+print zs
+`,
+        python: `TODO`,
+      },
+      output: "{4}\n{1, 2, 3}\n{4}\n",
+    },
   ];
 
   samples.forEach(testProgram);

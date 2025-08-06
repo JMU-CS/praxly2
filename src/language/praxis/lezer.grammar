@@ -7,7 +7,7 @@
   dot @left
 }
 
-@top Program { (topLevelStatement LineEnd | linebreak)* }
+@top Program { (topLevelStatement lineEnd | linebreak)* }
 
 @skip { space | LineComment }
 
@@ -27,12 +27,39 @@ classStatement {
   visibility? declaration
 }
 
+elseCurlyBlock {
+  Else { Else curlyBlock }
+}
+
+elseIfCurlyBlock {
+  ElseIf { Else If Condition curlyBlock }
+}
+
+elseIfBlock {
+  ElseIf { Else If Condition linebreak block }
+}
+
+elseBlock {
+  Else { Else linebreak block }
+}
+
+ifPostHeader {
+  curlyBlock elseIfCurlyBlock* elseCurlyBlock? |
+  linebreak block elseIfBlock* elseBlock? End If
+}
+
+Condition {
+  leftParenthesis expression rightParenthesis
+}
+
 statement {
   declaration |
   For { For leftParenthesis statement Semicolon expression Semicolon statement rightParenthesis linebreak block End For} |
   Print { Print expression } |
-  If { If leftParenthesis expression rightParenthesis (curlyBlock (Else curlyBlock)? | linebreak block (Else linebreak block)? End If) } |
-  While { While leftParenthesis expression rightParenthesis linebreak block End While } |
+  If { If Condition ifPostHeader } |
+  Do { Do (curlyBlock | linebreak block) ~while While leftParenthesis expression rightParenthesis } |
+  While { ~while While leftParenthesis expression rightParenthesis linebreak block End While } |
+  Repeat { Repeat (curlyBlock | linebreak block) Until leftParenthesis expression rightParenthesis } |
   Class { Class Identifier (Extends Identifier)? linebreak (classStatement linebreak | linebreak)* End Class Identifier } |
   Return { Return expression } |
   Assignment { Identifier (leftBracket expression rightBracket)* Equal expression } |
@@ -55,8 +82,8 @@ type {
 }
 
 visibility {
-  public |
-  private
+  Public |
+  Private
 }
 
 expression {
@@ -64,7 +91,9 @@ expression {
 }
 
 unaryExpression {
-  new Identifier
+  New Identifier |
+  expression PlusPlus |
+  expression HyphenHyphen
 }
 
 binaryExpression {
@@ -75,6 +104,7 @@ binaryExpression {
   expression !multiplicative ForwardSlash expression |
   expression !multiplicative Percent expression |
   expression !additive Plus expression |
+  expression !additive Hyphen expression |
   expression !dot Dot expression
 }
 
@@ -93,19 +123,22 @@ apex {
 @tokens {
   Integer { "-"? $[0-9]+ }
   Identifier { $[a-zA-Z_]$[a-zA-Z0-9_]* }
-  Print { "print" }
   Void { "void" }
   Extends { "extends" }
   Boolean { "true" | "false" }
   For { "for" }
   Class { "class" }
   While { "while" }
+  Do { "do" }
+  Repeat { "repeat" }
+  Print { "print" }
   If { "if" }
   Else { "else" }
   Return { "return" }
-  public { "public" }
-  private { "private" }
-  new { "new" }
+  Public { "public" }
+  Private { "private" }
+  Until { "until" }
+  New { "new" }
   End { "end" }
   Null { "null" }
   Semicolon { ";" }
@@ -116,6 +149,9 @@ apex {
   GreaterThan { ">" }
   GreaterThanOrEqual { ">=" | "≥" }
   Plus { "+" }
+  Hyphen { "-" }
+  PlusPlus { "++" }
+  HyphenHyphen { "--" }
   Equal { "=" | "<-" | "←" | "⭠" }
   Asterisk { "*" }
   Percent { "%" }
@@ -138,10 +174,10 @@ apex {
 
   space { $[ \t]+ }
 
-  LineEnd { linebreak | @eof }
+  lineEnd { linebreak | @eof }
 
   // High-precedence on left.
-  @precedence { Boolean, Else, While, If, Return, Class, For, Print, End, Null, Void, Extends, public, private, new, Identifier }
+  @precedence { Boolean, Else, Do, While, Repeat, Until, If, Return, Class, For, Print, End, Null, Void, Extends, Public, Private, New, Identifier }
   @precedence { DoubleLessThan, LessThan }
   @precedence { DoubleGreaterThan, GreaterThan }
   @precedence { LineComment, ForwardSlash }
@@ -151,12 +187,18 @@ apex {
 
 // There's no case distinction between terminals and non-terminals in the
 // grammar. A capitalized name means the structure will get a node in the
-// resulting tree. An uncapitalized name will not have a node. The takeaway:
-// if the structure has semantic significance, capitalize it. If it's just
-// there to give a reusable name to a pattern, don't capitalize it.
+// resulting tree. An uncapitalized name will not have a node. Only capitalized
+// nodes can be styled distinctly. Uncapitalized nodes will inherit the styles
+// of their capitalized ancestor.
 
 // Some regex patterns have different syntax.
 // _ - match any single character, like .
 // $[abc] - match any character from set, like [abc]
+
+// While and do/while are a major pain. They are ambiguous given the Praxis
+// specification. Lezer complains of a shift-reduce conflict. Our hand-written
+// parser uses indentation to disambiguate, but the Lezer grammar doesn't
+// currently. A temporary workaround is to let the Lezer parser go
+// non-deterministic with a ~while branching command.
 
 // @detectDelim
