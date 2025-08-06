@@ -35,7 +35,7 @@ statement {
   While { While leftParenthesis expression rightParenthesis linebreak block End While } |
   Class { Class Identifier (Extends Identifier)? linebreak (classStatement linebreak | linebreak)* End Class Identifier } |
   Return { Return expression } |
-  Assignment { Identifier Equal expression } |
+  Assignment { Identifier (leftBracket expression rightBracket)* Equal expression } |
   expression
 }
 
@@ -50,7 +50,7 @@ Parameters {
 }
 
 type {
-  Identifier (leftBracket (apex DotDot apex)? rightBracket)* |
+  Identifier (leftBracket (expression DotDot expression)? rightBracket)* |
   Void
 }
 

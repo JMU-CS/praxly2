@@ -834,7 +834,7 @@ print 6
   samples.forEach(testProgram);
 });
 
-describe('Praxis: Array Generation and Output', () => {
+describe('Praxis: Arrays', () => {
   const samples = [
     {
       message: 'basic initialization and access',
@@ -1067,6 +1067,25 @@ print nums[2][2]
         python: `TODO`,
       },
       output: "{{5}, {7, 8}, {13, 14, 15}}\n3\n1\n2\n3\n5\n7\n8\n13\n14\n15\n",
+    },
+    {
+      message: 'arrays as aliases',
+      source: `int[] xs = {10, 20}
+int[] ys = xs
+xs[0] = 99
+print xs
+print ys
+`,
+      translation: {
+        praxis: `int[] xs \u2b60 {10, 20}
+int[] ys \u2b60 xs
+xs[0] \u2b60 99
+print xs
+print ys
+`,
+        python: `TODO`,
+      },
+      output: "{99, 20}\n{99, 20}\n",
     },
   ];
 
