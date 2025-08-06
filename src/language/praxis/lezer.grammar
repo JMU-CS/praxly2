@@ -20,7 +20,7 @@ block {
 }
 
 curlyBlock {
-  Block { LeftCurly (statement linebreak | linebreak)* RightCurly }
+  Block { leftCurly (statement linebreak | linebreak)* rightCurly }
 }
 
 classStatement {
@@ -50,7 +50,7 @@ Parameters {
 }
 
 type {
-  Identifier |
+  Identifier (leftBracket (apex DotDot apex)? rightBracket)* |
   Void
 }
 
@@ -86,6 +86,7 @@ apex {
   Character |
   Integer |
   leftParenthesis expression rightParenthesis |
+  leftCurly (apex (comma apex)*)? rightCurly |
   Null
 }
 
@@ -121,9 +122,12 @@ apex {
   ForwardSlash { "/" }
   leftParenthesis { "(" }
   rightParenthesis { ")" }
-  LeftCurly { "{" }
-  RightCurly { "}" }
+  leftBracket { "[" }
+  rightBracket { "]" }
+  leftCurly { "{" }
+  rightCurly { "}" }
   Dot { "." }
+  DotDot { ".." }
   comma { "," }
   linebreak { $[\r]? $[\n] }
 

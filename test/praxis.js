@@ -1606,6 +1606,60 @@ end for
   samples.forEach(testProgram);
 });
 
+describe('Praxis: Functions', () => {
+  const samples = [
+    {
+      message: 'immediate use of returned array',
+      source: `int[] gets()
+  int[] nums = {4, 6, 9}
+  return nums
+end gets
+
+print gets()[0]
+print gets()[1]
+print gets()[2]`,
+      translation: {
+        praxis: `int[] gets()
+  int[] nums \u2b60 {4, 6, 9}
+  return nums
+end gets
+
+print gets()[0]
+print gets()[1]
+print gets()[2]
+`,
+        python: "TODO",
+      },
+      output: "4\n6\n9\n",
+    },
+    {
+      message: 'saved reference of returned array',
+      source: `int[] gets()
+  int[] nums = {4, 6, 9}
+  return nums
+end gets
+
+int[] xs = gets()
+print xs
+`,
+      translation: {
+        praxis: `int[] gets()
+  int[] nums \u2b60 {4, 6, 9}
+  return nums
+end gets
+
+int[] xs \u2b60 gets()
+print xs
+`,
+        python: "TODO",
+      },
+      output: "{4, 6, 9}\n",
+    },
+  ];
+
+  samples.forEach(testProgram);
+});
+
 
 describe('Praxis: Object Errors', () => {
   const samples = [

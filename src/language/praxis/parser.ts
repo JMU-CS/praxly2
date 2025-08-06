@@ -132,8 +132,35 @@ class PraxisParser extends Parser {
     return type;
   }
 
+  hasSubroutine() {
+    let i = 0;
+
+    // Look for type first, which always starts with an identifier.
+    if (!this.hasAhead(TokenType.Identifier, i)) {
+      return false;
+    }
+    i += 1;
+
+    // Allow for array markers.
+    while (this.hasAhead(TokenType.LeftBracket, i)) {
+      i += 1;
+      if (!this.hasAhead(TokenType.RightBracket, i)) {
+        return false;
+      }
+      i += 1;
+    }
+
+    // Look for subroutine name next.
+    if (!this.hasAhead(TokenType.Identifier, i)) {
+      return false;
+    }
+    i += 1;
+
+    return this.hasAhead(TokenType.LeftParenthesis, i);
+  }
+
   topLevelStatement(): ast.Statement {
-    if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.LeftParenthesis, 2)) {
+    if (this.hasSubroutine()) {
       const defineNode = this.functionDefinition();
       this.statementLinebreak();
       return defineNode;
@@ -454,9 +481,9 @@ class PraxisParser extends Parser {
     }
     const equalToken = this.advance(); // eat =
 
-    if (!this.has(TokenType.LeftCurly)) {
-      throw new ParseError("This array declaration is missing an array literal enclosed in {}.", Where.enclose(type.where, equalToken.where));
-    }
+    // if (this.has(TokenType.LeftCurly)) {
+      // throw new ParseError("This array declaration is missing an array literal enclosed in {}.", Where.enclose(type.where, equalToken.where));
+    // }
 
     const rightNode = this.expression();
 
