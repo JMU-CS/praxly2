@@ -213,6 +213,9 @@ export class GlobalRuntime extends Runtime {
   getInput: () => Promise<string>;
   allowsUndeclared: boolean;
   receiverName: string;
+  maxLoopIterations: number;
+  maxStackDepth: number;
+  stackDepth: number;
 
   constructor(log: (text: string) => void, getInput: () => Promise<string>, allowsUndeclared: boolean, receiverName: string) {
     super(null, new Map(), new Map(), new Map(), null, null);
@@ -221,6 +224,9 @@ export class GlobalRuntime extends Runtime {
     this.log = log;
     this.allowsUndeclared = allowsUndeclared;
     this.receiverName = receiverName;
+    this.maxLoopIterations = 1024;
+    this.maxStackDepth = 1024;
+    this.stackDepth = 0;
 
     this.setFunction('int', new IntCastFunction());
     this.setFunction('float', new FloatCastFunction());

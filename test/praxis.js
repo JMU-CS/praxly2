@@ -1699,6 +1699,33 @@ print xs
       },
       output: "{4, 6, 9}\n",
     },
+    {
+      message: 'recursive function',
+      source: `int add(int x, int y) {
+  if (y == 0) {
+    return x
+  } else {
+    return add(x + 1, y - 1)
+  }
+}
+
+print add(10, 3)
+`,
+      translation: {
+        praxis: `int add(int x, int y)
+  if (y == 0)
+    return x
+  else
+    return add(x + 1, y - 1)
+  end if
+end add
+
+print add(10, 3)
+`,
+        python: "TODO",
+      },
+      output: "13\n",
+    },
   ];
 
   samples.forEach(testProgram);
@@ -1835,6 +1862,54 @@ describe('Praxis: Lex Errors', () => {
   ];
 
   samples.forEach(sample => testError({...sample, error: error.LexError}));
+});
+
+describe('Praxis: Infinite Errors', () => {
+  const samples = [
+    {
+      message: 'infinite for',
+      source: `int j = 0
+for (int i = 0; i < 5; j++) {
+  print i
+}`,
+    },
+    {
+      message: 'infinite while',
+      source: `int j = 0
+while (true)
+  print j
+end while`,
+    },
+    {
+      message: 'infinite do/while',
+      source: `int j = 0
+do
+  print j
+while (j > -1)`,
+    },
+    {
+      message: 'infinite repeat',
+      source: `int j = 0
+repeat
+  print j
+until (j == -1)`,
+    },
+    {
+      message: 'infinite recursion',
+      source: `int add(int x, int y) {
+  if (y == 0) {
+    return x
+  } else {
+    return add(x + 1, y - 1)
+  }
+}
+
+print add(100000, 200000)
+`,
+    },
+  ];
+
+  samples.forEach(sample => testError({...sample, error: error.InfiniteError}));
 });
 
 describe('Praxis: Parse Errors', () => {

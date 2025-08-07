@@ -1,11 +1,11 @@
 import * as ast from './ast.js';
-import {Visitor} from './visitor.js';
+import { Visitor } from './visitor.js';
 import * as error from './error.js';
-import {Where} from './where.js';
-import type {NodeClass, OutputFormatter} from './output-formatter.js';
-import {Type, ArrayType, SizedArrayType, NumberType, UnionType, LazyClassType, ClassType, Fruit, Visibility, FunctionType, FormalType, MethodType, InstanceVariableType} from './type.js';
-import {Memdia} from './memdia.js';
-import {Runtime, VariableDefinition, FunctionFruit, ReturnSomethingException, ReturnNothingException, ClassDefinition, MethodDefinition, MethodFruit, FunctionDefinition, StringClass} from './runtime.js';
+import { Where } from './where.js';
+import type { NodeClass, OutputFormatter } from './output-formatter.js';
+import { Type, ArrayType, SizedArrayType, NumberType, UnionType, LazyClassType, ClassType, Fruit, Visibility, FunctionType, FormalType, MethodType, InstanceVariableType } from './type.js';
+import { Memdia } from './memdia.js';
+import { Runtime, VariableDefinition, FunctionFruit, ReturnSomethingException, ReturnNothingException, ClassDefinition, MethodDefinition, MethodFruit, FunctionDefinition, StringClass } from './runtime.js';
 
 export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   outputFormatter: OutputFormatter;
@@ -529,7 +529,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
   async visitWhile(node: ast.While, runtime: Runtime): Promise<Fruit> {
     let isTerminated = false;
+    let iterationCount = 0;
     while (!isTerminated) {
+			iterationCount += 1;
+			if (iterationCount > runtime.globalRuntime.maxLoopIterations) {
+				throw new error.InfiniteError('This loop is iterating many times. Is it infinite?', node.where);
+			}
       await this.step(node.conditionNode);
       const fruit = await node.conditionNode.visit(this, runtime);
       if (Type.Boolean.covers(fruit.type)) {
@@ -547,7 +552,12 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
   async visitDoWhile(node: ast.DoWhile, runtime: Runtime): Promise<Fruit> {
     let isTerminated = false;
+    let iterationCount = 0;
     while (!isTerminated) {
+			iterationCount += 1;
+			if (iterationCount > runtime.globalRuntime.maxLoopIterations) {
+				throw new error.InfiniteError('This loop is iterating many times. Is it infinite?', node.where);
+			}
       await node.body.visit(this, runtime);
       await this.step(node.conditionNode);
       const fruit = await node.conditionNode.visit(this, runtime);
@@ -564,14 +574,20 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
   async visitRepeatUntil(node: ast.RepeatUntil, runtime: Runtime): Promise<Fruit> {
     let isTerminated = false;
+    let iterationCount = 0;
     while (!isTerminated) {
+			iterationCount += 1;
+			if (iterationCount > runtime.globalRuntime.maxLoopIterations) {
+				throw new error.InfiniteError('This loop is iterating many times. Is it infinite?', node.where);
+			}
+
       await node.body.visit(this, runtime);
       await this.step(node.conditionNode);
       const fruit = await node.conditionNode.visit(this, runtime);
       if (Type.Boolean.covers(fruit.type)) {
         if (fruit.value) {
           isTerminated = true;
-        }
+				}
       } else {
         throw new error.WhereError('A condition must yield a boolean value.', node.conditionNode.where);
       }
@@ -585,7 +601,13 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     if (node.initializationNode) {
       await node.initializationNode.visit(this, newRuntime);
     }
+
+    let iterationCount = 0;
     while (!isTerminated) {
+			iterationCount += 1;
+			if (iterationCount > runtime.globalRuntime.maxLoopIterations) {
+				throw new error.InfiniteError('This loop is iterating many times. Is it infinite?', node.where);
+			}
       await this.step(node.conditionNode);
       const fruit = await node.conditionNode.visit(this, newRuntime);
       if (Type.Boolean.covers(fruit.type)) {
@@ -906,6 +928,11 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitCall(context: string, node: ast.MethodCall | ast.FunctionCall, subroutine: MethodDefinition | FunctionDefinition, callerRuntime: Runtime, calleeRuntime: Runtime) {
+    callerRuntime.globalRuntime.stackDepth += 1;
+    if (callerRuntime.globalRuntime.stackDepth > callerRuntime.globalRuntime.maxStackDepth) {
+      throw new error.InfiniteError('Many functions are calling other functions. Is it infinite recursion?', node.where);
+    }
+
     if (node.actuals.length !== subroutine.type.formals.length) {
       throw new error.WhereError(`${context} \`${node.identifier}\` expects ${subroutine.type.formals.length} parameter${subroutine.type.formals.length === 1 ? '' : 's'}. ${node.actuals.length} ${node.actuals.length === 1 ? 'was' : 'were'} given.`, node.where);
     }
@@ -950,6 +977,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       }
     }
 
+    callerRuntime.globalRuntime.stackDepth -= 1;
     return fruit;
   }
 
