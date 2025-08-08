@@ -58,20 +58,18 @@ export let lezerParser = parser.configure({
       Else: context => context.column(context.node.from) + context.unit,
       Class: context => context.column(context.node.from) + context.unit,
       Do: context => context.column(context.node.from) + context.unit,
-      Repeat: context => {
-        console.log("context:", context);
-        console.log("context.node.type:", context.node.type.name);
-        // console.log("context.next.type:", context.context.next.type.name);
-        return context.column(context.node.from) + context.unit;
-      },
+      Repeat: context => context.column(context.node.from) + context.unit,
     }),
-    // foldNodeProp.add({
-      // For: foldInside,
-      // While: foldInside,
-      // If: foldInside,
-      // Else: foldInside,
-      // Class: foldInside,
-    // }),
+    foldNodeProp.add({
+      For: foldInside,
+      While: foldInside,
+      If: foldInside,
+      Else: foldInside,
+      ElseIf: foldInside,
+      Class: foldInside,
+      Repeat: foldInside,
+      Do: foldInside,
+    }),
   ],
   // strict: true,
 });
