@@ -57,6 +57,13 @@ export let lezerParser = parser.configure({
       If: context => context.column(context.node.from) + context.unit,
       Else: context => context.column(context.node.from) + context.unit,
       Class: context => context.column(context.node.from) + context.unit,
+      Do: context => context.column(context.node.from) + context.unit,
+      Repeat: context => {
+        console.log("context:", context);
+        console.log("context.node.type:", context.node.type.name);
+        // console.log("context.next.type:", context.context.next.type.name);
+        return context.column(context.node.from) + context.unit;
+      },
     }),
     // foldNodeProp.add({
       // For: foldInside,
@@ -68,6 +75,9 @@ export let lezerParser = parser.configure({
   ],
   // strict: true,
 });
+
+// Indentation Links
+// https://marijnhaverbeke.nl/blog/indent-from-tree.html
 
 export const praxisLanguage = LRLanguage.define({
   name: 'praxis',

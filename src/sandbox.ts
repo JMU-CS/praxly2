@@ -78,6 +78,7 @@ function initialize() {
       cm.crosshairCursor(),
       cm.highlightActiveLine(),
       cm.keymap.of([
+        cm.indentWithTab,
         ...cm.closeBracketsKeymap,
         ...cm.defaultKeymap,
         ...cm.searchKeymap,
