@@ -1,5 +1,5 @@
 import {parser} from "../../../build/language/praxis/lezer-parser.js";
-import {foldNodeProp, foldInside, indentNodeProp, LRLanguage, LanguageSupport, delimitedIndent} from "@codemirror/language";
+import {foldNodeProp, foldInside, indentNodeProp, LRLanguage, LanguageSupport, delimitedIndent, TreeIndentContext} from "@codemirror/language";
 import {styleTags, tags as t} from "@lezer/highlight";
 // import {completeFromList} from "@codemirror/autocomplete"
 
@@ -56,38 +56,14 @@ export let lezerParser = parser.configure({
     // or absent, the indent pushes in to align past the opening token.
     indentNodeProp.add({
       // Block: context => context.column(context.node.from) + context.unit,
-      For: delimitedIndent({
-        closing: 'end',
-        align: false,
-      }),
-      While: delimitedIndent({
-        closing: 'end',
-        align: false,
-      }),
-      If: delimitedIndent({
-        closing: 'end',
-        align: false,
-      }),
-      Else: delimitedIndent({
-        closing: 'end',
-        align: false,
-      }),
-      Class: delimitedIndent({
-        closing: 'end',
-        align: false,
-      }),
-      SubroutineDefinition: delimitedIndent({
-        closing: 'end',
-        align: false,
-      }),
-      Do: delimitedIndent({
-        closing: 'while',
-        align: false,
-      }),
-      Repeat: delimitedIndent({
-        closing: 'until',
-        align: false,
-      }),
+      For: blockIndenter(/end|\}/),
+      While: blockIndenter(/end|\}/),
+      If: blockIndenter(/end|\}/),
+      Else: blockIndenter(/end|\}/),
+      Class: blockIndenter(/end|\}/),
+      SubroutineDefinition: blockIndenter(/end|\}/),
+      Do: blockIndenter(/while|\}/),
+      Repeat: blockIndenter(/until|\}/),
     }),
 
     foldNodeProp.add({
@@ -103,6 +79,17 @@ export let lezerParser = parser.configure({
   ],
   // strict: true,
 });
+
+function blockIndenter(closerPattern: RegExp) {
+  return (context: TreeIndentContext) => {
+    const after = context.textAfter;
+    if (closerPattern.test(after)) {
+      return context.column(context.node.from);
+    } else {
+      return context.column(context.node.from) + context.unit;
+    }
+  };
+}
 
 // CodeMirror links:
 // https://marijnhaverbeke.nl/blog/indent-from-tree.html

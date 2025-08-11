@@ -308,6 +308,7 @@ class PraxisParser extends Parser {
     const rightToken = this.advance(); // eat )
 
     const [block, blockMode] = this.block(true, 'function definition', Where.enclose(firstWhere, rightToken.where), TokenType.End);
+    let lastWhere = block.where;
 
     if (blockMode === BlockMode.End) {
       if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Identifier, 1) || (this.tokens[this.i + 1] as TextToken).text !== identifierToken.text) {
@@ -315,20 +316,21 @@ class PraxisParser extends Parser {
       }
       this.advance();
       const endToken = this.advance();
-      // TODO: need lastWhere of end token?
+      lastWhere = endToken.where;
     }
 
     return {
       identifier: identifierToken.text,
       formals,
       block,
+      lastWhere,
     };
   }
 
   functionDefinition(): ast.FunctionDefinition {
     const type = this.type();
     const core = this.subroutineCore('function', type.where);
-    return new ast.FunctionDefinition(core.identifier, core.formals, type, core.block, Where.enclose(type.where, core.block.where));
+    return new ast.FunctionDefinition(core.identifier, core.formals, type, core.block, Where.enclose(type.where, core.lastWhere));
   }
 
   block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, ...endTokenTypes: TokenType[]): [ast.Block, BlockMode] {

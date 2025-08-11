@@ -66,7 +66,7 @@ statement {
   Repeat { Repeat (curlyBlock | linebreak block) Until leftParenthesis expression rightParenthesis } |
   Class { Class Identifier (Extends Identifier)? (linebreak classBody End Class Identifier | leftCurly linebreak classBody rightCurly) } |
   Return { Return expression } |
-  Assignment { Identifier (leftBracket expression rightBracket)* Equal expression } |
+  Assignment { expression Equal expression } |
   expression
 }
 
