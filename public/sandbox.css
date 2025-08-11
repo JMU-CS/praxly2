@@ -33,7 +33,7 @@ body {
   overflow-y: scroll;
 }
 
-#tree-panel, #source-panel, #output-panel {
+#tree-panel, #output-panel {
   overflow-x: auto;
   white-space: pre;
 }
