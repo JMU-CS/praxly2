@@ -256,6 +256,10 @@ export class Translator extends Visitor<Formatter, string> {
   visitDeclaration(node: ast.Declaration, formatter: Formatter): string {
     let text = '';
 
+    if (node.rightNode instanceof ast.Instantiation) {
+      return `${this.visitInstantiation(node.rightNode, formatter)} and assign it a variable named ${node.identifier}.`;
+    }
+
     // variable with a specific type and a value
     if ((node.variableType && node.rightNode) && (node.variableType.text !== "Any")) {
       text += `Declare a ${node.variableType} named ${node.identifier} with the value ${node.rightNode.visit(this, formatter)}.`;
@@ -453,10 +457,10 @@ export class Translator extends Visitor<Formatter, string> {
       text += `, and ${methods == 1 ? "a method" : `${methods} methods`} called ${formatting.format(node.methodDefinitions.map(definition => definition.visit(this, formatter)))}.`;
     } else if (instances > 0 && methods == 0) {
       // instances variables but no methods
-      text += ` with instance variables ${formatting.format(node.instanceVariableDeclarations.map(declaration => `${declaration.identifier}`))}`;
+      text += ` It includes ${instances == 1 ? '1 instance vairable' : 'instance variables'}, ${formatting.format(node.instanceVariableDeclarations.map(declaration => declaration.visit(this, formatter)))}.`;
     } else if (instances == 0 && methods > 0) {
       // methods but no instance variables
-      text += ` with ${methods == 1 ? "a method" : `${methods} methods`} called ${formatting.format(node.methodDefinitions.map(definition => `${definition.identifier}`))}`;
+      text += ` It has ${methods == 1 ? "1 method" : `${methods} methods`} called ${formatting.format(node.methodDefinitions.map(definition => definition.visit(this, formatter)))}.`;
     }
      // have more text explaining the methods ?
 
@@ -464,7 +468,7 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, formatter: Formatter): string {
-    let text = 'a';
+    let text = 'a ';
     if (node.visibility === Visibility.Public) {
       text += `public variable `;
     } else if (node.visibility === Visibility.Private) {
@@ -486,10 +490,6 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {
-    // let text = `${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')})\n`;
-    // text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
-    // text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
-    // return text;
     let text = `${node.identifier} `;
 
     if (node.formals.length === 0) {
@@ -498,19 +498,19 @@ export class Translator extends Visitor<Formatter, string> {
       text += `that takes ${node.formals.length} parameters, ${formatting.format(node.formals.map(formal => formal.identifier))}.`;
     }
 
-    text += ` It ${formatting.format(node.body.statements.map(statement => statement.visit(this, formatter)))}`;
+    text += ` When called, the method will ${formatting.format(node.body.statements.map(statement => statement.visit(this, formatter)))}`;
 
     return text;
   }
 
   visitInstantiation(node: ast.Instantiation, _formatter: Formatter): string {
-    return `Create a new ${node.identifier}`;
+    return `Create a new instance of a ${node.identifier}`;
   }
 
   visitMethodCall(node: ast.MethodCall, formatter: Formatter): string {
     // TODO: parenthesize receiver maybe
     // return `${node.receiverNode.visit(this, formatter)}.${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
-    return `Call the method ${node.identifier} on ${node.receiverNode.visit(this, formatter)}`;
+    return `Call the ${node.identifier} method on ${node.receiverNode.visit(this, formatter)}`;
   }
 
   // --------------------------------------------------------------------------
