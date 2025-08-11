@@ -449,14 +449,14 @@ export class Translator extends Visitor<Formatter, string> {
     const instances = node.instanceVariableDeclarations.length, methods = node.methodDefinitions.length;
 
     if (instances > 0 && methods > 0) {
-      text += ` It includes ${instances} instance variables, ${formatting.format(node.instanceVariableDeclarations.map(declaration => `${declaration.visit(this, formatter)}`))}`;
-      text += `, and ${methods == 1 ? "a method" : `${methods} methods`} called ${formatting.format(node.methodDefinitions.map(definition => `${definition.identifier}`))}`;
+      text += ` It includes ${instances == 1 ? '1 instance vairable' : 'instance variables'}, ${formatting.format(node.instanceVariableDeclarations.map(declaration => declaration.visit(this, formatter)))}`;
+      text += `, and ${methods == 1 ? "a method" : `${methods} methods`} called ${formatting.format(node.methodDefinitions.map(definition => definition.visit(this, formatter)))}.`;
     } else if (instances > 0 && methods == 0) {
       // instances variables but no methods
       text += ` with instance variables ${formatting.format(node.instanceVariableDeclarations.map(declaration => `${declaration.identifier}`))}`;
     } else if (instances == 0 && methods > 0) {
       // methods but no instance variables
-      text += ` with ${methods == 1 ? "a method" : "methods"} called ${formatting.format(node.methodDefinitions.map(definition => `${definition.identifier}`))}`;
+      text += ` with ${methods == 1 ? "a method" : `${methods} methods`} called ${formatting.format(node.methodDefinitions.map(definition => `${definition.identifier}`))}`;
     }
      // have more text explaining the methods ?
 
@@ -470,10 +470,10 @@ export class Translator extends Visitor<Formatter, string> {
     } else if (node.visibility === Visibility.Private) {
       text += `private variable `;
     } else {
-      text += "variable ";
+      text += " variable ";
     }
 
-    text += `named ${node.identifier} `;
+    text += `named "${node.identifier}" `;
 
     if (node.variableType) {
       text += `of type ${node.variableType} `;
@@ -490,7 +490,7 @@ export class Translator extends Visitor<Formatter, string> {
     // text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     // text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.identifier}`;
     // return text;
-    let text = `${node.identifier} is a method`;
+    let text = `${node.identifier} `;
 
     if (node.formals.length === 0) {
       text += `that takes no parameters.`;
@@ -498,7 +498,7 @@ export class Translator extends Visitor<Formatter, string> {
       text += `that takes ${node.formals.length} parameters, ${formatting.format(node.formals.map(formal => formal.identifier))}.`;
     }
 
-    text += `It ${formatting.format(node.body.visit(this, formatter))}`;
+    text += ` It ${formatting.format(node.body.statements.map(statement => statement.visit(this, formatter)))}`;
 
     return text;
   }
