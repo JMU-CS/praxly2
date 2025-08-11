@@ -1,5 +1,5 @@
 import {parser} from "../../../build/language/praxis/lezer-parser.js";
-import {foldNodeProp, foldInside, indentNodeProp, LRLanguage, LanguageSupport} from "@codemirror/language";
+import {foldNodeProp, foldInside, indentNodeProp, LRLanguage, LanguageSupport, delimitedIndent, TreeIndentContext} from "@codemirror/language";
 import {styleTags, tags as t} from "@lezer/highlight";
 // import {completeFromList} from "@codemirror/autocomplete"
 
@@ -50,30 +50,57 @@ export let lezerParser = parser.configure({
       Integer: t.integer,
       Void: t.keyword,
     }),
+
+    // delimitedIndent must be paired with indentOnInput to effect automatic
+    // unindenting. The align parameter should generally be false. If it's true
+    // or absent, the indent pushes in to align past the opening token.
     indentNodeProp.add({
       // Block: context => context.column(context.node.from) + context.unit,
-      For: context => context.column(context.node.from) + context.unit,
-      While: context => context.column(context.node.from) + context.unit,
-      If: context => context.column(context.node.from) + context.unit,
-      Else: context => context.column(context.node.from) + context.unit,
-      Class: context => context.column(context.node.from) + context.unit,
+      For: blockIndenter(/end|\}/),
+      While: blockIndenter(/end|\}/),
+      If: blockIndenter(/end|\}/),
+      Else: blockIndenter(/end|\}/),
+      Class: blockIndenter(/end|\}/),
+      SubroutineDefinition: blockIndenter(/end|\}/),
+      Do: blockIndenter(/while|\}/),
+      Repeat: blockIndenter(/until|\}/),
     }),
-    // foldNodeProp.add({
-      // For: foldInside,
-      // While: foldInside,
-      // If: foldInside,
-      // Else: foldInside,
-      // Class: foldInside,
-    // }),
+
+    foldNodeProp.add({
+      For: foldInside,
+      While: foldInside,
+      If: foldInside,
+      Else: foldInside,
+      ElseIf: foldInside,
+      Class: foldInside,
+      Repeat: foldInside,
+      Do: foldInside,
+    }),
   ],
   // strict: true,
 });
+
+function blockIndenter(closerPattern: RegExp) {
+  return (context: TreeIndentContext) => {
+    const after = context.textAfter;
+    if (closerPattern.test(after)) {
+      return context.column(context.node.from);
+    } else {
+      return context.column(context.node.from) + context.unit;
+    }
+  };
+}
+
+// CodeMirror links:
+// https://marijnhaverbeke.nl/blog/indent-from-tree.html
+// https://thetrevorharmon.com/blog/learning-codemirror/
 
 export const praxisLanguage = LRLanguage.define({
   name: 'praxis',
   parser: lezerParser,
   languageData: {
     commentTokens: {line: "//"},
+    indentOnInput: /^\s*(until|end|while|\})$/,
   }
 });
 

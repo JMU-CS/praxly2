@@ -78,6 +78,7 @@ function initialize() {
       cm.crosshairCursor(),
       cm.highlightActiveLine(),
       cm.keymap.of([
+        cm.indentWithTab,
         ...cm.closeBracketsKeymap,
         ...cm.defaultKeymap,
         ...cm.searchKeymap,
@@ -191,7 +192,7 @@ function initialize() {
       treePanel.innerText = JSON.stringify(object, null, 2);
 
       // Emit CodeMirror parser log
-      if (false) {
+      if (true) {
         // for (let i = 0; i < tokens.length; ++i) {
           // console.log(tokens[i].toPretty(source));
         // }

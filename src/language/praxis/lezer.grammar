@@ -52,17 +52,21 @@ Condition {
   leftParenthesis expression rightParenthesis
 }
 
+classBody {
+  (classStatement linebreak | linebreak)*
+}
+
 statement {
   declaration |
-  For { For leftParenthesis statement Semicolon expression Semicolon statement rightParenthesis linebreak block End For} |
+  For { For leftParenthesis statement Semicolon expression Semicolon statement rightParenthesis (curlyBlock | linebreak block End For) } |
   Print { Print expression } |
   If { If Condition ifPostHeader } |
   Do { Do (curlyBlock | linebreak block) ~while While leftParenthesis expression rightParenthesis } |
-  While { ~while While leftParenthesis expression rightParenthesis linebreak block End While } |
+  While { ~while While leftParenthesis expression rightParenthesis (curlyBlock | linebreak block End While) } |
   Repeat { Repeat (curlyBlock | linebreak block) Until leftParenthesis expression rightParenthesis } |
-  Class { Class Identifier (Extends Identifier)? linebreak (classStatement linebreak | linebreak)* End Class Identifier } |
+  Class { Class Identifier (Extends Identifier)? (linebreak classBody End Class Identifier | leftCurly linebreak classBody rightCurly) } |
   Return { Return expression } |
-  Assignment { Identifier (leftBracket expression rightBracket)* Equal expression } |
+  Assignment { expression Equal expression } |
   expression
 }
 
@@ -201,4 +205,4 @@ apex {
 // currently. A temporary workaround is to let the Lezer parser go
 // non-deterministic with a ~while branching command.
 
-// @detectDelim
+@detectDelim

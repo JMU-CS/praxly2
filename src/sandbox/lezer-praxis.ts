@@ -1,4 +1,4 @@
-import {lezerParser} from "../language/praxis/highlighter.js";
+import {lezerParser} from "../language/praxis/codemirror-parser.js";
 
 let source = `for (int i = 0; i < 6; i = i + 1)
   print (i + 1) << 9

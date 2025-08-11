@@ -19,6 +19,7 @@ export class VisibilityError extends WhereError {}
 export class EvaluateError extends WhereError {}
 export class TypeError extends EvaluateError {}
 export class IllegalIndexError extends EvaluateError {}
+export class InfiniteError extends EvaluateError {}
 
 // export class UnlocatedError extends Error {
   // constructor(message: string) {
