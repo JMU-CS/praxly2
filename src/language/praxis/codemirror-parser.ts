@@ -58,8 +58,7 @@ export let lezerParser = parser.configure({
       // Block: context => context.column(context.node.from) + context.unit,
       For: blockIndenter(/end|\}/),
       While: blockIndenter(/end|\}/),
-      If: blockIndenter(/end|\}/),
-      Else: blockIndenter(/end|\}/),
+      If: blockIndenter(/else|end|\}/),
       Class: blockIndenter(/end|\}/),
       SubroutineDefinition: blockIndenter(/end|\}/),
       Do: blockIndenter(/while|\}/),
@@ -81,6 +80,10 @@ export let lezerParser = parser.configure({
 });
 
 function blockIndenter(closerPattern: RegExp) {
+  // Build an indenter than indents any lines that don't match a pattern of
+  // closing tokens. CodeMirror offers a similar delimitedIndent strategy,
+  // but the closer has to be a literal string. Praxly blocks can be closed
+  // with curly braces or a keyword.
   return (context: TreeIndentContext) => {
     const after = context.textAfter;
     if (closerPattern.test(after)) {
@@ -100,7 +103,7 @@ export const praxisLanguage = LRLanguage.define({
   parser: lezerParser,
   languageData: {
     commentTokens: {line: "//"},
-    indentOnInput: /^\s*(until|end|while|\})$/,
+    indentOnInput: /^\s*(until|end|while|else|\})$/,
   }
 });
 
