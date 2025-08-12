@@ -128,7 +128,6 @@ export class Translator extends Visitor<Formatter, string> {
     let rightPrecedence = precedence.get(node.rightNode.constructor);
     let nodePrecedence = precedence.get(node.constructor);
 
-    let text = '';
     let leftText = node.leftNode.visit(this, formatter);
     let rightText = node.rightNode.visit(this, formatter);
 
@@ -138,12 +137,8 @@ export class Translator extends Visitor<Formatter, string> {
     //   (a ** b) ** c
     if (leftPrecedence < nodePrecedence ||
         (leftPrecedence == nodePrecedence && associativity.get(nodePrecedence) == Associativity.Right)) {
-      text += `(${leftText})`;
-    } else {
-      text += leftText;
+      leftText = `(${leftText})`;
     }
-
-    text += ` ${operator} `;
 
     // We need to parenthesize the right operand if it has lower precedence than
     // the operator. Or if they tie and are right-associative. For example:
@@ -151,12 +146,30 @@ export class Translator extends Visitor<Formatter, string> {
     //   a - (b - c)
     if (rightPrecedence < nodePrecedence ||
         (rightPrecedence == nodePrecedence && associativity.get(nodePrecedence) == Associativity.Left)) {
-      text += `(${rightText})`;
-    } else {
-      text += rightText;
+      rightText = `(${rightText})`;
     }
 
-    return text;
+      switch (operator) {
+        case "plus":
+          return `${leftText} plus ${rightText}`;
+        case "subtract":
+          return `${leftText} minus ${rightText}`;
+        case "multiply":
+          return `${leftText} multiplied by ${rightText}`;
+        case "divide":
+          return `${leftText} divided by ${rightText}`;
+        case "mod":
+          return `the remainder when ${leftText} is divided by ${rightText}`;
+        case "exponent":
+          return `${leftText} raised to the power of ${rightText}`;
+        case "shift left":
+          return `shift ${leftText} left by ${rightText}`;
+        case "shift right":
+          return `shift ${leftText} right by ${rightText}`;
+        default:
+          return `${leftText} ${operator} ${rightText}`;
+      }
+
   }
 
   visitAdd(node: ast.Add, formatter: Formatter): string {
@@ -172,15 +185,15 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitDivide(node: ast.Divide, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, 'divided by');
+    return this.visitBinaryOperator(node, formatter, 'divide');
   }
 
   visitRemainder(node: ast.Remainder, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, 'get the remainder');
+    return this.visitBinaryOperator(node, formatter, 'mod');
   }
 
   visitPower(node: ast.Power, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, 'raise');
+    return this.visitBinaryOperator(node, formatter, 'exponent');
   }
 
   visitLessThan(node: ast.LessThan, formatter: Formatter): string {
@@ -216,23 +229,23 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitBitwiseAnd(node: ast.BitwiseAnd, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '&');
+    return this.visitBinaryOperator(node, formatter, 'bitwise and');
   }
 
   visitBitwiseOr(node: ast.BitwiseAnd, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '|');
+    return this.visitBinaryOperator(node, formatter, 'bitwise or');
   }
 
   visitXor(node: ast.Xor, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '^');
+    return this.visitBinaryOperator(node, formatter, 'bitwise xor');
   }
 
   visitLeftShift(node: ast.LeftShift, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '<<');
+    return this.visitBinaryOperator(node, formatter, 'shift left');
   }
 
   visitRightShift(node: ast.RightShift, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '>>');
+    return this.visitBinaryOperator(node, formatter, 'shift right');
   }
 
   // --------------------------------------------------------------------------
@@ -257,7 +270,7 @@ export class Translator extends Visitor<Formatter, string> {
     let text = '';
 
     if (node.rightNode instanceof ast.Instantiation) {
-      return `${this.visitInstantiation(node.rightNode, formatter)} and assign it a variable named ${node.identifier}.`;
+      return `${this.visitInstantiation(node.rightNode, formatter)} and assign it to a variable named ${node.identifier}.`;
     }
 
     // variable with a specific type and a value
@@ -434,8 +447,8 @@ export class Translator extends Visitor<Formatter, string> {
     return `The element at index ${node.indexNode.visit(this,formatter)} of ${node.arrayNode.visit(this, formatter)}`;
   }
 
-  visitMember(node: ast.Member, formatter: Formatter): string {
-    return `the ${node.receiverNode.visit(this, formatter)} of the ${node.identifier}`;
+  visitMember(node: ast.Member, _formatter: Formatter): string {
+    return `the ${node.identifier} value`;
   }
 
   // --------------------------------------------------------------------------
@@ -453,26 +466,25 @@ export class Translator extends Visitor<Formatter, string> {
     const instances = node.instanceVariableDeclarations.length, methods = node.methodDefinitions.length;
 
     if (instances > 0 && methods > 0) {
-      text += ` It includes ${instances == 1 ? '1 instance vairable' : 'instance variables'}, ${formatting.format(node.instanceVariableDeclarations.map(declaration => declaration.visit(this, formatter)))}`;
+      text += ` It includes ${instances == 1 ? '1 instance variable' : `${instances} instance variables'`}, ${formatting.format(node.instanceVariableDeclarations.map(declaration => declaration.visit(this, formatter)))}`;
       text += `, and ${methods == 1 ? "a method" : `${methods} methods`} called ${formatting.format(node.methodDefinitions.map(definition => definition.visit(this, formatter)))}.`;
     } else if (instances > 0 && methods == 0) {
       // instances variables but no methods
-      text += ` It includes ${instances == 1 ? '1 instance vairable' : 'instance variables'}, ${formatting.format(node.instanceVariableDeclarations.map(declaration => declaration.visit(this, formatter)))}.`;
+      text += ` It includes ${instances == 1 ? '1 instance variable' : `${instances} instance variables`}, ${formatting.format(node.instanceVariableDeclarations.map(declaration => declaration.visit(this, formatter)))}.`;
     } else if (instances == 0 && methods > 0) {
       // methods but no instance variables
-      text += ` It has ${methods == 1 ? "1 method" : `${methods} methods`} called ${formatting.format(node.methodDefinitions.map(definition => definition.visit(this, formatter)))}.`;
+      text += ` It includes ${methods == 1 ? "1 method called" : `${methods} methods. There is`} ${formatting.format(node.methodDefinitions.map(definition => definition.visit(this, formatter)))}.`;
     }
-     // have more text explaining the methods ?
 
     return text;
   }
 
   visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, formatter: Formatter): string {
-    let text = 'a ';
+    let text = 'a';
     if (node.visibility === Visibility.Public) {
-      text += `public variable `;
+      text += ` public variable `;
     } else if (node.visibility === Visibility.Private) {
-      text += `private variable `;
+      text += ` private variable `;
     } else {
       text += " variable ";
     }
@@ -510,7 +522,7 @@ export class Translator extends Visitor<Formatter, string> {
   visitMethodCall(node: ast.MethodCall, formatter: Formatter): string {
     // TODO: parenthesize receiver maybe
     // return `${node.receiverNode.visit(this, formatter)}.${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
-    return `Call the ${node.identifier} method on ${node.receiverNode.visit(this, formatter)}`;
+    return `Call the ${node.identifier} method on ${node.receiverNode.visit(this, formatter)}.`;
   }
 
   // --------------------------------------------------------------------------
