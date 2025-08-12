@@ -109,7 +109,51 @@ describe ("English : Translate Praxis Expressions to English", () => {
   samples.forEach(testExpression);
 });
 
-describe ("English : Translate Programs to from Praxis to english", () => {
+describe ("English : Translate Conditional statements from Praxis to English", () => {
+  const samples = [
+    {
+      message: 'if-sans-else statement',
+      source: `int age \u2b60 18
+if (age ≥ 18)
+  print "vote"
+end if
+age--
+if (age ≥ 18)
+  print "vote"
+end if`,
+      output:
+      `Declare a int named age with the value 18.\nif age is greater than or equal to 18 then print "vote".\ndecrement age by 1.\nif age is greater than or equal to 18 then print "vote".`
+    },
+    {
+      message: 'if-else statement',
+      source: `int age \u2b60 18
+if (age ≥ 18)
+  print "vote"
+else
+  print "stay home"
+end if`,
+      output:
+      `Declare a int named age with the value 18.\nif age is greater than or equal to 18 then print "vote". Otherwise print "stay home".`
+    },
+    {
+      message: 'if-else-if statement',
+      source: `int age \u2b60 18
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+else
+  print "stay home"
+end if`,
+      output:
+      `Declare a int named age with the value 18.\nif age is greater than or equal to 18 then print "vote", if age is less than or equal to 12 then print "accompany". Otherwise print "stay home".`
+    }
+  ]
+
+  samples.forEach(testProgram)
+});
+
+describe ("English : Translate Classes to from Praxis to English", () => {
   const samples = [
     {
       message: "New Class Dog",
