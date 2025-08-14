@@ -12,15 +12,6 @@ type Formatter = {
   indentation: string,
 };
 
-// Unicode has several left arrows:
-// ← (\u2190)
-// ⭠ (\u2b60)
-// The second one tends to be easier to read.
-const LEFT_ARROW = "\u2b60";
-const NOT_EQUAL = "\u2260";
-const LESS_THAN_OR_EQUAL = "\u2264";
-const GREATER_THAN_OR_EQUAL = "\u2265";
-
 export class Translator extends Visitor<Formatter, string> {
 
   // --------------------------------------------------------------------------
