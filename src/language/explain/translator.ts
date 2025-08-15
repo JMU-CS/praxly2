@@ -501,6 +501,11 @@ export class Translator extends Visitor<Formatter, string> {
     return text;
   }
 
+  visitConstructorDefinition(_node: ast.ConstructorDefinition, _formatter: Formatter): string {
+    // TODO
+    throw new Error('TODO');
+  }
+
   visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {
     let text = `${node.identifier} `;
 

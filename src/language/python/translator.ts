@@ -452,6 +452,11 @@ export class Translator extends Visitor<Formatter, string> {
     return text;
   }
 
+  visitConstructorDefinition(_node: ast.ConstructorDefinition, _formatter: Formatter): string {
+    // TODO
+    throw new Error('TODO');
+  }
+
   visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {
     let text = `def ${node.identifier}(self, ${node.formals.map(formal => formal.identifier).join(', ')}):\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});

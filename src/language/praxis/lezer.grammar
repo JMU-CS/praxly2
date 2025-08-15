@@ -24,7 +24,7 @@ curlyBlock {
 }
 
 classStatement {
-  visibility? declaration
+  visibility? classDeclaration
 }
 
 elseCurlyBlock {
@@ -70,6 +70,12 @@ statement {
   expression
 }
 
+classDeclaration {
+  initialized { type Identifier Equal expression } |
+  SubroutineDefinition { type? Identifier leftParenthesis Parameters rightParenthesis (curlyBlock | linebreak block End Identifier) } |
+  uninitialized { type Identifier }
+}
+
 declaration {
   initialized { type Identifier Equal expression } |
   SubroutineDefinition { type Identifier leftParenthesis Parameters rightParenthesis (curlyBlock | linebreak block End Identifier) } |
@@ -95,7 +101,7 @@ expression {
 }
 
 unaryExpression {
-  New Identifier |
+  New Identifier actuals |
   expression PlusPlus |
   expression HyphenHyphen
 }
@@ -112,8 +118,12 @@ binaryExpression {
   expression !dot Dot expression
 }
 
+actuals {
+  leftParenthesis (expression (comma expression)*)? rightParenthesis
+}
+
 apex {
-  Call { Identifier leftParenthesis (expression (comma expression)*)? rightParenthesis } |
+  Call { Identifier actuals } |
   Identifier |
   Boolean |
   String |

@@ -213,7 +213,9 @@ class PythonParser extends Parser {
         this.advance();
       }
     }
-    return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, methodDefinitions, Where.enclose(classToken.where, lastWhere));
+
+    const constructorDefinitions: ast.ConstructorDefinition[] = [];
+    return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, constructorDefinitions, methodDefinitions, Where.enclose(classToken.where, lastWhere));
   }
 
   subroutineCore(context: string, firstWhere: Where) {
@@ -703,7 +705,7 @@ class PythonParser extends Parser {
         throw new ParseError("A class name is missing after `new`.", newToken.where);
       }
       const identifierToken = this.advance() as TextToken;
-      return new ast.Instantiation(identifierToken.text, Where.enclose(newToken.where, identifierToken.where));
+      return new ast.Instantiation(identifierToken.text, [], Where.enclose(newToken.where, identifierToken.where));
     } else {
       return this.apex();
     }

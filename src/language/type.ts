@@ -190,12 +190,14 @@ export class InstanceVariableType {
 export class ClassType extends Type {
   superclass: ClassType | null;
   instanceVariableTypes: Map<string, InstanceVariableType>;
+  constructorType: MethodType | null;
   instanceMethodTypes: Map<string, MethodType>;
   where: Where;
 
   constructor(name: string, superclass: ClassType | null, where: Where) {
     super(name);
     this.superclass = superclass;
+    this.constructorType = null;
     this.instanceVariableTypes = new Map();
     this.instanceMethodTypes = new Map();
     this.where = where;

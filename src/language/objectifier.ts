@@ -412,6 +412,18 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
+  visitConstructorDefinition(node: ast.ConstructorDefinition, payload: Object): Object {
+    return {
+      type: 'constructor',
+      formals: node.formals.map(formal => ({
+        identifier: formal.identifier,
+        type: formal.type,
+      })),
+      body: node.body.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   visitMethodDefinition(node: ast.MethodDefinition, payload: Object): Object {
     return {
       type: 'method-definition',

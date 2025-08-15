@@ -70,6 +70,7 @@ export abstract class Visitor<P, R> {
 
   // Classes
   abstract visitClassDefinition(node: ast.ClassDefinition, payload: P): R;
+  abstract visitConstructorDefinition(node: ast.ConstructorDefinition, payload: P): R;
   abstract visitMethodDefinition(node: ast.MethodDefinition, payload: P): R;
   abstract visitMethodCall(node: ast.MethodCall, payload: P): R;
   abstract visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, payload: P): R;

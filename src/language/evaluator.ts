@@ -48,7 +48,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   }
 
   async visitString(node: ast.String, runtime: Runtime): Promise<Fruit> {
-    const fruit = await new ast.Instantiation('String', Where.Nowhere).visit(this, runtime);
+    const fruit = await new ast.Instantiation('String', [], Where.Nowhere).visit(this, runtime);
     fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.Internal, node.rawValue));
     return fruit;
   }
@@ -838,6 +838,10 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
       await declaration.visit(this, newRuntime);
     }
 
+    for (let definition of node.constructorDefinitions) {
+      await definition.visit(this, newRuntime);
+    }
+
     for (let definition of node.methodDefinitions) {
       await definition.visit(this, newRuntime);
     }
@@ -870,6 +874,28 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
     const visibility = node.visibility ?? Visibility.Public;
     classDefinition.type.instanceVariableTypes.set(node.identifier, new InstanceVariableType(this.resolveType(node.variableType, runtime, node.where), visibility, initialValue));
+
+    return new Fruit(Type.Void);
+  }
+
+  async visitConstructorDefinition(node: ast.ConstructorDefinition, runtime: Runtime): Promise<Fruit> {
+    const classDefinition = runtime.classContext!;
+
+    if (node.visibility === Visibility.Private) {
+      throw new error.VisibilityError("A constructor cannot be private.", node.where);
+    }
+
+    if (classDefinition.constructorBinding) {
+      throw new error.EvaluateError("A class may have only one constructor.", node.where);
+    }
+
+    const formalTypes = node.formals.map(formal => new FormalType(formal.identifier, formal.type));
+
+    const visibility = node.visibility ?? Visibility.Public;
+    const methodType = new MethodType(formalTypes, classDefinition.type, visibility);
+
+    classDefinition.type.constructorType = methodType;
+    classDefinition.constructorBinding = new MethodFruit(methodType, node.body, node.where);
 
     return new Fruit(Type.Void);
   }
@@ -924,10 +950,15 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     instance.runtime.declareVariable(runtime.globalRuntime.receiverName, instanceType);
     instance.runtime.setDeclaredVariable(runtime.globalRuntime.receiverName, new VariableDefinition(instanceType, instance));
 
+    // Call constructor if there is one.
+    if (classDefinition.constructorBinding) {
+      await this.visitCall('Constructor', node, classDefinition.constructorBinding, runtime, instance.runtime);
+    }
+
     return instanceFruit;
   }
 
-  async visitCall(context: string, node: ast.MethodCall | ast.FunctionCall, subroutine: MethodDefinition | FunctionDefinition, callerRuntime: Runtime, calleeRuntime: Runtime) {
+  async visitCall(context: string, node: ast.Instantiation | ast.MethodCall | ast.FunctionCall, subroutine: MethodDefinition | FunctionDefinition, callerRuntime: Runtime, calleeRuntime: Runtime) {
     callerRuntime.globalRuntime.stackDepth += 1;
     if (callerRuntime.globalRuntime.stackDepth > callerRuntime.globalRuntime.maxStackDepth) {
       throw new error.InfiniteError('Many functions are calling other functions. Is it infinite recursion?', node.where);
@@ -1000,7 +1031,7 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
 
     const lambda = classDefinition.methodBindings.get(node.identifier)!;
 
-    return await this.visitCall('method', node, lambda, runtime, receiverFruit.value.runtime);
+    return await this.visitCall('Method', node, lambda, runtime, receiverFruit.value.runtime);
   }
 
   // ------------------------------------------------------------------------- 
