@@ -2,6 +2,8 @@ import * as ast from './language/ast.js';
 import * as praxis from './language/praxis/index.js';
 import * as python from './language/python/index.js';
 import * as english from './language/explain/index.js';
+import * as java from './language/java/index.js';
+import * as csp from './language/csp/index.js';
 import * as cm from './codemirror.js';
 
 import {Objectifier} from './language/objectifier.js';
@@ -183,8 +185,12 @@ function initialize() {
         translator = new praxis.Translator();
       } else if (dstLang.value === "Python") {
         translator = new python.Translator();
-      } else {
+      } else if (dstLang.value === "English") {
         translator = new english.Translator();
+      } else if (dstLang.value === "Java") {
+        translator = new java.Translator();
+      } else {
+        translator = new csp.Translator();
       }
 
       // Update tree-panel
