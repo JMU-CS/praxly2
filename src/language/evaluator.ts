@@ -484,7 +484,6 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
         return new Fruit(entry.type, entry.value);
       }
     } else {
-      console.log("runtime:", runtime);
       throw new error.UnknownError(`Variable \`${node.identifier}\` is undeclared.`, node.where);
     }
   }

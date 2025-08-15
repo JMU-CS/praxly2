@@ -98,8 +98,6 @@ function testLex(sample) {
   describe(sample.source, () => {
     it(`should lex to tokens`, async () => {
       const tokens = praxis.lex(sample.source);
-      console.log("tokens:", tokens);
-      console.log("sample.tokens:", sample.tokens);
       assert.deepStrictEqual(tokens.map(token => token.type), sample.tokens);
     });
   });
@@ -1130,7 +1128,7 @@ describe('Praxis: Objects', () => {
     count = count - 1
   end dec
 end class Count
-Count c = new Count
+Count c = new Count()
 print c.count
 c.inc()
 c.inc()
@@ -1148,7 +1146,7 @@ print c.count`,
     this.x = x
   end set
 end class Foo
-Foo f = new Foo
+Foo f = new Foo()
 f.set(10)
 print f.x
 `,
@@ -1161,7 +1159,7 @@ print f.x
     this.x \u2b60 x
   end set
 end class Foo
-Foo f \u2b60 new Foo
+Foo f \u2b60 new Foo()
 f.set(10)
 print f.x
 `,
@@ -1182,14 +1180,14 @@ print(f.x)
       source: `class Dog
   public String name
 end class Dog
-Dog d = new Dog
+Dog d = new Dog()
 d.name = "Bizness"
 print d.name`,
       translation: {
         praxis: `class Dog
   public String name
 end class Dog
-Dog d \u2b60 new Dog
+Dog d \u2b60 new Dog()
 d.name \u2b60 "Bizness"
 print d.name
 `,
@@ -1209,7 +1207,7 @@ print d.name
     inc()
   end inc2
 end class Count
-Count c = new Count
+Count c = new Count()
 c.n = 0
 print c.n
 c.inc2()
@@ -1229,7 +1227,7 @@ print c.n`,
     inc()
   end inc2
 end class Count
-Count c \u2b60 new Count
+Count c \u2b60 new Count()
 c.n \u2b60 0
 print c.n
 c.inc2()
@@ -1249,7 +1247,7 @@ print c.n
     value = min(x, value)
   end add
 end class Smallest
-Smallest s = new Smallest
+Smallest s = new Smallest()
 s.value = 999999
 s.add(6)
 s.add(3)
@@ -1264,7 +1262,7 @@ print s.value`,
     value \u2b60 min(x, value)
   end add
 end class Smallest
-Smallest s \u2b60 new Smallest
+Smallest s \u2b60 new Smallest()
 s.value \u2b60 999999
 s.add(6)
 s.add(3)
@@ -1285,7 +1283,7 @@ print s.value
     return value
   end add
 end class Smallest
-Smallest s = new Smallest
+Smallest s = new Smallest()
 s.value = 999999
 print s.add(6)
 print s.add(3)
@@ -1301,7 +1299,7 @@ print s.value`,
     return value
   end add
 end class Smallest
-Smallest s \u2b60 new Smallest
+Smallest s \u2b60 new Smallest()
 s.value \u2b60 999999
 print s.add(6)
 print s.add(3)
@@ -1330,7 +1328,7 @@ class AgedPerson extends Person
   int age
 end class AgedPerson
 
-AgedPerson p = new AgedPerson
+AgedPerson p = new AgedPerson()
 p.name = "Biz"
 p.age = 15
 print p.name
@@ -1345,7 +1343,7 @@ class AgedPerson extends Person
   int age
 end class AgedPerson
 
-AgedPerson p \u2b60 new AgedPerson
+AgedPerson p \u2b60 new AgedPerson()
 p.name \u2b60 "Biz"
 p.age \u2b60 15
 print p.name
@@ -1369,7 +1367,7 @@ class MoneyedAgedPerson extends AgedPerson
   int moneys
 end class MoneyedAgedPerson
 
-MoneyedAgedPerson p = new MoneyedAgedPerson
+MoneyedAgedPerson p = new MoneyedAgedPerson()
 p.name = "Rich"
 p.age = 26
 p.moneys = 12345678
@@ -1390,7 +1388,7 @@ class MoneyedAgedPerson extends AgedPerson
   int moneys
 end class MoneyedAgedPerson
 
-MoneyedAgedPerson p \u2b60 new MoneyedAgedPerson
+MoneyedAgedPerson p \u2b60 new MoneyedAgedPerson()
 p.name \u2b60 "Rich"
 p.age \u2b60 26
 p.moneys \u2b60 12345678
@@ -1412,7 +1410,7 @@ class Sub extends Super
   int b
 end class Sub
 
-Super s = new Sub
+Super s = new Sub()
 s.a = 17
 print s.a
 `,
@@ -1425,7 +1423,7 @@ class Sub extends Super
   int b
 end class Sub
 
-Super s \u2b60 new Sub
+Super s \u2b60 new Sub()
 s.a \u2b60 17
 print s.a
 `,
@@ -1449,7 +1447,7 @@ class Sub extends Super
   end getX
 end class Sub
 
-Sub s = new Sub
+Sub s = new Sub()
 s.text = "flirt"
 s.x = 93
 print s.text
@@ -1474,7 +1472,7 @@ class Sub extends Super
   end getX
 end class Sub
 
-Sub s \u2b60 new Sub
+Sub s \u2b60 new Sub()
 s.text \u2b60 "flirt"
 s.x \u2b60 93
 print s.text
@@ -1495,12 +1493,12 @@ print s.getX()
 
   public void sneak()
     this.show()
-    Hider h \u2b60 new Hider
+    Hider h \u2b60 new Hider()
     h.show()
   end sneak
 end class Hider
 
-Hider h = new Hider
+Hider h = new Hider()
 h.sneak()
 `,
       translation: {
@@ -1511,12 +1509,12 @@ h.sneak()
 
   public void sneak()
     this.show()
-    Hider h \u2b60 new Hider
+    Hider h \u2b60 new Hider()
     h.show()
   end sneak
 end class Hider
 
-Hider h \u2b60 new Hider
+Hider h \u2b60 new Hider()
 h.sneak()
 `,
         python: "TODO",
@@ -1739,7 +1737,7 @@ describe('Praxis: Object Errors', () => {
       source: `class Circle
   private double radius
 end class Circle
-Circle c = new Circle
+Circle c = new Circle()
 print c.radius`,
       error: error.VisibilityError,
     },
@@ -1748,7 +1746,7 @@ print c.radius`,
       source: `class Circle
   public double radius
 end class Circle
-Circle c = new Circle
+Circle c = new Circle()
 print c.diameter`,
       error: error.UndeclaredError,
     },
@@ -1760,7 +1758,7 @@ print c.diameter`,
     print diameter
   end debug
 end class Circle
-Circle c = new Circle
+Circle c = new Circle()
 c.debug()`,
       error: error.UndeclaredError,
     },
@@ -1769,7 +1767,7 @@ c.debug()`,
       source: `class Circle
   public double radius
 end class Circle
-Circle c = new Circle
+Circle c = new Circle()
 print c.area()`,
       error: error.UndeclaredError,
     },
@@ -1781,7 +1779,7 @@ print c.area()`,
     return diameter() * 3.14159
   end
 end class Circle
-Circle c = new Circle
+Circle c = new Circle()
 print c.circumference()`,
       error: error.UndeclaredError,
     },
@@ -1790,7 +1788,7 @@ print c.circumference()`,
       source: `class Circle
   public double radius
 end class Circle
-Circle c = new Circle
+Circle c = new Circle()
 print c.radius`,
       error: error.UninitializedError,
     },
@@ -1806,7 +1804,7 @@ class Sub extends Super
   end getText
 end class Sub
 
-Super s = new Sub
+Super s = new Sub()
 print s.text
 `,
       error: error.UnknownError,
@@ -1823,7 +1821,7 @@ class Sub extends Super
   end getText
 end class Sub
 
-Super s = new Sub
+Super s = new Sub()
 print s.getText()
 `,
       error: error.UnknownError,
@@ -1835,7 +1833,7 @@ print s.getText()
     print "peep"
   end show
 end class Hider
-Hider h = new Hider
+Hider h = new Hider()
 h.show()
 `,
       error: error.UnknownError,

@@ -178,7 +178,7 @@ end class Dog
   end bark
 end class Dog
 
-Dog myDog = new Dog
+Dog myDog = new Dog()
 myDog.bark()`,
       output:
       `Define a class named Dog. It includes 1 instance variable, a variable named "name" of type String with the value "Bella", and a method called bark that takes no parameters. When called, the method will print "woof".\n\nCreate a new instance of a Dog and assign it to a variable named myDog.\nCall the bark method on myDog.`

@@ -437,7 +437,13 @@ export class Translator extends Visitor<Formatter, string> {
 
     text += node.instanceVariableDeclarations.map(declaration => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${declaration.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('');
     
-    if (node.instanceVariableDeclarations.length > 0 && node.methodDefinitions.length > 0) {
+    if (node.instanceVariableDeclarations.length > 0 && node.constructorDefinitions.length > 0) {
+      text += "\n";
+    }
+
+    text += node.constructorDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('\n');
+
+    if ((node.instanceVariableDeclarations.length > 0 || node.constructorDefinitions.length > 0) && node.methodDefinitions.length > 0) {
       text += "\n";
     }
 
@@ -491,8 +497,8 @@ export class Translator extends Visitor<Formatter, string> {
     return text;
   }
 
-  visitInstantiation(node: ast.Instantiation, _formatter: Formatter): string {
-    return `new ${node.identifier}`;
+  visitInstantiation(node: ast.Instantiation, formatter: Formatter): string {
+    return `new ${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
   }
 
   visitMethodCall(node: ast.MethodCall, formatter: Formatter): string {
