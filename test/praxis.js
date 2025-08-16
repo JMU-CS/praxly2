@@ -1311,6 +1311,74 @@ print s.value
       },
       output: "6\n3\n3\n-5\n-5\n",
     },
+    {
+      message: 'constructor',
+      source: `class Item
+  public int quantity = -1
+  public String name = null
+  Item(String name, int quantity)
+    this.name = name
+    this.quantity = quantity
+  end Item
+end class Item
+
+Item a = new Item("boat", 5)
+Item b = new Item("car", 2)
+
+print a.name
+print a.quantity
+print b.name
+print b.quantity`,
+      translation: {
+        praxis: `class Item
+  public int quantity \u2b60 -1
+  public String name \u2b60 null
+
+  Item(String name, int quantity)
+    this.name \u2b60 name
+    this.quantity \u2b60 quantity
+  end Item
+end class Item
+
+Item a \u2b60 new Item("boat", 5)
+Item b \u2b60 new Item("car", 2)
+
+print a.name
+print a.quantity
+print b.name
+print b.quantity
+`,
+        python: `TODO`,
+      },
+      output: "boat\n5\ncar\n2\n",
+    },
+    {
+      message: 'parameter vs. instance variable',
+      source: `class Count
+  public int x = 14
+  Count(int x)
+    x = x
+  end Count
+end class Count
+
+Count c = new Count(15)
+print c.x`,
+      translation: {
+        praxis: `class Count
+  public int x \u2b60 14
+
+  Count(int x)
+    x \u2b60 x
+  end Count
+end class Count
+
+Count c \u2b60 new Count(15)
+print c.x
+`,
+        python: `TODO`,
+      },
+      output: "14\n",
+    },
   ];
 
   samples.forEach(testProgram);
@@ -1837,6 +1905,31 @@ Hider h = new Hider()
 h.show()
 `,
       error: error.UnknownError,
+    },
+    {
+      message: 'private constructor',
+      source: `class Thing
+  int x
+  private Thing()
+    x = 0
+  end Thing
+end class Thing
+`,
+      error: error.VisibilityError,
+    },
+    {
+      message: 'multiple constructors',
+      source: `class Thing
+  int x
+  Thing()
+    x = 0
+  end Thing
+  Thing(int i)
+    x = i
+  end Thing
+end class Thing
+`,
+      error: error.EvaluateError,
     },
   ];
 
