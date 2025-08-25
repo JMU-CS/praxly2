@@ -99,7 +99,7 @@ describe ("English : Translate Praxis Expressions to English", () => {
       source: 'x >> 2',
       output: 'shift x right by 2'
     },
-        {
+    {
       source: 'x << 2',
       output: 'shift x left by 2'
     }

@@ -133,6 +133,11 @@ export class Translator extends Visitor<Formatter, string> {
     let leftText = node.leftNode.visit(this, formatter);
     let rightText = node.rightNode.visit(this, formatter);
 
+    // temporary special case for **
+    if (operator === "**") {
+      return `Math.pow(${leftText}, ${rightText})`;
+    }
+
     // We need to parenthesize the left operand if it has lower precedence than
     // the operator. Or if they tie and are right-associative. For example:
     //   (a - b) * c
@@ -181,7 +186,7 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitPower(node: ast.Power, formatter: Formatter): string {
-    return this.visitBinaryOperator(node, formatter, '**'); // Math.pow()
+    return this.visitBinaryOperator(node, formatter, '**');
   }
 
   visitLessThan(node: ast.LessThan, formatter: Formatter): string {
@@ -259,6 +264,7 @@ export class Translator extends Visitor<Formatter, string> {
     if (node.rightNode) {
       text += ` = ${node.rightNode.visit(this, formatter)}`;
     }
+    text += ';';
     return this.maybeSemicolon(node, text);
   }
 
@@ -287,7 +293,6 @@ export class Translator extends Visitor<Formatter, string> {
       text += `${formatter.indentation.repeat(formatter.nestingLevel)} else {\n`;
       text += `${node.elseBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}}`;
     }
-    // text += `${formatter.indentation.repeat(formatter.nestingLevel)}`;
     return text;
   }
 
