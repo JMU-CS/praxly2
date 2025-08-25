@@ -218,6 +218,14 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
+  visitProgram(node: ast.Program, payload: Object): Object {
+    return {
+      type: 'program',
+      block: node.block.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   visitBlock(node: ast.Block, payload: Object): Object {
     return {
       type: 'block',

@@ -291,6 +291,10 @@ export class Translator extends Visitor<Formatter, string> {
     return node.identifier;
   }
 
+  visitProgram(node: ast.Program, formatter: Formatter): string {
+    return node.block.visit(this, formatter);
+  }
+
   visitBlock(node: ast.Block, formatter: Formatter): string {
     return node.statements.map(statement => {
       return `${statement.visit(this, formatter)}`;

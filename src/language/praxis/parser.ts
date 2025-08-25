@@ -58,7 +58,7 @@ class PraxisParser extends Parser {
     return this.has(TokenType.Identifier) && this.hasAhead(TokenType.Identifier, 1);
   }
 
-  parse(): ast.Block {
+  parse(): ast.Program {
     // for (let i = 0; i < this.tokens.length; ++i) {
       // console.log(this.tokens[i].toPretty(this.source));
     // }
@@ -75,11 +75,14 @@ class PraxisParser extends Parser {
         statements.push(new ast.Blank(blank.n, blank.where));
       }
     }
+
+    let block;
     if (statements.length === 0) {
-      return new ast.Block(statements, new Where(0, 0));
+      block = new ast.Block(statements, new Where(0, 0));
     } else {
-      return new ast.Block(statements, Where.enclose(statements[0].where, statements[statements.length - 1].where));
+      block = new ast.Block(statements, Where.enclose(statements[0].where, statements[statements.length - 1].where));
     }
+    return new ast.Program(block, block.where);
   }
 
   arrayType(elementType: Type): Type {

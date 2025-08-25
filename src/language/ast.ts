@@ -37,6 +37,19 @@ export abstract class Statement extends Node {
   }
 }
 
+export class Program extends Node {
+  block: Block;
+
+  constructor(block: Block, where: Where) {
+    super(where);
+    this.block = block;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitProgram(this, payload);
+  }
+}
+
 export class Block extends Node {
   statements: Statement[];
 

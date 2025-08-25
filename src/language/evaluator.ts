@@ -488,6 +488,10 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
     }
   }
 
+  async visitProgram(node: ast.Program, runtime: Runtime): Promise<Fruit> {
+    return node.block.visit(this, runtime);
+  }
+
   async visitBlock(node: ast.Block, runtime: Runtime): Promise<Fruit> {
     for (let statement of node.statements) {
       await statement.visit(this, runtime);
