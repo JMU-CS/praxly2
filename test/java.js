@@ -45,7 +45,7 @@ describe("Translate Praxis Expressions to Java", () => {
       output: '5 - 4 - 3'
     },
     {
-      souce: '2**8',
+      source: '2**8',
       output: 'Math.pow(2, 8);'
     },
     {
