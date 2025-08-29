@@ -275,6 +275,10 @@ export class Translator extends Visitor<Formatter, string> {
     return node.identifier;
   }
 
+  visitProgram(node: ast.Program, formatter: Formatter): string {
+    return node.block.visit(this, formatter);
+  }
+
   visitBlock(node: ast.Block, formatter: Formatter): string {
     return node.statements.map(statement => {
       return `${formatter.indentation.repeat(formatter.nestingLevel)}${statement.visit(this, formatter)}\n`;
@@ -437,7 +441,13 @@ export class Translator extends Visitor<Formatter, string> {
 
     text += node.instanceVariableDeclarations.map(declaration => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${declaration.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('');
     
-    if (node.instanceVariableDeclarations.length > 0 && node.methodDefinitions.length > 0) {
+    if (node.instanceVariableDeclarations.length > 0 && node.constructorDefinitions.length > 0) {
+      text += "\n";
+    }
+
+    text += node.constructorDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('\n');
+
+    if ((node.instanceVariableDeclarations.length > 0 || node.constructorDefinitions.length > 0) && node.methodDefinitions.length > 0) {
       text += "\n";
     }
 
@@ -461,6 +471,21 @@ export class Translator extends Visitor<Formatter, string> {
     return text;
   }
 
+  visitConstructorDefinition(node: ast.ConstructorDefinition, formatter: Formatter): string {
+    let visibility;
+    if (node.visibility === Visibility.Private) {
+      visibility = 'private ';
+    } else if (node.visibility === Visibility.Public) {
+      visibility = 'public ';
+    } else {
+      visibility= '';
+    }
+    let text = `${visibility}${node.classDefinition.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')})\n`;
+    text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
+    text += `${formatter.indentation.repeat(formatter.nestingLevel)}end ${node.classDefinition.identifier}`;
+    return text;
+  }
+
   visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {
     let visibility;
     if (node.visibility === Visibility.Private) {
@@ -476,8 +501,8 @@ export class Translator extends Visitor<Formatter, string> {
     return text;
   }
 
-  visitInstantiation(node: ast.Instantiation, _formatter: Formatter): string {
-    return `new ${node.identifier}`;
+  visitInstantiation(node: ast.Instantiation, formatter: Formatter): string {
+    return `new ${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
   }
 
   visitMethodCall(node: ast.MethodCall, formatter: Formatter): string {

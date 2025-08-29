@@ -41,6 +41,7 @@ export abstract class Visitor<P, R> {
 
   // Statements
   abstract visitExpressionStatement(node: ast.ExpressionStatement, payload: P): R;
+  abstract visitProgram(node: ast.Program, payload: P): R;
   abstract visitBlock(node: ast.Block, payload: P): R;
   abstract visitPrint(node: ast.Print, payload: P): R;
   abstract visitIf(node: ast.If, payload: P): R;
@@ -70,6 +71,7 @@ export abstract class Visitor<P, R> {
 
   // Classes
   abstract visitClassDefinition(node: ast.ClassDefinition, payload: P): R;
+  abstract visitConstructorDefinition(node: ast.ConstructorDefinition, payload: P): R;
   abstract visitMethodDefinition(node: ast.MethodDefinition, payload: P): R;
   abstract visitMethodCall(node: ast.MethodCall, payload: P): R;
   abstract visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, payload: P): R;

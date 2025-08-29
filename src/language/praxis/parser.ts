@@ -58,7 +58,7 @@ class PraxisParser extends Parser {
     return this.has(TokenType.Identifier) && this.hasAhead(TokenType.Identifier, 1);
   }
 
-  parse(): ast.Block {
+  parse(): ast.Program {
     // for (let i = 0; i < this.tokens.length; ++i) {
       // console.log(this.tokens[i].toPretty(this.source));
     // }
@@ -75,11 +75,14 @@ class PraxisParser extends Parser {
         statements.push(new ast.Blank(blank.n, blank.where));
       }
     }
+
+    let block;
     if (statements.length === 0) {
-      return new ast.Block(statements, new Where(0, 0));
+      block = new ast.Block(statements, new Where(0, 0));
     } else {
-      return new ast.Block(statements, Where.enclose(statements[0].where, statements[statements.length - 1].where));
+      block = new ast.Block(statements, Where.enclose(statements[0].where, statements[statements.length - 1].where));
     }
+    return new ast.Program(block, block.where);
   }
 
   arrayType(elementType: Type): Type {
@@ -204,6 +207,7 @@ class PraxisParser extends Parser {
 
     const instanceVariableDeclarations: ast.InstanceVariableDeclaration[] = [];
     const methodDefinitions: ast.MethodDefinition[] = [];
+    const constructorDefinitions: ast.ConstructorDefinition[] = [];
 
     if (this.has(TokenType.Indent)) {
       this.advance(); // eat indent
@@ -223,39 +227,56 @@ class PraxisParser extends Parser {
         } else if (!this.has(TokenType.Identifier)) {
           throw new ParseError("A type is missing.", this.tokens[this.i].where);
         }
-        const type = this.type();
-        firstWhere = firstWhere ?? type.where;
 
-        if (!this.has(TokenType.Identifier)) {
-          throw new ParseError("A name is missing after this type.", lastWhere);
+        // A constructor.
+        if ((this.tokens[this.i] as TextToken).text === classIdentifierToken.text && this.hasAhead(TokenType.LeftParenthesis, 1)) {
+          const identifierWhere = this.tokens[this.i].where;
+          firstWhere = firstWhere ?? identifierWhere;
+
+          const core = this.subroutineCore('constructor', identifierWhere);
+          const declaration = new ast.ConstructorDefinition(core.formals, core.block, visibility, Where.enclose(firstWhere, core.lastWhere));
+          constructorDefinitions.push(declaration);
         }
+        
+        // An instance variable or method.
+        else {
+          const type = this.type();
+          firstWhere = firstWhere ?? type.where;
 
-        if (this.hasAhead(TokenType.LeftParenthesis, 1)) {
-          const core = this.subroutineCore('method', Where.enclose(type.where, lastWhere));
-          const declaration = new ast.MethodDefinition(core.identifier, core.formals, type, core.block, visibility, Where.enclose(firstWhere, core.block.where));
-          methodDefinitions.push(declaration);
-        } else {
-          const memberIdentifierToken = this.advance() as TextToken;
-
-          // The original Praxis document says nothing about how instance
-          // variables are initialized. On the outside through public access?
-          // On the inside through a constructor? On the inside through direct
-          // assignment in the declaration? For the time being, let's allow
-          // direct assignment, since that's simplest and doesn't depend on
-          // visibility.
-
-          let rightNode = null;
-          if (this.has(TokenType.Equal)) {
-            this.advance();
-            rightNode = this.expression();
-          } else if (this.has(TokenType.Linebreak) && this.hasAhead(TokenType.Indent, 1)) {
-            throw new ParseError("This method is missing parentheses.", memberIdentifierToken.where);
+          if (!this.has(TokenType.Identifier)) {
+            throw new ParseError("A name is missing after this type.", lastWhere);
           }
 
-          const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, type, visibility, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
-          instanceVariableDeclarations.push(declaration);
+          if (this.hasAhead(TokenType.LeftParenthesis, 1)) {
+            const core = this.subroutineCore('method', Where.enclose(type.where, lastWhere));
+            const declaration = new ast.MethodDefinition(core.identifier, core.formals, type, core.block, visibility, Where.enclose(firstWhere, core.lastWhere));
+            methodDefinitions.push(declaration);
+          } else {
+            const memberIdentifierToken = this.advance() as TextToken;
+
+            // The original Praxis document says nothing about how instance
+            // variables are initialized. On the outside through public access?
+            // On the inside through a constructor? On the inside through direct
+            // assignment in the declaration? For the time being, let's allow
+            // direct assignment, since that's simplest and doesn't depend on
+            // visibility.
+
+            let rightNode = null;
+            if (this.has(TokenType.Equal)) {
+              this.advance();
+              rightNode = this.expression();
+            } else if (this.has(TokenType.Linebreak) && this.hasAhead(TokenType.Indent, 1)) {
+              throw new ParseError("This method is missing parentheses.", memberIdentifierToken.where);
+            }
+
+            const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, type, visibility, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
+            instanceVariableDeclarations.push(declaration);
+          }
         }
 
+        if (this.has(TokenType.LineComment)) {
+          this.advance();
+        }
         this.skipLinebreaks();
       }
 
@@ -272,7 +293,7 @@ class PraxisParser extends Parser {
     this.advance();
     const endToken = this.advance();
 
-    return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, methodDefinitions, Where.enclose(classToken.where, endToken.where));
+    return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, constructorDefinitions, methodDefinitions, Where.enclose(classToken.where, endToken.where));
   }
 
   subroutineCore(context: string, firstWhere: Where) {
@@ -303,7 +324,7 @@ class PraxisParser extends Parser {
     }
 
     if (!this.has(TokenType.RightParenthesis)) {
-      throw new ParseError(`A ${context}'s parameter must be enclosed in parentheses.`, Where.enclose(firstWhere, latestToken.where));
+      throw new ParseError(`A ${context}'s parameters must be enclosed in parentheses.`, Where.enclose(firstWhere, latestToken.where));
     }
     const rightToken = this.advance(); // eat )
 
@@ -874,7 +895,12 @@ class PraxisParser extends Parser {
         throw new ParseError("A class name is missing after `new`.", newToken.where);
       }
       const identifierToken = this.advance() as TextToken;
-      return new ast.Instantiation(identifierToken.text, Where.enclose(newToken.where, identifierToken.where));
+      if (this.has(TokenType.LeftParenthesis)) {
+        const actualsPayload = this.actuals('constructor', identifierToken.where);
+        return new ast.Instantiation(identifierToken.text, actualsPayload.actuals, Where.enclose(newToken.where, actualsPayload.where));
+      } else {
+        throw new ParseError("A constructor call must include a parenthesized list of parameters.", Where.enclose(newToken.where, identifierToken.where));
+      }
     } else {
       return this.apex();
     }

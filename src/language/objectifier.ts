@@ -218,6 +218,14 @@ export class Objectifier extends Visitor<Object, Object> {
     };
   }
 
+  visitProgram(node: ast.Program, payload: Object): Object {
+    return {
+      type: 'program',
+      block: node.block.visit(this, payload),
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
   visitBlock(node: ast.Block, payload: Object): Object {
     return {
       type: 'block',
@@ -408,6 +416,18 @@ export class Objectifier extends Visitor<Object, Object> {
       identifier: node.identifier,
       variableType: node.variableType,
       visibility: node.visibility,
+      where: {start: node.where.start, end: node.where.end},
+    };
+  }
+
+  visitConstructorDefinition(node: ast.ConstructorDefinition, payload: Object): Object {
+    return {
+      type: 'constructor',
+      formals: node.formals.map(formal => ({
+        identifier: formal.identifier,
+        type: formal.type,
+      })),
+      body: node.body.visit(this, payload),
       where: {start: node.where.start, end: node.where.end},
     };
   }

@@ -263,6 +263,10 @@ export class Translator extends Visitor<Formatter, string> {
     return node.identifier;
   }
 
+  visitProgram(node: ast.Program, formatter: Formatter): string {
+    return node.block.visit(this, formatter);
+  }
+
   visitBlock(node: ast.Block, formatter: Formatter): string {
     return node.statements.map(statement => {
       return `${formatter.indentation.repeat(formatter.nestingLevel)}${statement.visit(this, formatter).trimEnd()}\n`;
@@ -450,6 +454,11 @@ export class Translator extends Visitor<Formatter, string> {
     // let text = `${node.identifier} = ${node.valueNode?.visit(this, {..._formatter, nestingLevel : _formatter.nestingLevel})}`;
     let text = `self.${node.identifier} = ${node.identifier}`;
     return text;
+  }
+
+  visitConstructorDefinition(_node: ast.ConstructorDefinition, _formatter: Formatter): string {
+    // TODO
+    throw new Error('TODO');
   }
 
   visitMethodDefinition(node: ast.MethodDefinition, formatter: Formatter): string {

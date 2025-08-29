@@ -67,10 +67,12 @@ export class VariableDefinition {
 
 export class ClassDefinition {
   type: ClassType;
+  constructorBinding: MethodDefinition | null;
   methodBindings: Map<string, MethodDefinition>;
 
   constructor(type: ClassType) {
     this.type = type;
+    this.constructorBinding = null;
     this.methodBindings = new Map();
   }
 }
@@ -288,7 +290,7 @@ export class InputFunction extends FunctionDefinition {
   async call(evaluator: Evaluator, runtime: Runtime, where: Where): Promise<Fruit> {
     const text: string = await runtime.globalRuntime.getInput();
 
-    const fruit = await new ast.Instantiation('String', Where.Nowhere).visit(evaluator, runtime);
+    const fruit = await new ast.Instantiation('String', [], Where.Nowhere).visit(evaluator, runtime);
     fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.Internal, text));
 
     throw new ReturnSomethingException(fruit, where);
@@ -520,7 +522,7 @@ export class StringClass extends ClassDefinition {
   }
 
   static async instance(text: string, evaluator: Evaluator, runtime: Runtime) {
-    const fruit = await new ast.Instantiation('String', Where.Nowhere).visit(evaluator, runtime);
+    const fruit = await new ast.Instantiation('String', [], Where.Nowhere).visit(evaluator, runtime);
     fruit.value.runtime.setDeclaredVariable('text', new VariableDefinition(Type.Internal, text));
     return fruit;
   }

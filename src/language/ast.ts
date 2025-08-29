@@ -37,6 +37,19 @@ export abstract class Statement extends Node {
   }
 }
 
+export class Program extends Node {
+  block: Block;
+
+  constructor(block: Block, where: Where) {
+    super(where);
+    this.block = block;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitProgram(this, payload);
+  }
+}
+
 export class Block extends Node {
   statements: Statement[];
 
@@ -633,14 +646,20 @@ export class ClassDefinition extends Statement {
   identifier: string;
   superclass: string | null;
   instanceVariableDeclarations: InstanceVariableDeclaration[];
+  constructorDefinitions: ConstructorDefinition[];
   methodDefinitions: MethodDefinition[];
 
-  constructor(identifier: string, superclass: string | null, instanceVariableDeclarations: InstanceVariableDeclaration[], methodDefinitions: MethodDefinition[], where: Where) {
+  constructor(identifier: string, superclass: string | null, instanceVariableDeclarations: InstanceVariableDeclaration[], constructorDefinitions: ConstructorDefinition[], methodDefinitions: MethodDefinition[], where: Where) {
     super(where);
     this.identifier = identifier;
     this.superclass = superclass;
     this.instanceVariableDeclarations = instanceVariableDeclarations;
+    this.constructorDefinitions = constructorDefinitions;
     this.methodDefinitions = methodDefinitions;
+
+    for (let constructorDefinition of this.constructorDefinitions) {
+      constructorDefinition.classDefinition = this;
+    }
   }
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
@@ -667,6 +686,24 @@ export class InstanceVariableDeclaration extends Statement {
   }
 }
 
+export class ConstructorDefinition extends Statement {
+  formals: Formal[];
+  body: Block;
+  visibility: Visibility | null;
+  classDefinition!: ClassDefinition;
+
+  constructor(formals: Formal[], body: Block, visibility: Visibility | null, where: Where) {
+    super(where);
+    this.formals = formals;
+    this.body = body;
+    this.visibility = visibility;
+  }
+
+  visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
+    return visitor.visitConstructorDefinition(this, payload);
+  }
+}
+
 export class MethodDefinition extends Statement {
   identifier: string;
   formals: Formal[];
@@ -690,10 +727,12 @@ export class MethodDefinition extends Statement {
 
 export class Instantiation extends Expression {
   identifier: string;
+  actuals: Expression[];
 
-  constructor(identifier: string, where: Where) {
+  constructor(identifier: string, actuals: Expression[], where: Where) {
     super(where);
     this.identifier = identifier;
+    this.actuals = actuals;
   }
 
   visit<P, R>(visitor: Visitor<P, R>, payload: P): R {
