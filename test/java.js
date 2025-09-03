@@ -120,4 +120,6 @@ print "Woo"`,
   }`
     }
   ]
-})
+
+  samples.forEach(testExpression);
+});
