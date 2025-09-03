@@ -811,6 +811,10 @@ export class Evaluator extends Visitor<Runtime, Promise<Fruit>> {
   // --------------------------------------------------------------------------
 
   async visitClassDefinition(node: ast.ClassDefinition, runtime: Runtime): Promise<Fruit> {
+    if (node.identifier === 'Main') {
+      throw new error.WhereError(`The name \`Main\` is not allowed.`, node.where);
+    }
+
     const superclassType = this.resolveClassName(node.superclass, runtime);
     const classDefinition = new ClassDefinition(new ClassType(node.identifier, superclassType, node.where));
     const newRuntime = runtime.shallowClone();
