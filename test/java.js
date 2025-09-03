@@ -46,7 +46,7 @@ describe('Translate Praxis Expressions to Java', () => {
     },
     {
       source: '2**8',
-      output: 'Math.pow(2, 8);'
+      output: 'Math.pow(2, 8)'
     },
     {
       source: 'false or true',
@@ -110,16 +110,16 @@ end if
 print "Woo"`,
       output:
 `public class Main {
-      public static void main(String[] args) {
-        int x = 7;
-        if (x < 10) {
-          x++;
-        }
-        System.out.println("Woo");
-      }
-  }`
+  public static void main(String[] args) {
+    int x = 7;
+    if (x < 10) {
+      x++;
+    }
+    System.out.println("Woo");
+  }
+}`
     }
   ]
 
-  samples.forEach(testExpression);
+  samples.forEach(testProgram);
 });

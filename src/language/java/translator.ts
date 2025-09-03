@@ -273,8 +273,8 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitProgram(node: ast.Program, formatter: Formatter): string {
-    let text = 'public class Main() {\n';
-    text += `${formatter.indentation.repeat(formatter.nestingLevel + 1)}public static void main(String[] args) {\n`;
+    let text = 'public class Main {\n';
+    text += `${formatter.indentation.repeat(formatter.nestingLevel+1)}public static void main(String[] args) {\n`;
     text += `${node.block.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 2})}${formatter.indentation.repeat(formatter.nestingLevel + 1)}}\n`;
     text += '}';
     return text;
@@ -292,7 +292,7 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitIf(node: ast.If, formatter: Formatter): string {
     let text = `if (${node.conditionNodes[0].visit(this, formatter)}) {\n`;
-    text += `${node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 2})}`;
+    text += `${node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}`;
     text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
     for (let i = 1; i < node.conditionNodes.length; ++i) {
       text += ` else if (${node.conditionNodes[i].visit(this, formatter)}) {\n`;
