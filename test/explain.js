@@ -33,7 +33,7 @@ function testExpression(sample) {
   });
 }
 
-describe ("English : Translate Praxis Expressions to English", () => {
+describe ('English : Translate Praxis Expressions to English', () => {
   const samples = [
     {
       source: '5 + 1',
@@ -109,7 +109,7 @@ describe ("English : Translate Praxis Expressions to English", () => {
   samples.forEach(testExpression);
 });
 
-describe ("English : Translate Conditional statements from Praxis to English", () => {
+describe ('English : Translate Conditional statements from Praxis to English', () => {
   const samples = [
     {
       message: 'if-sans-else statement',
@@ -153,7 +153,7 @@ end if`,
   samples.forEach(testProgram)
 });
 
-describe ("English : Translate Classes to from Praxis to English", () => {
+describe ('English : Translate Classes to from Praxis to English', () => {
   const samples = [
     {
       message: "New Class Dog",

@@ -361,7 +361,7 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitExpressionStatement(node: ast.ExpressionStatement, formatter: Formatter): string {
-    let text = node.expressionNode.visit(this, formatter);
+    let text = `${node.expressionNode.visit(this, formatter)}.`;
     return text;
   }
 
@@ -531,7 +531,7 @@ export class Translator extends Visitor<Formatter, string> {
   visitMethodCall(node: ast.MethodCall, formatter: Formatter): string {
     // TODO: parenthesize receiver maybe
     // return `${node.receiverNode.visit(this, formatter)}.${node.identifier}(${node.actuals.map(actual => actual.visit(this, formatter)).join(', ')})`;
-    return `Call the ${node.identifier} method on ${node.receiverNode.visit(this, formatter)}.`;
+    return `Call the ${node.identifier} method on ${node.receiverNode.visit(this, formatter)}`;
   }
 
   // --------------------------------------------------------------------------

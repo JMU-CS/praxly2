@@ -34,7 +34,7 @@ function testExpression(sample) {
   });
 }
 
-describe("Translate Praxis Expressions to Java", () => {
+describe('Translate Praxis Expressions to Java', () => {
   const samples = [
     {
       source: '5 + 1',
@@ -49,8 +49,8 @@ describe("Translate Praxis Expressions to Java", () => {
       output: 'Math.pow(2, 8);'
     },
     {
-      source: 'False or True',
-      output: 'false or true'
+      source: 'false or true',
+      output: 'false || true'
     },
     {
       source: '7 < 8',
@@ -65,39 +65,39 @@ describe("Translate Praxis Expressions to Java", () => {
       output: '"blink" != "blank"',
     },
     {
-      source: 'not False and False',
-      output: '!false and false',
+      source: 'not false and false',
+      output: '!false && false',
     },
     {
       source: '7 / 3',
       output: '7 / 3',
     },
     {
-      python: '7.0 / 4',
-      praxis: '7.0 / 4',
+      source: '7.0 / 4',
+      output: '7.0 / 4',
     },
     {
-      python: '10.5 / 0.5',
-      praxis: '10.5 / 0.5',
+      source: '10.5 / 0.5',
+      output: '10.5 / 0.5',
     },
     {
-      python: '5 + 2 * 3.0',
-      praxis: '5 + 2 * 3.0',
+      source: '5 + 2 * 3.0',
+      output: '5 + 2 * 3.0',
     },
     {
-      python: '5 + 2 * 3.0',
-      praxis: '5 + 2 * 3.0',
+      source: '5 + 2 * 3.0',
+      output: '5 + 2 * 3.0',
     },
     {
-      python: '-2 % 5',
-      praxis: '-2 % 5',
+      source: '-2 % 5',
+      output: '-2 % 5',
     }
   ]
 
   samples.forEach(testExpression);
 });
 
-describe("Translate Praxis programs to Java", () =>
+describe('Translate Praxis programs to Java', () =>
 {
   const samples = [
     {

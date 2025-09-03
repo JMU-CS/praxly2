@@ -338,7 +338,7 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitExpressionStatement(node: ast.ExpressionStatement, formatter: Formatter): string {
     let text = node.expressionNode.visit(this, formatter);
-    return this.maybeSemicolon(node, text);
+    return text + ';';
   }
 
   visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
