@@ -273,10 +273,13 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitProgram(node: ast.Program, formatter: Formatter): string {
-    let text = 'public class Main {\n';
-    text += `${formatter.indentation.repeat(formatter.nestingLevel+1)}public static void main(String[] args) {\n`;
-    text += `${node.block.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 2})}${formatter.indentation.repeat(formatter.nestingLevel + 1)}}\n`;
-    text += '}';
+    let text = '';
+    if (node.block.statements.length != 0) {
+      text += 'public class Main {\n';
+      text += `${formatter.indentation.repeat(formatter.nestingLevel+1)}public static void main(String[] args) {\n`;
+      text += `${node.block.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 2})}${formatter.indentation.repeat(formatter.nestingLevel + 1)}}\n`;
+      text += '}';
+    }
     return text;
   }
 
@@ -396,7 +399,7 @@ export class Translator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitArrayLiteral(node: ast.ArrayLiteral, formatter: Formatter): string {
-    return `{${node.elementNodes.map(elementNode => elementNode.visit(this, formatter)).join(', ')}};`;
+    return `{${node.elementNodes.map(elementNode => elementNode.visit(this, formatter)).join(', ')}}`;
   }
 
   visitArrayDeclaration(node: ast.ArrayDeclaration, formatter: Formatter): string {
@@ -432,8 +435,7 @@ export class Translator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitClassDefinition(node: ast.ClassDefinition, formatter: Formatter): string {
-    // TODO : Will we provide private classes? probably not ..
-    let text = `public class ${node.identifier}`;
+    let text = `public static class ${node.identifier}`;
     if (node.superclass) {
       text += ` extends ${node.superclass}`;
     }
@@ -445,10 +447,11 @@ export class Translator extends Visitor<Formatter, string> {
       text += "\n";
     }
 
+    // i don't think we are implementing constructors?
     // constructor
-    text += `${formatter.indentation.repeat(formatter.nestingLevel + 1)}public ${node.identifier}(${node.instanceVariableDeclarations.map(formal => `${formal.variableType} ${formal.identifier}`).join(', ')}) {\n`;
-    text += `${node.instanceVariableDeclarations.map(formal => `${formatter.indentation.repeat(formatter.nestingLevel + 2)}this.${formal.identifier} = ${formal.identifier};\n`).join("\n")}`;
-    text += `${formatter.indentation.repeat(formatter.nestingLevel + 1)}}\n\n`
+    // text += `${formatter.indentation.repeat(formatter.nestingLevel + 1)}public ${node.identifier}(${node.instanceVariableDeclarations.map(formal => `${formal.variableType} ${formal.identifier}`).join(', ')}) {\n`;
+    // text += `${node.instanceVariableDeclarations.map(formal => `${formatter.indentation.repeat(formatter.nestingLevel + 2)}this.${formal.identifier} = ${formal.identifier};\n`).join("\n")}`;
+    // text += `${formatter.indentation.repeat(formatter.nestingLevel + 1)}}\n\n`
 
     text += node.methodDefinitions.map(definition => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${definition.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('\n');
     text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
@@ -458,16 +461,16 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, formatter: Formatter): string {
     let text = '';
-    if (node.visibility === Visibility.Public) {
-      text += `public `;
-    } else if (node.visibility === Visibility.Private) {
+    if (node.visibility === Visibility.Private) {
       text += `private `;
+    } else {
+      text += `public `;
     }
     text += `${node.variableType} ${node.identifier}`;
     if (node.valueNode) {
       text += ` = ${node.valueNode.visit(this, formatter)}`;
     }
-    return text;
+    return text + ';';
   }
 
   visitConstructorDefinition(_node: ast.ConstructorDefinition, _formatter: Formatter): string {
@@ -479,10 +482,8 @@ export class Translator extends Visitor<Formatter, string> {
     let visibility;
     if (node.visibility === Visibility.Private) {
       visibility = 'private ';
-    } else if (node.visibility === Visibility.Public) {
-      visibility = 'public ';
     } else {
-      visibility= '';
+      visibility = 'public ';
     }
     let text = `${visibility}${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')}) {\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});

@@ -100,8 +100,13 @@ describe('Translate Praxis Expressions to Java', () => {
 describe('Translate Praxis programs to Java', () =>
 {
   const samples = [
+    // {
+    //   message: "No code",
+    //   souce: ' ',
+    //   output: ' '
+    // },
     {
-      message: "Classless code",
+      message: 'if statment',
       source:
 `int x = 7
 if (x < 10)
@@ -118,8 +123,92 @@ print "Woo"`,
     System.out.println("Woo");
   }
 }`
+    },
+    {
+      message: 'print array',
+      source:
+`int[] xs = {12, 103, 80}
+print xs[0]
+print xs[1]
+print xs[2]
+print xs.length
+`,
+      output:
+`public class Main {
+  public static void main(String[] args) {
+    int[] xs = {12, 103, 80};
+    System.out.println(xs[0]);
+    System.out.println(xs[1]);
+    System.out.println(xs[2]);
+    System.out.println(xs.length);
+  }
+}`
     }
   ]
 
   samples.forEach(testProgram);
 });
+
+describe('Translate Praxis to Java : Classes', () => {
+  const samples = [
+    {
+      message: 'basic object',
+      source:
+`class Count
+  public int count = 0
+  void inc()
+    this.count = this.count + 1
+  end inc
+  void dec()
+    this.count = this.count - 1
+  end dec
+end class Count
+Count c = new Count()
+print c.count
+c.inc()
+c.inc()
+print c.count
+c.dec()
+print c.count`,
+      output:
+`public class Main {
+  public static void main(String[] args) {
+    public static class Count {
+      public int count = 0;
+
+      public void inc() {
+        this.count = this.count + 1;
+      }
+
+      public void dec() {
+        this.count = this.count - 1;
+      }
+    }
+    Count c = new Count();
+    System.out.println(c.count);
+    c.inc();
+    c.inc();
+    System.out.println(c.count);
+    c.dec();
+    System.out.println(c.count);
+  }
+}`
+    }
+  ]
+
+  samples.forEach(testProgram);
+});
+
+// errors
+//     {
+//       message: 'print array',
+//       source:
+// `int[] xs = {12, 103, 80}
+// print xs
+// print xs[0]
+// print xs[1]
+// print xs[2]
+// print xs.length
+// `,
+//  wont be able to print xs as an array
+//     }
