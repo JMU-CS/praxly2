@@ -193,6 +193,35 @@ print c.count`,
     System.out.println(c.count);
   }
 }`
+    },
+    {
+      message: 'instance variable and setter',
+      source:
+`class Foo
+  int x = 5
+  void set(int x)
+    this.x = x
+  end set
+end class Foo
+Foo f = new Foo()
+f.set(10)
+print f.x
+`,
+      output:
+`public class Main {
+  public static void main(String[] args) {
+    public static class Foo {
+      public int x = 5;
+
+      public void set(int x) {
+        this.x = x;
+      }
+    }
+    Foo f = new Foo();
+    f.set(10);
+    System.out.println(f.x);
+  }
+}`
     }
   ]
 
