@@ -173,17 +173,6 @@ print c.count`,
       output:
 `public class Main {
   public static void main(String[] args) {
-    public static class Count {
-      public int count = 0;
-
-      public void inc() {
-        this.count = this.count + 1;
-      }
-
-      public void dec() {
-        this.count = this.count - 1;
-      }
-    }
     Count c = new Count();
     System.out.println(c.count);
     c.inc();
@@ -191,6 +180,17 @@ print c.count`,
     System.out.println(c.count);
     c.dec();
     System.out.println(c.count);
+  }
+  class Count {
+    public int count = 0;
+
+    public void inc() {
+      this.count = this.count + 1;
+    }
+
+    public void dec() {
+      this.count = this.count - 1;
+    }
   }
 }`
     },
@@ -210,16 +210,16 @@ print f.x
       output:
 `public class Main {
   public static void main(String[] args) {
-    public static class Foo {
-      public int x = 5;
-
-      public void set(int x) {
-        this.x = x;
-      }
-    }
     Foo f = new Foo();
     f.set(10);
     System.out.println(f.x);
+  }
+  class Foo {
+    public int x = 5;
+
+    public void set(int x) {
+      this.x = x;
+    }
   }
 }`
     }

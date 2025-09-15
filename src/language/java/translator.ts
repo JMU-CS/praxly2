@@ -277,7 +277,23 @@ export class Translator extends Visitor<Formatter, string> {
     if (node.block.statements.length != 0) {
       text += 'public class Main {\n';
       text += `${formatter.indentation.repeat(formatter.nestingLevel+1)}public static void main(String[] args) {\n`;
-      text += `${node.block.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 2})}${formatter.indentation.repeat(formatter.nestingLevel + 1)}}\n`;
+
+      // skip classes and function definitions
+      text += node.block.statements.filter(statement => (!(statement instanceof ast.ClassDefinition) && !(statement instanceof ast.FunctionDefinition))).map(line =>
+       `${formatter.indentation.repeat(formatter.nestingLevel+2)}${line.visit(this, {...formatter, nestingLevel: formatter.nestingLevel})}\n`
+      ).join('');
+      text += formatter.indentation.repeat(formatter.nestingLevel+1) + '}\n';
+
+      // visit functions
+      text += node.block.statements.filter(statement => statement instanceof ast.FunctionDefinition).map(func =>
+        `${formatter.indentation.repeat(formatter.nestingLevel+1)}${func.visit(this, {...formatter, nestingLevel: formatter.nestingLevel+1})}\n`
+      );
+
+      // visit classes
+      text += node.block.statements.filter(statement => statement instanceof ast.ClassDefinition).map(c =>
+        `${formatter.indentation.repeat(formatter.nestingLevel+1)}${c.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`
+      );
+
       text += '}';
     }
     return text;
@@ -295,8 +311,8 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitIf(node: ast.If, formatter: Formatter): string {
     let text = `if (${node.conditionNodes[0].visit(this, formatter)}) {\n`;
-    text += `${node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}`;
-    text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+    text += `${node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 3})}`;
+    text += `${formatter.indentation.repeat(formatter.nestingLevel + 2)}}`;
     for (let i = 1; i < node.conditionNodes.length; ++i) {
       text += ` else if (${node.conditionNodes[i].visit(this, formatter)}) {\n`;
       text += `${node.thenBlocks[i].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 2})}`;
@@ -353,7 +369,7 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
     // TODO ? : Function Definitions don't have visibilty so temporary make every method public
-    let text = `public ${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')}) {\n`;
+    let text = `static ${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')}) {\n`;
     text += node.body.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1});
     text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
     return text;
@@ -435,7 +451,7 @@ export class Translator extends Visitor<Formatter, string> {
   // --------------------------------------------------------------------------
 
   visitClassDefinition(node: ast.ClassDefinition, formatter: Formatter): string {
-    let text = `public static class ${node.identifier}`;
+    let text = `class ${node.identifier}`;
     if (node.superclass) {
       text += ` extends ${node.superclass}`;
     }
