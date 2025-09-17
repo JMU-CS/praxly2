@@ -114,7 +114,8 @@ if (x < 10)
 end if
 print "Woo"`,
       output:
-`public class Main {
+`public class Praxly {
+
   public static void main(String[] args) {
     int x = 7;
     if (x < 10) {
@@ -134,7 +135,8 @@ print xs[2]
 print xs.length
 `,
       output:
-`public class Main {
+`public class Praxly {
+
   public static void main(String[] args) {
     int[] xs = {12, 103, 80};
     System.out.println(xs[0]);
@@ -171,16 +173,8 @@ print c.count
 c.dec()
 print c.count`,
       output:
-`public class Main {
-  public static void main(String[] args) {
-    Count c = new Count();
-    System.out.println(c.count);
-    c.inc();
-    c.inc();
-    System.out.println(c.count);
-    c.dec();
-    System.out.println(c.count);
-  }
+`public class Praxly {
+
   class Count {
     public int count = 0;
 
@@ -191,6 +185,16 @@ print c.count`,
     public void dec() {
       this.count = this.count - 1;
     }
+  }
+
+  public static void main(String[] args) {
+    Count c = new Count();
+    System.out.println(c.count);
+    c.inc();
+    c.inc();
+    System.out.println(c.count);
+    c.dec();
+    System.out.println(c.count);
   }
 }`
     },
@@ -208,18 +212,20 @@ f.set(10)
 print f.x
 `,
       output:
-`public class Main {
-  public static void main(String[] args) {
-    Foo f = new Foo();
-    f.set(10);
-    System.out.println(f.x);
-  }
+`public class Praxly {
+
   class Foo {
     public int x = 5;
 
     public void set(int x) {
       this.x = x;
     }
+  }
+
+  public static void main(String[] args) {
+    Foo f = new Foo();
+    f.set(10);
+    System.out.println(f.x);
   }
 }`
     }
