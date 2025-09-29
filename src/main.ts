@@ -1,8 +1,7 @@
 import { CodeMirrorEditor } from './editor.js';
+import { EditorTab } from './editor-tab.js';
 import { run } from './run.js';
 import { startEditorResize, resizeEvents } from './resize';
-
-
 
 // Toolbar buttons
 const runButton = document.getElementById('run-button') as HTMLInputElement;
@@ -14,7 +13,7 @@ const infoButton = document.getElementById("info-button") as HTMLInputElement;
 const resetButton = document.getElementById("reset-button") as HTMLInputElement;
 
 // Info modal
-const infoModal = document.getElementById("info-modal")as HTMLButtonElement;
+const infoModal = document.getElementById("info-modal")as HTMLElement;
 const closeInfo = document.getElementById("close-info")as HTMLButtonElement;
 
 // Reset modal
@@ -30,38 +29,33 @@ export const outputPanel = document.getElementById('output-panel') as HTMLElemen
 export const resizeBarY = document.getElementById("resize-bar-Y") as HTMLElement;
 export const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
 
-
-// left-side toolbar elements
-const langSwitch = document.getElementById("language-button") as HTMLButtonElement;
-const langDropdown = document.getElementById("language-menu") as HTMLDivElement;
-
-// Code editor
-
-let editorContainer = document.getElementById("editor-container") as HTMLElement;
-if (!editorContainer) {
-  editorContainer = document.createElement("div");
-  editorContainer.id = "editor-container";
-  document.getElementById("left-side")!.appendChild(editorContainer);
-}
-
-export const newEditorButton = document.getElementById("new-editor")!;
-
-
-
-const allEditors: CodeMirrorEditor[] = [];
+// Editor tabs
+const editorTabs: EditorTab[] = [];
 let activeEditorIndex = 0;
+
+// TODO remove convenience variables for current editor?
+export let editorTab: EditorTab;
 export let editor: CodeMirrorEditor;
 export let editorView: any;
 
-const latestSource = localStorage.getItem('latest-source') || "";
+// ---------------------------------------------------------------------------
+// Adding editor tabs
+// ---------------------------------------------------------------------------
 
-// const latestSource = localStorage.getItem('latest-source');
-// if (latestSource) {
-//   editorView.focus();
-//   editorView.dispatch({
-//     changes: { from: 0, to: editorView.state.doc.length, insert: latestSource },
-//   });
-// }
+export function setActiveEditor(index: number) {
+  editorTab = editorTabs[index];
+  editor = editorTab.editor;
+  editorView = editor.view;
+  editorView.focus();
+  activeEditorIndex = index;
+}
+
+function addNewTab() {
+  const index = editorTabs.length;
+  const tab = new EditorTab(index);
+  editorTabs.push(tab);
+  setActiveEditor(index);
+}
 
 // ---------------------------------------------------------------------------
 // Toolbar events
@@ -87,105 +81,7 @@ exitButton.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
-// resize events
-// ---------------------------------------------------------------------------
-
-function createEditorWrapper(index: number): HTMLElement {
-  const wrapper = document.createElement("div");
-  wrapper.className = "editor-wrapper";
-  wrapper.id = `editor-wrapper-${index}`;
-
-  const editorDiv = document.createElement("div");
-  editorDiv.className = "editor panel";
-  editorDiv.id = `editor-${index}`;
-
-  wrapper.appendChild(editorDiv);
-  return wrapper;
-}
-
-function createResizeBar(): HTMLElement {
-  const bar = document.createElement("div");
-  bar.className = "resize-bar-editor";
-  bar.style.width = "6px";
-  bar.style.backgroundColor = "#2d485a";
-  bar.style.cursor = "col-resize";
-  bar.style.flexShrink = "0";
-  return bar;
-}
-
-export function setActiveEditor(index: number) {
-  editor = allEditors[index];
-  editorView = editor.view;
-  activeEditorIndex = index;
-}
-
-function addNewEditor() {
-  const previousWrapper = document.getElementById(`editor-wrapper-${activeEditorIndex}`);
-
-  const resizeBar = createResizeBar();
-  const newWrapper = createEditorWrapper(activeEditorIndex + 1);
-
-  editorContainer.appendChild(resizeBar);
-  editorContainer.appendChild(newWrapper);
-
-  const newEditor = new CodeMirrorEditor(`editor-${activeEditorIndex + 1}`);
-  allEditors.push(newEditor);
-
-  if (previousWrapper) {
-    startEditorResize(resizeBar, previousWrapper, newWrapper);
-  }
-
-  setActiveEditor(activeEditorIndex + 1);
-}
-
-// Initialize the first editor
-const firstWrapper = createEditorWrapper(0);
-editorContainer.appendChild(firstWrapper);
-const firstEditor = new CodeMirrorEditor("editor-0");
-editor = firstEditor;
-editorView = firstEditor.view;
-editorView.focus();
-editorView.dispatch({
-  changes: { from: 0, to: editorView.state.doc.length, insert: latestSource },
-});
-allEditors.push(firstEditor);
-setActiveEditor(0);
-
-newEditorButton.addEventListener("click", addNewEditor);
-
-
-window.addEventListener('DOMContentLoaded', () => {
-  resizeEvents();
-});
-
-
-// ---------------------------------------------------------------------------
-// Reset notifications
-// ---------------------------------------------------------------------------
-
-resetButton.addEventListener('click', () => {
-  resetModal.style.display = 'flex';
-
-});
-
-confirmReset.addEventListener('click', () => {
-  editorView.dispatch({
-    changes: { from: 0, to: editorView.state.doc.length, insert: '' }
-  });
-
-  outputPanel.textContent = '';
-  stepButton.style.display = 'none';
-  exitButton.style.display = 'none';
-  localStorage.removeItem('latest-source');
-  resetModal.style.display = 'none';
-});
-
-cancelReset.addEventListener('click', () => {
-  resetModal.style.display = 'none';
-});
-
-// ---------------------------------------------------------------------------
-// Share buttons
+// Share button
 // ---------------------------------------------------------------------------
 
 shareButton.addEventListener('click', generateUrl);
@@ -217,21 +113,29 @@ export function saveToLocal() {
 }
 
 // ---------------------------------------------------------------------------
-// Left toolbar events
+// Reset button
 // ---------------------------------------------------------------------------
 
-langSwitch.addEventListener("click", () => {
-  if (langDropdown.style.display === "block") {
-    langDropdown.style.display = "none";
-  } else {
-    langDropdown.style.display = "block";
-  }
+resetButton.addEventListener('click', () => {
+  resetModal.style.display = 'flex';
+
 });
 
-const closeDropdown = () => {
-  langDropdown.style.display = "none";
-};
+confirmReset.addEventListener('click', () => {
+  editorView.dispatch({
+    changes: { from: 0, to: editorView.state.doc.length, insert: '' }
+  });
 
+  outputPanel.textContent = '';
+  stepButton.style.display = 'none';
+  exitButton.style.display = 'none';
+  localStorage.removeItem('latest-source');
+  resetModal.style.display = 'none';
+});
+
+cancelReset.addEventListener('click', () => {
+  resetModal.style.display = 'none';
+});
 
 // ---------------------------------------------------------------------------
 // Keyboard shortcuts
@@ -258,3 +162,27 @@ infoModal.addEventListener("click", (e) => {
     infoModal.style.display = "none";
   }
 });
+
+// ---------------------------------------------------------------------------
+// Initialization function
+// ---------------------------------------------------------------------------
+
+function initialize(): void {
+  // TODO figure out why this is being called twice
+  if (leftSide.childElementCount > 0) {
+    return;
+  }
+
+  // first editor
+  addNewTab();
+
+  // TODO store source of all editors?
+  const latestSource = localStorage.getItem('latest-source') || "";
+  editorView.dispatch({
+    changes: { from: 0, to: editorView.state.doc.length, insert: latestSource },
+  });
+
+  resizeEvents();
+}
+
+window.addEventListener("load", initialize);

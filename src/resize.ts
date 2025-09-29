@@ -1,5 +1,4 @@
-import { resizeBarY, resizeBarX, leftSide, rightSide, outputPanel, memdiaPanel, newEditorButton, setActiveEditor } from './main';
-
+import { resizeBarY, resizeBarX, leftSide, rightSide, outputPanel, memdiaPanel } from './main';
 
 let isResizingHoriz = false;
 let isResizingVert = false;
@@ -21,8 +20,6 @@ export function resizeEvents() {
     document.removeEventListener("mousemove", resizeHandler);
   });
 }
-
-
 
 export function resizeHandler(e: MouseEvent) {
   if (isResizingHoriz) {
@@ -50,9 +47,7 @@ export function resizeHandler(e: MouseEvent) {
       memdiaPanel.style.height = `${memdiaHeight}px`;
     }
   }
-
 }
-
 
 // individual function for resize bars in between editors
 
@@ -67,8 +62,8 @@ export function startEditorResize(bar: HTMLElement, leftEditor: HTMLElement, rig
 
     function onMouseMove(e: MouseEvent) {
       if (!isDragging) return;
-    //   const container = bar.parentElement as HTMLElement;
-    //   const containerRect = container.getBoundingClientRect();
+      //   const container = bar.parentElement as HTMLElement;
+      //   const containerRect = container.getBoundingClientRect();
       const totalWidth = leftEditor.offsetWidth + rightEditor.offsetWidth + bar.offsetWidth;
       const offsetLeft = leftEditor.getBoundingClientRect().left;
       const leftWidth = e.clientX - offsetLeft;
