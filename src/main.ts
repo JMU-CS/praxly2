@@ -50,8 +50,45 @@ export function setActiveEditor(index: number) {
   activeEditorIndex = index;
 }
 
-function addNewTab() {
-  const index = editorTabs.length;
+function removeTab(index : number) {
+  const tab = editorTabs[index];
+
+  const prevSibling = tab.wrapper.previousElementSibling;
+  if (prevSibling && prevSibling.classList.contains("resize-bar-editor")) {
+    prevSibling.remove();
+  }
+
+  tab.wrapper.remove();
+
+  // remove the tab from the array
+  editorTabs.splice(index, 1);
+
+  // Update activeEditorIndex
+  if (editorTabs.length === 0) {
+    addNewTab();
+  } else if (activeEditorIndex === index) {
+    // Removed tab was active → pick previous tab or first tab
+    const newIndex = index > 0 ? index - 1 : 0;
+    setActiveEditor(newIndex);
+  } else if (activeEditorIndex > index) {
+    // Removed tab was before the active tab → shift active index left
+    setActiveEditor(activeEditorIndex-1);
+  }
+  editorTabs[activeEditorIndex].button.textContent = "+";
+  editorTabs[activeEditorIndex].button.addEventListener('click', addNewTab);
+}
+
+export function addNewTab() {
+  let index = editorTabs.length;
+
+  // take off the + button and add an x button for the previous tab
+  const prevTab = editorTabs[index-1];
+  if (prevTab) {
+    prevTab.button.textContent = "x";
+    prevTab.button.removeEventListener('click', addNewTab);
+    prevTab.button.addEventListener('click', () => removeTab(index));
+  }
+
   const tab = new EditorTab(index);
   editorTabs.push(tab);
   setActiveEditor(index);
