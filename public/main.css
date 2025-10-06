@@ -104,7 +104,7 @@ main {
 }
 
 /* Buttons inside left-toolbar */
-.language-button,
+.tab-button,
 #new-editor {
   background-color: #444;
   color: white;

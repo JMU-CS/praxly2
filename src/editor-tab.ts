@@ -3,40 +3,26 @@
  */
 
 import { CodeMirrorEditor } from './editor.js';
-import { leftSide, addNewTab } from './main.js';
+import { leftSide, addNewTab, removeTab } from './main.js';
 import { startEditorResize } from './resize.js';
 
 export class EditorTab {
 
+    public static next_id: number = 1;
+
     public wrapper: HTMLDivElement;
-    public editorDiv: HTMLDivElement;
-    public editor: CodeMirrorEditor;
     public select: HTMLSelectElement;
     public button: HTMLButtonElement;
+    public editorDiv: HTMLDivElement;
+    public editor: CodeMirrorEditor;
     public resizeBar: HTMLDivElement;
 
-    constructor(index: number) {
-
-
-        // resize bar
-        this.resizeBar = document.createElement("div");
-        if (leftSide.childElementCount > 1) {
-            this.resizeBar.className = "resize-bar-editor";
-        }
-        leftSide.appendChild(this.resizeBar);
+    constructor() {
 
         // wrapper for the entire tab
         this.wrapper = document.createElement("div");
         this.wrapper.className = "editor-wrapper";
-        this.wrapper.id = `editor-wrapper-${index}`;
         leftSide.appendChild(this.wrapper);
-
-        startEditorResize(this.resizeBar, this.wrapper.previousElementSibling?.previousElementSibling as HTMLElement, this.wrapper);
-
-        // div to hold the code editor
-        this.editorDiv = document.createElement("div");
-        this.editorDiv.className = "editor panel";
-        this.editorDiv.id = `editor-${index}`;
 
         // language dropdown
         this.select = document.createElement("select");
@@ -47,26 +33,40 @@ export class EditorTab {
             o.textContent = option;
             this.select.appendChild(o);
         });
-        this.select.selectedIndex = 3; // Show Praxis originally
+        this.select.selectedIndex = 3;  // Show Praxis by default
 
-        // add new tab button
+        // add/close tab button
         this.button = document.createElement("button");
-        this.button.className = "language-button";
-        this.button.textContent = "+";
-        this.button.addEventListener('click', addNewTab);
+        this.button.className = "tab-button";
+        if (this.wrapper == leftSide.firstChild) {
+            this.button.textContent = "+";
+            this.button.addEventListener('click', addNewTab);
+        } else {
+            this.button.textContent = "x";
+            this.button.addEventListener('click', removeTab);
+        }
 
-        // nav bar for the tab
+        // nav bar for the buttons
         const nav = document.createElement("nav");
         nav.classList.add("left-toolbar");
         nav.appendChild(this.select);
         nav.appendChild(this.button);
-
-
         this.wrapper.appendChild(nav);
 
+        // div to hold the code editor
+        this.editorDiv = document.createElement("div");
+        this.editorDiv.className = "editor panel";
+        this.editorDiv.id = `editor-${EditorTab.next_id++}`;
         this.wrapper.appendChild(this.editorDiv);
 
-        this.editor = new CodeMirrorEditor(`editor-${index}`);
+        // CodeMirror editor
+        this.editor = new CodeMirrorEditor(this.editorDiv.id);
 
+        // resize bar
+        this.resizeBar = document.createElement("div");
+        this.resizeBar.className = "resize-bar-editor";
+        this.wrapper.appendChild(this.resizeBar);
+
+        // TODO startEditorResize(this.resizeBar, this.wrapper.previousElementSibling?.previousElementSibling as HTMLElement, this.wrapper);
     }
 }

@@ -3,6 +3,14 @@ import { EditorTab } from './editor-tab.js';
 import { run } from './run.js';
 import { startEditorResize, resizeEvents } from './resize';
 
+// Main elements
+export const leftSide = document.getElementById("left-side") as HTMLElement;
+export const resizeBarX = document.getElementById("resize-bar-X") as HTMLElement;
+export const rightSide = document.getElementById("right-side") as HTMLElement;
+export const outputPanel = document.getElementById('output-panel') as HTMLElement;
+export const resizeBarY = document.getElementById("resize-bar-Y") as HTMLElement;
+export const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
+
 // Toolbar buttons
 const runButton = document.getElementById('run-button') as HTMLInputElement;
 const debugButton = document.getElementById('debug-button') as HTMLInputElement;
@@ -21,14 +29,6 @@ const resetModal = document.getElementById('reset-confirm') as HTMLElement;
 const confirmReset = document.getElementById('confirm-reset') as HTMLButtonElement;
 const cancelReset = document.getElementById('cancel-reset') as HTMLButtonElement;
 
-// Main elements
-export const leftSide = document.getElementById("left-side") as HTMLElement;
-export const resizeBarX = document.getElementById("resize-bar-X") as HTMLElement;
-export const rightSide = document.getElementById("right-side") as HTMLElement;
-export const outputPanel = document.getElementById('output-panel') as HTMLElement;
-export const resizeBarY = document.getElementById("resize-bar-Y") as HTMLElement;
-export const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
-
 // Editor tabs
 export const editorTabs: EditorTab[] = [];
 let activeEditorIndex = 0;
@@ -42,68 +42,61 @@ export let editorView: any;
 // Adding editor tabs
 // ---------------------------------------------------------------------------
 
-export function setActiveEditor(index: number) {
-  editorTab = editorTabs[index];
-  editor = editorTab.editor;
-  editorView = editor.view;
-  editorView.focus();
-  activeEditorIndex = index;
-}
+export function addNewTab() {
+  let index = editorTabs.length;
 
-function removeTab(index : number) {
-  const tab = editorTabs[index];
-
-  const prevSibling = tab.wrapper.previousElementSibling;
-  if (prevSibling && prevSibling.classList.contains("resize-bar-editor")) {
-    prevSibling.remove();
+  // take off the + button and add an x button for the previous tab
+  const prevTab = editorTabs[index - 1];
+  if (prevTab) {
+    prevTab.button.textContent = 'x';
+    prevTab.button.removeEventListener('click', addNewTab);
+    prevTab.button.addEventListener('click', removeTab);
   }
 
+  const tab = new EditorTab();
+  editorTabs.push(tab);
+  setActiveEditor(index);
+}
+
+export function removeTab(ev: MouseEvent) {
+  // get the index of the EditorTab to be closed
+  let index = editorTabs.findIndex(tab => tab.button === ev.target);
+
+  // remove the tab from the DOM
+  const tab = editorTabs[index];
   tab.wrapper.remove();
 
   // remove the tab from the array
   editorTabs.splice(index, 1);
 
   // Update activeEditorIndex
-  if (editorTabs.length === 0) {
-    addNewTab();
-  } else if (activeEditorIndex === index) {
-    // Removed tab was active → pick previous tab or first tab
+  if (activeEditorIndex === index) {
     const newIndex = index > 0 ? index - 1 : 0;
     setActiveEditor(newIndex);
   } else if (activeEditorIndex > index) {
-    // Removed tab was before the active tab → shift active index left
-    setActiveEditor(activeEditorIndex-1);
+    setActiveEditor(activeEditorIndex - 1);
   }
-  editorTabs[activeEditorIndex].button.textContent = "+";
-  editorTabs[activeEditorIndex].button.addEventListener('click', addNewTab);
+
+  const last = editorTabs[editorTabs.length - 1];
+  if (last && last.button.textContent !== '+') {
+    last.button.textContent = '+';
+    last.button.removeEventListener('click', removeTab);
+    last.button.addEventListener('click', addNewTab);
+  }
 }
 
-export function addNewTab() {
-  let index = editorTabs.length;
-
-  // take off the + button and add an x button for the previous tab
-  const prevTab = editorTabs[index-1];
-  if (prevTab) {
-    prevTab.button.textContent = "x";
-    prevTab.button.removeEventListener('click', addNewTab);
-    prevTab.button.addEventListener('click', () => removeTab(index));
-  }
-
-  const tab = new EditorTab(index);
-  // if you are working with the first tab - assign the dropdown as the source
-  if (index == 0) {
-    tab.select.id = "src-lang";
-  } else {
-    // otherwise its a destination
-    tab.select.classList.add("dst-lang");
-  }
-
-  editorTabs.push(tab);
-  setActiveEditor(index);
+function setActiveEditor(index: number) {
+  // update global variables
+  editorTab = editorTabs[index];
+  editor = editorTab.editor;
+  editorView = editor.view;
+  // focus the active editor
+  editorView.focus();
+  activeEditorIndex = index;
 }
 
 // ---------------------------------------------------------------------------
-// Toolbar events
+// Run and Debug buttons
 // ---------------------------------------------------------------------------
 
 runButton.addEventListener('click', () => {
