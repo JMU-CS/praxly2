@@ -237,7 +237,7 @@ class PraxisParser extends Parser {
           const declaration = new ast.ConstructorDefinition(core.formals, core.block, visibility, Where.enclose(firstWhere, core.lastWhere));
           constructorDefinitions.push(declaration);
         }
-        
+
         // An instance variable or method.
         else {
           const type = this.type();

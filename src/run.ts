@@ -2,12 +2,17 @@ import { addMarks, stepMark } from './editor.js';
 import { EditorSelection } from '@codemirror/state';
 
 import * as ast from './language/ast.js';
+import * as praxis from './language/praxis/index.js';
+import * as python from './language/python/index.js';
+import * as english from './language/explain/index.js';
+import * as java from './language/java/index.js';
+import * as csp from './language/csp/index.js';
+
 import { Evaluator } from './language/evaluator.js';
 import { GlobalRuntime } from './language/runtime.js';
 import { WhereError } from './language/error.js';
 import { MemdiaSvg } from './language/memdia.js';
-import * as praxis from './language/praxis/index.js';
-import { editor, editorView, stepButton, outputPanel } from './main.js';
+import { editor, editorView, editorTabs, stepButton, outputPanel } from './main.js';
 
 const log = (text: string) => {
   outputPanel.appendChild(document.createTextNode(text));
@@ -29,12 +34,46 @@ export const run = async (isDebug: boolean) => {
   const source = editorView.state.doc.toString();
   localStorage.setItem('latest-source', source);
 
+  const translation = {
+    'CSP' : new csp.Translator(),
+    'English' : new english.Translator(),
+    'Java' : new java.Translator(),
+    'Praxis' : new praxis.Translator(),
+    'Python' : new python.Translator()
+  };
+
+  const srcLang = document.getElementById("src-lang") as HTMLSelectElement;
+  const dstDropdowns = document.querySelectorAll<HTMLSelectElement>(".dst-lang");
+  const dstLangs = [...dstDropdowns].map(dropdown => dropdown.value);
+  console.log(dstLangs);
+
+  // srcLang.value = localStorage.getItem('source-language') ?? 'Praxis';
+
   try {
     outputPanel.innerText = '';
 
-    const tokens = praxis.lex(source);
-    const ast = praxis.parse(tokens, source);
-    const outputFormatter = new praxis.OutputFormatter();
+    let tokens;
+    let ast;
+    let outputFormatter;
+    let translator;
+
+    // determoine the src value
+    if (srcLang.value == "Praxis") {
+      tokens = praxis.lex(source);
+      ast = praxis.parse(tokens, source);
+      outputFormatter = new praxis.OutputFormatter();
+    } else {
+        tokens = python.lex(source);
+        ast = python.parse(tokens, source);
+        outputFormatter = new python.OutputFormatter();
+    }
+
+    // determine all the dst values
+    for (const tab in editorTabs) {
+
+    }
+    // translator = translation[dstLangs[i]]
+
 
     // Update output-panel
     const runtime = new GlobalRuntime(log, getInput, false, 'this');

@@ -30,7 +30,7 @@ export const resizeBarY = document.getElementById("resize-bar-Y") as HTMLElement
 export const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
 
 // Editor tabs
-const editorTabs: EditorTab[] = [];
+export const editorTabs: EditorTab[] = [];
 let activeEditorIndex = 0;
 
 // TODO remove convenience variables for current editor?
@@ -90,6 +90,14 @@ export function addNewTab() {
   }
 
   const tab = new EditorTab(index);
+  // if you are working with the first tab - assign the dropdown as the source
+  if (index == 0) {
+    tab.select.id = "src-lang";
+  } else {
+    // otherwise its a destination
+    tab.select.classList.add("dst-lang");
+  }
+
   editorTabs.push(tab);
   setActiveEditor(index);
 }

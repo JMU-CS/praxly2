@@ -40,7 +40,7 @@ export class EditorTab {
 
         // language dropdown
         this.select = document.createElement("select");
-        this.select.id = "language-menu";
+        this.select.className = "language-menu";
         ["CSP", "English", "Java", "Praxis", "Python"].forEach(option => {
             const o = document.createElement("option");
             o.value = option;

@@ -116,7 +116,7 @@ main {
   white-space: nowrap;
 }
 
-#language-menu {
+.language-menu {
   display: block;
   width: 100%;
   background: none;
@@ -333,4 +333,17 @@ main {
   background-color: #2d485a;
   cursor: col-resize;
   flex-shrink: 0;
+}
+
+.jump-button {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: rebeccapurple;
+  font-weight: bold;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
 }
