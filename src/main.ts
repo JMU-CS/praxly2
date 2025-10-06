@@ -45,6 +45,11 @@ export let editorView: any;
 export function addNewTab() {
   let index = editorTabs.length;
 
+  // add a new tab at the end
+  const tab = new EditorTab();
+  editorTabs.push(tab);
+  setActiveEditor(index);
+
   // take off the + button and add an x button for the previous tab
   const prevTab = editorTabs[index - 1];
   if (prevTab) {
@@ -52,10 +57,6 @@ export function addNewTab() {
     prevTab.button.removeEventListener('click', addNewTab);
     prevTab.button.addEventListener('click', removeTab);
   }
-
-  const tab = new EditorTab();
-  editorTabs.push(tab);
-  setActiveEditor(index);
 }
 
 export function removeTab(ev: MouseEvent) {

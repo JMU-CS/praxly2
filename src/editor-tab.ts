@@ -33,18 +33,15 @@ export class EditorTab {
             o.textContent = option;
             this.select.appendChild(o);
         });
+
+        // TODO make selectedIndex the "next" language not in use
         this.select.selectedIndex = 3;  // Show Praxis by default
 
         // add/close tab button
         this.button = document.createElement("button");
         this.button.className = "tab-button";
-        if (this.wrapper == leftSide.firstChild) {
-            this.button.textContent = "+";
-            this.button.addEventListener('click', addNewTab);
-        } else {
-            this.button.textContent = "x";
-            this.button.addEventListener('click', removeTab);
-        }
+        this.button.textContent = "+";
+        this.button.addEventListener('click', addNewTab);
 
         // nav bar for the buttons
         const nav = document.createElement("nav");
