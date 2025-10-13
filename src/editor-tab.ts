@@ -1,10 +1,10 @@
 /**
- * One tab of the left side, including the CodeMirror editor.
+ * One tab of the left side, including the CodeMirror editor, resizing, and memory diagram tab.
  */
 
 import { CodeMirrorEditor } from './editor.js';
 import { leftSide, addNewTab, removeTab } from './main.js';
-import { startEditorResize } from './resize.js';
+import { startEditorResize } from './resize.js'; // remove this eventually
 
 export class EditorTab {
 
@@ -16,6 +16,7 @@ export class EditorTab {
     public editorDiv: HTMLDivElement;
     public editor: CodeMirrorEditor;
     public resizeBar: HTMLDivElement;
+    // add attribute for memory
 
     constructor() {
 
@@ -58,7 +59,6 @@ export class EditorTab {
         this.editorDiv.className = "editor panel";
         this.editorDiv.id = `editor-${EditorTab.next_id++}`;
 
-        // this.wrapper.appendChild(nav);
         tabLeft.appendChild(this.editorDiv);
         this.wrapper.appendChild(tabLeft);
 
@@ -67,6 +67,7 @@ export class EditorTab {
 
         const tabRight = document.createElement("div");
         tabRight.className = "tab-right";
+
         // resize bar
         this.resizeBar = document.createElement("div");
         this.resizeBar.className = "resize-bar-editor";
