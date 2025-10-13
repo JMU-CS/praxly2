@@ -48,21 +48,30 @@ export class EditorTab {
         nav.classList.add("left-toolbar");
         nav.appendChild(this.select);
         nav.appendChild(this.button);
-        this.wrapper.appendChild(nav);
+
+        const tabLeft = document.createElement("div");
+        tabLeft.className = "tab-left";
+        tabLeft.appendChild(nav);
 
         // div to hold the code editor
         this.editorDiv = document.createElement("div");
         this.editorDiv.className = "editor panel";
         this.editorDiv.id = `editor-${EditorTab.next_id++}`;
-        this.wrapper.appendChild(this.editorDiv);
+
+        // this.wrapper.appendChild(nav);
+        tabLeft.appendChild(this.editorDiv);
+        this.wrapper.appendChild(tabLeft);
 
         // CodeMirror editor
         this.editor = new CodeMirrorEditor(this.editorDiv.id);
 
+        const tabRight = document.createElement("div");
+        tabRight.className = "tab-right";
         // resize bar
         this.resizeBar = document.createElement("div");
         this.resizeBar.className = "resize-bar-editor";
-        this.wrapper.appendChild(this.resizeBar);
+        tabRight.appendChild(this.resizeBar);
+        this.wrapper.appendChild(tabRight);
 
         // TODO startEditorResize(this.resizeBar, this.wrapper.previousElementSibling?.previousElementSibling as HTMLElement, this.wrapper);
     }

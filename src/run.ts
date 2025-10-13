@@ -43,7 +43,7 @@ export const run = async (isDebug: boolean) => {
   };
 
   const srcLang = document.getElementById("src-lang") as HTMLSelectElement;
-  const dstDropdowns = document.querySelectorAll<HTMLSelectElement>(".dst-lang");
+  const dstDropdowns = document.querySelectorAll<HTMLSelectElement>(".editor-lang");
   const dstLangs = [...dstDropdowns].map(dropdown => dropdown.value);
   console.log(dstLangs);
 

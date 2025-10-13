@@ -318,7 +318,7 @@ main {
   flex: 1;
   min-width: 100px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
 }
 
 .editor {
@@ -331,6 +331,17 @@ main {
   background-color: #2d485a;
   cursor: col-resize;
   flex-shrink: 0;
+}
+
+.tab-left {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.tab-right {
+  display: flex;
+  flex-direction: row;
 }
 
 .jump-button {
