@@ -221,7 +221,7 @@ function initialize(): void {
     changes: { from: 0, to: editorView.state.doc.length, insert: latestSource },
   });
 
-  resizeEvents();
+  // resizeEvents();
 }
 
 window.addEventListener("load", initialize);
