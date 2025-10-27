@@ -4,7 +4,6 @@
 
 import { CodeMirrorEditor } from './editor.js';
 import { leftSide, rightSide, addNewTab, removeTab, editorTabs } from './main.js';
-import { startEditorResize } from './resize.js'; // remove this eventually
 
 export class EditorTab {
 
