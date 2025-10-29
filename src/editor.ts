@@ -1,5 +1,7 @@
 import * as praxis from './language/praxis/index.js';
 import * as cm from './codemirror.js';
+import { python } from '@codemirror/lang-python';
+import { java } from '@codemirror/lang-java';
 
 export const addMarks = cm.StateEffect.define<cm.Range<cm.Decoration>[]>();
 const filterMarks = cm.StateEffect.define<(from: number, to: number) => boolean>();
@@ -30,12 +32,15 @@ export const stepMark = cm.Decoration.mark({
 
 export class CodeMirrorEditor {
   private editorView: cm.EditorView;
+  private languageCompartment: cm.Compartment;
 
   constructor(elementId: string) {
     const parent = document.getElementById(elementId);
     if (!parent) {
       throw new Error(`Element with ID "${elementId}" not found.`);
     }
+
+    this.languageCompartment = new cm.Compartment();
 
     this.editorView = new cm.EditorView({
       parent,
@@ -66,11 +71,29 @@ export class CodeMirrorEditor {
           ...cm.completionKeymap,
           ...cm.lintKeymap,
         ]),
-        praxis.plugin(),
+        this.languageCompartment.of(praxis.plugin()),
         praxis.praxlyTheme,
         markField,
       ],
     });
+  }
+
+  switchLanguage(language: string) {
+    let plugin: cm.LanguageSupport | null = null;
+    if (language === 'Praxis') {
+      plugin = praxis.plugin();
+    } else if (language === 'Java') {
+      plugin = java();
+    } else if (language === 'Python') {
+      plugin = python();
+    } else {
+      console.warn(`Language ${language} doesn't have a CodeMirror plugin yet.`);
+    }
+    if (plugin) {
+      this.editorView.dispatch({
+        effects: this.languageCompartment.reconfigure(plugin),
+      });
+    }
   }
 
   removeAllMarks() {

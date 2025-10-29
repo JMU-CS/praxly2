@@ -16,7 +16,9 @@
     "vite": "^6.1.0"
   },
   "dependencies": {
+    "@codemirror/lang-java": "^6.0.2",
     "@codemirror/lang-lezer": "github:codemirror/lang-lezer",
+    "@codemirror/lang-python": "^6.2.1",
     "@fsegurai/codemirror-theme-vscode-dark": "^6.1.2",
     "@lezer/generator": "^1.7.2",
     "@lezer/lr": "^1.4.2",

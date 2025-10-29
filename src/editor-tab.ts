@@ -34,6 +34,10 @@ export class EditorTab {
             this.select.appendChild(o);
         });
 
+        this.select.addEventListener('change', () => {
+          this.editor.switchLanguage(this.select.value);
+        });
+
         // TODO make selectedIndex the "next" language not in use
         this.select.selectedIndex = 3;  // Show Praxis by default
 
