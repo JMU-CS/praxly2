@@ -79,21 +79,21 @@ export class CodeMirrorEditor {
   }
 
   switchLanguage(language: string) {
-    let plugin: cm.LanguageSupport | null = null;
+    let plugins = [];
     if (language === 'Praxis') {
-      plugin = praxis.plugin();
+      plugins.push(praxis.plugin());
     } else if (language === 'Java') {
-      plugin = java();
+      plugins.push(java());
     } else if (language === 'Python') {
-      plugin = python();
+      plugins.push(python());
+    } else if (language === 'English') {
     } else {
       console.warn(`Language ${language} doesn't have a CodeMirror plugin yet.`);
     }
-    if (plugin) {
-      this.editorView.dispatch({
-        effects: this.languageCompartment.reconfigure(plugin),
-      });
-    }
+
+    this.editorView.dispatch({
+      effects: this.languageCompartment.reconfigure(plugins),
+    });
   }
 
   removeAllMarks() {
