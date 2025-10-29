@@ -13,11 +13,11 @@ body {
 }
 
 #panels > * {
-  flex-grow: 1;
+  flex-grow: 2;
   flex-basis: 0;
 }
 
-#editor {
+#editor, #editor2 {
   overflow: scroll;
   display: flex;
   flex-direction: column;
@@ -40,18 +40,22 @@ body {
 
 #tree-panel {
   background-color: aqua;
+  display: none;
 }
 
 #source-panel {
   background-color: rgb(230, 200, 190);
+  display: none;
 }
 
 #output-panel {
+  flex: 1;
   background-color: rgb(230, 230, 230);
 }
 
 #memdia-panel {
   background-color: #1e1e1e;
+  display: none;
 }
 
 #controls {
@@ -84,4 +88,9 @@ var {
 
 .jump-button:active {
   color: orange;
+}
+
+.divider {
+  max-width: 5px;
+  background-color: #2d485a;
 }

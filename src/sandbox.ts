@@ -13,6 +13,88 @@ import {WhereError} from './language/error.js';
 import {MemdiaSvg} from './language/memdia.js';
 import {Where} from './language/where.js';
 
+const examples =
+  {
+    "if-else" :`int age \u2b60 18
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+else
+  print "stay home"
+end if
+age \u2b60 12
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+else
+  print "stay home"
+end if
+age \u2b60 14
+if (age ≥ 18)
+  print "vote"
+else if (age ≤ 12)
+  print "accompany"
+else
+  print "stay home"
+end if
+`,
+
+    "basic arrays" :
+`int[] xs = {5, 7}
+print xs
+print xs.length
+print xs[0]
+print xs[1]`,
+
+    "basic object" :
+`class Count
+  public int count = 0
+  void inc()
+    count = count + 1
+  end inc
+  void dec()
+    count = count - 1
+  end dec
+end class Count
+Count c = new Count()
+print c.count
+c.inc()
+c.inc()
+print c.count
+c.dec()
+print c.count`,
+
+    "inheritance" :
+`class Person
+  String name
+end class Person
+
+class AgedPerson extends Person
+  int age
+end class AgedPerson
+
+AgedPerson p = new AgedPerson()
+p.name = "Biz"
+p.age = 15
+print p.name
+print p.age
+`,
+    "factorial" :
+`// This function returns the factorial of a number.
+int fact(int n)
+    if (n < 2)
+        return n
+    end if
+    return n * fact(n - 1)
+end fact
+
+// Try printing different numbers to test your code!
+print fact(5)
+`
+  } as const;
+
 const addMarks = cm.StateEffect.define<cm.Range<cm.Decoration>[]>();
 const filterMarks = cm.StateEffect.define<(from: number, to: number) => boolean>();
 
@@ -55,12 +137,73 @@ function initialize() {
   const treePanel = document.getElementById('tree-panel') as HTMLElement;
   const outputPanel = document.getElementById('output-panel') as HTMLElement;
   const sourcePanel = document.getElementById('source-panel') as HTMLElement;
+  const exampleDropdown = document.getElementById("example-drop") as HTMLSelectElement;
+
+  // load examples
+  for (const key in examples) {
+    const option = document.createElement("option");
+    option.innerText = key;
+    exampleDropdown.appendChild(option);
+  }
+  type OptionKey = keyof typeof examples;
+
+  exampleDropdown.addEventListener("change", () => {
+    const key = exampleDropdown.value as OptionKey;
+    console.log(exampleDropdown.value);
+    editorView.dispatch({
+      changes: { from: 0, to: editorView.state.doc.length, insert:examples[key]},
+    });
+  });
 
   inputField.style.display = 'none';
 
+  // source editor
   const editor = document.getElementById('editor')!;
   const editorView = new cm.EditorView({
     parent: editor,
+    doc: '',
+    extensions: [
+      cm.lineNumbers(),
+      cm.highlightActiveLineGutter(),
+      cm.highlightSpecialChars(),
+      cm.history(),
+      cm.foldGutter(),
+      cm.drawSelection(),
+      cm.dropCursor(),
+      cm.EditorState.allowMultipleSelections.of(true),
+      cm.indentOnInput(),
+      cm.syntaxHighlighting(cm.defaultHighlightStyle, {fallback: true}),
+      cm.bracketMatching(),
+      cm.closeBrackets(),
+      cm.autocompletion(),
+      cm.rectangularSelection(),
+      cm.crosshairCursor(),
+      cm.highlightActiveLine(),
+      cm.keymap.of([
+        cm.indentWithTab,
+        ...cm.closeBracketsKeymap,
+        ...cm.defaultKeymap,
+        ...cm.searchKeymap,
+        ...cm.historyKeymap,
+        ...cm.foldKeymap,
+        ...cm.completionKeymap,
+        ...cm.lintKeymap,
+        {
+           key: "Mod-/",
+           run: cm.toggleComment,
+           preventDefault: true,
+        },
+      ]),
+      praxis.plugin(),
+      praxis.praxlyTheme,
+      markField,
+    ],
+  });
+
+  // destination editor
+  const editor2 = document.getElementById('editor2')!;
+  const editorView2 = new cm.EditorView({
+    parent: editor2,
     doc: '',
     extensions: [
       cm.lineNumbers(),
@@ -114,6 +257,9 @@ function initialize() {
   const removeAllMarks = () => {
     console.trace("remove 'em all");
     editorView.dispatch({
+      effects: filterMarks.of((_from, _to) => false),
+    });
+    editorView2.dispatch({
       effects: filterMarks.of((_from, _to) => false),
     });
   };
@@ -234,6 +380,12 @@ function initialize() {
         indentation: '  ',
       });
       sourcePanel.innerText = generatedSource;
+
+      // insert translated program to the destination editor
+      editorView2.dispatch({
+        changes: { from: 0, to: editorView2.state.doc.length, insert: generatedSource },
+      });
+
 
       // Update output-panel
       const allowsUndeclared = srcLang.value === 'Python';
