@@ -153,7 +153,14 @@ function initialize() {
     editorView.dispatch({
       changes: { from: 0, to: editorView.state.doc.length, insert:examples[key]},
     });
+    // When changing the example program, automatically clear target code editor.
+    editorView2.dispatch({
+      changes: { from: 0, to: editorView2.state.doc.length, insert:" " },
+    });
   });
+
+  // When changing the target language, automatically run so the code updates.
+  dstLang.addEventListener("change", () => runButton.click());
 
   inputField.style.display = 'none';
 
@@ -251,7 +258,7 @@ function initialize() {
     });
   }
 
-  srcLang.value = localStorage.getItem('source-language') ?? 'Praxis';
+  srcLang.value = localStorage.getItem('source-language') ?? 'Python';
   dstLang.value = localStorage.getItem('target-language') ?? 'Praxis';
 
   const removeAllMarks = () => {

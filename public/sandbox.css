@@ -66,6 +66,10 @@ body {
   margin-right: 1em;
 }
 
+#step-button {
+  margin-right: 1em;
+}
+
 
 var {
   color: blue;
