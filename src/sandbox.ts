@@ -174,10 +174,11 @@ function initialize() {
     doc: '',
     extensions: [
       cm.lineNumbers(),
+      cm.EditorView.lineWrapping,
       cm.highlightActiveLineGutter(),
       cm.highlightSpecialChars(),
       cm.history(),
-      cm.foldGutter(),
+      // cm.foldGutter(), // Disable for demo
       cm.drawSelection(),
       cm.dropCursor(),
       cm.EditorState.allowMultipleSelections.of(true),
@@ -221,7 +222,8 @@ function initialize() {
       cm.highlightActiveLineGutter(),
       cm.highlightSpecialChars(),
       cm.history(),
-      cm.foldGutter(),
+      cm.EditorView.lineWrapping,
+      // cm.foldGutter(),
       cm.drawSelection(),
       cm.dropCursor(),
       cm.EditorState.allowMultipleSelections.of(true),
@@ -268,6 +270,8 @@ function initialize() {
       plugins.push(praxis.plugin());
     } else if (language === 'Java') {
       plugins.push(javaPlugin());
+    } else if (language === 'CSP') {
+      plugins.push(praxis.plugin());
     } else if (language === 'Python') {
       plugins.push(pythonPlugin());
     } else if (language === 'English') {

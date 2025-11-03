@@ -21,7 +21,7 @@ const functionColor = '#dcdcaa';
 const numberColor = '#b5cea8';
 const operatorColor = '#d4d4d4';
 const regexpColor = '#d16969';
-const stringColor = '#ce9178';
+const stringColor = '#FFFF00'; //'#ce9178';
 const commentColor = '#6a9955';
 const invalidColor = '#ff0000';
 
@@ -88,8 +88,7 @@ const highlightStyles = HighlightStyle.define([
   },
   {
     tag: [tags.typeName],
-    // color: "#ebcb8b",
-    color: "green"
+    color: "#ebcb8b",
   },
   {
     tag: [tags.className],
@@ -111,6 +110,10 @@ const highlightStyles = HighlightStyle.define([
     tag: [tags.number],
     color: numberColor
   },
+  // {
+    // tag: [tags.string],
+    // color: stringColor,
+  // },
   {
     tag: [tags.operator, tags.punctuation, tags.separator, tags.url, tags.escape, tags.regexp],
     color: operatorColor,
