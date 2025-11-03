@@ -6,6 +6,8 @@ import * as java from './language/java/index.js';
 import * as csp from './language/csp/index.js';
 import * as cm from './codemirror.js';
 
+import { python as pythonPlugin } from '@codemirror/lang-python';
+import { java as javaPlugin } from '@codemirror/lang-java';
 import {Objectifier} from './language/objectifier.js';
 import {Evaluator} from './language/evaluator.js';
 import {GlobalRuntime} from './language/runtime.js';
@@ -165,6 +167,7 @@ function initialize() {
   inputField.style.display = 'none';
 
   // source editor
+  const sourceCompartment = new cm.Compartment();
   const editor = document.getElementById('editor')!;
   const editorView = new cm.EditorView({
     parent: editor,
@@ -201,13 +204,14 @@ function initialize() {
            preventDefault: true,
         },
       ]),
-      praxis.plugin(),
+      sourceCompartment.of(praxis.plugin()),
       praxis.praxlyTheme,
       markField,
     ],
   });
 
   // destination editor
+  const targetCompartment = new cm.Compartment();
   const editor2 = document.getElementById('editor2')!;
   const editorView2 = new cm.EditorView({
     parent: editor2,
@@ -244,7 +248,7 @@ function initialize() {
            preventDefault: true,
         },
       ]),
-      praxis.plugin(),
+      targetCompartment.of(praxis.plugin()),
       praxis.praxlyTheme,
       markField,
     ],
@@ -258,8 +262,36 @@ function initialize() {
     });
   }
 
+  const synchronizePlugin = (editorView: cm.EditorView, compartment: cm.Compartment, language: string) => {
+    let plugins = [];
+    if (language === 'Praxis') {
+      plugins.push(praxis.plugin());
+    } else if (language === 'Java') {
+      plugins.push(javaPlugin());
+    } else if (language === 'Python') {
+      plugins.push(pythonPlugin());
+    } else if (language === 'English') {
+    } else {
+      console.warn(`Language ${language} doesn't have a CodeMirror plugin yet.`);
+    }
+
+    editorView.dispatch({
+      effects: compartment.reconfigure(plugins),
+    });
+  };
+
   srcLang.value = localStorage.getItem('source-language') ?? 'Python';
   dstLang.value = localStorage.getItem('target-language') ?? 'Praxis';
+  synchronizePlugin(editorView, sourceCompartment, srcLang.value);
+  synchronizePlugin(editorView2, targetCompartment, dstLang.value);
+
+  srcLang.addEventListener('change', () => {
+    synchronizePlugin(editorView, sourceCompartment, srcLang.value);
+  });
+
+  dstLang.addEventListener('change', () => {
+    synchronizePlugin(editorView2, targetCompartment, dstLang.value);
+  });
 
   const removeAllMarks = () => {
     console.trace("remove 'em all");
