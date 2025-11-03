@@ -296,15 +296,16 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitIf(node: ast.If, formatter: Formatter): string {
-    let text = `IF (${node.conditionNodes[0].visit(this, formatter)})\n{\n`;
-    text += `${node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}}\n`;
-    // TODO : are else ifs just additional IF statments
+    let indent = `${formatter.indentation.repeat(formatter.nestingLevel)}`;
+    let text = `IF (${node.conditionNodes[0].visit(this, formatter)})\n${indent}{\n`;
+    text += `${node.thenBlocks[0].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}${indent}}\n`;
+    // TODO : is else-if a nested if statement inside the else block?
     for (let i = 1; i < node.conditionNodes.length; ++i) {
-      text += `IF (${node.conditionNodes[i].visit(this, formatter)})\n{\n`;
+      text += `ELSE IF (${node.conditionNodes[i].visit(this, formatter)})\n${indent}{\n`;
       text += `${node.thenBlocks[i].visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}}\n`;
     }
     if (node.elseBlock) {
-      text += `${formatter.indentation.repeat(formatter.nestingLevel)}ELSE\n{\n`;
+      text += `ELSE\n${indent}{\n`;
       text += `${node.elseBlock.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}}`;
     }
     return text;

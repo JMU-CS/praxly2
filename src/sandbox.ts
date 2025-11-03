@@ -17,74 +17,83 @@ import {Where} from './language/where.js';
 
 const examples =
   {
-    "if-else" :`int age \u2b60 18
+    "if-else": `
+int age ⭠ 18
 if (age ≥ 18)
-  print "vote"
+    print "vote"
 else if (age ≤ 12)
-  print "accompany"
+    print "accompany"
 else
-  print "stay home"
+    print "stay home"
 end if
-age \u2b60 12
+
+age ⭠ 12
 if (age ≥ 18)
-  print "vote"
+    print "vote"
 else if (age ≤ 12)
-  print "accompany"
+    print "accompany"
 else
-  print "stay home"
+    print "stay home"
 end if
-age \u2b60 14
+
+age ⭠ 14
 if (age ≥ 18)
-  print "vote"
+    print "vote"
 else if (age ≤ 12)
-  print "accompany"
+    print "accompany"
 else
-  print "stay home"
+    print "stay home"
 end if
 `,
 
-    "basic arrays" :
-`int[] xs = {5, 7}
+    "basic arrays": `
+int[] xs ⭠ {5, 7}
 print xs
 print xs.length
 print xs[0]
-print xs[1]`,
+print xs[1]
+`,
 
-    "basic object" :
-`class Count
-  public int count = 0
-  void inc()
-    count = count + 1
-  end inc
-  void dec()
-    count = count - 1
-  end dec
+    "basic object": `
+class Count
+    public int count ⭠ 0
+
+    void inc()
+        count ⭠ count + 1
+    end inc
+
+    void dec()
+        count ⭠ count - 1
+    end dec
 end class Count
-Count c = new Count()
+
+Count c ⭠ new Count()
 print c.count
 c.inc()
 c.inc()
 print c.count
 c.dec()
-print c.count`,
+print c.count
+`,
 
-    "inheritance" :
-`class Person
-  String name
+    "inheritance": `
+class Person
+    String name
 end class Person
 
 class AgedPerson extends Person
-  int age
+    int age
 end class AgedPerson
 
-AgedPerson p = new AgedPerson()
-p.name = "Biz"
-p.age = 15
+AgedPerson p ⭠ new AgedPerson()
+p.name ⭠ "Biz"
+p.age ⭠ 15
 print p.name
 print p.age
 `,
-    "factorial" :
-`// This function returns the factorial of a number.
+
+    "factorial": `
+// This function returns the factorial of a number.
 int fact(int n)
     if (n < 2)
         return n
@@ -153,11 +162,11 @@ function initialize() {
     const key = exampleDropdown.value as OptionKey;
     console.log(exampleDropdown.value);
     editorView.dispatch({
-      changes: { from: 0, to: editorView.state.doc.length, insert:examples[key]},
+      changes: { from: 0, to: editorView.state.doc.length, insert: examples[key].trimStart() },
     });
     // When changing the example program, automatically clear target code editor.
     editorView2.dispatch({
-      changes: { from: 0, to: editorView2.state.doc.length, insert:" " },
+      changes: { from: 0, to: editorView2.state.doc.length, insert: "" },
     });
   });
 
@@ -275,6 +284,7 @@ function initialize() {
     } else if (language === 'Python') {
       plugins.push(pythonPlugin());
     } else if (language === 'English') {
+      // no syntax highlighting
     } else {
       console.warn(`Language ${language} doesn't have a CodeMirror plugin yet.`);
     }
@@ -284,10 +294,12 @@ function initialize() {
     });
   };
 
-  srcLang.value = localStorage.getItem('source-language') ?? 'Python';
-  dstLang.value = localStorage.getItem('target-language') ?? 'Praxis';
+  srcLang.value = localStorage.getItem('source-language') ?? 'Praxis';
+  dstLang.value = localStorage.getItem('target-language') ?? 'Python';
   synchronizePlugin(editorView, sourceCompartment, srcLang.value);
   synchronizePlugin(editorView2, targetCompartment, dstLang.value);
+
+  exampleDropdown.value = localStorage.getItem('example-program') ?? 'if-else';
 
   srcLang.addEventListener('change', () => {
     synchronizePlugin(editorView, sourceCompartment, srcLang.value);
@@ -351,6 +363,7 @@ function initialize() {
     localStorage.setItem('latest-source', source);
     localStorage.setItem('source-language', srcLang.value);
     localStorage.setItem('target-language', dstLang.value);
+    localStorage.setItem('example-program', exampleDropdown.value);
 
     try {
       outputPanel.innerText = '';
@@ -420,7 +433,7 @@ function initialize() {
       // Update source-panel
       const generatedSource = ast.visit(translator, {
         nestingLevel: 0,
-        indentation: '  ',
+        indentation: '    ',
       });
       sourcePanel.innerText = generatedSource;
 

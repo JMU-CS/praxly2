@@ -386,7 +386,7 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitFunctionCall(node: ast.FunctionCall, formatter: Formatter): string {
-    return `Call the function ${node.identifier} with ${formatting.format(node.actuals.map(actual => actual.visit(this, formatter)))}.`;
+    return `Call the function ${node.identifier} with ${formatting.format(node.actuals.map(actual => actual.visit(this, formatter)))}`;
   }
 
   visitReturn(node: ast.Return, formatter: Formatter): string {

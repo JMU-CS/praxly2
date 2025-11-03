@@ -312,18 +312,19 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitIf(node: ast.If, formatter: Formatter): string {
+    let indent = `${formatter.indentation.repeat(formatter.nestingLevel)}`;
     let text = `if (${node.conditionNodes[0].visit(this, formatter)}) {\n`;
     text += `${node.thenBlocks[0].visit(this, { ...formatter, nestingLevel: formatter.nestingLevel + 3 })}`;
     text += `${formatter.indentation.repeat(formatter.nestingLevel + 2)}}`;
     for (let i = 1; i < node.conditionNodes.length; ++i) {
       text += ` else if (${node.conditionNodes[i].visit(this, formatter)}) {\n`;
-      text += `${node.thenBlocks[i].visit(this, { ...formatter, nestingLevel: formatter.nestingLevel + 2 })}`;
-      text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+      text += `${node.thenBlocks[i].visit(this, { ...formatter, nestingLevel: formatter.nestingLevel + 3 })}`;
+      text += `${formatter.indentation.repeat(formatter.nestingLevel + 2)}}`;
     }
     if (node.elseBlock) {
-      text += ` else {\n${node.elseBlock.visit(this, { ...formatter, nestingLevel: formatter.nestingLevel + 2 })}`;
+      text += ` else {\n${node.elseBlock.visit(this, { ...formatter, nestingLevel: formatter.nestingLevel + 3 })}`;
       // text += `${formatter.indentation.repeat(formatter.nestingLevel)} `;
-      text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
+      text += `${formatter.indentation.repeat(formatter.nestingLevel + 2)}}`;
     }
     return text;
   }
@@ -371,7 +372,7 @@ export class Translator extends Visitor<Formatter, string> {
 
   visitFunctionDefinition(node: ast.FunctionDefinition, formatter: Formatter): string {
     // TODO ? : Function Definitions don't have visibilty so temporary make every method public
-    let text = `static ${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')}) {\n`;
+    let text = `public static ${node.returnType} ${node.identifier}(${node.formals.map(formal => `${formal.type} ${formal.identifier}`).join(', ')}) {\n`;
     text += node.body.visit(this, { ...formatter, nestingLevel: formatter.nestingLevel + 1 });
     text += `${formatter.indentation.repeat(formatter.nestingLevel)}}`;
     return text;
@@ -385,7 +386,7 @@ export class Translator extends Visitor<Formatter, string> {
   visitReturn(node: ast.Return, formatter: Formatter): string {
     let text = `return`;
     if (node.operandNode) {
-      text += ` ${node.operandNode.visit(this, formatter)}`;
+      text += ` ${node.operandNode.visit(this, formatter)};`;
     }
     return this.maybeSemicolon(node, text);
   }
