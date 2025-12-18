@@ -69,12 +69,8 @@ header {
 /* main area (aka tabs) */
 
 main {
-    background-color: salmon;
+    background-color: #1e1e1e;
     height: 75vh;
-}
-
-.tab-header {
-    background-color: plum;
 }
 
 .tab {
@@ -87,6 +83,34 @@ main {
     display: flex;
     flex-direction: column;
     width: 100%;
+    color: white;
+}
+
+.tab-header {
+    background-color: #444;
+    display: flex;
+    padding: 5px;
+    gap: 8px;
+    align-items: center;
+    justify-content: left; /* change to space around when 'x' */
+}
+
+.tab-header select.language-dropdown {
+    background-color: #666;
+    border-color: #666;
+    border-radius: 6px;
+    padding: 8px;
+    max-width: fit-content;
+    color: inherit;
+}
+
+.tab-header .new-editor {
+    background-color: #666;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 18px;
+    color: inherit;
 }
 
 .memdia .diagram {
@@ -94,8 +118,8 @@ main {
 }
 
 .resize-bar {
-    background-color: crimson;
-    width: 4px;
+    background-color: #2d485a;
+    width: 5px;
 }
 
 /* output */
