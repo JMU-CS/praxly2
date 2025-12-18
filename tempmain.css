@@ -1,0 +1,34 @@
+body {
+    margin: 0;
+    font-family: sans-serif;
+    overflow: hidden;
+}
+
+/* header */
+
+header {
+    background-color: pink;
+    height: 10vh;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tools {
+    display: flex;
+    list-style: none;
+    padding: 10px;
+}
+
+/* main area (aka tabs) */
+
+main {
+    background-color: salmon;
+}
+
+/* output */
+
+footer {
+    background-color: palevioletred;
+    height: 25vh;
+}
