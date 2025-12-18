@@ -4,14 +4,19 @@ body {
     overflow: hidden;
 }
 
+.label {
+    background-color: aliceblue;
+}
+
 /* header */
 
 header {
     background-color: pink;
-    height: 10vh;
+    height: 5vh;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding: 10px;
 }
 
 .tools {
@@ -24,11 +29,37 @@ header {
 
 main {
     background-color: salmon;
+    height: 75vh;
+}
+
+.tab-header {
+    background-color: plum;
+}
+
+.tab {
+    display: flex;
+    flex-direction: row;;
+    height: 100%;
+}
+
+.tab-content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.memdia .diagram {
+    background-color: black;
+}
+
+.resize-bar {
+    background-color: crimson;
+    width: 4px;
 }
 
 /* output */
 
 footer {
     background-color: palevioletred;
-    height: 25vh;
+    height: 20vh;
 }
