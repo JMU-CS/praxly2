@@ -7,7 +7,8 @@ body {
 }
 
 .label {
-    background-color: aliceblue;
+    background-color: #2d485a;
+    color: black;
 }
 
 /* header */
@@ -113,8 +114,13 @@ main {
     color: inherit;
 }
 
+.editor {
+    height: 100%;
+}
+
 .memdia .diagram {
     background-color: black;
+    height: 20vh;
 }
 
 .resize-bar {
@@ -125,6 +131,6 @@ main {
 /* output */
 
 footer {
-    background-color: palevioletred;
+    background-color: #1e1e1e;
     height: 20vh;
 }
