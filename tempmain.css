@@ -1,3 +1,5 @@
+/* TODO: have color variables */
+
 body {
     margin: 0;
     font-family: sans-serif;
@@ -11,7 +13,8 @@ body {
 /* header */
 
 header {
-    background-color: pink;
+    background-color: #2b2b2b;
+    color: white;
     height: 5vh;
     display: flex;
     align-items: center;
@@ -23,6 +26,44 @@ header {
     display: flex;
     list-style: none;
     padding: 10px;
+    gap: 2em;
+}
+
+.tools button {
+    background-color: #2b2b2b;
+    color: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+}
+
+.tools button {
+    transition: background-color 0.5s ease;
+}
+
+#run-button:hover {
+  background-color: #7ae57d;
+}
+
+#debug-button:hover {
+  background-color: #d87456;
+}
+
+#share-button:hover {
+  background-color: #7981ee;
+}
+
+#info-button:hover {
+  background-color: #eba542;
+}
+
+#reset-button:hover {
+  background-color: lightslategray;
 }
 
 /* main area (aka tabs) */
