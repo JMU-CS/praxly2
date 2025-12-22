@@ -139,11 +139,18 @@ export function generateUrl() {
   dummy.select();
   document.execCommand('copy');
   document.body.removeChild(dummy);
-  const toast = document.getElementById('toast');
-  if (toast) {
-    toast.style.display = 'block';
+  // const toast = document.getElementById('toast');
+  // if (toast) {
+  //   toast.style.display = 'block';
+  //   setTimeout(() => {
+  //     toast.style.display = 'none';
+  //   }, 3000);
+  // }
+  const notification = document.getElementById("notification");
+  if (notification) {
+    notification.style.display = 'block';
     setTimeout(() => {
-      toast.style.display = 'none';
+      notification.style.display = 'none';
     }, 3000);
   }
 }

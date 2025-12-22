@@ -269,15 +269,10 @@ footer {
   background-color: lightslategray;
 }
 
-#toast {
+#notification {
   display: none;
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
   background: #333;
-  color: white;
   padding: 10px;
-  border-radius: 5px;
 }
 
 /* editor pop up */
