@@ -1,88 +1,84 @@
-import { resizeBarY, resizeBarX, leftSide, rightSide, outputPanel, memdiaPanel } from './main';
+const MIN_TAB_WIDTH = 300;
+let dragging = false;
 
-let isResizingHoriz = false;
-let isResizingVert = false;
+// resizing functionality
+function onMouseDown(bar: HTMLDivElement, e: MouseEvent) {
+  dragging = true;
+  e.preventDefault();
 
-export function resizeEvents() {
-  resizeBarX.addEventListener('mousedown', () => {
-    isResizingHoriz = true;
-    document.addEventListener('mousemove', resizeHandler);
-  });
+  const leftTab = bar.parentElement as HTMLElement;
+  const rightTab = leftTab.nextElementSibling as HTMLElement;
 
-  resizeBarY.addEventListener('mousedown', () => {
-    isResizingVert = true;
-    document.addEventListener('mousemove', resizeHandler);
-  });
+  if (!rightTab || !rightTab.classList.contains('tab')) return;
 
-  document.addEventListener("mouseup", () => {
-    isResizingHoriz = false;
-    isResizingVert = false;
-    document.removeEventListener("mousemove", resizeHandler);
+  const startX = e.clientX;
+  const leftStartWidth = leftTab.offsetWidth;
+  const rightStartWidth = rightTab.offsetWidth;
+
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+
+  const onMouseMove = (moveEvent: MouseEvent) => {
+    const delta = moveEvent.clientX - startX;
+
+    const newLeftWidth = leftStartWidth + delta;
+    const newRightWidth = rightStartWidth - delta;
+
+    // HARD GUARDS
+    if ((newLeftWidth < MIN_TAB_WIDTH) || (newRightWidth < MIN_TAB_WIDTH)) return;
+
+    leftTab.style.width = `${newLeftWidth}px`;
+    leftTab.style.flexBasis = `${newLeftWidth}px`;
+
+    rightTab.style.width = `${newRightWidth}px`;
+    rightTab.style.flexBasis = `${newRightWidth}px`;
+  };
+
+  const onMouseUp = () => {
+    dragging = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
+// for attaching the listener on any new resize bars
+export function attachResizeBar(bar: HTMLDivElement) {
+  if (bar.dataset.resizeAttached) return;
+  bar.dataset.resizeAttached = 'true';
+  bar.addEventListener('mousedown', (e) => onMouseDown(bar, e));
+}
+
+export function initTabWidths() {
+  const tabs = Array.from(document.querySelectorAll<HTMLElement>('.tab'));
+  const main = document.querySelector('main') as HTMLElement;
+
+  if (!main || tabs.length === 0) return;
+
+  const resizeBarWidth = 5;
+  const totalResizeBars = tabs.length - 1;
+
+  const availableWidth =
+    main.clientWidth - totalResizeBars * resizeBarWidth;
+
+  const widthPerTab = availableWidth / tabs.length;
+
+  tabs.forEach(tab => {
+    tab.style.width = `${widthPerTab}px`;
+    tab.style.flexBasis = `${widthPerTab}px`;
   });
 }
 
-export function resizeHandler(e: MouseEvent) {
-  if (isResizingHoriz) {
-    const leftEdge = leftSide.getBoundingClientRect().left;
-    const totalWidth = leftSide.offsetWidth + rightSide.offsetWidth + resizeBarX.offsetWidth;
+function initializeResize() {
+  document.querySelectorAll<HTMLDivElement>('.resize-bar')
+    .forEach(bar => attachResizeBar(bar));
 
-    const leftWidth = e.clientX - leftEdge;
-    const rightWidth = totalWidth - leftWidth - resizeBarX.offsetWidth;
-
-    if (leftWidth > 100 && rightWidth > 100) {
-      leftSide.style.width = `${leftWidth}px`;
-      rightSide.style.width = `${rightWidth}px`;
-    }
-  }
-
-  if (isResizingVert) {
-    const topEdge = rightSide.getBoundingClientRect().top;
-    const totalHeight = outputPanel.offsetHeight + memdiaPanel.offsetHeight + resizeBarY.offsetHeight;
-
-    const outputHeight = e.clientY - topEdge;
-    const memdiaHeight = totalHeight - outputHeight - resizeBarY.offsetHeight;
-
-    if (outputHeight > 100 && memdiaHeight > 100) {
-      outputPanel.style.height = `${outputHeight}px`;
-      memdiaPanel.style.height = `${memdiaHeight}px`;
-    }
-  }
+  if (!dragging) initTabWidths();
 }
 
-// individual function for resize bars in between editors
-
-export function startEditorResize(bar: HTMLElement, leftEditor: HTMLElement, rightEditor: HTMLElement) {
-  let isDragging = false;
-
-  bar.addEventListener("mousedown", () => {
-    isDragging = true;
-    document.body.style.cursor = "col-resize";
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-
-    function onMouseMove(e: MouseEvent) {
-      if (!isDragging) return;
-      //   const container = bar.parentElement as HTMLElement;
-      //   const containerRect = container.getBoundingClientRect();
-      const totalWidth = leftEditor.offsetWidth + rightEditor.offsetWidth + bar.offsetWidth;
-      const offsetLeft = leftEditor.getBoundingClientRect().left;
-      const leftWidth = e.clientX - offsetLeft;
-      const rightWidth = totalWidth - leftWidth - bar.offsetWidth;
-
-      if (leftWidth > 100 && rightWidth > 100) {
-        leftEditor.style.flex = `0 0 ${leftWidth}px`;
-        rightEditor.style.flex = `0 0 ${rightWidth}px`;
-      }
-    }
-
-    function onMouseUp() {
-      isDragging = false;
-      document.body.style.cursor = "default";
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    }
-  });
-}
-
-// startEditorResize(resizeEditorX, editorWrapper0, editorWrapper1);
-// startEditorResize(resizeEditorXX, editorWrapper1, editorWrapper2);
+window.addEventListener('DOMContentLoaded', initializeResize);

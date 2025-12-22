@@ -13,55 +13,54 @@
 </head>
 
 <body>
-  <main>
-    <div id="left-side"></div>
-    <!-- <div id="resize-bar-X"></div> -->
-    <div id="right-side">
-
-      <!-- Toolbar buttons -->
-      <ul class="nav-bar">
-        <li>
-          <button id="run-button" title="Run the entire program">
-            <span class="material-symbols-rounded">play_arrow</span>
-          </button>
-        </li>
-        <li>
-          <button id="debug-button" title="Debug one step at a time">
-            <span class="material-symbols-rounded">pest_control</span>
-          </button>
-        </li>
-        <li style="display: none">
-          <button id="step-button" title="Run the next step">
-            <span class="material-symbols-rounded">step</span>
-          </button>
-        </li>
-        <li style="display: none">
-          <button id="exit-button" title="Exit the debugger">
-            <span class="material-symbols-rounded">stop</span>
-          </button>
-        </li>
-        <li>
-          <button id="share-button" title="Create link for sharing">
-            <span class="material-symbols-rounded share">share</span>
-          </button>
-        </li>
-        <li>
-          <button id="info-button" title="Information and examples">
-            <span class="material-symbols-rounded">info</span>
-          </button>
-        </li>
-        <li>
-          <button id="reset-button" title="Reset to the initial code">
-            <span class="material-symbols-rounded">restart_alt</span>
-          </button>
-        </li>
-      </ul>
-
-      <div id="output-panel" class="panel"></div>
-      <div id="resize-bar-Y"></div>
-      <div id="memdia-panel" class="panel"></div>
+<header>
+    <h1>Praxly 🍂</h1>
+    <div style="display: none;" class="notification"></div>
+    <div class="toolbar">
+        <ul class="tools">
+          <li>
+            <button id="run-button" title="Run the entire program">
+              <span class="material-symbols-rounded">play_arrow</span>
+            </button>
+          </li>
+          <li>
+            <button id="debug-button" title="Debug one step at a time">
+              <span class="material-symbols-rounded">pest_control</span>
+            </button>
+          </li>
+          <li class="hide">
+            <button id="step-button" title="Run the next step">
+              <span class="material-symbols-rounded">step</span>
+            </button>
+          </li>
+          <li class="hide">
+            <button id="exit-button" title="Exit the debugger">
+              <span class="material-symbols-rounded">stop</span>
+            </button>
+          </li>
+          <li>
+            <button id="share-button" title="Create link for sharing">
+              <span class="material-symbols-rounded share">share</span>
+            </button>
+          </li>
+          <li>
+            <button id="info-button" title="Information and examples">
+              <span class="material-symbols-rounded">info</span>
+            </button>
+          </li>
+          <li>
+            <button id="reset-button" title="Reset to the initial code">
+              <span class="material-symbols-rounded">restart_alt</span>
+            </button>
+          </li>
+        </ul>
     </div>
-  </main>
+</header>
+<main></main>
+<div class="label">Output</div>
+<footer id="output-panel">
+</footer>
+
 
   <!-- notification for Share button -->
   <div id="toast">
@@ -93,6 +92,8 @@
   </div>
 
   <script type="module" src="/src/main.ts"></script>
+  <script type="module" src="/src/resize.ts"></script>
+
 </body>
 
 </html>

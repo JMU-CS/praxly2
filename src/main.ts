@@ -1,14 +1,11 @@
 import { CodeMirrorEditor } from './editor.js';
-import { EditorTab } from './editor-tab.js';
+import { Tab } from './tab.js';
 import { run } from './run.js';
-import { startEditorResize, resizeEvents } from './resize';
+import { initTabWidths } from './resize.js';
 
 // Main elements
-export const leftSide = document.getElementById("left-side") as HTMLElement;
-export const resizeBarX = document.getElementById("resize-bar-X") as HTMLElement;
-export const rightSide = document.getElementById("right-side") as HTMLElement;
+const main = document.querySelector("main") as HTMLElement;
 export const outputPanel = document.getElementById('output-panel') as HTMLElement;
-export const resizeBarY = document.getElementById("resize-bar-Y") as HTMLElement;
 export const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
 
 // Toolbar buttons
@@ -30,11 +27,11 @@ const confirmReset = document.getElementById('confirm-reset') as HTMLButtonEleme
 const cancelReset = document.getElementById('cancel-reset') as HTMLButtonElement;
 
 // Editor tabs
-export const editorTabs: EditorTab[] = [];
+export const editorTabs: Tab[] = [];
 let activeEditorIndex = 0;
 
 // TODO remove convenience variables for current editor?
-export let editorTab: EditorTab;
+export let editorTab: Tab;
 export let editor: CodeMirrorEditor;
 export let editorView: any;
 
@@ -46,26 +43,27 @@ export function addNewTab() {
   let index = editorTabs.length;
 
   // add a new tab at the end
-  const tab = new EditorTab();
+  const tab = new Tab();
   editorTabs.push(tab);
   setActiveEditor(index);
+  initTabWidths();
 
   // take off the + button and add an x button for the previous tab
   const prevTab = editorTabs[index - 1];
   if (prevTab) {
-    prevTab.button.textContent = 'x';
-    prevTab.button.removeEventListener('click', addNewTab);
-    prevTab.button.addEventListener('click', removeTab);
+    prevTab.tabButton.textContent = 'x';
+    prevTab.tabButton.removeEventListener('click', addNewTab);
+    prevTab.tabButton.addEventListener('click', removeTab);
   }
 }
 
 export function removeTab(ev: MouseEvent) {
   // get the index of the EditorTab to be closed
-  let index = editorTabs.findIndex(tab => tab.button === ev.target);
+  let index = editorTabs.findIndex(tab => tab.tabButton === ev.target);
 
   // remove the tab from the DOM
   const tab = editorTabs[index];
-  tab.wrapper.remove();
+  tab.tab.remove();
 
   // remove the tab from the array
   editorTabs.splice(index, 1);
@@ -79,11 +77,13 @@ export function removeTab(ev: MouseEvent) {
   }
 
   const last = editorTabs[editorTabs.length - 1];
-  if (last && last.button.textContent !== '+') {
-    last.button.textContent = '+';
-    last.button.removeEventListener('click', removeTab);
-    last.button.addEventListener('click', addNewTab);
+  if (last && last.tabButton.textContent !== '+') {
+    last.tabButton.textContent = '+';
+    last.tabButton.removeEventListener('click', removeTab);
+    last.tabButton.addEventListener('click', addNewTab);
   }
+
+  initTabWidths();
 }
 
 function setActiveEditor(index: number) {
@@ -105,6 +105,7 @@ runButton.addEventListener('click', () => {
 });
 
 debugButton.addEventListener('click', () => {
+  document.querySelectorAll<HTMLLIElement>(".hide").forEach(el => {el.style.display = 'flex'});
   runButton.style.display = 'none';
   debugButton.style.display = 'none';
   stepButton.style.display = 'inline-flex';
@@ -113,6 +114,7 @@ debugButton.addEventListener('click', () => {
 });
 
 exitButton.addEventListener('click', () => {
+  document.querySelectorAll<HTMLLIElement>(".hide").forEach(el => {el.style.display = 'none'});
   runButton.style.display = 'inline-flex';
   debugButton.style.display = 'inline-flex';
   stepButton.style.display = 'none';
@@ -208,9 +210,7 @@ infoModal.addEventListener("click", (e) => {
 
 function initialize(): void {
   // TODO figure out why this is being called twice
-  if (leftSide.childElementCount > 0) {
-    return;
-  }
+  if (main.childElementCount > 0) return;
 
   // first editor
   addNewTab();
@@ -221,7 +221,6 @@ function initialize(): void {
     changes: { from: 0, to: editorView.state.doc.length, insert: latestSource },
   });
 
-  // resizeEvents();
 }
 
 window.addEventListener("load", initialize);

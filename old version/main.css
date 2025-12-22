@@ -1,52 +1,50 @@
-/* TODO: have color variables */
-
 body {
-    margin: 0;
-    font-family: sans-serif;
-    user-select: none;
-    overflow: hidden;
+  margin: 0;
+  font-family: sans-serif;
+  /* background-color: #1e1e1e; */
+  color: white;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.label {
-    background-color: #2d485a;
-    color: black;
+/* Toolbar styles */
+
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px;
+  background-color: #2b2b2b;
 }
 
-/* header */
-
-header {
-    background-color: #2b2b2b;
-    color: white;
-    height: 5vh;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px;
+ul.nav-bar {
+  display: flex;
+  gap: 2em;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  justify-content: right;
 }
 
-.tools {
-    display: flex;
-    list-style: none;
-    padding: 10px;
-    gap: 2em;
+.nav-bar button {
+  background: #444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
 }
 
-.tools button {
-    background-color: #2b2b2b;
-    color: inherit;
-    cursor: pointer;
-    border: none;
-    border-radius: 40px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 40px;
-    height: 40px;
-}
+/* END OF TOOLBAR STYLES */
 
-.tools button {
-    transition: background-color 0.5s ease;
-}
+/* HOVER COLOR ON TOOLBAR BUTTONS */
 
 #run-button:hover {
   background-color: #7ae57d;
@@ -76,99 +74,130 @@ header {
   background-color: lightslategray;
 }
 
-.hide {
-  display: none;
-}
-
-/* main area (aka tabs) */
+/* End of Hover colors */
 
 main {
-    background-color: #1e1e1e;
-    height: 75vh;
-    display: flex;
-    overflow: hidden;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.tab {
-    display: flex;
-    flex: 0 0 auto; /***/
-    flex-direction: row;
-    height: 100%;
-    min-width: 300px;
+#left-side {
+  display: flex;
+  flex: 0 0 66.66%;
+  flex-direction: row;
+  flex-grow: 1;
+  flex-shrink: 0;
+  min-width: 300px;
+  background-color: #1e1e1e;
 }
 
-.tab:last-child .resize-bar {
-  display: none;
+/* LEFT TOOLBAR */
+.left-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  background-color: #2b2b2b;
+  /* border: 1px solid #444; */
+  /* border-radius: 10px; */
+  flex-wrap: nowrap;
 }
 
-.tab:last-child {
-    flex: 1 0 auto;
+/* Buttons inside left-toolbar */
+.tab-button,
+#new-editor {
+  background-color: #444;
+  color: white;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
-.tab-content {
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-    width: 100%;
-    color: white;
-    overflow: hidden; /***/
+.language-menu {
+  display: block;
+  width: 100%;
+  background: none;
+  color: white;
+  background-color: #444;
+  padding: 8px;
+  cursor: pointer;
+  max-width: fit-content;
+  border-radius: 6px;
+  border-color: #444;
 }
 
-.tab-header {
-    background-color: #444;
-    display: flex;
-    padding: 5px;
-    gap: 8px;
-    align-items: center;
-    justify-content: left; /* change to space around when 'x' */
+#language-menu button:hover {
+  background-color: #555;
 }
 
-.tab-header select.language-dropdown {
-    background-color: #666;
-    border-color: #666;
-    border-radius: 6px;
-    padding: 8px;
-    max-width: fit-content;
-    color: inherit;
-}
-
-.tab-header .new-editor {
-    background-color: #666;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 18px;
-    color: inherit;
-}
-
-.editor {
-    height: 100%;
-}
-
-.memdia .diagram {
-    background-color: black;
-    height: 20vh;
-}
-
-.resize-bar {
-    background-color: #2d485a;
-    width: 5px;
-    cursor: col-resize;
-    flex-shrink: 0; /***/
+#right-side {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: fit-content;
+  flex: 1 1 auto;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .panel {
   overflow: auto;
 }
 
-/* output */
-
-footer {
-    background-color: #1e1e1e;
-    height: 20vh;
+#editor {
+  height: 100%;
+  /* width: 100%; */
+  /* border-right: none; */
 }
 
-/* reset modal */
+#output-panel {
+  display: flex;
+  width: 100%;
+  height: 50%;
+  padding: 1rem;
+  white-space: pre-wrap;
+  background-color: #393838;
+}
+
+#memdia-panel {
+  padding: 10px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  background-color: #393838;
+  height: 50%
+}
+
+/* resize bars */
+
+#resize-bar-X {
+  width: 6px;
+  background-color: #2d485a;
+  cursor: col-resize;
+  z-index: 20;
+  pointer-events: auto;
+  flex-grow: 0;
+}
+
+#resize-bar-Y {
+  height: 6px;
+  background-color: #2d485a;
+  cursor: row-resize;
+  z-index: 20;
+  pointer-events: auto;
+  flex-grow: 0;
+}
+
+#resize-bar-X:hover,
+#resize-bar-Y:hover {
+  box-shadow: #90d9ff;
+}
+
+/* RESET MODAL CONTENT */
 #reset-confirm {
   display: none;
   position: fixed;
@@ -219,7 +248,7 @@ footer {
   background-color: lightslategray;
 }
 
-/* example modal */
+/* EXAMPLES MODAL CONTENT */
 
 #info-modal {
   display: none;
@@ -280,7 +309,7 @@ footer {
   border-radius: 5px;
 }
 
-/* editor pop up */
+/* EDITOR POPUP*/
 #editor-container {
   display: flex;
   flex-direction: row;
