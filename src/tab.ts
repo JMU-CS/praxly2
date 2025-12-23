@@ -113,7 +113,7 @@ export class Tab {
 
         // initialize vertical split and attach resizer
         initVerticalSplit(tabContent, 0.6);
-        attachVerticalMemdiaResizer(memdiaLabel as HTMLDivElement, this.editorDiv, memdia);
+        attachVerticalMemdiaResizer(memdiaLabel as HTMLDivElement, this.editorDiv, memdia, tabContent);
 
         main.appendChild(this.tab);
     }

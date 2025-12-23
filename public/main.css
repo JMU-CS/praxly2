@@ -8,6 +8,7 @@ body {
 }
 
 .label {
+    border: 2px solid #213643;
     background-color: #2d485a;
     color: black;
 }

@@ -87,11 +87,13 @@ window.addEventListener('DOMContentLoaded', initializeResize);
 /**
  * Attach a vertical resizer using a handle element placed
  * between the editor and memdia elements inside a tab-content container.
+ * Also attaches a click listener to toggle memdia visibility.
  */
 export function attachVerticalMemdiaResizer(
   handle: HTMLDivElement,
   editor: HTMLElement,
-  memdia: HTMLElement
+  memdia: HTMLElement,
+  tabContent: HTMLElement
 ) {
   if (!handle || !editor || !memdia) return;
   if (handle.dataset.verticalResizeAttached) return;
@@ -99,8 +101,12 @@ export function attachVerticalMemdiaResizer(
 
   handle.style.cursor = 'row-resize';
 
+  let ignoreNextClick = false;
+
   const onMouseDown = (e: MouseEvent) => {
     e.preventDefault();
+
+    let hasMoved = false;
 
     const container = handle.parentElement as HTMLElement; // tab-content
     const header = container.querySelector<HTMLElement>('.tab-header');
@@ -117,6 +123,7 @@ export function attachVerticalMemdiaResizer(
     document.body.style.userSelect = 'none';
 
     const onMouseMove = (moveEvent: MouseEvent) => {
+      hasMoved = true;
       // Mouse Y relative to container content area beneath header
       const relativeY = moveEvent.clientY - containerRect.top - headerHeight;
       // Place handle centered; subtract half handle height
@@ -137,13 +144,27 @@ export function attachVerticalMemdiaResizer(
       document.removeEventListener('mouseup', onMouseUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+
+      if (hasMoved) {
+        ignoreNextClick = true;
+        setTimeout(() => ignoreNextClick = false, 50);
+      }
     };
 
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   };
 
+  const onClick = () => {
+    if (ignoreNextClick) {
+      ignoreNextClick = false;
+      return;
+    }
+    toggleMemdiaVisibility(editor, memdia, tabContent);
+  };
+
   handle.addEventListener('mousedown', onMouseDown);
+  handle.addEventListener('click', onClick, { capture: true });
 }
 
 // initialize a reasonable default split between editor and memdia.
@@ -169,4 +190,22 @@ export function initVerticalSplit(tabContent: HTMLElement, ratio: number = 0.6) 
 
   memdia.style.height = `${memdiaHeight}px`;
   memdia.style.flexBasis = `${memdiaHeight}px`;
+}
+
+/**
+ * Toggle memdia visibility and adjust editor size accordingly.
+ */
+export function toggleMemdiaVisibility(
+  editor: HTMLElement,
+  memdia: HTMLElement,
+  tabContent: HTMLElement
+) {
+  if (memdia.style.display === 'none') {
+    memdia.style.display = '';
+    editor.style.flexGrow = '';
+    initVerticalSplit(tabContent, 0.6);
+  } else {
+    memdia.style.display = 'none';
+    editor.style.flexGrow = '1';
+  }
 }
