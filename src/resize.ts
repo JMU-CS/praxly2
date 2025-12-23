@@ -1,5 +1,6 @@
 const MIN_TAB_WIDTH = 300;
 let dragging = false;
+const MIN_PANEL_HEIGHT = 120;
 
 // resizing functionality
 function onMouseDown(bar: HTMLDivElement, e: MouseEvent) {
@@ -82,3 +83,90 @@ function initializeResize() {
 }
 
 window.addEventListener('DOMContentLoaded', initializeResize);
+
+/**
+ * Attach a vertical resizer using a handle element placed
+ * between the editor and memdia elements inside a tab-content container.
+ */
+export function attachVerticalMemdiaResizer(
+  handle: HTMLDivElement,
+  editor: HTMLElement,
+  memdia: HTMLElement
+) {
+  if (!handle || !editor || !memdia) return;
+  if (handle.dataset.verticalResizeAttached) return;
+  handle.dataset.verticalResizeAttached = 'true';
+
+  handle.style.cursor = 'row-resize';
+
+  const onMouseDown = (e: MouseEvent) => {
+    e.preventDefault();
+
+    const container = handle.parentElement as HTMLElement; // tab-content
+    const header = container.querySelector<HTMLElement>('.tab-header');
+
+    const containerRect = container.getBoundingClientRect();
+    const headerHeight = header?.offsetHeight ?? 0;
+    const handleHeight = handle.offsetHeight;
+
+    // Available height is space for editor + memdia excluding header and handle
+    const available = container.clientHeight - headerHeight - handleHeight;
+    if (available <= 0) return;
+
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      // Mouse Y relative to container content area beneath header
+      const relativeY = moveEvent.clientY - containerRect.top - headerHeight;
+      // Place handle centered; subtract half handle height
+      let newEditorHeight = Math.round(relativeY - handleHeight / 2);
+      // Clamp
+      newEditorHeight = Math.max(MIN_PANEL_HEIGHT, Math.min(available - MIN_PANEL_HEIGHT, newEditorHeight));
+      const newMemdiaHeight = available - newEditorHeight;
+
+      editor.style.height = `${newEditorHeight}px`;
+      editor.style.flexBasis = `${newEditorHeight}px`;
+
+      memdia.style.height = `${newMemdiaHeight}px`;
+      memdia.style.flexBasis = `${newMemdiaHeight}px`;
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  handle.addEventListener('mousedown', onMouseDown);
+}
+
+// initialize a reasonable default split between editor and memdia.
+export function initVerticalSplit(tabContent: HTMLElement, ratio: number = 0.6) {
+  const editor = tabContent.querySelector<HTMLElement>('.editor');
+  const memdia = tabContent.querySelector<HTMLElement>('.memdia');
+  const header = tabContent.querySelector<HTMLElement>('.tab-header');
+  const handle = tabContent.querySelector<HTMLElement>('.label');
+  if (!editor || !memdia) return;
+
+  // Determine available height beneath the header
+  const containerHeight = tabContent.clientHeight;
+  const headerHeight = header?.offsetHeight ?? 0;
+  const handleHeight = handle?.offsetHeight ?? 0;
+  const available = Math.max(0, containerHeight - headerHeight - handleHeight);
+  if (available <= 0) return;
+
+  const editorHeight = Math.max(MIN_PANEL_HEIGHT, Math.round(available * ratio));
+  const memdiaHeight = Math.max(MIN_PANEL_HEIGHT, available - editorHeight);
+
+  editor.style.height = `${editorHeight}px`;
+  editor.style.flexBasis = `${editorHeight}px`;
+
+  memdia.style.height = `${memdiaHeight}px`;
+  memdia.style.flexBasis = `${memdiaHeight}px`;
+}

@@ -109,6 +109,7 @@ main {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
+  height: 100%;
     width: 100%;
     color: white;
     overflow: hidden; /***/
@@ -141,13 +142,21 @@ main {
     color: inherit;
 }
 
-.editor {
-    height: 100%;
+.tab .editor,
+.tab .memdia {
+  flex: 0 0 auto;
 }
 
-.memdia .diagram {
-    background-color: black;
-    height: 20vh;
+.tab .editor { height: auto; }
+.tab .memdia { height: auto; }
+
+.editor {
+  height: 100%;
+}
+
+.tab .memdia .diagram {
+  background-color: black;
+  height: 100%;
 }
 
 .resize-bar {
@@ -155,6 +164,10 @@ main {
     width: 5px;
     cursor: col-resize;
     flex-shrink: 0; /***/
+}
+
+.tab-content > .label {
+  cursor: row-resize;
 }
 
 .panel {

@@ -1,6 +1,6 @@
 import { CodeMirrorEditor } from './editor.js';
-import { addNewTab, removeTab, editorTabs } from './main.js';
-import { attachResizeBar } from './resize.js';
+import { addNewTab } from './main.js';
+import { attachResizeBar, attachVerticalMemdiaResizer, initVerticalSplit } from './resize.js';
 //
 //  <div class="tab">
 //     <div class="tab-content">
@@ -89,7 +89,8 @@ export class Tab {
         const memdiaLabel = document.createElement("div");
         memdiaLabel.className = "label";
         memdiaLabel.textContent = "Diagram/Memory";
-        memdia.appendChild(memdiaLabel);
+        // Place label between editor and memdia to act as vertical resizer handle
+        tabContent.appendChild(memdiaLabel);
 
         const diagram = document.createElement("div");
         diagram.className = "diagram";
@@ -109,6 +110,10 @@ export class Tab {
         attachResizeBar(this.resizeBar);
 
         this.tab.appendChild(this.resizeBar);
+
+        // initialize vertical split and attach resizer
+        initVerticalSplit(tabContent, 0.6);
+        attachVerticalMemdiaResizer(memdiaLabel as HTMLDivElement, this.editorDiv, memdia);
 
         main.appendChild(this.tab);
     }
