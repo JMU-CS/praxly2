@@ -2,12 +2,175 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Praxly2 Embed</title>
+
+  <link rel="icon" href="/fallen-leaf_1f342.ico" />
+  <link rel="stylesheet" href="/main.css" />
+  <link rel="stylesheet" href="/memdia.css" />
+  <link rel="stylesheet" href="/embed.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" />
 </head>
 
-<body>
-    Coming soon...
+<body class="embed">
+  <main>
+    <!-- LEFT SIDE -->
+    <div id="left-side" class="tab">
+      <div id="editor-container">
+        <div class="editor-wrapper">
+          <div class="editor" id="editor"></div>
+        </div>
+      </div>
+
+      <!-- RESIZE BAR  -->
+      <div id="resize-bar-X" class="resize-bar"></div>
+    </div>
+
+    <!-- RIGHT SIDE -->
+    <div id="right-side" class="tab">
+      <ul class="nav-bar tools">
+        <li>
+          <button id="run-button" title="Run">
+            <span class="material-symbols-rounded">play_arrow</span>
+          </button>
+        </li>
+
+        <li>
+          <button id="debug-button" title="Debug">
+            <span class="material-symbols-rounded">pest_control</span>
+          </button>
+        </li>
+
+        <li class="hide">
+          <button id="step-button" title="Step">
+            <span class="material-symbols-rounded">step</span>
+          </button>
+        </li>
+
+        <li class="hide">
+          <button id="exit-button" title="Exit">
+            <span class="material-symbols-rounded">stop</span>
+          </button>
+        </li>
+
+        <li style="flex: 1"></li>
+
+        <li>
+          <button id="reset-button" title="Reset">
+            <span class="material-symbols-rounded">restart_alt</span>
+          </button>
+        </li>
+
+        <li>
+          <button id="open-button" title="Open full">
+            <span class="material-symbols-rounded">open_in_new</span>
+          </button>
+        </li>
+
+        <li class="hide"><button id="share-button" title="Share">Share</button></li>
+        <li class="hide"><button id="info-button" title="Info">Info</button></li>
+      </ul>
+
+      <div id="output-panel" class="panel"></div>
+
+      <!-- bottom drawer -->
+      <section id="bottom-drawer" class="drawer">
+        <div id="drawer-tabs" class="drawer-tabs">
+          <button class="drawer-tab is-active" data-panel="vars">Variables</button>
+          <button class="drawer-tab" data-panel="memdia">Memdia</button>
+        </div>
+
+        <div id="drawer-content" class="drawer-body">
+          <div id="vars-panel" class="drawer-panel is-active">
+            <div id="Variable-table-container" class="panel">
+              <table id="Variable-table-outer">
+                <thead>
+                  <tr>
+                    <th>Variable</th>
+                    <th>Type</th>
+                    <th>Value</th>
+                    <th>Scope</th>
+                  </tr>
+                </thead>
+                <tbody id="Variable-table"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="memdia-panel" class="drawer-panel panel"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div id="reset-confirm">
+    <div class="modal-content">
+      <p>Reset code and clear output?</p>
+      <div class="modal-buttons">
+        <button id="confirm-reset">Reset</button>
+        <button id="cancel-reset" class="cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="info-modal">
+    <div class="info-modal-content">
+      <p>Info</p>
+      <button id="close-info" class="close-button">Close</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+
+  <!-- Drawer behavior -->
+  <script>
+    (function () {
+      const drawer = document.getElementById("bottom-drawer");
+      const tabs = Array.from(document.querySelectorAll(".drawer-tab"));
+      const panels = {
+        vars: document.getElementById("vars-panel"),
+        memdia: document.getElementById("memdia-panel"),
+      };
+
+      if (!drawer || tabs.length === 0 || !panels.vars || !panels.memdia) return;
+
+      let active = "vars";
+
+      function setActive(name) {
+        active = name;
+        tabs.forEach(t => t.classList.toggle("is-active", t.dataset.panel === name));
+        Object.entries(panels).forEach(([key, el]) => {
+          el.classList.toggle("is-active", key === name);
+        });
+      }
+
+      tabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+          const name = tab.dataset.panel;
+
+          const isOpen = drawer.classList.contains("is-open");
+          const isSame = name === active;
+
+          // clicking the active tab toggles open/close
+          if (isOpen && isSame) {
+            drawer.classList.remove("is-open");
+            return;
+          }
+
+          // open and (maybe) switch
+          drawer.classList.add("is-open");
+          setActive(name);
+        });
+      });
+
+      // start collapsed, but default active tab is vars
+      setActive("vars");
+      drawer.classList.remove("is-open");
+    })();
+  </script>
 </body>
 
 </html>

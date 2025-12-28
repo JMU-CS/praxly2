@@ -35,11 +35,13 @@ export class Tab {
 
         // grab the main element from the html (TODO : have this imported??)
         const main = document.querySelector("main") as HTMLElement;
+        const editorContainer = document.getElementById("editor-container") as HTMLElement | null;
+        const host = editorContainer ?? main;
 
         // outer div that holds the entire tab
         this.tab = document.createElement("div");
         this.tab.className = "tab";
-        main.appendChild(this.tab);
+        host.appendChild(this.tab);
 
         // div to hold the tab nav & editor
         const tabContent = document.createElement("div");
@@ -115,6 +117,6 @@ export class Tab {
         initVerticalSplit(tabContent, 0.6);
         attachVerticalMemdiaResizer(memdiaLabel as HTMLDivElement, this.editorDiv, memdia, tabContent);
 
-        main.appendChild(this.tab);
+        // main.appendChild(this.tab);
     }
 }
