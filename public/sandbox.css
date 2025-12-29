@@ -55,7 +55,7 @@ body {
 
 #memdia-panel {
   background-color: #1e1e1e;
-  display: none;
+  overflow: auto;
 }
 
 #controls {
