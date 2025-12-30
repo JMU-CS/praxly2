@@ -75,31 +75,47 @@
       <div id="output-panel" class="panel"></div>
 
       <!-- bottom drawer -->
-      <section id="bottom-drawer" class="drawer">
-        <div id="drawer-tabs" class="drawer-tabs">
-          <button class="drawer-tab is-active" data-panel="vars">Variables</button>
-          <button class="drawer-tab" data-panel="memdia">Memdia</button>
-        </div>
+      <section id="bottom-drawer" class="drawer-stack">
 
-        <div id="drawer-content" class="drawer-body">
-          <div id="vars-panel" class="drawer-panel is-active">
-            <div id="Variable-table-container" class="panel">
-              <table id="Variable-table-outer">
-                <thead>
-                  <tr>
-                    <th>Variable</th>
-                    <th>Type</th>
-                    <th>Value</th>
-                    <th>Scope</th>
-                  </tr>
-                </thead>
-                <tbody id="Variable-table"></tbody>
-              </table>
+        <div class="drawer-section" data-drawer="vars">
+          <button class="drawer-header" type="button">
+            <span class="drawer-title">Variables</span>
+            <span class="drawer-chevron material-symbols-rounded">expand_more</span>
+          </button>
+
+          <div class="drawer-body" id="vars-body">
+            <div id="vars-panel" class="panel">
+              <div id="Variable-table-container" class="panel">
+                <table id="Variable-table-outer">
+                  <thead>
+                    <tr>
+                      <th>Variable</th>
+                      <th>Type</th>
+                      <th>Value</th>
+                      <th>Scope</th>
+                    </tr>
+                  </thead>
+                  <tbody id="Variable-table"></tbody>
+                </table>
+              </div>
             </div>
           </div>
-
-          <div id="memdia-panel" class="drawer-panel panel"></div>
         </div>
+
+        <!-- horizontal resize bar between drawers -->
+        <div id="drawer-resize-bar" class="drawer-resize-bar" title="Drag to resize"></div>
+
+        <div class="drawer-section" data-drawer="memdia">
+          <button class="drawer-header" type="button">
+            <span class="drawer-title">Memdia</span>
+            <span class="drawer-chevron material-symbols-rounded">expand_more</span>
+          </button>
+
+          <div class="drawer-body" id="memdia-body">
+            <div id="memdia-panel" class="panel"></div>
+          </div>
+        </div>
+
       </section>
     </div>
   </main>
@@ -125,50 +141,75 @@
 
   <script type="module" src="/src/main.ts"></script>
 
-  <!-- Drawer behavior -->
+  <!-- Drawer and resize behavior -->
   <script>
     (function () {
-      const drawer = document.getElementById("bottom-drawer");
-      const tabs = Array.from(document.querySelectorAll(".drawer-tab"));
-      const panels = {
-        vars: document.getElementById("vars-panel"),
-        memdia: document.getElementById("memdia-panel"),
-      };
+      const sections = Array.from(document.querySelectorAll("#bottom-drawer .drawer-section"));
+      if (sections.length === 0) return;
 
-      if (!drawer || tabs.length === 0 || !panels.vars || !panels.memdia) return;
+      sections.forEach(section => {
+        const header = section.querySelector(".drawer-header");
+        if (!header) return;
 
-      let active = "vars";
-
-      function setActive(name) {
-        active = name;
-        tabs.forEach(t => t.classList.toggle("is-active", t.dataset.panel === name));
-        Object.entries(panels).forEach(([key, el]) => {
-          el.classList.toggle("is-active", key === name);
-        });
-      }
-
-      tabs.forEach(tab => {
-        tab.addEventListener("click", () => {
-          const name = tab.dataset.panel;
-
-          const isOpen = drawer.classList.contains("is-open");
-          const isSame = name === active;
-
-          // clicking the active tab toggles open/close
-          if (isOpen && isSame) {
-            drawer.classList.remove("is-open");
-            return;
-          }
-
-          // open and (maybe) switch
-          drawer.classList.add("is-open");
-          setActive(name);
+        header.addEventListener("click", () => {
+          section.classList.toggle("is-open");
         });
       });
 
-      // start collapsed, but default active tab is vars
-      setActive("vars");
-      drawer.classList.remove("is-open");
+      const resizer = document.getElementById("drawer-resize-bar");
+      const varsSection = document.querySelector('.drawer-section[data-drawer="vars"]');
+      const memSection = document.querySelector('.drawer-section[data-drawer="memdia"]');
+      const varsBody = document.getElementById("vars-body");
+      const memBody = document.getElementById("memdia-body");
+
+      if (!resizer || !varsSection || !memSection || !varsBody || !memBody) return;
+
+      const MIN_BODY = 120;
+
+      let dragging = false;
+      let startY = 0;
+      let startVars = 0;
+      let startMem = 0;
+
+      function isOpen(section) {
+        return section.classList.contains("is-open");
+      }
+
+      resizer.addEventListener("mousedown", (e) => {
+        // only allow drag when BOTH drawers are open
+        if (!isOpen(varsSection) || !isOpen(memSection)) return;
+
+        dragging = true;
+        startY = e.clientY;
+
+        startVars = varsBody.getBoundingClientRect().height;
+        startMem = memBody.getBoundingClientRect().height;
+
+        document.body.style.cursor = "row-resize";
+        document.body.style.userSelect = "none";
+        e.preventDefault();
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+
+        const dy = e.clientY - startY;
+
+        let newVars = startVars + dy;
+        let newMem = startMem - dy;
+
+        if (newVars < MIN_BODY || newMem < MIN_BODY) return;
+
+        varsBody.style.height = newVars + "px";
+        memBody.style.height = newMem + "px";
+      });
+
+      document.addEventListener("mouseup", () => {
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      });
     })();
   </script>
 </body>
