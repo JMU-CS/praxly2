@@ -74,6 +74,9 @@
 
       <div id="output-panel" class="panel"></div>
 
+      <!-- ✅ NEW resize bar between Output and Variables -->
+      <div id="output-vars-resize-bar" class="drawer-resize-bar" title="Drag to resize"></div>
+
       <!-- bottom drawer -->
       <section id="bottom-drawer" class="drawer-stack">
 
@@ -102,7 +105,7 @@
           </div>
         </div>
 
-        <!-- horizontal resize bar between drawers -->
+        <!-- existing horizontal resize bar between drawers -->
         <div id="drawer-resize-bar" class="drawer-resize-bar" title="Drag to resize"></div>
 
         <div class="drawer-section" data-drawer="memdia">
@@ -144,44 +147,88 @@
   <!-- Drawer and resize behavior -->
   <script>
     (function () {
-      const sections = Array.from(document.querySelectorAll("#bottom-drawer .drawer-section"));
-      if (sections.length === 0) return;
-
-      sections.forEach(section => {
-        const header = section.querySelector(".drawer-header");
-        if (!header) return;
-
-        header.addEventListener("click", () => {
-          section.classList.toggle("is-open");
-        });
-      });
-
+      const bottomDrawer = document.getElementById("bottom-drawer");
       const resizer = document.getElementById("drawer-resize-bar");
+      const outputVarsResizer = document.getElementById("output-vars-resize-bar");
+
       const varsSection = document.querySelector('.drawer-section[data-drawer="vars"]');
       const memSection = document.querySelector('.drawer-section[data-drawer="memdia"]');
+
       const varsBody = document.getElementById("vars-body");
       const memBody = document.getElementById("memdia-body");
 
-      if (!resizer || !varsSection || !memSection || !varsBody || !memBody) return;
+      if (!bottomDrawer || !resizer || !outputVarsResizer || !varsSection || !memSection || !varsBody || !memBody) return;
 
-      const MIN_BODY = 120;
+      const MIN_BODY = 140;
+      const DEFAULT_BODY = 220;
+
+      function isOpen(section) {
+        return section.classList.contains("is-open");
+      }
+
+      // Compute the drawer stack height should be based on what's currently open.
+      function snapDrawerStackToContent() {
+        const varsHeader = varsSection.querySelector(".drawer-header");
+        const memHeader = memSection.querySelector(".drawer-header");
+
+        const hVarsHeader = varsHeader ? varsHeader.getBoundingClientRect().height : 0;
+        const hMemHeader = memHeader ? memHeader.getBoundingClientRect().height : 0;
+
+        const hBarBetween = resizer.getBoundingClientRect().height || 6;
+
+        const varsOpen = isOpen(varsSection);
+        const memOpen = isOpen(memSection);
+
+        // If nothing is open, remove fixed height so it can snap to bottom
+        if (!varsOpen && !memOpen) {
+          bottomDrawer.style.height = "";
+          return;
+        }
+
+        // Determine open heights
+        const hVarsBody = varsOpen ? Math.max(MIN_BODY, varsBody.getBoundingClientRect().height) : 0;
+        const hMemBody = memOpen ? Math.max(MIN_BODY, memBody.getBoundingClientRect().height) : 0;
+
+        const desired = hVarsHeader + hMemHeader + hBarBetween + hVarsBody + hMemBody;
+        bottomDrawer.style.height = desired + "px";
+      }
+
+      bottomDrawer.addEventListener("click", (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) return;
+
+        const header = target.closest(".drawer-header");
+        if (!header) return;
+
+        const section = header.closest(".drawer-section");
+        if (!section) return;
+
+        const body = section.querySelector(".drawer-body");
+        if (!body) return;
+
+        const open = section.classList.contains("is-open");
+
+        if (open) {
+          section.classList.remove("is-open");
+          body.style.height = "";
+        } else {
+          section.classList.add("is-open");
+          body.style.height = DEFAULT_BODY + "px"; // snap to default
+        }
+
+        requestAnimationFrame(snapDrawerStackToContent);
+      });
 
       let dragging = false;
       let startY = 0;
       let startVars = 0;
       let startMem = 0;
 
-      function isOpen(section) {
-        return section.classList.contains("is-open");
-      }
-
       resizer.addEventListener("mousedown", (e) => {
-        // only allow drag when BOTH drawers are open
         if (!isOpen(varsSection) || !isOpen(memSection)) return;
 
         dragging = true;
         startY = e.clientY;
-
         startVars = varsBody.getBoundingClientRect().height;
         startMem = memBody.getBoundingClientRect().height;
 
@@ -202,6 +249,9 @@
 
         varsBody.style.height = newVars + "px";
         memBody.style.height = newMem + "px";
+
+        // keep stack height correct while dragging too
+        snapDrawerStackToContent();
       });
 
       document.addEventListener("mouseup", () => {
@@ -210,6 +260,61 @@
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
       });
+
+      let draggingTop = false;
+      let startYTop = 0;
+      let startDrawerH = 0;
+      let startVarsH = 0;
+
+      outputVarsResizer.addEventListener("mousedown", (e) => {
+        if (!isOpen(varsSection)) return;
+
+        draggingTop = true;
+        startYTop = e.clientY;
+
+        startDrawerH = bottomDrawer.getBoundingClientRect().height;
+        startVarsH = varsBody.getBoundingClientRect().height;
+
+        document.body.style.cursor = "row-resize";
+        document.body.style.userSelect = "none";
+        e.preventDefault();
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!draggingTop) return;
+
+        const dy = e.clientY - startYTop;
+
+        let newDrawerH = startDrawerH - dy;
+        let newVarsH = startVarsH - dy;
+
+        if (newVarsH < MIN_BODY) return;
+
+        // Minimum stack height
+        const varsHeader = varsSection.querySelector(".drawer-header");
+        const memHeader = memSection.querySelector(".drawer-header");
+        const hVarsHeader = varsHeader ? varsHeader.getBoundingClientRect().height : 0;
+        const hMemHeader = memHeader ? memHeader.getBoundingClientRect().height : 0;
+        const hBarBetween = resizer.getBoundingClientRect().height || 6;
+
+        const minDrawer =
+          hVarsHeader + hMemHeader + hBarBetween +
+          (isOpen(varsSection) ? MIN_BODY : 0) +
+          (isOpen(memSection) ? MIN_BODY : 0);
+
+        if (newDrawerH < minDrawer) return;
+
+        bottomDrawer.style.height = newDrawerH + "px";
+        varsBody.style.height = newVarsH + "px";
+      });
+
+      document.addEventListener("mouseup", () => {
+        if (!draggingTop) return;
+        draggingTop = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      });
+
     })();
   </script>
 </body>
