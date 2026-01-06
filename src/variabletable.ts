@@ -23,6 +23,7 @@ export class VariableTable {
   }
 
   // rebuild the table from the runtime
+  // wipe so no duplicate values
   refresh(): void {
     this.tbody.innerHTML = '';
 
