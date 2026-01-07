@@ -86,7 +86,10 @@ export class Tab {
 
         // TODO How to update multiple memdia divs?
         const memdia = document.createElement("div");
-        memdia.id = "memdia-panel";
+        memdia.className = "memdia";
+        if (!document.getElementById("memdia-panel")) {
+            memdia.id = "memdia-panel";
+        }
 
         const memdiaLabel = document.createElement("div");
         memdiaLabel.className = "label";
