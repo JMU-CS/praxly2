@@ -84,9 +84,9 @@ export class Tab {
 
         tabContent.appendChild(this.editorDiv);
 
-        // memdia (temp version)
+        // TODO How to update multiple memdia divs?
         const memdia = document.createElement("div");
-        memdia.className = "memdia";
+        memdia.id = "memdia-panel";
 
         const memdiaLabel = document.createElement("div");
         memdiaLabel.className = "label";

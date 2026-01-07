@@ -14,10 +14,10 @@ import { WhereError } from './language/error.js';
 import { MemdiaSvg } from './language/memdia.js';
 import { VariableTable } from './variabletable.js';
 
-import { editor, editorView, editorTabs, stepButton, outputPanel } from './main.js';
+import { editor, editorView, editorTabs, stepButton, stdout, stderr } from './main.js';
 
 const log = (text: string) => {
-  outputPanel.appendChild(document.createTextNode(text));
+  stdout.appendChild(document.createTextNode(text));
 };
 
 // TODO implement wobbly input boxes in the output div
@@ -40,7 +40,8 @@ function getDestinationLanguages(): string[] {
 
 export const run = async (isDebug: boolean) => {
   // Clear previous output
-  outputPanel.innerText = '';
+  stdout.innerText = '';
+  stderr.innerText = '';
 
   // Save current program
   const source = editorView.state.doc.toString();
@@ -58,8 +59,6 @@ export const run = async (isDebug: boolean) => {
   const dstLangs = getDestinationLanguages();
 
   try {
-    outputPanel.innerText = '';
-
     let tokens: any;
     let programAst: any;
     let outputFormatter: any;
@@ -133,13 +132,13 @@ export const run = async (isDebug: boolean) => {
             selection: EditorSelection.range(e.where.start, e.where.end),
           });
         });
-        outputPanel.appendChild(button);
+        stderr.appendChild(button);
       }
 
       const message = e.message.replaceAll(/`(.*?)`/g, '<var>$1</var>');
       const span = document.createElement('span');
       span.innerHTML = `: ${message}`;
-      outputPanel.appendChild(span);
+      stderr.appendChild(span);
       console.error(e);
     }
   }

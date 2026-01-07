@@ -6,25 +6,22 @@ export class VariableTable {
   private runtime: GlobalRuntime;
 
   // tbody where we insert rows
-  private tbody: HTMLTableSectionElement;
+  private tbody: HTMLTableSectionElement | null;
 
   // matches embed id Variable-table
   private static readonly TBODY_ID = 'Variable-table';
 
   constructor(runtime: GlobalRuntime, tbodyId: string = VariableTable.TBODY_ID) {
     this.runtime = runtime;
-
-    const tbody = document.getElementById(tbodyId) as HTMLTableSectionElement | null;
-    if (!tbody) {
-      throw new Error(`VariableTable: missing tbody ${tbodyId}`);
-    }
-
-    this.tbody = tbody;
+    this.tbody = document.getElementById(tbodyId) as HTMLTableSectionElement | null;
   }
 
   // rebuild the table from the runtime
   // wipe so no duplicate values
   refresh(): void {
+    if (!this.tbody) {
+      return;
+    }
     this.tbody.innerHTML = '';
 
     // only showing globals for now

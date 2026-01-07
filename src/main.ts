@@ -1,3 +1,4 @@
+import { EditorView } from '@codemirror/view';
 import { CodeMirrorEditor } from './editor.js';
 import { Tab } from './tab.js';
 import { run } from './run.js';
@@ -6,6 +7,8 @@ import { initTabWidths } from './resize.js';
 // Main elements
 const main = document.querySelector("main") as HTMLElement;
 export const outputPanel = document.getElementById('output-panel') as HTMLElement;
+export const stdout = document.getElementById('stdout') as HTMLElement;
+export const stderr = document.getElementById('stderr') as HTMLElement;
 export const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
 
 const IS_EMBED = document.body.classList.contains("embed");
@@ -38,7 +41,7 @@ let activeEditorIndex = 0;
 // Convenience variables
 export let editorTab: Tab;
 export let editor: CodeMirrorEditor;
-export let editorView: any;
+export let editorView: EditorView;
 
 // ---------------------------------------------------------------------------
 // Adding editor tabs
@@ -108,6 +111,7 @@ function setActiveEditor(index: number) {
   editorView = editor.view;
   editorView.focus();
   activeEditorIndex = index;
+  globalThis.EDITOR_VIEW = editorView;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,11 +183,13 @@ resetButton.addEventListener('click', () => {
 });
 
 confirmReset.addEventListener('click', () => {
+  let editorView = globalThis.EDITOR_VIEW;
   editorView.dispatch({
     changes: { from: 0, to: editorView.state.doc.length, insert: '' }
   });
 
-  outputPanel.textContent = '';
+  stdout.textContent = '';
+  stderr.textContent = '';
   stepButton.style.display = 'none';
   exitButton.style.display = 'none';
   localStorage.removeItem('latest-source');
@@ -228,6 +234,11 @@ infoModal.addEventListener("click", (e) => {
 // ---------------------------------------------------------------------------
 
 function initialize(): void {
+  // TODO Why is this function being called twice on startup?
+  if (globalThis.EDITOR_VIEW) {
+    return;
+  }
+
   if (IS_EMBED) {
     // build one editor tab
     if (editorTabs.length === 0) addNewTab();
