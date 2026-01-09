@@ -43,9 +43,13 @@ export const run = async (isDebug: boolean) => {
   stdout.innerText = '';
   stderr.innerText = '';
 
+  const src = getSourceLanguage();
+  const dstLangs = getDestinationLanguages();
+
   // Save current program
   const source = editorView.state.doc.toString();
   localStorage.setItem('latest-source', source);
+  localStorage.setItem('source-language', src);
 
   const translation = {
     'CSP': new csp.Translator(),
@@ -55,8 +59,6 @@ export const run = async (isDebug: boolean) => {
     'Python': new python.Translator()
   };
 
-  const src = getSourceLanguage();
-  const dstLangs = getDestinationLanguages();
 
   try {
     let tokens: any;

@@ -304,9 +304,12 @@ function initialize(): void {
   addNewTab();
 
   const latestSource = localStorage.getItem('latest-source') || "";
+  const latestLanguage = localStorage.getItem('source-language') || "Praxis";
   editorView.dispatch({
     changes: { from: 0, to: editorView.state.doc.length, insert: latestSource },
   });
+  // TODO: load in src language from local storage
+  // document.getElementById('source-language');
 }
 
 window.addEventListener("load", initialize);

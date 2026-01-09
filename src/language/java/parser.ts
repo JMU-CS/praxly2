@@ -687,10 +687,11 @@ class JavaParser extends Parser {
     const parameterNode = this.expression();
 
     let hasSemicolon = false;
-    if (this.has(TokenType.Semicolon)) {
-      const semicolonToken = this.advance();
-      hasSemicolon = true;
+    if (!this.has(TokenType.Semicolon)) {
+      throw new ParseError(`Missing ;`, parameterNode.where);
     }
+    this.advance(); // eat ;
+    hasSemicolon = true;
 
     // In Praxly, what character comes after the print is determined by a
     // trailing comment. The comment text may be "space" or "nothing". Any
