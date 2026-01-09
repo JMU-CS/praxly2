@@ -77,6 +77,21 @@ export function addNewTab() {
   }
 }
 
+export function findActiveEditor(ev: MouseEvent) {
+  if (IS_EMBED) return;
+
+  // find the currently active tab
+  const target = ev.target as Node | null;
+  if (!target) return;
+
+  const index = editorTabs.findIndex(tab => tab.editorDiv.contains(target));
+  if (index === -1) return;
+
+  if (activeEditorIndex !== index) {
+    setActiveEditor(index);
+  }
+}
+
 export function removeTab(ev: MouseEvent) {
   if (IS_EMBED) return;
 
@@ -295,3 +310,4 @@ function initialize(): void {
 }
 
 window.addEventListener("load", initialize);
+document.addEventListener('click', findActiveEditor);

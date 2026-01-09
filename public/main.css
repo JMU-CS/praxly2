@@ -136,7 +136,7 @@ main {
     justify-content: space-between; /* change to space around when 'x' */
 }
 
-.tab-header select.language-dropdown {
+.tab-header select.editor-lang {
     background-color: #666;
     border-color: #666;
     border-radius: 6px;

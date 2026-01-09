@@ -5,7 +5,7 @@ import { attachResizeBar, attachVerticalMemdiaResizer, initVerticalSplit } from 
 //  <div class="tab">
 //     <div class="tab-content">
 //         <div class="tab-header">
-//             <select name="" id="" class="language-dropdown">
+//             <select name="" id="" class="editor-lang">
 //                 <option value="Praxis">Praxis</option>
 //                 <option value="Python">Python</option>
 //                 ...
@@ -57,7 +57,7 @@ export class Tab {
 
         // language dropdown
         this.languageDropdown = document.createElement("select");
-        this.languageDropdown.className = "language-dropdown dst-lang";
+        this.languageDropdown.className = "editor-lang dst-lang";
         this.languages.forEach(option => {
             const o = document.createElement("option");
             o.value = option;
