@@ -160,7 +160,7 @@ export function attachVerticalMemdiaResizer(
       ignoreNextClick = false;
       return;
     }
-    toggleMemdiaVisibility(editor, memdia, tabContent);
+    toggleMemdiaVisibility(editor, memdia, tabContent, handle);
   };
 
   handle.addEventListener('mousedown', onMouseDown);
@@ -198,14 +198,18 @@ export function initVerticalSplit(tabContent: HTMLElement, ratio: number = 0.6) 
 export function toggleMemdiaVisibility(
   editor: HTMLElement,
   memdia: HTMLElement,
-  tabContent: HTMLElement
+  tabContent: HTMLElement,
+  handle: HTMLElement
 ) {
+  const arrowButton = handle.querySelector('.drawer-arrow');
   if (memdia.style.display === 'none') {
     memdia.style.display = '';
     editor.style.flexGrow = '';
+    if (arrowButton) arrowButton.textContent = 'keyboard_arrow_down';
     initVerticalSplit(tabContent, 0.6);
   } else {
     memdia.style.display = 'none';
     editor.style.flexGrow = '1';
+    if (arrowButton) arrowButton.textContent = 'keyboard_arrow_right';
   }
 }

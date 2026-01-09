@@ -56,7 +56,7 @@ export class Tab {
 
         // language dropdown
         this.languageDropdown = document.createElement("select");
-        this.languageDropdown.className = "language-dropdown";
+        this.languageDropdown.className = "language-dropdown dst-lang";
         this.languages.forEach(option => {
             const o = document.createElement("option");
             o.value = option;
@@ -98,6 +98,12 @@ export class Tab {
         const memdiaLabel = document.createElement("div");
         memdiaLabel.className = "label";
         memdiaLabel.textContent = "Diagram/Memory";
+
+        const arrowButton = document.createElement("button");
+        arrowButton.className = "drawer-arrow material-symbols-rounded"
+        arrowButton.textContent = "keyboard_arrow_down"
+
+        memdiaLabel.appendChild(arrowButton);
         // Place label between editor and memdia to act as vertical resizer handle
         tabContent.appendChild(memdiaLabel);
 

@@ -62,6 +62,7 @@ export const run = async (isDebug: boolean) => {
     let tokens: any;
     let programAst: any;
     let outputFormatter: any;
+    let translator: any;
 
     // Determine source language
     if (src === "Praxis") {
@@ -80,10 +81,34 @@ export const run = async (isDebug: boolean) => {
 
     if (dstLangs.length > 0 && editorTabs.length > 0) {
       // no-op for now
+      editorTabs.forEach(tab => {
+        if (tab.languageDropdown.id != 'src-lang') {
+          // translate
+          const lang = tab.languageDropdown.value as keyof typeof translation;
+          translator = translation[lang];
+
+          // generate
+          const generatedSource = programAst.visit(translator, {
+            nestingLevel: 0,
+            indentation: '    ',
+          });
+
+          // insert
+          let currEditorView = tab.editor.view;
+          currEditorView.dispatch({
+            changes: { from: 0, to: currEditorView.state.doc.length, insert: generatedSource },
+          });
+
+        }
+
+      });
     }
 
     // Runtime and visualizers
-    const runtime = new GlobalRuntime(log, getInput, false, 'this');
+    // const runtime = new GlobalRuntime(log, getInput, false, 'this');
+    const allowsUndeclared = src === 'Python';
+    const receiverName = src === 'Python' ? 'self' : 'this';
+    const runtime = new GlobalRuntime(log, getInput, allowsUndeclared, receiverName);
 
     const memdia = new MemdiaSvg(runtime);
     const varTable = new VariableTable(runtime);

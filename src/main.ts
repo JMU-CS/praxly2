@@ -112,6 +112,24 @@ function setActiveEditor(index: number) {
   editorView.focus();
   activeEditorIndex = index;
   globalThis.EDITOR_VIEW = editorView;
+
+  // update the src-language tab
+  let currDropdown = editorTabs[index].languageDropdown;
+  if (currDropdown.classList.contains('dst-lang')) {
+    currDropdown.classList.remove('dst-lang');
+    currDropdown.id = 'src-lang';
+  }
+
+  // make sure all the other tabs are dst's
+  editorTabs.forEach(tab => {
+    if (tab != editorTab) {
+      tab.languageDropdown.classList.add('dst-lang')
+      if (tab.languageDropdown.id === 'src-lang') {
+        tab.languageDropdown.id = '';
+      }
+    }
+  });
+
 }
 
 // ---------------------------------------------------------------------------

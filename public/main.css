@@ -1,6 +1,7 @@
 /* TODO: have color variables */
 
 body {
+  background-color: #1e1e1e;
     margin: 0;
     font-family: sans-serif;
     user-select: none;
@@ -8,9 +9,19 @@ body {
 }
 
 .label {
-    border: 2px solid #213643;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 4px solid #213643;
     background-color: #2d485a;
-    color: black;
+    font: 600 14px sans-serif;
+    color: white;
+}
+
+.drawer-arrow {
+  background: none;
+  border: none;
+  color: white;
 }
 
 /* header */
@@ -197,7 +208,6 @@ main {
 }
 
 footer {
-    background-color: #1e1e1e;
     height: 20vh;
 }
 
