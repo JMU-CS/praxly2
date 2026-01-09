@@ -1,3 +1,4 @@
+import { EditorView } from '@codemirror/view';
 import { CodeMirrorEditor } from './editor.js';
 import { Tab } from './tab.js';
 import { run } from './run.js';
@@ -6,7 +7,11 @@ import { initTabWidths } from './resize.js';
 // Main elements
 const main = document.querySelector("main") as HTMLElement;
 export const outputPanel = document.getElementById('output-panel') as HTMLElement;
+export const stdout = document.getElementById('stdout') as HTMLElement;
+export const stderr = document.getElementById('stderr') as HTMLElement;
 export const memdiaPanel = document.getElementById("memdia-panel") as HTMLElement;
+
+const IS_EMBED = document.body.classList.contains("embed");
 
 // Toolbar buttons
 const runButton = document.getElementById('run-button') as HTMLInputElement;
@@ -17,9 +22,12 @@ const shareButton = document.getElementById("share-button") as HTMLInputElement;
 const infoButton = document.getElementById("info-button") as HTMLInputElement;
 const resetButton = document.getElementById("reset-button") as HTMLInputElement;
 
+// embed-only optional button
+const openButton = document.getElementById("open-button") as HTMLButtonElement | null;
+
 // Info modal
-const infoModal = document.getElementById("info-modal")as HTMLElement;
-const closeInfo = document.getElementById("close-info")as HTMLButtonElement;
+const infoModal = document.getElementById("info-modal") as HTMLElement;
+const closeInfo = document.getElementById("close-info") as HTMLButtonElement;
 
 // Reset modal
 const resetModal = document.getElementById('reset-confirm') as HTMLElement;
@@ -30,45 +38,56 @@ const cancelReset = document.getElementById('cancel-reset') as HTMLButtonElement
 export const editorTabs: Tab[] = [];
 let activeEditorIndex = 0;
 
-// TODO remove convenience variables for current editor?
+// Convenience variables
 export let editorTab: Tab;
 export let editor: CodeMirrorEditor;
-export let editorView: any;
+export let editorView: EditorView;
 
 // ---------------------------------------------------------------------------
 // Adding editor tabs
 // ---------------------------------------------------------------------------
 
 export function addNewTab() {
+  // embed = only one editor
+  if (IS_EMBED && editorTabs.length > 0) return;
+
   let index = editorTabs.length;
 
-  // add a new tab at the end
   const tab = new Tab();
   editorTabs.push(tab);
   setActiveEditor(index);
-  initTabWidths();
 
-  // take off the + button and add an x button for the previous tab
-  const prevTab = editorTabs[index - 1];
-  if (prevTab) {
-    prevTab.tabButton.textContent = 'x';
-    prevTab.tabButton.removeEventListener('click', addNewTab);
-    prevTab.tabButton.addEventListener('click', removeTab);
+  // embed: strip multi-tab UI + remove tab memdia + no width math
+  if (IS_EMBED) {
+    tab.tabButton.style.display = 'none';
+    tab.resizeBar.style.display = 'none';
+
+    const memdia = tab.tab.querySelector('.memdia') as HTMLElement | null;
+    if (memdia) memdia.remove();
+
+    tab.tab.style.width = '100%';
+    tab.tab.style.flexBasis = '100%';
+  } else {
+    initTabWidths();
+
+    const prevTab = editorTabs[index - 1];
+    if (prevTab) {
+      prevTab.tabButton.textContent = 'x';
+      prevTab.tabButton.removeEventListener('click', addNewTab);
+      prevTab.tabButton.addEventListener('click', removeTab);
+    }
   }
 }
 
 export function removeTab(ev: MouseEvent) {
-  // get the index of the EditorTab to be closed
+  if (IS_EMBED) return;
+
   let index = editorTabs.findIndex(tab => tab.tabButton === ev.target);
 
-  // remove the tab from the DOM
   const tab = editorTabs[index];
   tab.tab.remove();
-
-  // remove the tab from the array
   editorTabs.splice(index, 1);
 
-  // Update activeEditorIndex
   if (activeEditorIndex === index) {
     const newIndex = index > 0 ? index - 1 : 0;
     setActiveEditor(newIndex);
@@ -87,13 +106,12 @@ export function removeTab(ev: MouseEvent) {
 }
 
 function setActiveEditor(index: number) {
-  // update global variables
   editorTab = editorTabs[index];
   editor = editorTab.editor;
   editorView = editor.view;
-  // focus the active editor
   editorView.focus();
   activeEditorIndex = index;
+  globalThis.EDITOR_VIEW = editorView;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +123,8 @@ runButton.addEventListener('click', () => {
 });
 
 debugButton.addEventListener('click', () => {
-  document.querySelectorAll<HTMLLIElement>(".hide").forEach(el => {el.style.display = 'flex'});
+  document.querySelectorAll<HTMLLIElement>(".hide")
+    .forEach(el => el.style.display = 'flex');
   runButton.style.display = 'none';
   debugButton.style.display = 'none';
   stepButton.style.display = 'inline-flex';
@@ -114,7 +133,8 @@ debugButton.addEventListener('click', () => {
 });
 
 exitButton.addEventListener('click', () => {
-  document.querySelectorAll<HTMLLIElement>(".hide").forEach(el => {el.style.display = 'none'});
+  document.querySelectorAll<HTMLLIElement>(".hide")
+    .forEach(el => el.style.display = 'none');
   runButton.style.display = 'inline-flex';
   debugButton.style.display = 'inline-flex';
   stepButton.style.display = 'none';
@@ -131,26 +151,20 @@ export function generateUrl() {
   const code = editorView.state.doc.toString();
   const encoded = encodeURIComponent(code);
   window.location.hash = '';
-  window.location.hash = `code=${encoded}`
+  window.location.hash = `code=${encoded}`;
   saveToLocal();
+
   const dummy = document.createElement('input');
   dummy.value = window.location.href;
   document.body.appendChild(dummy);
   dummy.select();
   document.execCommand('copy');
   document.body.removeChild(dummy);
-  // const toast = document.getElementById('toast');
-  // if (toast) {
-  //   toast.style.display = 'block';
-  //   setTimeout(() => {
-  //     toast.style.display = 'none';
-  //   }, 3000);
-  // }
-  const notification = document.getElementById("notification");
-  if (notification) {
-    notification.style.display = 'block';
+  const toast = document.getElementById('toast');
+  if (toast) {
+    toast.style.display = 'block';
     setTimeout(() => {
-      notification.style.display = 'none';
+      toast.style.display = 'none';
     }, 3000);
   }
 }
@@ -166,15 +180,16 @@ export function saveToLocal() {
 
 resetButton.addEventListener('click', () => {
   resetModal.style.display = 'flex';
-
 });
 
 confirmReset.addEventListener('click', () => {
+  let editorView = globalThis.EDITOR_VIEW;
   editorView.dispatch({
     changes: { from: 0, to: editorView.state.doc.length, insert: '' }
   });
 
-  outputPanel.textContent = '';
+  stdout.textContent = '';
+  stderr.textContent = '';
   stepButton.style.display = 'none';
   exitButton.style.display = 'none';
   localStorage.removeItem('latest-source');
@@ -196,7 +211,10 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// EXAMPLES MODAL CONTENT
+// ---------------------------------------------------------------------------
+// Info modal
+// ---------------------------------------------------------------------------
+
 infoButton.addEventListener("click", () => {
   infoModal.style.display = "flex";
 });
@@ -212,22 +230,52 @@ infoModal.addEventListener("click", (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// Initialization function
+// Initialization
 // ---------------------------------------------------------------------------
 
 function initialize(): void {
-  // TODO figure out why this is being called twice
+  // TODO Why is this function being called twice on startup?
+  if (globalThis.EDITOR_VIEW) {
+    return;
+  }
+
+  if (IS_EMBED) {
+    // build one editor tab
+    if (editorTabs.length === 0) addNewTab();
+
+    // load from or latest-source
+    const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
+    const params = new URLSearchParams(hash);
+    const codeParam = params.get('code');
+
+    const initial =
+      (codeParam ? decodeURIComponent(codeParam) : null) ??
+      localStorage.getItem('latest-source') ??
+      "";
+
+    editorView.dispatch({
+      changes: { from: 0, to: editorView.state.doc.length, insert: initial },
+    });
+
+    // embed-only open button
+    if (openButton) {
+      openButton.addEventListener('click', () => {
+        window.open('/', '_blank', 'noopener,noreferrer');
+      });
+    }
+
+    return;
+  }
+
+  // main page behavior
   if (main.childElementCount > 0) return;
 
-  // first editor
   addNewTab();
 
-  // TODO store source of all editors?
   const latestSource = localStorage.getItem('latest-source') || "";
   editorView.dispatch({
     changes: { from: 0, to: editorView.state.doc.length, insert: latestSource },
   });
-
 }
 
 window.addEventListener("load", initialize);

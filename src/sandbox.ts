@@ -146,7 +146,8 @@ function initialize() {
   const stepButton = document.getElementById('step-button') as HTMLInputElement;
   const inputField = document.getElementById('input-field') as HTMLInputElement;
   const treePanel = document.getElementById('tree-panel') as HTMLElement;
-  const outputPanel = document.getElementById('output-panel') as HTMLElement;
+  const stdout = document.getElementById('stdout') as HTMLElement;
+  const stderr = document.getElementById('stderr') as HTMLElement;
   const sourcePanel = document.getElementById('source-panel') as HTMLElement;
   const exampleDropdown = document.getElementById("example-drop") as HTMLSelectElement;
 
@@ -320,7 +321,7 @@ function initialize() {
   };
 
   const log = (text: string) => {
-    outputPanel.appendChild(document.createTextNode(text));
+    stdout.appendChild(document.createTextNode(text));
   };
 
   const getInput: () => Promise<string> = () => {
@@ -356,7 +357,8 @@ function initialize() {
   // tree.visit(evaluator, runtime);
 
   const run = async (isDebug: boolean) => {
-    outputPanel.innerText = '';
+    stdout.innerText = '';
+    stderr.innerText = '';
 
     const source = editorView.state.doc.toString();
 
@@ -366,8 +368,6 @@ function initialize() {
     localStorage.setItem('example-program', exampleDropdown.value);
 
     try {
-      outputPanel.innerText = '';
-
       let tokens;
       let ast;
       let outputFormatter;
@@ -481,14 +481,14 @@ function initialize() {
               selection: cm.EditorSelection.range(e.where.start, e.where.end),
             });
           });
-          outputPanel.appendChild(button);
+          stderr.appendChild(button);
           // console.error(e.where);
         }
 
         const message = e.message.replaceAll(/`(.*?)`/g, '<var>$1</var>');
         const span = document.createElement('span');
         span.innerHTML = `: ${message}`;
-        outputPanel.appendChild(span);
+        stderr.appendChild(span);
         console.error(e);
       }
     }

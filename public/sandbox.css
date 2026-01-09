@@ -33,7 +33,7 @@ body {
   overflow-y: scroll;
 }
 
-#tree-panel, #output-panel, #source-panel {
+#tree-panel, #source-panel {
   overflow-x: auto;
   white-space: pre;
 }
@@ -53,9 +53,13 @@ body {
   background-color: rgb(230, 230, 230);
 }
 
+#output-panel p {
+  margin-top: 0;
+}
+
 #memdia-panel {
   background-color: #1e1e1e;
-  display: none;
+  overflow: auto;
 }
 
 #controls {

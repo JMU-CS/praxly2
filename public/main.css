@@ -177,6 +177,25 @@ main {
 
 /* output */
 
+#stdout {
+  color: white;
+  margin: 1ex;
+}
+
+#stderr {
+  color: Red;
+  margin: 1ex;
+}
+
+#stderr button {
+    color: DeepSkyBlue;
+}
+
+#stderr button:active,
+#stderr button:hover {
+    color: LightSkyBlue;
+}
+
 footer {
     background-color: #1e1e1e;
     height: 20vh;

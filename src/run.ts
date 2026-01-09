@@ -12,10 +12,12 @@ import { Evaluator } from './language/evaluator.js';
 import { GlobalRuntime } from './language/runtime.js';
 import { WhereError } from './language/error.js';
 import { MemdiaSvg } from './language/memdia.js';
-import { editor, editorView, editorTabs, stepButton, outputPanel } from './main.js';
+import { VariableTable } from './variabletable.js';
+
+import { editor, editorView, editorTabs, stepButton, stdout, stderr } from './main.js';
 
 const log = (text: string) => {
-  outputPanel.appendChild(document.createTextNode(text));
+  stdout.appendChild(document.createTextNode(text));
 };
 
 // TODO implement wobbly input boxes in the output div
@@ -25,78 +27,98 @@ const getInput: () => Promise<string> = () => {
   });
 };
 
-export const run = async (isDebug: boolean) => {
+function getSourceLanguage(): string {
+  const srcLang = document.getElementById("src-lang") as HTMLSelectElement | null;
+  // Embed pages won't have this dropdown
+  return srcLang?.value ?? "Praxis";
+}
 
+function getDestinationLanguages(): string[] {
+  const dstDropdowns = document.querySelectorAll<HTMLSelectElement>(".editor-lang");
+  return [...dstDropdowns].map(d => d.value);
+}
+
+export const run = async (isDebug: boolean) => {
   // Clear previous output
-  outputPanel.innerText = '';
+  stdout.innerText = '';
+  stderr.innerText = '';
 
   // Save current program
   const source = editorView.state.doc.toString();
   localStorage.setItem('latest-source', source);
 
   const translation = {
-    'CSP' : new csp.Translator(),
-    'English' : new english.Translator(),
-    'Java' : new java.Translator(),
-    'Praxis' : new praxis.Translator(),
-    'Python' : new python.Translator()
+    'CSP': new csp.Translator(),
+    'English': new english.Translator(),
+    'Java': new java.Translator(),
+    'Praxis': new praxis.Translator(),
+    'Python': new python.Translator()
   };
 
-  const srcLang = document.getElementById("src-lang") as HTMLSelectElement;
-  const dstDropdowns = document.querySelectorAll<HTMLSelectElement>(".editor-lang");
-  const dstLangs = [...dstDropdowns].map(dropdown => dropdown.value);
-  console.log(dstLangs);
-
-  // srcLang.value = localStorage.getItem('source-language') ?? 'Praxis';
+  const src = getSourceLanguage();
+  const dstLangs = getDestinationLanguages();
 
   try {
-    outputPanel.innerText = '';
+    let tokens: any;
+    let programAst: any;
+    let outputFormatter: any;
 
-    let tokens;
-    let ast;
-    let outputFormatter;
-    let translator;
-
-    // determoine the src value
-    if (srcLang.value == "Praxis") {
+    // Determine source language
+    if (src === "Praxis") {
       tokens = praxis.lex(source);
-      ast = praxis.parse(tokens, source);
+      programAst = praxis.parse(tokens, source);
       outputFormatter = new praxis.OutputFormatter();
+    } else if (src === "Python") {
+      tokens = python.lex(source);
+      programAst = python.parse(tokens, source);
+      outputFormatter = new python.OutputFormatter();
     } else {
-        tokens = python.lex(source);
-        ast = python.parse(tokens, source);
-        outputFormatter = new python.OutputFormatter();
+      tokens = praxis.lex(source);
+      programAst = praxis.parse(tokens, source);
+      outputFormatter = new praxis.OutputFormatter();
     }
 
-    // determine all the dst values
-    for (const tab in editorTabs) {
-
+    if (dstLangs.length > 0 && editorTabs.length > 0) {
+      // no-op for now
     }
-    // translator = translation[dstLangs[i]]
 
-
-    // Update output-panel
+    // Runtime and visualizers
     const runtime = new GlobalRuntime(log, getInput, false, 'this');
-    const evaluator = new Evaluator(outputFormatter, new MemdiaSvg(runtime));
+
+    const memdia = new MemdiaSvg(runtime);
+    const varTable = new VariableTable(runtime);
+
+    // prime the table
+    varTable.refresh();
+
+    const evaluator = new Evaluator(outputFormatter, memdia);
+
     if (isDebug) {
       evaluator.step = (node: ast.Node) => {
-
         // Highlight node
         editor.removeAllMarks();
         editorView.dispatch({
           effects: addMarks.of([stepMark.range(node.where.start, node.where.end)])
-        })
+        });
 
         return new Promise(resolve => {
           const listener = () => {
             stepButton.removeEventListener('click', listener);
+
+            // refresh variables whenever stepping
+            varTable.refresh();
+
             resolve();
           };
           stepButton.addEventListener('click', listener);
         });
       };
     }
-    await ast.visit(evaluator, runtime);
+
+    await programAst.visit(evaluator, runtime);
+
+    // Final refresh after execution completes
+    varTable.refresh();
 
   } catch (e) {
     if (e instanceof Error) {
@@ -110,14 +132,13 @@ export const run = async (isDebug: boolean) => {
             selection: EditorSelection.range(e.where.start, e.where.end),
           });
         });
-        outputPanel.appendChild(button);
-        // console.error(e.where);
+        stderr.appendChild(button);
       }
 
       const message = e.message.replaceAll(/`(.*?)`/g, '<var>$1</var>');
       const span = document.createElement('span');
       span.innerHTML = `: ${message}`;
-      outputPanel.appendChild(span);
+      stderr.appendChild(span);
       console.error(e);
     }
   }
