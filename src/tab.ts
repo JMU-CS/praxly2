@@ -31,6 +31,9 @@ export class Tab {
     public editor: CodeMirrorEditor;
     public resizeBar: HTMLDivElement;
 
+    public languages = ["CSP", "English", "Java", "Praxis", "Python"];
+    public static nextLanguage = 3;
+
     constructor() {
 
         // grab the main element from the html (TODO : have this imported??)
@@ -52,7 +55,7 @@ export class Tab {
         // language dropdown
         this.languageDropdown = document.createElement("select");
         this.languageDropdown.className = "language-dropdown";
-        ["CSP", "English", "Java", "Praxis", "Python"].forEach(option => {
+        this.languages.forEach(option => {
             const o = document.createElement("option");
             o.value = option;
             o.textContent = option;
@@ -63,8 +66,9 @@ export class Tab {
           this.editor.switchLanguage(this.languageDropdown.value);
         });
 
-        // TODO make selectedIndex the "next" language not in use
-        this.languageDropdown.selectedIndex = 3;  // Show Praxis by default
+        // select the next available language (TODO: allow for multiple of 1 language??)
+        this.languageDropdown.selectedIndex = Tab.nextLanguage;
+        Tab.nextLanguage = (Tab.nextLanguage + 1) % this.languages.length;
 
         this.tabButton = document.createElement("button");
         this.tabButton.className = "new-editor";
