@@ -72,9 +72,7 @@ export function addNewTab() {
 
     const prevTab = editorTabs[index - 1];
     if (prevTab) {
-      prevTab.tabButton.textContent = 'x';
-      prevTab.tabButton.removeEventListener('click', addNewTab);
-      prevTab.tabButton.addEventListener('click', removeTab);
+      prevTab.tabButton.style.display = 'none';
     }
   }
 }
@@ -82,7 +80,9 @@ export function addNewTab() {
 export function removeTab(ev: MouseEvent) {
   if (IS_EMBED) return;
 
-  let index = editorTabs.findIndex(tab => tab.tabButton === ev.target);
+  if (editorTabs.length == 1) return;
+
+  let index = editorTabs.findIndex(tab => tab.exitButton === ev.target);
 
   const tab = editorTabs[index];
   tab.tab.remove();
@@ -96,10 +96,8 @@ export function removeTab(ev: MouseEvent) {
   }
 
   const last = editorTabs[editorTabs.length - 1];
-  if (last && last.tabButton.textContent !== '+') {
-    last.tabButton.textContent = '+';
-    last.tabButton.removeEventListener('click', removeTab);
-    last.tabButton.addEventListener('click', addNewTab);
+  if (last && last.tabButton.style.display === 'none') {
+      last.tabButton.style.display = 'inline-block';
   }
 
   initTabWidths();

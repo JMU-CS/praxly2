@@ -1,5 +1,5 @@
 import { CodeMirrorEditor } from './editor.js';
-import { addNewTab } from './main.js';
+import { addNewTab, removeTab } from './main.js';
 import { attachResizeBar, attachVerticalMemdiaResizer, initVerticalSplit } from './resize.js';
 //
 //  <div class="tab">
@@ -27,6 +27,7 @@ export class Tab {
     public tab: HTMLDivElement;
     public languageDropdown: HTMLSelectElement;
     public tabButton: HTMLButtonElement;
+    public exitButton: HTMLButtonElement;
     public editorDiv: HTMLDivElement;
     public editor: CodeMirrorEditor;
     public resizeBar: HTMLDivElement;
@@ -72,13 +73,26 @@ export class Tab {
         this.languageDropdown.selectedIndex = Tab.nextLanguage;
         Tab.nextLanguage = (Tab.nextLanguage + 1) % this.languages.length;
 
+        const headerLeft = document.createElement("div");
+        headerLeft.className = "header-left";
+        const headerRight = document.createElement("div");
+
+        this.exitButton = document.createElement("button");
+        this.exitButton.textContent = 'x';
+        this.exitButton.addEventListener('click', removeTab);
+
         this.tabButton = document.createElement("button");
         this.tabButton.className = "new-editor";
         this.tabButton.textContent = "+";
         this.tabButton.addEventListener('click', addNewTab);
 
-        tabHeader.appendChild(this.languageDropdown);
-        tabHeader.appendChild(this.tabButton);
+        headerLeft.appendChild(this.languageDropdown);
+        headerLeft.appendChild(this.exitButton);
+        headerRight.appendChild(this.tabButton);
+
+        tabHeader.appendChild(headerLeft);
+        tabHeader.appendChild(headerRight);
+
         tabContent.appendChild(tabHeader);
 
          // div to hold the code editor

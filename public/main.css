@@ -133,7 +133,7 @@ main {
     padding: 5px;
     gap: 8px;
     align-items: center;
-    justify-content: left; /* change to space around when 'x' */
+    justify-content: space-between; /* change to space around when 'x' */
 }
 
 .tab-header select.language-dropdown {
@@ -145,13 +145,20 @@ main {
     color: inherit;
 }
 
-.tab-header .new-editor {
+.tab-header button {
     background-color: #666;
     border: none;
     border-radius: 6px;
     padding: 6px 10px;
     font-size: 18px;
     color: inherit;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 0.5em;
 }
 
 .tab .editor,
