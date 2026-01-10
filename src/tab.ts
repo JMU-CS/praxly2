@@ -31,6 +31,7 @@ export class Tab {
     public editorDiv: HTMLDivElement;
     public editor: CodeMirrorEditor;
     public resizeBar: HTMLDivElement;
+    public overlay: HTMLDivElement;
 
     public languages = ["CSP", "English", "Java", "Praxis", "Python"];
     public static nextLanguage = 3;
@@ -110,12 +111,12 @@ export class Tab {
         }
 
         const memdiaLabel = document.createElement("div");
-        memdiaLabel.className = "label";
+        memdiaLabel.className = "label memdia-label";
         memdiaLabel.textContent = "Diagram/Memory";
 
         const arrowButton = document.createElement("button");
         arrowButton.className = "drawer-arrow material-symbols-rounded"
-        arrowButton.textContent = "keyboard_arrow_down"
+        arrowButton.textContent = "keyboard_arrow_right"
 
         memdiaLabel.appendChild(arrowButton);
         // Place label between editor and memdia to act as vertical resizer handle
@@ -124,6 +125,10 @@ export class Tab {
         const diagram = document.createElement("div");
         diagram.className = "diagram";
         memdia.appendChild(diagram);
+
+        // memdia hidden by default
+        memdia.style.display = 'none';
+        this.editorDiv.style.flexGrow = '1';
 
         tabContent.appendChild(memdia);
 
@@ -140,10 +145,12 @@ export class Tab {
 
         this.tab.appendChild(this.resizeBar);
 
+        this.overlay = document.createElement("div");
+        this.overlay.className = "overlay";
+        this.tab.appendChild(this.overlay);
+
         // initialize vertical split and attach resizer
         initVerticalSplit(tabContent, 0.6);
         attachVerticalMemdiaResizer(memdiaLabel as HTMLDivElement, this.editorDiv, memdia, tabContent);
-
-        // main.appendChild(this.tab);
     }
 }

@@ -133,10 +133,15 @@ function setActiveEditor(index: number) {
     currDropdown.id = 'src-lang';
   }
 
+  // highlight the tab
+  editorTab.overlay.style.display = 'none';
+
   // make sure all the other tabs are dst's
   editorTabs.forEach(tab => {
     if (tab != editorTab) {
-      tab.languageDropdown.classList.add('dst-lang')
+      tab.languageDropdown.classList.add('dst-lang');
+      // "disable" the tab
+      tab.overlay.style.display = 'block';
       if (tab.languageDropdown.id === 'src-lang') {
         tab.languageDropdown.id = '';
       }

@@ -12,10 +12,15 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: 4px solid #213643;
+    border: 4px solid #1e323e;
     background-color: #2d485a;
     font: 600 14px sans-serif;
     color: white;
+    /* padding: 1px; */
+}
+
+.output-label, .memdia-label{
+  padding: 5px;
 }
 
 .drawer-arrow {
@@ -102,6 +107,7 @@ main {
 }
 
 .tab {
+  position: relative;
     display: flex;
     flex: 0 0 auto; /***/
     flex-direction: row;
@@ -133,7 +139,6 @@ main {
     padding: 5px;
     gap: 8px;
     align-items: center;
-    justify-content: space-between; /* change to space around when 'x' */
 }
 
 .tab-header select.editor-lang {
@@ -161,8 +166,7 @@ main {
   gap: 0.5em;
 }
 
-.tab .editor,
-.tab .memdia {
+.tab .editor {
   flex: 0 0 auto;
 }
 
@@ -190,6 +194,19 @@ main {
 
 .panel {
   overflow: auto;
+}
+
+.overlay {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 6;
+  pointer-events: none;
+
+  background: rgba(0, 0, 0, 0.3); /* semi-transparent */
 }
 
 /* output */
