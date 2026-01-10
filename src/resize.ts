@@ -1,6 +1,8 @@
 const MIN_TAB_WIDTH = 300;
-let dragging = false;
 const MIN_PANEL_HEIGHT = 120;
+const MIN_FOOTER_HEIGHT = 200;
+const MAX_FOOTER_HEIGHT = 400;
+let dragging = false;
 
 // resizing functionality for between tabs
 function onMouseDown(bar: HTMLDivElement, e: MouseEvent) {
@@ -217,7 +219,7 @@ export function toggleMemdiaVisibility(
   }
 }
 
-const MIN_FOOTER_HEIGHT = 200;
+
 
 export function attachVerticalFooterResizer(
   handle: HTMLDivElement,
@@ -235,15 +237,13 @@ export function attachVerticalFooterResizer(
 
     let hasMoved = false;
 
-    const container = handle.parentElement as HTMLElement; // workspace
-    const header = document.querySelector("header");
+    const container = document.querySelector(".workspace") as HTMLElement | null;
+    if (!container) return;
 
-    const containerRect = container.getBoundingClientRect();
-    const headerHeight = header?.offsetHeight ?? 0;
     const handleHeight = handle.offsetHeight;
 
-    // available space for the footer + main excluding the header and handle
-    const available = container.clientHeight - headerHeight - handleHeight;
+    // available space is just the workspace height (header is outside workspace)
+    const available = container.clientHeight;
     if (available <= 0) return;
 
     document.body.style.cursor = 'row-resize';
@@ -253,12 +253,14 @@ export function attachVerticalFooterResizer(
       hasMoved = true;
       // Recalculate container rect on every move for accurate positioning
       const currentContainerRect = container.getBoundingClientRect();
-      // Mouse Y relative to container top (no header to subtract)
+      // Mouse Y relative to workspace top
       const relativeY = moveEvent.clientY - currentContainerRect.top;
       // Place handle centered; subtract half handle height
       let newMainHeight = Math.round(relativeY - handleHeight / 2);
-      // Clamp (footer cant shrink below the minimum height)
-      newMainHeight = Math.max(MIN_PANEL_HEIGHT, Math.min(available - MIN_FOOTER_HEIGHT, newMainHeight));
+      // Clamp both: main can't go below MIN_PANEL_HEIGHT, footer can't go below MIN_FOOTER_HEIGHT and can't exceed MAX_FOOTER_HEIGHT
+      const minMainHeight = Math.max(MIN_PANEL_HEIGHT, available - MAX_FOOTER_HEIGHT);
+      const maxMainHeight = available - MIN_FOOTER_HEIGHT;
+      newMainHeight = Math.max(minMainHeight, Math.min(maxMainHeight, newMainHeight));
       const newFooterHeight = available - newMainHeight;
 
       main.style.height = `${newMainHeight}px`;

@@ -326,8 +326,8 @@ function initialize(): void {
 
   // Attach the footer resizer
   const workspace = document.querySelector('.workspace') as HTMLDivElement;
-  const outputLabel = document.querySelector('.output-label') as HTMLDivElement;
   const outputPanel = document.getElementById('output-panel') as HTMLDivElement;
+  const outputLabel = document.querySelector('.output-label') as HTMLDivElement;
 
   if (workspace && outputLabel && outputPanel) {
     attachVerticalFooterResizer(outputLabel, main as HTMLDivElement, outputPanel);

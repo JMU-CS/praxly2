@@ -106,14 +106,23 @@ header {
   display: none;
 }
 
+/* container holding main + footer */
+.workspace {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 5vh); /* Full height minus header */
+    overflow: hidden;
+}
+
 /* main area (aka tabs) */
 
 main {
     background-color: #1e1e1e;
-    height: 75vh;
     display: flex;
     overflow-y: hidden;
     overflow-x: auto;
+    flex: 1 1 auto; /* Allow resizing */
+    min-height: 120px;
 }
 
 .tab {
@@ -260,7 +269,12 @@ main {
 }
 
 footer {
-    height: 20vh;
+    flex: 0 0 auto; /* Allow resizing but don't grow */
+    min-height: 200px;
+    max-height: 400px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 /* reset modal */
