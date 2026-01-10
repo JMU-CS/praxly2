@@ -2,7 +2,7 @@ const MIN_TAB_WIDTH = 300;
 let dragging = false;
 const MIN_PANEL_HEIGHT = 120;
 
-// resizing functionality
+// resizing functionality for between tabs
 function onMouseDown(bar: HTMLDivElement, e: MouseEvent) {
   dragging = true;
   e.preventDefault();
@@ -83,6 +83,9 @@ function initializeResize() {
 }
 
 window.addEventListener('DOMContentLoaded', initializeResize);
+
+
+// RESIZING INSIDE THE TAB BETWEEN EDITOR AND DIAGRAM //
 
 /**
  * Attach a vertical resizer using a handle element placed
@@ -212,4 +215,69 @@ export function toggleMemdiaVisibility(
     editor.style.flexGrow = '1';
     if (arrowButton) arrowButton.textContent = 'keyboard_arrow_right';
   }
+}
+
+const MIN_FOOTER_HEIGHT = 200;
+
+export function attachVerticalFooterResizer(
+  handle: HTMLDivElement,
+  main: HTMLDivElement,
+  output: HTMLDivElement
+) {
+  if (!handle || !main || !output) return;
+  if (handle.dataset.verticalResizeAttached) return;
+  handle.dataset.verticalResizeAttached = 'true';
+
+  handle.style.cursor = 'row-resize';
+
+  const onMouseDown = (e: MouseEvent) => {
+    e.preventDefault();
+
+    let hasMoved = false;
+
+    const container = handle.parentElement as HTMLElement; // workspace
+    const header = document.querySelector("header");
+
+    const containerRect = container.getBoundingClientRect();
+    const headerHeight = header?.offsetHeight ?? 0;
+    const handleHeight = handle.offsetHeight;
+
+    // available space for the footer + main excluding the header and handle
+    const available = container.clientHeight - headerHeight - handleHeight;
+    if (available <= 0) return;
+
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      hasMoved = true;
+      // Recalculate container rect on every move for accurate positioning
+      const currentContainerRect = container.getBoundingClientRect();
+      // Mouse Y relative to container top (no header to subtract)
+      const relativeY = moveEvent.clientY - currentContainerRect.top;
+      // Place handle centered; subtract half handle height
+      let newMainHeight = Math.round(relativeY - handleHeight / 2);
+      // Clamp (footer cant shrink below the minimum height)
+      newMainHeight = Math.max(MIN_PANEL_HEIGHT, Math.min(available - MIN_FOOTER_HEIGHT, newMainHeight));
+      const newFooterHeight = available - newMainHeight;
+
+      main.style.height = `${newMainHeight}px`;
+      main.style.flexBasis = `${newMainHeight}px`;
+
+      output.style.height = `${newFooterHeight}px`;
+      output.style.flexBasis = `${newFooterHeight}px`;
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  handle.addEventListener('mousedown', onMouseDown);
 }

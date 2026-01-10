@@ -2,7 +2,7 @@ import { EditorView } from '@codemirror/view';
 import { CodeMirrorEditor } from './editor.js';
 import { Tab } from './tab.js';
 import { run } from './run.js';
-import { initTabWidths } from './resize.js';
+import { initTabWidths, attachVerticalFooterResizer } from './resize.js';
 
 // Main elements
 const main = document.querySelector("main") as HTMLElement;
@@ -322,6 +322,15 @@ function initialize(): void {
   if (langIndex !== -1) {
     editorTabs[activeEditorIndex].languageDropdown.selectedIndex = langIndex;
     editor.switchLanguage(latestLanguage);
+  }
+
+  // Attach the footer resizer
+  const workspace = document.querySelector('.workspace') as HTMLDivElement;
+  const outputLabel = document.querySelector('.output-label') as HTMLDivElement;
+  const outputPanel = document.getElementById('output-panel') as HTMLDivElement;
+
+  if (workspace && outputLabel && outputPanel) {
+    attachVerticalFooterResizer(outputLabel, main as HTMLDivElement, outputPanel);
   }
 }
 
