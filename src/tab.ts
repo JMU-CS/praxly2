@@ -33,7 +33,7 @@ export class Tab {
     public resizeBar: HTMLDivElement;
     public overlay: HTMLDivElement;
 
-    public languages = ["CSP", "English", "Java", "Praxis", "Python"];
+    public static languages = ["CSP", "English", "Java", "Praxis", "Python"];
     public static nextLanguage = 3;
 
     constructor() {
@@ -59,7 +59,7 @@ export class Tab {
         // language dropdown
         this.languageDropdown = document.createElement("select");
         this.languageDropdown.className = "editor-lang dst-lang";
-        this.languages.forEach(option => {
+        Tab.languages.forEach(option => {
             const o = document.createElement("option");
             o.value = option;
             o.textContent = option;
@@ -72,7 +72,7 @@ export class Tab {
 
         // select the next available language (TODO: allow for multiple of 1 language??)
         this.languageDropdown.selectedIndex = Tab.nextLanguage;
-        Tab.nextLanguage = (Tab.nextLanguage + 1) % this.languages.length;
+        Tab.nextLanguage = (Tab.nextLanguage + 1) % Tab.languages.length;
 
         // icon for 'x'
         let span = document.createElement("span");

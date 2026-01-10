@@ -316,8 +316,13 @@ function initialize(): void {
   editorView.dispatch({
     changes: { from: 0, to: editorView.state.doc.length, insert: latestSource },
   });
-  // TODO: load in src language from local storage
-  // document.getElementById('source-language');
+
+  // update the src-language
+  const langIndex = Tab.languages.indexOf(latestLanguage);
+  if (langIndex !== -1) {
+    editorTabs[activeEditorIndex].languageDropdown.selectedIndex = langIndex;
+    editor.switchLanguage(latestLanguage);
+  }
 }
 
 window.addEventListener("load", initialize);
