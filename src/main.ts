@@ -84,7 +84,10 @@ export function findActiveEditor(ev: MouseEvent) {
   const target = ev.target as Node | null;
   if (!target) return;
 
+  // TODO: using the entire tab causes a slight issue
   const index = editorTabs.findIndex(tab => tab.editorDiv.contains(target));
+  // const index = editorTabs.findIndex(tab => tab.tab.contains(target));
+
   if (index === -1) return;
 
   if (activeEditorIndex !== index) {
@@ -97,7 +100,7 @@ export function removeTab(ev: MouseEvent) {
 
   if (editorTabs.length == 1) return;
 
-  let index = editorTabs.findIndex(tab => tab.exitButton === ev.target);
+  let index = editorTabs.findIndex(tab => tab.exitButton === ev.target || tab.exitButton.contains(ev.target as Node));
 
   const tab = editorTabs[index];
   tab.tab.remove();
@@ -112,7 +115,7 @@ export function removeTab(ev: MouseEvent) {
 
   const last = editorTabs[editorTabs.length - 1];
   if (last && last.tabButton.style.display === 'none') {
-      last.tabButton.style.display = 'inline-block';
+      last.tabButton.style.display = 'flex';
   }
 
   initTabWidths();

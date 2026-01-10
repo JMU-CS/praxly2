@@ -74,25 +74,31 @@ export class Tab {
         this.languageDropdown.selectedIndex = Tab.nextLanguage;
         Tab.nextLanguage = (Tab.nextLanguage + 1) % this.languages.length;
 
-        const headerLeft = document.createElement("div");
-        headerLeft.className = "header-left";
-        const headerRight = document.createElement("div");
+        // icon for 'x'
+        let span = document.createElement("span");
+        span.className = "material-symbols-rounded";
+        span.textContent = "close";
 
         this.exitButton = document.createElement("button");
-        this.exitButton.textContent = 'x';
+        this.exitButton.className = "tab-exit";
+        this.exitButton.title = "Close tab";
+        this.exitButton.appendChild(span);
         this.exitButton.addEventListener('click', removeTab);
+
+        // icon for '+'
+        span = document.createElement("span");
+        span.className = "material-symbols-rounded";
+        span.textContent = "add";
 
         this.tabButton = document.createElement("button");
         this.tabButton.className = "new-editor";
-        this.tabButton.textContent = "+";
+        this.tabButton.title = "Add a new tab";
+        this.tabButton.appendChild(span);
         this.tabButton.addEventListener('click', addNewTab);
 
-        headerLeft.appendChild(this.languageDropdown);
-        headerLeft.appendChild(this.exitButton);
-        headerRight.appendChild(this.tabButton);
-
-        tabHeader.appendChild(headerLeft);
-        tabHeader.appendChild(headerRight);
+        tabHeader.appendChild(this.languageDropdown);
+        tabHeader.appendChild(this.exitButton);
+        tabHeader.appendChild(this.tabButton);
 
         tabContent.appendChild(tabHeader);
 
