@@ -55,6 +55,10 @@ export function addNewTab() {
 
   const tab = new Tab();
   editorTabs.push(tab);
+
+  // Dispatch event after function completes
+  document.dispatchEvent(new Event('tabAdded'));
+
   setActiveEditor(index);
 
   // embed: strip multi-tab UI + remove tab memdia + no width math
@@ -85,8 +89,8 @@ export function findActiveEditor(ev: MouseEvent) {
   if (!target) return;
 
   // TODO: using the entire tab causes a slight issue
-  const index = editorTabs.findIndex(tab => tab.editorDiv.contains(target));
-  // const index = editorTabs.findIndex(tab => tab.tab.contains(target));
+  // const index = editorTabs.findIndex(tab => tab.editorDiv.contains(target));
+  const index = editorTabs.findIndex(tab => tab.tab.contains(target));
 
   if (index === -1) return;
 
@@ -136,7 +140,7 @@ function setActiveEditor(index: number) {
     currDropdown.id = 'src-lang';
   }
 
-  // highlight the tab
+  // highlight the tab (turn off overlay)
   editorTab.overlay.style.display = 'none';
 
   // make sure all the other tabs are dst's
@@ -156,6 +160,10 @@ function setActiveEditor(index: number) {
 // ---------------------------------------------------------------------------
 // Run and Debug buttons
 // ---------------------------------------------------------------------------
+
+document.addEventListener('tabAdded', () => {
+  runButton.click();
+});
 
 runButton.addEventListener('click', () => {
   run(false);
