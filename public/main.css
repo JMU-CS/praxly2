@@ -112,7 +112,8 @@ main {
     background-color: #1e1e1e;
     height: 75vh;
     display: flex;
-    overflow: hidden;
+    overflow-y: hidden;
+    overflow-x: auto;
 }
 
 .tab {

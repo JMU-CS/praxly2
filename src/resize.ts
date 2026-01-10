@@ -48,7 +48,7 @@ function onMouseDown(bar: HTMLDivElement, e: MouseEvent) {
   document.addEventListener('mouseup', onMouseUp);
 }
 
-// for attaching the listener on any new resize bars
+// attach the listener on any new resize bars (when tabs are added)
 export function attachResizeBar(bar: HTMLDivElement) {
   if (bar.dataset.resizeAttached) return;
   bar.dataset.resizeAttached = 'true';
