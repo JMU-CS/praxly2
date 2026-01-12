@@ -63,6 +63,14 @@ class JavaParser extends Parser {
       // console.log(this.tokens[i].toPretty(this.source));
     // }
 
+    // program must always be in a Praxly class
+    if (!this.has(TokenType.Public) && !this.hasAhead(TokenType.Class, 1)) {
+      throw new ParseError(`Program must be wrapped in "class Praxly"`, new Where(1, 1));
+    }
+    // make sure there is a public static void main and that all the statements are in there and that functions are outside
+    // TODO: if a class is found after main should an error be thrown? no right? since the translator looks at classes first?
+    // this.classDefinition();
+
     const statements = [];
     let blank = this.skipLinebreaks();
     if (blank.n > 0) {
@@ -371,7 +379,7 @@ class JavaParser extends Parser {
     let statements = [];
     if (this.has(TokenType.Indent)) {
       const indentToken = this.advance();
-      while (!this.has(TokenType.Unindent)) {
+      while (!this.has(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
         const statement = this.statement(inFunctionDefinition);
         statements.push(statement);
       }
@@ -491,6 +499,10 @@ class JavaParser extends Parser {
 
     const rightNode = this.expression();
 
+    if (!this.has(TokenType.Semicolon)) {
+      throw new ParseError("Statement is missing a semicolon.", rightNode.where);
+    }
+
     return new ast.ArrayDeclaration(identifierToken.text, type as ArrayType, rightNode, Where.enclose(type.where, rightNode.where));
   }
 
@@ -517,6 +529,7 @@ class JavaParser extends Parser {
 
   returnStatement(inFunctionDefinition: boolean): ast.Return {
     const returnToken = this.advance();
+    let returnNode;
 
     if (!inFunctionDefinition) {
       throw new ParseError(`A return statement must be within a function.`, returnToken.where);
@@ -524,10 +537,16 @@ class JavaParser extends Parser {
 
     if (this.hasOtherwise(TokenType.Linebreak)) {
       const node = this.expression();
-      return new ast.Return(node, Where.enclose(returnToken.where, node.where));
+      returnNode = new ast.Return(node, Where.enclose(returnToken.where, node.where));
     } else {
-      return new ast.Return(null, returnToken.where);
+      returnNode = new ast.Return(null, returnToken.where);
     }
+
+    if (!this.has(TokenType.Semicolon)) {
+      throw new ParseError("Statement is missing a semicolon.", returnNode.where);
+    }
+
+    return returnNode;
   }
 
   initializedDeclaration() {
@@ -535,12 +554,18 @@ class JavaParser extends Parser {
     const identifierToken = this.advance() as TextToken;
     this.advance(); // eat =
     const rightNode = this.expression();
+    if (!this.has(TokenType.Semicolon)) {
+      throw new ParseError("Statement is missing a semicolon.", rightNode.where);
+    }
     return new ast.Declaration(identifierToken.text, type, rightNode, Where.enclose(type.where, rightNode.where));
   }
 
   uninitializedDeclaration() {
     const type = this.type();
     const identifierToken = this.advance() as TextToken;
+    if (!this.has(TokenType.Semicolon)) {
+      throw new ParseError("Statement is missing a semicolon.", identifierToken.where);
+    }
     return new ast.Declaration(identifierToken.text, type, null, Where.enclose(type.where, identifierToken.where));
   }
 
@@ -687,10 +712,11 @@ class JavaParser extends Parser {
     const parameterNode = this.expression();
 
     let hasSemicolon = false;
+    // if (this.has(TokenType.Semicolon)) {
+    // }
     if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError(`Missing ;`, parameterNode.where);
+      throw new ParseError("Statement is missing a semicolon.", parameterNode.where);
     }
-    this.advance(); // eat ;
     hasSemicolon = true;
 
     // In Praxly, what character comes after the print is determined by a
@@ -717,13 +743,20 @@ class JavaParser extends Parser {
 
   otherStatement(): ast.Statement {
     const expression = this.expression();
+    let statement;
     if (this.has(TokenType.Equal)) {
       this.advance();
       const rightExpression = this.expression();
-      return new ast.Assignment(expression, rightExpression, Where.enclose(expression.where, rightExpression.where));
+      statement =  new ast.Assignment(expression, rightExpression, Where.enclose(expression.where, rightExpression.where));
     } else {
-      return new ast.ExpressionStatement(expression);
+      statement = new ast.ExpressionStatement(expression);
     }
+
+    // TODO: should i check for a semicolon here?
+    // if (!this.has(TokenType.Semicolon)) {
+    //   throw new ParseError("Statement is missing a semicolon.", statement.where);
+    // }
+    return statement;
   }
 
   parenthesizedExpression(predecessorWhere: Where, prefix: string) {

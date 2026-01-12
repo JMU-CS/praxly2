@@ -274,7 +274,8 @@ footer {
     max-height: 400px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* reset modal */

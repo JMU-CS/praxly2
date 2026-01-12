@@ -197,9 +197,15 @@ class PraxisLexer extends Lexer {
       this.advance();
     }
 
-    if (text == "System.out.println") {
+    // Check for System.out.println
+    if (text === 'System' && this.source.substring(this.i, this.i + 12) === '.out.println') {
+      // Consume the entire .out.println sequence
+      this.i += 12;
       this.emitToken(TokenType.Print);
-    } else if (PraxisLexer.keywords.hasOwnProperty(text)) {
+      return;
+    }
+
+    if (PraxisLexer.keywords.hasOwnProperty(text)) {
       this.emitToken(PraxisLexer.keywords[text]);
     } else {
       this.emitTextToken(TokenType.Identifier, text);
