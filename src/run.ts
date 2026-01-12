@@ -14,10 +14,10 @@ import { WhereError } from './language/error.js';
 import { MemdiaSvg } from './language/memdia.js';
 import { VariableTable } from './variabletable.js';
 
-import { editor, editorView, editorTabs, stepButton, stdout, stderr } from './main.js';
+import { editor, editorView, editorTabs, stepButton, outputPanel } from './main.js';
 
 const log = (text: string) => {
-  stdout.appendChild(document.createTextNode(text));
+  outputPanel.appendChild(document.createTextNode(text));
 };
 
 // TODO implement wobbly input boxes in the output div
@@ -28,28 +28,46 @@ const getInput: () => Promise<string> = () => {
 };
 
 function getSourceLanguage(): string {
+  // Main page dropdown to get language
   const srcLang = document.getElementById("src-lang") as HTMLSelectElement | null;
-  // Embed pages won't have this dropdown
-  return srcLang?.value ?? "Praxis";
+  if (srcLang?.value) return srcLang.value;
+
+  // Embed mode uses url param
+  const qs = new URLSearchParams(window.location.search);
+  const raw = (qs.get("language") ?? "").toLowerCase().trim();
+
+  const map: Record<string, string> = {
+    praxis: "Praxis",
+    python: "Python",
+    csp: "CSP",
+    java: "Java",
+    english: "English",
+  };
+
+  if (map[raw]) return map[raw];
+
+  // fallback to praxis if not in url param
+  const fromStorage = localStorage.getItem("source-language");
+  if (fromStorage) return fromStorage;
+
+  return "Praxis";
 }
 
+
+
 function getDestinationLanguages(): string[] {
+  // Main pages may have these, embed often won't.
   const dstDropdowns = document.querySelectorAll<HTMLSelectElement>(".editor-lang");
   return [...dstDropdowns].map(d => d.value);
 }
 
 export const run = async (isDebug: boolean) => {
   // Clear previous output
-  stdout.innerText = '';
-  stderr.innerText = '';
-
-  const src = getSourceLanguage();
-  const dstLangs = getDestinationLanguages();
+  outputPanel.innerText = '';
 
   // Save current program
   const source = editorView.state.doc.toString();
   localStorage.setItem('latest-source', source);
-  localStorage.setItem('source-language', src);
 
   const translation = {
     'CSP': new csp.Translator(),
@@ -59,14 +77,19 @@ export const run = async (isDebug: boolean) => {
     'Python': new python.Translator()
   };
 
+  const src = getSourceLanguage();
+  const dstLangs = getDestinationLanguages();
+  // check the language in console
+  console.log("SRC:", src);
 
   try {
+    outputPanel.innerText = '';
+
     let tokens: any;
     let programAst: any;
     let outputFormatter: any;
-    let translator: any;
 
-    // Determine source language
+    // Determine the source language
     if (src === "Praxis") {
       tokens = praxis.lex(source);
       programAst = praxis.parse(tokens, source);
@@ -76,46 +99,22 @@ export const run = async (isDebug: boolean) => {
       programAst = python.parse(tokens, source);
       outputFormatter = new python.OutputFormatter();
     } else {
+      // Fallback, treat unknown as Praxis
       tokens = praxis.lex(source);
       programAst = praxis.parse(tokens, source);
       outputFormatter = new praxis.OutputFormatter();
     }
 
     if (dstLangs.length > 0 && editorTabs.length > 0) {
-      // no-op for now
-      editorTabs.forEach(tab => {
-        if (tab.languageDropdown.id != 'src-lang') {
-          // translate
-          const lang = tab.languageDropdown.value as keyof typeof translation;
-          translator = translation[lang];
-
-          // generate
-          const generatedSource = programAst.visit(translator, {
-            nestingLevel: 0,
-            indentation: '    ',
-          });
-
-          // insert
-          let currEditorView = tab.editor.view;
-          currEditorView.dispatch({
-            changes: { from: 0, to: currEditorView.state.doc.length, insert: generatedSource },
-          });
-
-        }
-
-      });
     }
 
-    // Runtime and visualizers
-    // const runtime = new GlobalRuntime(log, getInput, false, 'this');
-    const allowsUndeclared = src === 'Python';
-    const receiverName = src === 'Python' ? 'self' : 'this';
-    const runtime = new GlobalRuntime(log, getInput, allowsUndeclared, receiverName);
+    const runtime = new GlobalRuntime(log, getInput, false, 'this');
+    // python will only work if it allows undeclared
+    runtime.globalRuntime.allowsUndeclared = (src === "Python");
 
     const memdia = new MemdiaSvg(runtime);
     const varTable = new VariableTable(runtime);
 
-    // prime the table
     varTable.refresh();
 
     const evaluator = new Evaluator(outputFormatter, memdia);
@@ -159,13 +158,13 @@ export const run = async (isDebug: boolean) => {
             selection: EditorSelection.range(e.where.start, e.where.end),
           });
         });
-        stderr.appendChild(button);
+        outputPanel.appendChild(button);
       }
 
       const message = e.message.replaceAll(/`(.*?)`/g, '<var>$1</var>');
       const span = document.createElement('span');
       span.innerHTML = `: ${message}`;
-      stderr.appendChild(span);
+      outputPanel.appendChild(span);
       console.error(e);
     }
   }
