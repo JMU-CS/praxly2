@@ -161,7 +161,8 @@ function setActiveEditor(index: number) {
 // ---------------------------------------------------------------------------
 
 document.addEventListener('tabAdded', () => {
-  if (!IS_EMBED) runButton.click();
+  // TODO: update dst-lang tabs?
+  // if (!IS_EMBED) runButton.click();
 });
 
 runButton.addEventListener('click', () => {

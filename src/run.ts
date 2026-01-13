@@ -142,17 +142,16 @@ export const run = async (isDebug: boolean) => {
       });
     }
 
-    const allowsUndeclared = src === 'Python';
+    const allowsUndeclared = src === 'Python' || src === 'CSP';
     const receiverName = src === 'Python' ? 'self' : 'this';
     const runtime = new GlobalRuntime(log, getInput, allowsUndeclared, receiverName);
-    // python will only work if it allows undeclared
-    // runtime.globalRuntime.allowsUndeclared = (src === "Python");
 
     const memdia = new MemdiaSvg(runtime);
     const varTable = new VariableTable(runtime);
 
     varTable.refresh();
 
+    // running / evaluating
     const evaluator = new Evaluator(outputFormatter, memdia);
 
     if (isDebug) {
