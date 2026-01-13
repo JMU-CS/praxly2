@@ -61,6 +61,7 @@ function getDestinationLanguages(): string[] {
   return [...dstDropdowns].map(d => d.value);
 }
 
+// TODO: split compile and execution
 export const run = async (isDebug: boolean) => {
   // Clear previous output
   stdout.innerText = '';
@@ -101,6 +102,14 @@ export const run = async (isDebug: boolean) => {
       tokens = python.lex(source);
       programAst = python.parse(tokens, source);
       outputFormatter = new python.OutputFormatter();
+    } else if (src === "Java") {
+      tokens = java.lex(source);
+      programAst = java.parse(tokens, source);
+      outputFormatter = new java.OutputFormatter();
+    } else if (src === "CSP") {
+      tokens = csp.lex(source);
+      programAst = csp.parse(tokens, source);
+      outputFormatter = new csp.OutputFormatter();
     } else {
       // Fallback, treat unknown as Praxis
       tokens = praxis.lex(source);

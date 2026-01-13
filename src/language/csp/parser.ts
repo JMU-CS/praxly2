@@ -3,7 +3,7 @@ import {Token, TextToken, TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {ParseError} from '../error.js';
 import * as ast from '../ast.js';
-import {Type, LazyClassType, ArrayType, SizedArrayType, Visibility} from '../type.js';
+import {Type, LazyClassType, ArrayType, SizedArrayType, Visibility, AnyType} from '../type.js';
 
 // https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf
 
@@ -12,7 +12,7 @@ enum BlockMode {
   End,
 };
 
-class JavaParser extends Parser {
+class CSPParser extends Parser {
   tokenTypeToNode: Map<TokenType, new (leftNode: ast.Node, rightNode: ast.Node, where: Where) => ast.Expression>;
 
   constructor(tokens: Token[], source: string) {
@@ -63,14 +63,6 @@ class JavaParser extends Parser {
       // console.log(this.tokens[i].toPretty(this.source));
     // }
 
-    // program must always be in a Praxly class
-    if (!this.has(TokenType.Public) && !this.hasAhead(TokenType.Class, 1)) {
-      throw new ParseError(`Program must be wrapped in "class Praxly"`, new Where(1, 1));
-    }
-    // make sure there is a public static void main and that all the statements are in there and that functions are outside
-    // TODO: if a class is found after main should an error be thrown? no right? since the translator looks at classes first?
-    // this.classDefinition();
-
     const statements = [];
     let blank = this.skipLinebreaks();
     if (blank.n > 0) {
@@ -95,29 +87,30 @@ class JavaParser extends Parser {
 
   arrayType(elementType: Type): Type {
     if (this.has(TokenType.LeftBracket)) {
+      let type;
       const leftToken = this.advance(); // eat [
 
       // See if there's a range.
-      // if (this.has(TokenType.Integer) && this.hasAhead(TokenType.DotDot, 1) && this.hasAhead(TokenType.Integer, 2)) {
-      //   const minToken = this.advance() as TextToken;
-      //   this.advance(); // eat ..
-      //   const maxToken = this.advance() as TextToken;
-      //   if (minToken.text !== '0') {
-      //     throw new ParseError("The starting index must be 0.", minToken.where);
-      //   }
-      //   const size = parseInt(maxToken.text) + 1;
-      //   if (!this.has(TokenType.RightBracket)) {
-      //     throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
-      //   }
-      //   const rightToken = this.advance(); // eat ]
-      //   return new SizedArrayType(this.arrayType(elementType), size, true, Where.enclose(elementType.where, rightToken.where));
-      // } else {
-      if (!this.has(TokenType.RightBracket)) {
-        throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
+      if (this.has(TokenType.Integer) && this.hasAhead(TokenType.DotDot, 1) && this.hasAhead(TokenType.Integer, 2)) {
+        const minToken = this.advance() as TextToken;
+        this.advance(); // eat ..
+        const maxToken = this.advance() as TextToken;
+        if (minToken.text !== '0') {
+          throw new ParseError("The starting index must be 0.", minToken.where);
+        }
+        const size = parseInt(maxToken.text) + 1;
+        if (!this.has(TokenType.RightBracket)) {
+          throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
+        }
+        const rightToken = this.advance(); // eat ]
+        return new SizedArrayType(this.arrayType(elementType), size, true, Where.enclose(elementType.where, rightToken.where));
+      } else {
+        if (!this.has(TokenType.RightBracket)) {
+          throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
+        }
+        const rightToken = this.advance(); // eat ]
+        return new ArrayType(this.arrayType(elementType), null, Where.enclose(elementType.where, rightToken.where));
       }
-      const rightToken = this.advance(); // eat ]
-      return new ArrayType(this.arrayType(elementType), null, Where.enclose(elementType.where, rightToken.where));
-      // }
     } else {
       return elementType;
     }
@@ -145,20 +138,11 @@ class JavaParser extends Parser {
   hasSubroutine() {
     let i = 0;
 
-    // Look for type first, which always starts with an identifier.
-    if (!this.hasAhead(TokenType.Identifier, i)) {
+    // functions always start with keyword PROCEDURE
+    if (!this.has(TokenType.Function)) {
       return false;
     }
     i += 1;
-
-    // Allow for array markers.
-    while (this.hasAhead(TokenType.LeftBracket, i)) {
-      i += 1;
-      if (!this.hasAhead(TokenType.RightBracket, i)) {
-        return false;
-      }
-      i += 1;
-    }
 
     // Look for subroutine name next.
     if (!this.hasAhead(TokenType.Identifier, i)) {
@@ -174,12 +158,12 @@ class JavaParser extends Parser {
       const defineNode = this.functionDefinition();
       this.statementLinebreak();
       return defineNode;
-    } else if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.Linebreak, 2) && this.hasAhead(TokenType.Indent, 3)) {
-      throw new ParseError("This function is missing parentheses.", this.tokens[this.i + 1].where);
-    } else if (this.has(TokenType.Class)) {
-      const defineNode = this.classDefinition();
-      this.statementLinebreak();
-      return defineNode;
+    // } else if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.Linebreak, 2) && this.hasAhead(TokenType.Indent, 3)) {
+    //   throw new ParseError("This function is missing parentheses.", this.tokens[this.i + 1].where);
+    // } else if (this.has(TokenType.Class)) {
+    //   const defineNode = this.classDefinition();
+    //   this.statementLinebreak();
+    //   return defineNode;
     } else {
       return this.statement(false);
     }
@@ -293,10 +277,11 @@ class JavaParser extends Parser {
       this.advance();
     }
 
-    if (!this.has(TokenType.RightCurly)) {
-      throw new ParseError(`The class must be closed with \`}\`.`, Where.enclose(classToken.where, lastWhere));
+    if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Class, 1) || !this.hasAhead(TokenType.Identifier, 2) || (this.tokens[this.i + 2] as TextToken).text !== classIdentifierToken.text) {
+      throw new ParseError(`The class must be closed with \`end class ${classIdentifierToken.text}\`.`, Where.enclose(classToken.where, lastWhere));
     }
-    // this.advance();
+    this.advance();
+    this.advance();
     const endToken = this.advance();
 
     return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, constructorDefinitions, methodDefinitions, Where.enclose(classToken.where, endToken.where));
@@ -310,22 +295,17 @@ class JavaParser extends Parser {
 
     const formals = [];
     if (this.has(TokenType.Identifier)) {
-      const type = this.type();
-      if (!this.has(TokenType.Identifier)) {
-        throw new ParseError("A parameter is missing its name.", type.where);
-      }
       const identifierToken = this.advance() as TextToken;
       latestToken = identifierToken;
-      formals.push(new ast.Formal(identifierToken.text, type));
+      formals.push(new ast.Formal(identifierToken.text, new AnyType));
       while (this.has(TokenType.Comma)) {
-        this.advance();
-        const type = this.type();
+        let comma = this.advance();
         if (!this.has(TokenType.Identifier)) {
-          throw new ParseError(`A ${context} must have both a type and a name.`, type.where);
+          throw new ParseError(`A ${context}'s parameter must have a name.`, comma.where);
         }
         const identifierToken = this.advance() as TextToken;
         latestToken = identifierToken;
-        formals.push(new ast.Formal(identifierToken.text, type));
+        formals.push(new ast.Formal(identifierToken.text, new AnyType));
       }
     }
 
@@ -337,15 +317,6 @@ class JavaParser extends Parser {
     const block = this.block(true, 'function definition', Where.enclose(firstWhere, rightToken.where));
     let lastWhere = block.where;
 
-    // if (!this.has(TokenType.RightCurly)) {
-    //   if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Identifier, 1) || (this.tokens[this.i + 1] as TextToken).text !== identifierToken.text) {
-    //     throw new ParseError(`The ${context} must be closed with \`end ${identifierToken.text}\`.`, block.where);
-    //   }
-    //   this.advance();
-    //   const endToken = this.advance();
-    //   lastWhere = endToken.where;
-    // }
-
     return {
       identifier: identifierToken.text,
       formals,
@@ -355,15 +326,18 @@ class JavaParser extends Parser {
   }
 
   functionDefinition(): ast.FunctionDefinition {
-    const type = this.type();
-    const core = this.subroutineCore('function', type.where);
-    return new ast.FunctionDefinition(core.identifier, core.formals, type, core.block, Where.enclose(type.where, core.lastWhere));
+    const keyword = this.advance();
+    const core = this.subroutineCore('function', keyword.where);
+    return new ast.FunctionDefinition(core.identifier, core.formals, new AnyType, core.block, Where.enclose(keyword.where, core.lastWhere));
   }
 
   block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where): ast.Block {
-    // all blocks are always enclosed in {}
+    if (!this.has(TokenType.Linebreak)) {
+      throw new ParseError(`Line break is required before block`, contextWhere);
+    }
+    const lb = this.advance();
     if (!this.has(TokenType.LeftCurly)) {
-      throw new ParseError(`This ${contextLabel} is missing an opening {`, contextWhere);
+      throw new ParseError(`This ${contextLabel} is missing an opening {`, lb.where);
     }
     return this.curlyBlock(inFunctionDefinition, contextLabel, contextWhere);
   }
@@ -379,7 +353,7 @@ class JavaParser extends Parser {
     let statements = [];
     if (this.has(TokenType.Indent)) {
       const indentToken = this.advance();
-      while (!this.has(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
+      while (!this.has(TokenType.Unindent)) {
         const statement = this.statement(inFunctionDefinition);
         statements.push(statement);
       }
@@ -398,33 +372,33 @@ class JavaParser extends Parser {
     return new ast.Block(statements, Where.enclose(leftToken.where, rightToken.where));
   }
 
-  // indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, endTokenTypes: TokenType[]) {
-  //   if (!this.has(TokenType.Linebreak)) {
-  //     throw new ParseError(`A linebreak is missing after the header of this ${contextLabel}.`, contextWhere);
-  //   }
-  //   this.advance();
+  indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where, endTokenTypes: TokenType[]) {
+    if (!this.has(TokenType.Linebreak)) {
+      throw new ParseError(`A linebreak is missing after the header of this ${contextLabel}.`, contextWhere);
+    }
+    this.advance();
 
-  //   this.skipLinebreaks();
+    this.skipLinebreaks();
 
-  //   let statements = [];
-  //   if (this.has(TokenType.Indent)) {
-  //     const indentToken = this.advance();
-  //     while (!this.has(TokenType.Unindent)) {
-  //       const statement = this.statement(inFunctionDefinition);
-  //       statements.push(statement);
-  //     }
+    let statements = [];
+    if (this.has(TokenType.Indent)) {
+      const indentToken = this.advance();
+      while (!this.has(TokenType.Unindent)) {
+        const statement = this.statement(inFunctionDefinition);
+        statements.push(statement);
+      }
 
-  //     if (!this.has(TokenType.Unindent)) {
-  //       throw new ParseError(`The block in this ${contextLabel} doesn't end.`, contextWhere);
-  //     }
-  //     this.advance();
-  //   } else if (!this.hasAny(...endTokenTypes)) {
-  //     throw new ParseError(`The block in this ${contextLabel} is not indented.`, contextWhere);
-  //   }
+      if (!this.has(TokenType.Unindent)) {
+        throw new ParseError(`The block in this ${contextLabel} doesn't end.`, contextWhere);
+      }
+      this.advance();
+    } else if (!this.hasAny(...endTokenTypes)) {
+      throw new ParseError(`The block in this ${contextLabel} is not indented.`, contextWhere);
+    }
 
-  //   const blockWhere = statements.length > 0 ? Where.enclose(statements[0].where, statements[statements.length - 1].where) : contextWhere;
-  //   return new ast.Block(statements, blockWhere);
-  // }
+    const blockWhere = statements.length > 0 ? Where.enclose(statements[0].where, statements[statements.length - 1].where) : contextWhere;
+    return new ast.Block(statements, blockWhere);
+  }
 
   statementLinebreak() {
     if (this.has(TokenType.Linebreak)) {
@@ -440,33 +414,37 @@ class JavaParser extends Parser {
     if (this.has(TokenType.If)) {
       statement = this.ifStatement(inFunctionDefinition);
     } else if (this.has(TokenType.While)) {
-      statement = this.whileStatement(inFunctionDefinition);
-    } else if (this.has(TokenType.Do)) {
-      statement = this.doStatement(inFunctionDefinition);
-    } else if (this.has(TokenType.For)) {
-      statement = this.forStatement(inFunctionDefinition);
+      throw new ParseError("While Loops are not supported in CSP.",this.advance().where);
+    //   statement = this.whileStatement(inFunctionDefinition);
+    // } else if (this.has(TokenType.Do)) {
+    //   statement = this.doStatement(inFunctionDefinition);
+    } else if (this.has(TokenType.Repeat)) {
+      if (this.hasAhead(TokenType.Until, 1)) {
+        statement = this.repeatUntilStatement(inFunctionDefinition);
+      } else {
+        statement = this.repeatStatement(inFunctionDefinition);
+      }
+    // } else if (this.has(TokenType.For)) {
+    //   statement = this.forStatement(inFunctionDefinition);
     } else if (this.has(TokenType.Print)) {
       statement = this.printStatement();
     } else if (this.has(TokenType.LineComment)) {
       const token = this.advance() as TextToken;
       statement = new ast.LineComment(token.text, token.where);
-    } else if (this.hasTwoIdentifiers()) {
-      if (this.hasAhead(TokenType.Equal, 2)) {
-        statement = this.initializedDeclaration();
-      } else {
-        statement = this.uninitializedDeclaration();
-      }
-    } else if (this.hasArrayWithoutIndex()) {
-      statement = this.arrayDeclaration();
+    // } else if (this.hasTwoIdentifiers()) {
+    //   if (this.hasAhead(TokenType.Equal, 2)) {
+    //     statement = this.initializedDeclaration();
+    //   } else {
+    //     statement = this.uninitializedDeclaration();
+    //   }
+    // } else if (this.hasArrayWithoutIndex()) {
+    //   statement = this.arrayDeclaration();
+    // } else if (this.hasArrayWithRange()) {
+    //   statement = this.arrayDeclaration();
     } else if (this.has(TokenType.Return)) {
       statement = this.returnStatement(inFunctionDefinition);
     } else {
       statement = this.otherStatement();
-    }
-
-    if (this.has(TokenType.Semicolon)) {
-      this.advance(); // eat ;
-      statement.hasSemicolon = true;
     }
 
     // Skip past any trailing comment.
@@ -484,6 +462,15 @@ class JavaParser extends Parser {
            this.hasAhead(TokenType.RightBracket, 2);
   }
 
+  hasArrayWithRange() {
+    return this.has(TokenType.Identifier) &&
+           this.hasAhead(TokenType.LeftBracket, 1) &&
+           this.hasAhead(TokenType.Integer, 2) &&
+           this.hasAhead(TokenType.DotDot, 3) &&
+           this.hasAhead(TokenType.Integer, 4) &&
+           this.hasAhead(TokenType.RightBracket, 5);
+  }
+
   arrayDeclaration(): ast.ArrayDeclaration {
     const type = this.type();
 
@@ -495,22 +482,22 @@ class JavaParser extends Parser {
     if (!this.has(TokenType.Equal)) {
       throw new ParseError("This array declaration is missing an assignment.", Where.enclose(type.where, identifierToken.where));
     }
-    this.advance(); // eat =
+    const equalToken = this.advance(); // eat =
+
+    // if (this.has(TokenType.LeftCurly)) {
+      // throw new ParseError("This array declaration is missing an array literal enclosed in {}.", Where.enclose(type.where, equalToken.where));
+    // }
 
     const rightNode = this.expression();
-
-    if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("Statement is missing a semicolon.", rightNode.where);
-    }
 
     return new ast.ArrayDeclaration(identifierToken.text, type as ArrayType, rightNode, Where.enclose(type.where, rightNode.where));
   }
 
   arrayLiteral(): ast.ArrayLiteral {
     const elementNodes = [];
-    const leftToken = this.advance(); // eat {
+    const leftToken = this.advance(); // eat [
 
-    if (this.hasOtherwise(TokenType.RightCurly)) {
+    if (this.hasOtherwise(TokenType.RightBracket)) {
       elementNodes.push(this.expression());
       while (this.has(TokenType.Comma)) {
         this.advance(); // eat ,
@@ -518,18 +505,17 @@ class JavaParser extends Parser {
       }
     }
 
-    if (!this.has(TokenType.RightCurly)) {
+    if (!this.has(TokenType.RightBracket)) {
       const lastWhere = elementNodes.length === 0 ? leftToken.where : elementNodes[elementNodes.length - 1].where;
-      throw new ParseError("This array literal is missing its `}`.", lastWhere);
+      throw new ParseError("This array literal is missing its `]`.", lastWhere);
     }
-    const rightToken = this.advance(); // eat }
+    const rightToken = this.advance(); // eat ]
 
     return new ast.ArrayLiteral(elementNodes, Where.enclose(leftToken.where, rightToken.where));
   }
 
   returnStatement(inFunctionDefinition: boolean): ast.Return {
     const returnToken = this.advance();
-    let returnNode;
 
     if (!inFunctionDefinition) {
       throw new ParseError(`A return statement must be within a function.`, returnToken.where);
@@ -537,16 +523,10 @@ class JavaParser extends Parser {
 
     if (this.hasOtherwise(TokenType.Linebreak)) {
       const node = this.expression();
-      returnNode = new ast.Return(node, Where.enclose(returnToken.where, node.where));
+      return new ast.Return(node, Where.enclose(returnToken.where, node.where));
     } else {
-      returnNode = new ast.Return(null, returnToken.where);
+      return new ast.Return(null, returnToken.where);
     }
-
-    if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("Statement is missing a semicolon.", returnNode.where);
-    }
-
-    return returnNode;
   }
 
   initializedDeclaration() {
@@ -554,18 +534,12 @@ class JavaParser extends Parser {
     const identifierToken = this.advance() as TextToken;
     this.advance(); // eat =
     const rightNode = this.expression();
-    if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("Statement is missing a semicolon.", rightNode.where);
-    }
     return new ast.Declaration(identifierToken.text, type, rightNode, Where.enclose(type.where, rightNode.where));
   }
 
   uninitializedDeclaration() {
     const type = this.type();
     const identifierToken = this.advance() as TextToken;
-    if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("Statement is missing a semicolon.", identifierToken.where);
-    }
     return new ast.Declaration(identifierToken.text, type, null, Where.enclose(type.where, identifierToken.where));
   }
 
@@ -576,21 +550,10 @@ class JavaParser extends Parser {
     const ifToken = this.advance();
     const conditionNode = this.parenthesizedExpression(ifToken.where, "An if statement's condition").node;
     let thenBlock;
-    let blockMode;
     thenBlock = this.block(inFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where));
     let lastWhere = thenBlock.where;
     conditionNodes.push(conditionNode);
     thenBlocks.push(thenBlock);
-
-    while (this.has(TokenType.Else) && this.hasAhead(TokenType.If, 1)) {
-      this.advance(); // eat else
-      const ifToken = this.advance();
-      const conditionNode = this.parenthesizedExpression(ifToken.where, "An else-if statement's condition").node;
-      thenBlock = this.block(inFunctionDefinition, 'else-if statement', Where.enclose(ifToken.where, conditionNode.where));
-      lastWhere = thenBlock.where;
-      conditionNodes.push(conditionNode);
-      thenBlocks.push(thenBlock);
-    }
 
     let elseBlock = null;
     if (this.has(TokenType.Else)) {
@@ -599,125 +562,132 @@ class JavaParser extends Parser {
       lastWhere = elseBlock.where;
     }
 
-    if (blockMode === BlockMode.End) {
-      if (!this.has(TokenType.End) || !this.hasAhead(TokenType.If, 1)) {
-        throw new ParseError(`The if statement must be closed with \`end if\`.`, Where.enclose(ifToken.where, lastWhere));
-      }
-      this.advance();
-      const endToken = this.advance();
-      lastWhere = endToken.where;
-    }
-
     return new ast.If(conditionNodes, thenBlocks, elseBlock, Where.enclose(ifToken.where, lastWhere));
   }
 
-  whileStatement(inFunctionDefinition: boolean): ast.Statement {
-    const whileToken = this.advance();
-    const conditionNode = this.parenthesizedExpression(whileToken.where, "A while statement's condition").node;
+  // whileStatement(inFunctionDefinition: boolean): ast.Statement {
+  //   const whileToken = this.advance();
+  //   const conditionNode = this.parenthesizedExpression(whileToken.where, "A while statement's condition").node;
 
-    const block = this.block(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where));
-    let lastWhere = block.where;
+  //   const [block, blockMode] = this.block(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where), TokenType.End);
+  //   let lastWhere = block.where;
 
-    // if (blockMode === BlockMode.End) {
-    //   if (!this.has(TokenType.End) || !this.hasAhead(TokenType.While, 1)) {
-    //     throw new ParseError(`The loop must be closed with \`end while\`.`, block.where);
-    //   }
-    //   this.advance();
-    //   const endToken = this.advance();
-    //   lastWhere = endToken.where;
-    // }
+  //   if (blockMode === BlockMode.End) {
+  //     if (!this.has(TokenType.End) || !this.hasAhead(TokenType.While, 1)) {
+  //       throw new ParseError(`The loop must be closed with \`end while\`.`, block.where);
+  //     }
+  //     this.advance();
+  //     const endToken = this.advance();
+  //     lastWhere = endToken.where;
+  //   }
 
-    return new ast.While(conditionNode, block, Where.enclose(whileToken.where, lastWhere));
+  //   return new ast.While(conditionNode, block, Where.enclose(whileToken.where, lastWhere));
+  // }
+
+  // forStatement(inFunctionDefinition: boolean): ast.Statement {
+  //   const forToken = this.advance();
+  //   let lastWhere = forToken.where;
+
+  //   if (!this.has(TokenType.LeftParenthesis)) {
+  //     throw new ParseError('The for loop is missing a left parenthesis in its header.', forToken.where);
+  //   }
+  //   this.advance(); // eat (
+
+  //   let initializationNode = null;
+  //   if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.Equal, 2)) {
+  //     initializationNode = this.initializedDeclaration();
+  //     lastWhere = initializationNode.where;
+  //   } else if (this.hasOtherwise(TokenType.Semicolon)) {
+  //     initializationNode = this.otherStatement();
+  //     lastWhere = initializationNode.where;
+  //   }
+
+  //   if (!this.has(TokenType.Semicolon)) {
+  //     throw new ParseError("The for loop is missing a semicolon between its initialization and condition.", lastWhere);
+  //   }
+  //   this.advance(); // eat ;
+
+  //   const conditionNode = this.expression();
+
+  //   if (!this.has(TokenType.Semicolon)) {
+  //     throw new ParseError("The for loop is missing a semicolon between its condition and increment.", conditionNode.where);
+  //   }
+  //   const semicolonTokenB = this.advance(); // eat ;
+
+  //   const increments = [];
+  //   if (this.hasOtherwise(TokenType.RightParenthesis)) {
+  //     increments.push(this.otherStatement());
+  //     while (this.has(TokenType.Comma)) {
+  //       this.advance(); // eat ,
+  //       increments.push(this.otherStatement());
+  //     }
+  //   }
+
+  //   const incrementBlockWhere = increments.length === 0 ? semicolonTokenB.where : Where.enclose(increments[0].where, increments[increments.length - 1].where);
+  //   const incrementBlock = new ast.Block(increments, incrementBlockWhere);
+  //   lastWhere = incrementBlockWhere;
+
+  //   if (!this.has(TokenType.RightParenthesis)) {
+  //     throw new ParseError("The for loop is missing a right parenthesis in its header.", Where.enclose(forToken.where, lastWhere));
+  //   }
+  //   const rightToken = this.advance(); // eat )
+
+  //   const [block, blockMode] = this.block(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where), TokenType.End);
+  //   lastWhere = block.where;
+
+  //   if (blockMode === BlockMode.End) {
+  //     if (!this.has(TokenType.End) || !this.hasAhead(TokenType.For, 1)) {
+  //       throw new ParseError(`The loop must be closed with \`end for\`.`, block.where);
+  //     }
+  //     this.advance();
+  //     const endToken = this.advance();
+  //     lastWhere = endToken.where;
+  //   }
+
+  //   return new ast.For(initializationNode, conditionNode, incrementBlock, block, Where.enclose(forToken.where, lastWhere));
+  // }
+
+  // doStatement(inFunctionDefinition: boolean): ast.Statement {
+  //   const doToken = this.advance();
+  //   const [block, _] = this.block(inFunctionDefinition, 'do-while loop', doToken.where, TokenType.While);
+
+  //   if (!this.has(TokenType.While)) {
+  //     throw new ParseError(`The loop must be closed with \`while\` and a condition.`, block.where);
+  //   }
+  //   const whileToken = this.advance(); // eat while
+
+  //   const conditionNode = this.parenthesizedExpression(whileToken.where, "A do loop's condition").node;
+
+  //   return new ast.DoWhile(block, conditionNode, Where.enclose(doToken.where, conditionNode.where));
+  // }
+
+  // COME BACK HERE
+  repeatStatement(inFunctionDefinition: boolean): ast.Statement {
+    const repeatToken = this.advance();
+    const n = this.expression();
+    const timesToken = this.advance() as TextToken;
+
+    if (timesToken.text !== "TIMES") {
+      throw new ParseError("The loop is missing the word TIMES after expression", n.where);
+    }
+    const block = this.block(inFunctionDefinition, 'repeat n times loop', repeatToken.where);
+
+    return new ast.RepeatUntil(block, n, Where.enclose(repeatToken.where, block.where));
   }
 
-  forStatement(inFunctionDefinition: boolean): ast.Statement {
-    const forToken = this.advance();
-    let lastWhere = forToken.where;
+  repeatUntilStatement(inFunctionDefinition: boolean): ast.Statement {
+    const repeatToken = this.advance();
+    const untilToken = this.advance();
 
-    if (!this.has(TokenType.LeftParenthesis)) {
-      throw new ParseError('The for loop is missing a left parenthesis in its header.', forToken.where);
-    }
-    this.advance(); // eat (
+    const conditionNode = this.parenthesizedExpression(untilToken.where, "A repeat-until loop's condition").node;
+    const block = this.block(inFunctionDefinition, 'repeat-until loop', conditionNode.where);
 
-    let initializationNode = null;
-    if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.Equal, 2)) {
-      initializationNode = this.initializedDeclaration();
-      lastWhere = initializationNode.where;
-    } else if (this.hasOtherwise(TokenType.Semicolon)) {
-      initializationNode = this.otherStatement();
-      lastWhere = initializationNode.where;
-    }
-
-    if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("The for loop is missing a semicolon between its initialization and condition.", lastWhere);
-    }
-    this.advance(); // eat ;
-
-    const conditionNode = this.expression();
-
-    if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("The for loop is missing a semicolon between its condition and increment.", conditionNode.where);
-    }
-    const semicolonTokenB = this.advance(); // eat ;
-
-    const increments = [];
-    if (this.hasOtherwise(TokenType.RightParenthesis)) {
-      increments.push(this.otherStatement());
-      while (this.has(TokenType.Comma)) {
-        this.advance(); // eat ,
-        increments.push(this.otherStatement());
-      }
-    }
-
-    const incrementBlockWhere = increments.length === 0 ? semicolonTokenB.where : Where.enclose(increments[0].where, increments[increments.length - 1].where);
-    const incrementBlock = new ast.Block(increments, incrementBlockWhere);
-    lastWhere = incrementBlockWhere;
-
-    if (!this.has(TokenType.RightParenthesis)) {
-      throw new ParseError("The for loop is missing a right parenthesis in its header.", Where.enclose(forToken.where, lastWhere));
-    }
-    const rightToken = this.advance(); // eat )
-
-    const block= this.block(inFunctionDefinition, 'for loop', Where.enclose(forToken.where, rightToken.where));
-    lastWhere = block.where;
-
-    // if (blockMode === BlockMode.End) {
-    //   if (!this.has(TokenType.End) || !this.hasAhead(TokenType.For, 1)) {
-    //     throw new ParseError(`The loop must be closed with \`end for\`.`, block.where);
-    //   }
-    //   this.advance();
-    //   const endToken = this.advance();
-    //   lastWhere = endToken.where;
-    // }
-
-    return new ast.For(initializationNode, conditionNode, incrementBlock, block, Where.enclose(forToken.where, lastWhere));
+    return new ast.RepeatUntil(block, conditionNode, Where.enclose(repeatToken.where, block.where));
   }
 
-  doStatement(inFunctionDefinition: boolean): ast.Statement {
-    const doToken = this.advance();
-    const block = this.block(inFunctionDefinition, 'do-while loop', doToken.where);
-
-    if (!this.has(TokenType.While)) {
-      throw new ParseError(`The loop must be closed with \`while\` and a condition.`, block.where);
-    }
-    const whileToken = this.advance(); // eat while
-
-    const conditionNode = this.parenthesizedExpression(whileToken.where, "A do loop's condition").node;
-
-    return new ast.DoWhile(block, conditionNode, Where.enclose(doToken.where, conditionNode.where));
-  }
-  // LAST PLACE COME BACK HERE
   printStatement(): ast.Print {
     const printToken = this.advance();
-    const parameterNode = this.expression();
-
-    let hasSemicolon = false;
-    // if (this.has(TokenType.Semicolon)) {
-    // }
-    if (!this.has(TokenType.Semicolon)) {
-      throw new ParseError("Statement is missing a semicolon.", parameterNode.where);
-    }
-    hasSemicolon = true;
+    const parameterNode = this.parenthesizedExpression(printToken.where, "A Display's expression").node;
 
     // In Praxly, what character comes after the print is determined by a
     // trailing comment. The comment text may be "space" or "nothing". Any
@@ -736,27 +706,19 @@ class JavaParser extends Parser {
     }
 
     let statement = new ast.Print(parameterNode, trailer, Where.enclose(printToken.where, parameterNode.where));
-    statement.hasSemicolon = hasSemicolon;
 
     return statement;
   }
 
   otherStatement(): ast.Statement {
     const expression = this.expression();
-    let statement;
     if (this.has(TokenType.Equal)) {
       this.advance();
       const rightExpression = this.expression();
-      statement =  new ast.Assignment(expression, rightExpression, Where.enclose(expression.where, rightExpression.where));
+      return new ast.Assignment(expression, rightExpression, Where.enclose(expression.where, rightExpression.where));
     } else {
-      statement = new ast.ExpressionStatement(expression);
+      return new ast.ExpressionStatement(expression);
     }
-
-    // TODO: should i check for a semicolon here?
-    // if (!this.has(TokenType.Semicolon)) {
-    //   throw new ParseError("Statement is missing a semicolon.", statement.where);
-    // }
-    return statement;
   }
 
   parenthesizedExpression(predecessorWhere: Where, prefix: string) {
@@ -966,7 +928,7 @@ class JavaParser extends Parser {
       return new ast.Null(token.where);
     } else if (this.has(TokenType.Identifier)) {
       return this.variable();
-    } else if (this.has(TokenType.LeftCurly)) {
+    } else if (this.has(TokenType.LeftBracket)) {
       return this.arrayLiteral();
     } else if (this.has(TokenType.LeftParenthesis)) {
       const leftToken = this.advance();
@@ -991,9 +953,9 @@ class JavaParser extends Parser {
 }
 
 export function parse(tokens: Token[], source: string) {
-  return new JavaParser(tokens, source).parse();
+  return new CSPParser(tokens, source).parse();
 }
 
 export function parseExpression(tokens: Token[], source: string) {
-  return new JavaParser(tokens, source).expression();
+  return new CSPParser(tokens, source).expression();
 }

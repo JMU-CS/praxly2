@@ -3,7 +3,7 @@ import {Token, TokenType} from '../token.js';
 import {Where} from '../where.js';
 import {LexError} from '../error.js';
 
-class PraxisLexer extends Lexer {
+class CSPLexer extends Lexer {
   private indents: string[];
 
   constructor(source: string) {
@@ -26,16 +26,12 @@ class PraxisLexer extends Lexer {
       this.emitToken(TokenType.Comma);
     } else if (this.has('.')) {
       this.lexDot();
-    } else if (this.accept(';')) {
-      this.emitToken(TokenType.Semicolon);
     } else if (this.accept('+')) {
       if (this.accept('+')) {
         this.emitToken(TokenType.DoublePlus);
       } else {
         this.emitToken(TokenType.Plus);
       }
-    } else if (this.accept('%')) {
-      this.emitToken(TokenType.Percent);
     } else if (this.accept('(')) {
       this.emitToken(TokenType.LeftParenthesis);
     } else if (this.accept(')')) {
@@ -52,6 +48,18 @@ class PraxisLexer extends Lexer {
       this.emitToken(TokenType.Tilde);
     } else if (this.accept('^')) {
       this.emitToken(TokenType.Circumflex);
+    } else if (this.accept('\u2264')) { // ≤
+      this.emitToken(TokenType.LessThanOrEqual);
+    } else if (this.accept('\u2265')) { // ≥
+      this.emitToken(TokenType.GreaterThanOrEqual);
+    } else if (this.accept('\u2260')) { // ≠
+      this.emitToken(TokenType.NotEqual);
+    } else if (this.accept('\u2b60')) { // ⭠
+      this.emitToken(TokenType.Equal);
+    } else if (this.accept('\u2190')) { // ←
+      this.emitToken(TokenType.Equal);
+    } else if (this.accept('\u27f5')) { // ⟵
+      this.emitToken(TokenType.Equal);
     } else if (this.has('\'')) {
       this.lexCharacter();
     } else if (this.has('"')) {
@@ -64,42 +72,30 @@ class PraxisLexer extends Lexer {
       } else {
         this.emitToken(TokenType.Asterisk);
       }
-    } else if (this.accept('&')) {
-      if (this.accept('&')) {
-        this.emitToken(TokenType.And);
-      } else {
-        this.emitToken(TokenType.Ampersand);
-      }
-    } else if (this.accept('|')) {
-      if (this.accept('|')) {
-        this.emitToken(TokenType.Or);
-      } else {
-        this.emitToken(TokenType.Pipe);
-      }
-    } else if (this.accept('!')) {
+    } else if (this.accept('!')) { // TODO: debate on keeping cause != technically doesn't exist
       if (this.accept('=')) {
         this.emitToken(TokenType.NotEqual);
       } else {
-        this.emitToken(TokenType.Not);
+        this.emitToken(TokenType.Bang);
       }
     } else if (this.accept('=')) {
-      if (this.accept('=')) {
         this.emitToken(TokenType.DoubleEqual);
-      } else {
-        this.emitToken(TokenType.Equal);
-      }
     } else if (this.accept('<')) {
-      if (this.accept('<')) {
-        this.emitToken(TokenType.DoubleLessThan);
-      } else if (this.accept('=')) {
-        this.emitToken(TokenType.LessThanOrEqual);
+      // if (this.accept('<')) {
+      //   this.emitToken(TokenType.DoubleLessThan);
+      // } else
+        if (this.accept('=')) {
+          this.emitToken(TokenType.LessThanOrEqual);
+      } else if (this.accept('-')) {
+        this.emitToken(TokenType.Equal);
       } else {
         this.emitToken(TokenType.LessThan);
       }
     } else if (this.accept('>')) {
-      if (this.accept('>')) {
-        this.emitToken(TokenType.DoubleGreaterThan);
-      } else if (this.accept('=')) {
+      // if (this.accept('>')) {
+      //   this.emitToken(TokenType.DoubleGreaterThan);
+      // } else
+      if (this.accept('=')) {
         this.emitToken(TokenType.GreaterThanOrEqual);
       } else {
         this.emitToken(TokenType.GreaterThan);
@@ -197,39 +193,54 @@ class PraxisLexer extends Lexer {
       this.advance();
     }
 
-    // Check for System.out.println
-    if (text === 'System' && this.source.substring(this.i, this.i + 12) === '.out.println') {
-      // Consume the entire .out.println sequence
-      this.i += 12;
-      this.emitToken(TokenType.Print);
-      return;
-    }
-
-    if (PraxisLexer.keywords.hasOwnProperty(text)) {
-      this.emitToken(PraxisLexer.keywords[text]);
+    if (CSPLexer.keywords.hasOwnProperty(text)) {
+      this.emitToken(CSPLexer.keywords[text]);
     } else {
+      const upperText = text.toUpperCase();
+      if (upperText !== text && CSPLexer.UpperKeywords.hasOwnProperty(upperText)) {
+        throw new LexError(`Keyword must be in uppercase: '${text}' should be '${upperText}'.`, new Where(this.start, this.i));
+      }
       this.emitTextToken(TokenType.Identifier, text);
     }
   }
 
   static keywords: {[index: string]: TokenType} = {
-    class: TokenType.Class,
-    do: TokenType.Do,
-    else: TokenType.Else,
+    AND: TokenType.And,
+    ELSE: TokenType.Else,
     extends: TokenType.Extends,
     false: TokenType.False,
-    for: TokenType.For,
-    if: TokenType.If,
-    new: TokenType.New,
+    FOR: TokenType.For,
+    IF: TokenType.If,
+    NOT: TokenType.Not,
     null: TokenType.Null,
-    private: TokenType.Private,
-    public: TokenType.Public,
-    return: TokenType.Return,
+    OR: TokenType.Or,
+    DISPLAY: TokenType.Print,
+    MOD: TokenType.Percent,
+    PROCEDURE: TokenType.Function,
+    REPEAT: TokenType.Repeat,
+    RETURN: TokenType.Return,
     true: TokenType.True,
-    while: TokenType.While,
+    UNTIL: TokenType.Until,
+    WHILE: TokenType.While
   };
+
+    static UpperKeywords: {[index: string]: TokenType} = {
+    AND: TokenType.And,
+    DISPLAY: TokenType.Print,
+    ELSE: TokenType.Else,
+    FOR: TokenType.For,
+    IF: TokenType.If,
+    NOT: TokenType.Not,
+    OR: TokenType.Or,
+    PROCEDURE: TokenType.Function,
+    MOD: TokenType.Percent,
+    REPEAT: TokenType.Repeat,
+    RETURN: TokenType.Return,
+    UNTIL: TokenType.Until,
+    WHILE: TokenType.While
+  }
 }
 
 export function lex(source: string) {
-  return new PraxisLexer(source).lex();
+  return new CSPLexer(source).lex();
 }

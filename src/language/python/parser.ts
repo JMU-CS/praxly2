@@ -255,7 +255,7 @@ class PythonParser extends Parser {
     const colon = this.advance(); // eat :
 
     const block = this.block(true, 'function definition', Where.enclose(firstWhere, colon.where));
-
+    // TODO: Add lastWhere = block.where?? and add it to return
 
     return {
       identifier: identifierToken.text,
