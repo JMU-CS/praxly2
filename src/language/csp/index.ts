@@ -6,9 +6,9 @@
 // modules don't import from its own barrel file. And we need everything
 // bundled.
 
-// export {lex} from './lexer.js';
-// export {parse, parseExpression} from './parser.js';
+export {lex} from './lexer.js';
+export {parse, parseExpression} from './parser.js';
 export {Translator} from './translator.js';
-// export {OutputFormatter} from './output-formatter.js';
+export {OutputFormatter} from './output-formatter.js';
 // export {plugin, lezerParser} from './codemirror-parser.js';
 // export {praxlyTheme} from './theme.js';

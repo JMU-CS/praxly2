@@ -80,6 +80,10 @@ export const run = async (isDebug: boolean) => {
       tokens = java.lex(source);
       programAst = java.parse(tokens, source);
       outputFormatter = new java.OutputFormatter();
+    } else if (src === "CSP") {
+      tokens = csp.lex(source);
+      programAst = csp.parse(tokens, source);
+      outputFormatter = new csp.OutputFormatter();
     } else {
       tokens = praxis.lex(source);
       programAst = praxis.parse(tokens, source);
@@ -113,7 +117,7 @@ export const run = async (isDebug: boolean) => {
 
     // Runtime and visualizers
     // const runtime = new GlobalRuntime(log, getInput, false, 'this');
-    const allowsUndeclared = src === 'Python';
+    const allowsUndeclared = src === 'Python' || src === 'CSP';
     const receiverName = src === 'Python' ? 'self' : 'this';
     const runtime = new GlobalRuntime(log, getInput, allowsUndeclared, receiverName);
 
