@@ -13,6 +13,9 @@ import { GlobalRuntime } from './language/runtime.js';
 import { WhereError } from './language/error.js';
 import { MemdiaSvg } from './language/memdia.js';
 import { VariableTable } from './variabletable.js';
+import { Visitor } from './language/visitor.js';
+import type { Formatter } from './language/praxis/translator.js';
+
 
 import { editor, editorView, editorTabs, stepButton, stdout, stderr } from './main.js';
 
@@ -61,31 +64,8 @@ function getDestinationLanguages(): string[] {
   return [...dstDropdowns].map(d => d.value);
 }
 
-// TODO: split compile and execution
-export const run = async (isDebug: boolean) => {
-  // Clear previous output
-  stdout.innerText = '';
-  stderr.innerText = '';
 
-
-  // Save current program
-  const source = editorView.state.doc.toString();
-  localStorage.setItem('latest-source', source);
-
-  const translation = {
-    'CSP': new csp.Translator(),
-    'English': new english.Translator(),
-    'Java': new java.Translator(),
-    'Praxis': new praxis.Translator(),
-    'Python': new python.Translator()
-  };
-
-  const src = getSourceLanguage();
-  const dstLangs = getDestinationLanguages();
-  // check the language in console
-  console.log("SRC:", src);
-
-  try {
+function compile(translation: {[key: string]: Visitor<Formatter, string>}, srcLang: string, dstLangs: string[], source: string) {
     stdout.innerText = '';
 
     let tokens: any;
@@ -94,19 +74,19 @@ export const run = async (isDebug: boolean) => {
     let translator: any;
 
     // Determine the source language
-    if (src === "Praxis") {
+    if (srcLang === "Praxis") {
       tokens = praxis.lex(source);
       programAst = praxis.parse(tokens, source);
       outputFormatter = new praxis.OutputFormatter();
-    } else if (src === "Python") {
+    } else if (srcLang === "Python") {
       tokens = python.lex(source);
       programAst = python.parse(tokens, source);
       outputFormatter = new python.OutputFormatter();
-    } else if (src === "Java") {
+    } else if (srcLang === "Java") {
       tokens = java.lex(source);
       programAst = java.parse(tokens, source);
       outputFormatter = new java.OutputFormatter();
-    } else if (src === "CSP") {
+    } else if (srcLang === "CSP") {
       tokens = csp.lex(source);
       programAst = csp.parse(tokens, source);
       outputFormatter = new csp.OutputFormatter();
@@ -142,8 +122,8 @@ export const run = async (isDebug: boolean) => {
       });
     }
 
-    const allowsUndeclared = src === 'Python' || src === 'CSP';
-    const receiverName = src === 'Python' ? 'self' : 'this';
+    const allowsUndeclared = srcLang === 'Python' || srcLang === 'CSP';
+    const receiverName = srcLang === 'Python' ? 'self' : 'this';
     const runtime = new GlobalRuntime(log, getInput, allowsUndeclared, receiverName);
 
     const memdia = new MemdiaSvg(runtime);
@@ -151,8 +131,11 @@ export const run = async (isDebug: boolean) => {
 
     varTable.refresh();
 
-    // running / evaluating
-    const evaluator = new Evaluator(outputFormatter, memdia);
+    return {programAst, outputFormatter, varTable, memdia, runtime};
+}
+
+const evaluate = async (compiledResults: ReturnType<typeof compile>, isDebug: boolean)  => {
+    const evaluator = new Evaluator(compiledResults.outputFormatter, compiledResults.memdia);
 
     if (isDebug) {
       evaluator.step = (node: ast.Node) => {
@@ -167,7 +150,7 @@ export const run = async (isDebug: boolean) => {
             stepButton.removeEventListener('click', listener);
 
             // refresh variables whenever stepping
-            varTable.refresh();
+            compiledResults.varTable.refresh();
 
             resolve();
           };
@@ -176,10 +159,41 @@ export const run = async (isDebug: boolean) => {
       };
     }
 
-    await programAst.visit(evaluator, runtime);
+    await compiledResults.programAst.visit(evaluator, compiledResults.runtime);
 
     // Final refresh after execution completes
-    varTable.refresh();
+    compiledResults.varTable.refresh();
+}
+
+
+export const run = async (isDebug: boolean) => {
+  // Clear previous output
+  stdout.innerText = '';
+  stderr.innerText = '';
+
+  // Save current program
+  const source = editorView.state.doc.toString();
+  localStorage.setItem('latest-source', source);
+
+  const translation = {
+    'CSP': new csp.Translator(),
+    'English': new english.Translator(),
+    'Java': new java.Translator(),
+    'Praxis': new praxis.Translator(),
+    'Python': new python.Translator()
+  };
+
+  const src = getSourceLanguage();
+  const dstLangs = getDestinationLanguages();
+  // check the language in console
+  console.log("SRC:", src);
+
+  try {
+    // compile
+    const compiledResults = compile(translation, src, dstLangs, source);
+
+    // evaluate
+    evaluate(compiledResults, isDebug);
 
   } catch (e) {
     if (e instanceof Error) {

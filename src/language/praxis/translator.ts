@@ -7,7 +7,7 @@ type ToStringable = {
   toString(): string;
 }
 
-type Formatter = {
+export type Formatter = {
   nestingLevel: number,
   indentation: string,
 };
@@ -40,17 +40,17 @@ export class Translator extends Visitor<Formatter, string> {
   }
 
   visitFloat(node: ast.Float, _formatter: Formatter): string {
-    const floatFormatter = new Intl.NumberFormat('en-US', { 
-      minimumIntegerDigits: 1, 
-      minimumFractionDigits: 1 
+    const floatFormatter = new Intl.NumberFormat('en-US', {
+      minimumIntegerDigits: 1,
+      minimumFractionDigits: 1
     });
     return floatFormatter.format(node.rawValue);
   }
 
   visitDouble(node: ast.Double, _formatter: Formatter): string {
-    const floatFormatter = new Intl.NumberFormat('en-US', { 
-      minimumIntegerDigits: 1, 
-      minimumFractionDigits: 1 
+    const floatFormatter = new Intl.NumberFormat('en-US', {
+      minimumIntegerDigits: 1,
+      minimumFractionDigits: 1
     });
     return floatFormatter.format(node.rawValue);
   }
@@ -440,7 +440,7 @@ export class Translator extends Visitor<Formatter, string> {
     text += "\n";
 
     text += node.instanceVariableDeclarations.map(declaration => `${formatter.indentation.repeat(formatter.nestingLevel + 1)}${declaration.visit(this, {...formatter, nestingLevel: formatter.nestingLevel + 1})}\n`).join('');
-    
+
     if (node.instanceVariableDeclarations.length > 0 && node.constructorDefinitions.length > 0) {
       text += "\n";
     }
