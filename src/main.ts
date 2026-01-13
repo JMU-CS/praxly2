@@ -119,7 +119,7 @@ export function removeTab(ev: MouseEvent) {
 
   const last = editorTabs[editorTabs.length - 1];
   if (last && last.tabButton.style.display === 'none') {
-      last.tabButton.style.display = 'flex';
+    last.tabButton.style.display = 'flex';
   }
 
   initTabWidths();
@@ -140,7 +140,7 @@ function setActiveEditor(index: number) {
     currDropdown.id = 'src-lang';
   }
 
-  // highlight the tab (turn off overlay)
+  // highlight the tab
   editorTab.overlay.style.display = 'none';
 
   // make sure all the other tabs are dst's
@@ -154,7 +154,6 @@ function setActiveEditor(index: number) {
       }
     }
   });
-
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +161,7 @@ function setActiveEditor(index: number) {
 // ---------------------------------------------------------------------------
 
 document.addEventListener('tabAdded', () => {
-  runButton.click();
+  if (!IS_EMBED) runButton.click();
 });
 
 runButton.addEventListener('click', () => {
@@ -280,6 +279,112 @@ infoModal.addEventListener("click", (e) => {
 // Initialization
 // ---------------------------------------------------------------------------
 
+// embed parameter processing
+function applyEmbedParams(): void {
+  if (!IS_EMBED) return;
+
+  // Parse the url string
+  const qs = new URLSearchParams(window.location.search);
+
+  // BUTTON PARAMS
+  // button=run - show only Run button -- button=debug - show only Debug button ---- button=both - show both buttons
+  // default will be both buttons
+  const buttonRaw = qs.get("button");
+  if (buttonRaw) {
+    const buttonParam = buttonRaw.toLowerCase();
+    const showRun = buttonParam === "run" || buttonParam === "both";
+    const showDebug = buttonParam === "debug" || buttonParam === "both";
+
+    if (runButton) runButton.style.display = showRun ? "inline-flex" : "none";
+    if (debugButton) debugButton.style.display = showDebug ? "inline-flex" : "none";
+  }
+
+  // RESULT PARAMS
+  // result=output  - output panel only --- result=vars  - open variable table --- result=memdia - open memory diagram
+  // result=both - output + vars --- result=all - output + vars + memdia
+  // default is all
+  const resultParam = (qs.get("result") ?? "output").toLowerCase();
+
+  // output panel
+  const outputPanelEl = document.getElementById("output-panel") as HTMLElement | null;
+
+  // Variable table
+  const varsSection = document.querySelector<HTMLElement>('.drawer-section[data-drawer="vars"]');
+  const varsBody = document.getElementById("vars-body") as HTMLElement | null;
+
+  // Memory diagram
+  const memSection = document.querySelector<HTMLElement>('.drawer-section[data-drawer="memdia"]');
+  const memBody = document.getElementById("memdia-body") as HTMLElement | null;
+
+  // default height
+  const DEFAULT_BODY = 220;
+
+  // determine which panels are open/closed
+  const showOutput =
+    resultParam === "output" || resultParam === "both" || resultParam === "all";
+
+  if (outputPanelEl) {
+    outputPanelEl.style.display = showOutput ? "block" : "none";
+  }
+
+  const openVars =
+    resultParam === "vars" || resultParam === "both" || resultParam === "all";
+
+  const openMem =
+    resultParam === "memdia" || resultParam === "all";
+
+  if (resultParam !== "output") {
+    if (varsSection && varsBody) {
+      if (openVars) {
+        varsSection.classList.add("is-open");
+        if (!varsBody.style.height) varsBody.style.height = `${DEFAULT_BODY}px`;
+      } else {
+        varsSection.classList.remove("is-open");
+        varsBody.style.height = "";
+      }
+    }
+
+    if (memSection && memBody) {
+      if (openMem) {
+        memSection.classList.add("is-open");
+        if (!memBody.style.height) memBody.style.height = `${DEFAULT_BODY}px`;
+      } else {
+        memSection.classList.remove("is-open");
+        memBody.style.height = "";
+      }
+    }
+  }
+
+  // EDITOR PARAM
+  // embed only supports text
+  void (qs.get("editor") ?? "text");
+
+  // LANG PARAM
+  // Praxis, CSP, Java, Python, English
+  // only supports praxis and python rn
+  const langRaw = (qs.get("language") ?? "").toLowerCase().trim();
+  const langMap: Record<string, string> = {
+    praxis: "Praxis",
+    csp: "CSP",
+    java: "Java",
+    python: "Python",
+    english: "English",
+  };
+
+  const desiredLang = langMap[langRaw];
+  if (desiredLang) {
+    const idx = Tab.languages.indexOf(desiredLang);
+    if (idx !== -1) {
+      // update dropdown -- doesnt exist
+      editorTabs[activeEditorIndex].languageDropdown.selectedIndex = idx;
+      // Update language
+      editor.switchLanguage(desiredLang);
+
+      localStorage.setItem('source-language', desiredLang);
+    }
+  }
+}
+
 function initialize(): void {
   // TODO Why is this function being called twice on startup?
   if (globalThis.EDITOR_VIEW) {
@@ -290,7 +395,10 @@ function initialize(): void {
     // build one editor tab
     if (editorTabs.length === 0) addNewTab();
 
-    // load from or latest-source
+    // apply embed URL params before loading code
+    applyEmbedParams();
+
+    // load from hash or latest-source
     const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
     const params = new URLSearchParams(hash);
     const codeParam = params.get('code');
