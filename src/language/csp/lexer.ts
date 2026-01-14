@@ -72,34 +72,16 @@ class CSPLexer extends Lexer {
       } else {
         this.emitToken(TokenType.Asterisk);
       }
-    } else if (this.accept('!')) { // TODO: debate on keeping cause != technically doesn't exist
-      if (this.accept('=')) {
-        this.emitToken(TokenType.NotEqual);
-      } else {
-        this.emitToken(TokenType.Bang);
-      }
     } else if (this.accept('=')) {
         this.emitToken(TokenType.DoubleEqual);
     } else if (this.accept('<')) {
-      // if (this.accept('<')) {
-      //   this.emitToken(TokenType.DoubleLessThan);
-      // } else
-        if (this.accept('=')) {
-          this.emitToken(TokenType.LessThanOrEqual);
-      } else if (this.accept('-')) {
+      if (this.accept('-')) {
         this.emitToken(TokenType.Equal);
       } else {
         this.emitToken(TokenType.LessThan);
       }
     } else if (this.accept('>')) {
-      // if (this.accept('>')) {
-      //   this.emitToken(TokenType.DoubleGreaterThan);
-      // } else
-      if (this.accept('=')) {
-        this.emitToken(TokenType.GreaterThanOrEqual);
-      } else {
         this.emitToken(TokenType.GreaterThan);
-      }
     } else if (this.accept('/')) {
       if (this.accept('/')) {
         // Skip over leading whitespace.
@@ -118,11 +100,7 @@ class CSPLexer extends Lexer {
         this.lexNumber();
       } else {
         this.advance();
-        if (this.accept('-')) {
-          this.emitToken(TokenType.DoubleHyphen);
-        } else {
-          this.emitToken(TokenType.Hyphen);
-        }
+        this.emitToken(TokenType.Hyphen);
       }
     } else {
       throw new LexError(`The program contains an unexpected character: \`${this.source[this.i]}\`.`, new Where(this.i, this.i + 1));

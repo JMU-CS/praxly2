@@ -158,138 +158,19 @@ class CSPParser extends Parser {
       const defineNode = this.functionDefinition();
       this.statementLinebreak();
       return defineNode;
-    // } else if (this.hasTwoIdentifiers() && this.hasAhead(TokenType.Linebreak, 2) && this.hasAhead(TokenType.Indent, 3)) {
-    //   throw new ParseError("This function is missing parentheses.", this.tokens[this.i + 1].where);
-    // } else if (this.has(TokenType.Class)) {
-    //   const defineNode = this.classDefinition();
-    //   this.statementLinebreak();
-    //   return defineNode;
+    } else if (this.has(TokenType.Function) && this.hasAhead(TokenType.Identifier, 1) && !this.hasAhead(TokenType.LeftParenthesis, 2)) {
+      throw new ParseError("This function is missing parentheses.", this.tokens[this.i + 1].where);
     } else {
       return this.statement(false);
     }
   }
 
-  classDefinition(): ast.ClassDefinition {
-    const classToken = this.advance() as TextToken;
-
-    if (!this.has(TokenType.Identifier)) {
-      throw new ParseError("The class name is missing.", classToken.where);
-    }
-    const classIdentifierToken = this.advance() as TextToken;
-    let lastWhere = classIdentifierToken.where;
-
-    let superclass = null;
-    if (this.has(TokenType.Extends)) {
-      const extendsToken = this.advance();
-      if (!this.has(TokenType.Identifier)) {
-        throw new ParseError("The superclass name is missing.", extendsToken.where);
-      }
-      const superclassToken = this.advance() as TextToken;
-      lastWhere = superclassToken.where;
-      superclass = superclassToken.text;
-    }
-
-    if (!this.has(TokenType.Linebreak)) {
-      throw new ParseError("A linebreak is missing after this class header.", Where.enclose(classToken.where, lastWhere));
-    }
-    this.advance(); // eat linebreak
-
-    this.skipLinebreaks();
-
-    const instanceVariableDeclarations: ast.InstanceVariableDeclaration[] = [];
-    const methodDefinitions: ast.MethodDefinition[] = [];
-    const constructorDefinitions: ast.ConstructorDefinition[] = [];
-
-    if (this.has(TokenType.Indent)) {
-      this.advance(); // eat indent
-
-      while (this.hasOtherwise(TokenType.Unindent)) {
-        let visibility = null;
-        let firstWhere = null;
-        if (this.has(TokenType.Public) || this.has(TokenType.Private)) {
-          const visibilityToken = this.advance(); // eat public/private
-          visibility = visibilityToken.type === TokenType.Public ? Visibility.Public : Visibility.Private;
-          lastWhere = visibilityToken.where;
-          firstWhere = visibilityToken.where;
-        }
-
-        if (this.has(TokenType.Indent)) {
-          throw new ParseError("The code has stray indentation.", this.tokens[this.i].where);
-        } else if (!this.has(TokenType.Identifier)) {
-          throw new ParseError("A type is missing.", this.tokens[this.i].where);
-        }
-
-        // A constructor.
-        if ((this.tokens[this.i] as TextToken).text === classIdentifierToken.text && this.hasAhead(TokenType.LeftParenthesis, 1)) {
-          const identifierWhere = this.tokens[this.i].where;
-          firstWhere = firstWhere ?? identifierWhere;
-
-          const core = this.subroutineCore('constructor', identifierWhere);
-          const declaration = new ast.ConstructorDefinition(core.formals, core.block, visibility, Where.enclose(firstWhere, core.lastWhere));
-          constructorDefinitions.push(declaration);
-        }
-
-        // An instance variable or method.
-        else {
-          const type = this.type();
-          firstWhere = firstWhere ?? type.where;
-
-          if (!this.has(TokenType.Identifier)) {
-            throw new ParseError("A name is missing after this type.", lastWhere);
-          }
-
-          if (this.hasAhead(TokenType.LeftParenthesis, 1)) {
-            const core = this.subroutineCore('method', Where.enclose(type.where, lastWhere));
-            const declaration = new ast.MethodDefinition(core.identifier, core.formals, type, core.block, visibility, Where.enclose(firstWhere, core.lastWhere));
-            methodDefinitions.push(declaration);
-          } else {
-            const memberIdentifierToken = this.advance() as TextToken;
-
-            // The original Praxis document says nothing about how instance
-            // variables are initialized. On the outside through public access?
-            // On the inside through a constructor? On the inside through direct
-            // assignment in the declaration? For the time being, let's allow
-            // direct assignment, since that's simplest and doesn't depend on
-            // visibility.
-
-            let rightNode = null;
-            if (this.has(TokenType.Equal)) {
-              this.advance();
-              rightNode = this.expression();
-            } else if (this.has(TokenType.Linebreak) && this.hasAhead(TokenType.Indent, 1)) {
-              throw new ParseError("This method is missing parentheses.", memberIdentifierToken.where);
-            }
-
-            const declaration = new ast.InstanceVariableDeclaration(memberIdentifierToken.text, type, visibility, rightNode, Where.enclose(firstWhere, memberIdentifierToken.where));
-            instanceVariableDeclarations.push(declaration);
-          }
-        }
-
-        if (this.has(TokenType.LineComment)) {
-          this.advance();
-        }
-        this.skipLinebreaks();
-      }
-
-      if (!this.has(TokenType.Unindent)) {
-        throw new ParseError("The class must be closed.", lastWhere);
-      }
-      this.advance();
-    }
-
-    if (!this.has(TokenType.End) || !this.hasAhead(TokenType.Class, 1) || !this.hasAhead(TokenType.Identifier, 2) || (this.tokens[this.i + 2] as TextToken).text !== classIdentifierToken.text) {
-      throw new ParseError(`The class must be closed with \`end class ${classIdentifierToken.text}\`.`, Where.enclose(classToken.where, lastWhere));
-    }
-    this.advance();
-    this.advance();
-    const endToken = this.advance();
-
-    return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, constructorDefinitions, methodDefinitions, Where.enclose(classToken.where, endToken.where));
-  }
-
   subroutineCore(context: string, firstWhere: Where) {
     const identifierToken = this.advance() as TextToken;
 
+    if (!this.has(TokenType.LeftParenthesis)) {
+      throw new ParseError(`${context} ${identifierToken.text} is missing required opening parenthesis.`, identifierToken.where);
+    }
     const leftToken = this.advance(); // eat (
     let latestToken = leftToken;
 
@@ -422,7 +303,8 @@ class CSPParser extends Parser {
       if (this.hasAhead(TokenType.Until, 1)) {
         statement = this.repeatUntilStatement(inFunctionDefinition);
       } else {
-        statement = this.repeatStatement(inFunctionDefinition);
+        throw new ParseError("Repeat N times loops are not currently supported.", this.advance().where);
+        // statement = this.repeatStatement(inFunctionDefinition);
       }
     // } else if (this.has(TokenType.For)) {
     //   statement = this.forStatement(inFunctionDefinition);
@@ -431,12 +313,6 @@ class CSPParser extends Parser {
     } else if (this.has(TokenType.LineComment)) {
       const token = this.advance() as TextToken;
       statement = new ast.LineComment(token.text, token.where);
-    // } else if (this.hasTwoIdentifiers()) {
-    //   if (this.hasAhead(TokenType.Equal, 2)) {
-    //     statement = this.initializedDeclaration();
-    //   } else {
-    //     statement = this.uninitializedDeclaration();
-    //   }
     // } else if (this.hasArrayWithoutIndex()) {
     //   statement = this.arrayDeclaration();
     // } else if (this.hasArrayWithRange()) {
@@ -471,27 +347,27 @@ class CSPParser extends Parser {
            this.hasAhead(TokenType.RightBracket, 5);
   }
 
-  arrayDeclaration(): ast.ArrayDeclaration {
-    const type = this.type();
+  // arrayDeclaration(): ast.ArrayDeclaration {
+  //   const type = this.type();
 
-    if (!this.has(TokenType.Identifier)) {
-      throw new ParseError("This array declaration is missing a variable name.", type.where);
-    }
-    const identifierToken = this.advance() as TextToken;
+  //   if (!this.has(TokenType.Identifier)) {
+  //     throw new ParseError("This array declaration is missing a variable name.", type.where);
+  //   }
+  //   const identifierToken = this.advance() as TextToken;
 
-    if (!this.has(TokenType.Equal)) {
-      throw new ParseError("This array declaration is missing an assignment.", Where.enclose(type.where, identifierToken.where));
-    }
-    const equalToken = this.advance(); // eat =
+  //   if (!this.has(TokenType.Equal)) {
+  //     throw new ParseError("This array declaration is missing an assignment.", Where.enclose(type.where, identifierToken.where));
+  //   }
+  //   const equalToken = this.advance(); // eat =
 
-    // if (this.has(TokenType.LeftCurly)) {
-      // throw new ParseError("This array declaration is missing an array literal enclosed in {}.", Where.enclose(type.where, equalToken.where));
-    // }
+  //   // if (this.has(TokenType.LeftCurly)) {
+  //     // throw new ParseError("This array declaration is missing an array literal enclosed in {}.", Where.enclose(type.where, equalToken.where));
+  //   // }
 
-    const rightNode = this.expression();
+  //   const rightNode = this.expression();
 
-    return new ast.ArrayDeclaration(identifierToken.text, type as ArrayType, rightNode, Where.enclose(type.where, rightNode.where));
-  }
+  //   return new ast.ArrayDeclaration(identifierToken.text, type as ArrayType, rightNode, Where.enclose(type.where, rightNode.where));
+  // }
 
   arrayLiteral(): ast.ArrayLiteral {
     const elementNodes = [];
@@ -529,19 +405,6 @@ class CSPParser extends Parser {
     }
   }
 
-  initializedDeclaration() {
-    const type = this.type();
-    const identifierToken = this.advance() as TextToken;
-    this.advance(); // eat =
-    const rightNode = this.expression();
-    return new ast.Declaration(identifierToken.text, type, rightNode, Where.enclose(type.where, rightNode.where));
-  }
-
-  uninitializedDeclaration() {
-    const type = this.type();
-    const identifierToken = this.advance() as TextToken;
-    return new ast.Declaration(identifierToken.text, type, null, Where.enclose(type.where, identifierToken.where));
-  }
 
   ifStatement(inFunctionDefinition: boolean): ast.Statement {
     const conditionNodes = [];
@@ -661,12 +524,12 @@ class CSPParser extends Parser {
   //   return new ast.DoWhile(block, conditionNode, Where.enclose(doToken.where, conditionNode.where));
   // }
 
-  // COME BACK HERE
   repeatStatement(inFunctionDefinition: boolean): ast.Statement {
     const repeatToken = this.advance();
     const n = this.expression();
     const timesToken = this.advance() as TextToken;
 
+    // FUTURE TODO: make "TIMES" a token??
     if (timesToken.text !== "TIMES") {
       throw new ParseError("The loop is missing the word TIMES after expression", n.where);
     }
