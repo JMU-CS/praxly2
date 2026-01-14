@@ -19,8 +19,11 @@ import type { Formatter } from './language/praxis/translator.js';
 
 import { editor, editorView, editorTabs, stepButton, stdout, stderr } from './main.js';
 
+// TODO add boolean argument to this function
+// Praxis print append br based on the comment
 const log = (text: string) => {
- stdout.appendChild(document.createTextNode(text));
+  stdout.appendChild(document.createTextNode(text));
+  stdout.appendChild(document.createElement('br'));
 };
 
 // TODO implement wobbly input boxes in the output div

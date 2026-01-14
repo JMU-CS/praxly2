@@ -322,6 +322,7 @@ function initialize() {
 
   const log = (text: string) => {
     stdout.appendChild(document.createTextNode(text));
+    stdout.appendChild(document.createElement('br'));
   };
 
   const getInput: () => Promise<string> = () => {

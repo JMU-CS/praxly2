@@ -215,6 +215,12 @@ main {
   height: 100%;
 }
 
+.cm-editor, #stdout, #stderr {
+  font-family: Menlo, Monaco, Consolas, "Andale Mono", "Ubuntu Mono", "Courier New", monospace;
+  font-size: large;
+  font-weight: 550;
+}
+
 .tab .memdia .diagram {
   height: 100%;
 }
