@@ -1,3 +1,4 @@
+/* ---- Memory Diagram Theme Variables ---- */
 :root {
   --md-name: white;
   --md-type: silver;
@@ -5,22 +6,24 @@
   --md-value: white;
 }
 
+/* ---- Global SVG Defaults ---- */
 .memdia-variable {
   font-family: sans-serif;
 }
 
+/* ---- Variable (Stack) Styling ---- */
 .var-name {
   fill: var(--md-name);
-  font-weight: normal;
   font-size: 16px;
+  font-weight: normal;
   text-anchor: end;
   dominant-baseline: middle;
 }
 
 .var-type {
-  font-style: italic;
   fill: var(--md-type);
   font-size: 12px;
+  font-style: italic;
   text-anchor: start;
   dominant-baseline: middle;
 }
@@ -29,8 +32,6 @@
   stroke: var(--md-line);
   fill: none;
   stroke-width: 1;
-  rx: 2;
-  ry: 2;
 }
 
 .var-value {
@@ -41,14 +42,11 @@
   pointer-events: none;
 }
 
-.reference-dot {
-  fill: var(--md-line);
-}
-
+/* ---- Function Frames ---- */
 .func-name {
   fill: var(--md-name);
-  font-weight: bold;
   font-size: 16px;
+  font-weight: bold;
   text-anchor: middle;
   dominant-baseline: middle;
 }
@@ -56,6 +54,40 @@
 .func-rect {
   stroke: var(--md-line);
   fill: none;
-  rx: 2;
-  ry: 2;
+}
+
+/* ---- Heap / Reference Styling ---- */
+.heap-type {
+  fill: var(--md-type);
+  font-size: 12px;
+  font-style: italic;
+  text-anchor: start;
+  dominant-baseline: middle;
+}
+
+.reference-dot {
+  fill: var(--md-line);
+}
+
+/* ---- Array / String Heap Structures ---- */
+.array-rect {
+  stroke: var(--md-line);
+  fill: none;
+  stroke-width: 1;
+}
+
+.array-value {
+  fill: var(--md-value);
+  font-size: 16px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.array-index {
+  fill: var(--md-type);
+  font-size: 12px;
+  font-style: italic;
+  text-anchor: middle;
+  dominant-baseline: middle;
 }

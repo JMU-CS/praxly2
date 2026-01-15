@@ -7,17 +7,18 @@ const MD = "md__";  // id prefix
 // Layout constants
 const MARGIN = 20;
 
-const VAR_RECT_HEIGHT = 40;
-const VAR_MIN_WIDTH = 40;
+const VAR_RECT_SIZE = 40;
 const VAR_VERTICAL_GAP = 35;
 
 const FUNC_INNER_PADDING = 20;
-const FUNC_NAME_DISTANCE = 30;
+const FUNC_NAME_WIDTH = 30;
 
 const CHAR_WIDTH = 8;
 
-const FUNC_MIN_HEIGHT = 90;
-const FUNC_MIN_WIDTH = 100;
+const FUNC_MIN_HEIGHT = 80;
+const FUNC_MIN_WIDTH = 80;
+
+const HEAP_HEIGHT = 16;
 
 const REFERENCE_DOT_RADIUS = 4;
 
@@ -116,6 +117,10 @@ export class MemdiaSvg extends Memdia {
     if (rightFruit.value !== null) {
       if (this.isReferenceType(rightFruit.type)) {
         this.setReferenceValueInRect(variable);
+
+        if (rightFruit.type instanceof ArrayType) {
+          this.renderArrayHeap(funcGroup, rightFruit);
+        }
       } else {
         this.setPrimitiveValueInRect(variable, rightFruit);
       }
@@ -143,7 +148,7 @@ export class MemdiaSvg extends Memdia {
 
     // Add function rectangle
     const funcRect = this.createRect(
-      MARGIN + FUNC_NAME_DISTANCE,
+      MARGIN + FUNC_NAME_WIDTH,
       y,
       FUNC_MIN_WIDTH,
       FUNC_MIN_HEIGHT,
@@ -267,9 +272,16 @@ export class MemdiaSvg extends Memdia {
     const prevRect = prevVar.querySelector('.var-rect') as SVGRectElement;
 
     const prevY = parseFloat(prevRect.getAttribute('y') || '0');
-    const prevH = parseFloat(prevRect.getAttribute('height') || `${VAR_RECT_HEIGHT}`);
+    const prevH = parseFloat(prevRect.getAttribute('height') || `${VAR_RECT_SIZE}`);
 
     return prevY + prevH + VAR_VERTICAL_GAP;
+  }
+
+  private getNextHeapY(funcGroup: SVGElement, startY: number): number {
+    const key = 'data-next-heap-y';
+    const current = parseFloat(funcGroup.getAttribute(key) || `${startY}`);
+    funcGroup.setAttribute(key, `${current + VAR_RECT_SIZE + VAR_VERTICAL_GAP}`);
+    return current;
   }
 
   /**
@@ -281,8 +293,8 @@ export class MemdiaSvg extends Memdia {
     return {
       x: parseFloat(rect.getAttribute('x') || '0'),
       y: parseFloat(rect.getAttribute('y') || '0'),
-      width: parseFloat(rect.getAttribute('width') || `${VAR_RECT_HEIGHT}`),
-      height: parseFloat(rect.getAttribute('height') || `${VAR_RECT_HEIGHT}`),
+      width: parseFloat(rect.getAttribute('width') || `${VAR_RECT_SIZE}`),
+      height: parseFloat(rect.getAttribute('height') || `${VAR_RECT_SIZE}`),
     };
   }
 
@@ -302,7 +314,7 @@ export class MemdiaSvg extends Memdia {
       const rect = v.querySelector('.var-rect') as SVGRectElement;
       if (rect) {
         const rectBottom = parseFloat(rect.getAttribute('y') || '0') +
-                           parseFloat(rect.getAttribute('height') || `${VAR_RECT_HEIGHT}`);
+                           parseFloat(rect.getAttribute('height') || `${VAR_RECT_SIZE}`);
         bottomMost = Math.max(bottomMost, rectBottom);
       }
     });
@@ -328,19 +340,17 @@ export class MemdiaSvg extends Memdia {
     const vars = funcGroup.querySelectorAll('.memdia-variable');
     vars.forEach(v => {
       const rect = v.querySelector('.var-rect') as SVGRectElement;
-      const valueText = v.querySelector('.var-value') as SVGTextElement;
+      // const valueText = v.querySelector('.var-value') as SVGTextElement;
 
       if (rect) {
         const rectX = parseFloat(rect.getAttribute('x') ?? '0');
-        const rectW = parseFloat(rect.getAttribute('width') ?? VAR_RECT_HEIGHT.toString());
-        let right = rectX + rectW;
+        const rectW = parseFloat(rect.getAttribute('width') ?? VAR_RECT_SIZE.toString());
+        maxRight = Math.max(maxRight, rectX + rectW);
 
-        if (valueText && valueText.textContent) {
-          const valueWidth = valueText.textContent.length * CHAR_WIDTH;
-          right = Math.max(right, rectX + valueWidth + 10);
-        }
-
-        maxRight = Math.max(maxRight, right);
+        // if (valueText && valueText.textContent) {
+          // const valueWidth = valueText.textContent.length * CHAR_WIDTH;
+          //right = Math.max(right, rectX + valueWidth + 10);
+        //}
       }
     });
 
@@ -361,7 +371,7 @@ export class MemdiaSvg extends Memdia {
    */
   private getRectWidthForValue(valueStr: string): number {
     const padding = FUNC_INNER_PADDING;
-    return Math.max(VAR_MIN_WIDTH, valueStr.length * CHAR_WIDTH + padding);
+    return Math.max(VAR_RECT_SIZE, valueStr.length * CHAR_WIDTH + padding);
   }
 
   /**
@@ -378,6 +388,56 @@ export class MemdiaSvg extends Memdia {
     const rectY = parseFloat(funcRect.getAttribute('y') || '0');
     funcName.setAttribute('y', `${rectY + height / 2}`);
     funcName.setAttribute('dominant-baseline', 'middle');
+  }
+
+  /**
+   * Updates the position of a centered element (text or dot group) within a rectangle.
+   * This helper ensures that content stays centered when the rectangle moves or resizes.
+   */
+  private updateCenteredContent(rect: SVGRectElement, contentElement: SVGElement): void {
+    const bounds = this.getRectBounds(rect);
+
+    if (contentElement.tagName === 'g') {
+      // For groups (like reference dots), use transform
+      contentElement.setAttribute('transform', `translate(${bounds.x}, ${bounds.y})`);
+    } else if (contentElement.tagName === 'text') {
+      // For text elements, update x and y
+      contentElement.setAttribute('x', `${bounds.x + bounds.width / 2}`);
+      contentElement.setAttribute('y', `${bounds.y + bounds.height / 2 + 2}`);
+    }
+  }
+
+  /**
+   * Aligns all heap objects (arrays, strings, etc.) to the rightmost position.
+   * Tracks the maximum X position and shifts all heap groups to match it.
+   *
+   * @param funcGroup The function group that contains the heap data
+   * @param targetX The desired X position for this new heap object
+   * @param selector CSS selector to find heap groups (e.g., '.heap-array')
+   * @returns The aligned X position to use for positioning the new heap object
+   */
+  private alignHeapObjects(funcGroup: SVGElement, targetX: number, selector: string): number {
+    const key = 'data-max-heap-x';
+    const prevMax = parseFloat(funcGroup.getAttribute(key) || `${targetX}`);
+    const maxHeapX = Math.max(prevMax, targetX);
+    funcGroup.setAttribute(key, `${maxHeapX}`);
+
+    // ---- Re-align ALL existing heap arrays ----
+    const heapGroups = this.svg.querySelectorAll(selector);
+    heapGroups.forEach(heapGroup => {
+      const firstChild = heapGroup.firstElementChild;
+      if (!firstChild) return;
+
+      const currentX = parseFloat(firstChild.getAttribute('x') || '0');
+      const deltaX = maxHeapX - currentX;
+
+      Array.from(heapGroup.children).forEach(child => {
+        const x = parseFloat(child.getAttribute('x') || '0');
+        child.setAttribute('x', `${x + deltaX}`);
+      });
+    });
+
+    return maxHeapX
   }
 
   // ========== SVG Creation Helpers ==========
@@ -438,38 +498,71 @@ export class MemdiaSvg extends Memdia {
     const funcRect = funcGroup.querySelector('.func-rect') as SVGRectElement;
     const funcX = parseFloat(funcRect.getAttribute('x') || '0');
 
-    const rectY = this.getNextVariableY(funcGroup, funcRect);
+    let rectY = this.getNextVariableY(funcGroup, funcRect);
 
-    const nameWidth = name.length * CHAR_WIDTH + 5;
+    // If the variable is a reference type, remove extra gap for type label
+    if (this.isReferenceType(type)) {
+      rectY -= MARGIN / 2; // move rectangle up
+    }
 
-    // Rectangle starts after the name + gap
-    const rectX = funcX + FUNC_INNER_PADDING + nameWidth + 5;
+    // ---- Track max name width ----
+    const nameWidth = name.length * CHAR_WIDTH;
+    const prevMax = parseFloat(funcGroup.getAttribute('data-max-name') || '0');
+    const maxName = Math.max(prevMax, nameWidth);
+    funcGroup.setAttribute('data-max-name', `${maxName}`);
+
+    // ---- Re-align ALL existing variables ----
+    const vars = funcGroup.querySelectorAll('.memdia-variable');
+    vars.forEach(v => {
+      const rect = v.querySelector('.var-rect') as SVGRectElement;
+      const name = v.querySelector('.var-name') as SVGTextElement;
+      const type = v.querySelector('.var-type') as SVGTextElement;
+      const valueText = v.querySelector('.var-value') as SVGTextElement;
+      const refDotGroup = v.querySelector('.reference-value-group') as SVGGElement;
+
+      if (!rect || !name) return;
+
+      const newRectX = funcX + FUNC_INNER_PADDING + maxName + 10;
+
+      rect.setAttribute('x', `${newRectX}`);
+      name.setAttribute('x', `${newRectX - 10}`);
+      if (type) type.setAttribute('x', `${newRectX}`);
+
+      // Update centered content positions
+      if (valueText) this.updateCenteredContent(rect, valueText);
+      if (refDotGroup) this.updateCenteredContent(rect, refDotGroup);
+    });
+
+
+    const rectX = funcX + FUNC_INNER_PADDING + maxName + 10;
 
     // Add variable rectangle
     const rect = this.createRect(
       rectX,
       rectY,
-      VAR_RECT_HEIGHT,
-      VAR_RECT_HEIGHT,
+      VAR_RECT_SIZE,
+      VAR_RECT_SIZE,
       'var-rect'
     );
     varGroup.appendChild(rect);
 
-    // Add type label
-    const varType = this.createText(
-      type.toString(),
-      'var-type',
-      rectX,
-      rectY - MARGIN / 2
-    );
-    varGroup.appendChild(varType);
+    // Only show type above variable if it is NOT a reference type
+    if (!this.isReferenceType(type)) {
+      const varType = this.createText(
+        type.toString(),
+        'var-type',
+        rectX,
+        rectY - MARGIN / 2
+      );
+      varGroup.appendChild(varType);
+    }
 
     // Add variable name
     const varName = this.createText(
       name,
       'var-name',
       rectX - 10,
-      rectY + VAR_RECT_HEIGHT / 2
+      rectY + VAR_RECT_SIZE / 2
     );
     varName.setAttribute('text-anchor', 'end');
     varName.setAttribute('dominant-baseline', 'middle');
@@ -538,5 +631,85 @@ export class MemdiaSvg extends Memdia {
     dotGroup.appendChild(dot);
 
     variableGroup.appendChild(dotGroup);
+  }
+
+  // ========== Array Rendering ==========
+
+  private renderArrayHeap(funcGroup: SVGElement, fruit: Fruit): void {
+    if (!Array.isArray(fruit.value)) return;
+
+    const values = fruit.value;
+    const cellSize = VAR_RECT_SIZE;
+
+    // ---- Position to the right of the function frame ----
+    const funcRect = funcGroup.querySelector('.func-rect') as SVGRectElement;
+    const funcX = parseFloat(funcRect.getAttribute('x')!);
+    const funcY = parseFloat(funcRect.getAttribute('y')!);
+    const funcW = parseFloat(funcRect.getAttribute('width')!);
+
+    // X stays fixed (right of function)
+    const heapX = funcX + funcW + MARGIN * 2;
+
+    // ---- Align all heap arrays to the rightmost position ----
+    const alignedX = this.alignHeapObjects(funcGroup, heapX, '.heap-array');
+
+    // Y comes from allocator
+    const heapY = this.getNextHeapY(funcGroup, funcY + HEAP_HEIGHT);
+
+    // ---- Heap group ----
+    const heapGroup = document.createElementNS(NS, 'g');
+    heapGroup.setAttribute('class', 'heap-array');
+
+    // ---- Type label ----
+    const typeStr = fruit.type.toString().replace(/\[\d+\]/, '[]'); // removes any number inside []
+    const typeText = this.createText(
+      typeStr,
+      'heap-type',
+      heapX,
+      heapY - MARGIN / 2
+    );
+    heapGroup.appendChild(typeText);
+
+    // ---- Draw array cells ----
+    let currentX = alignedX;
+    values.forEach((val, i) => {
+      const valueStr = String(val);
+      const cellWidth = this.getRectWidthForValue(valueStr);
+
+      // cell
+      const cell = this.createRect(
+        currentX,
+        heapY,
+        cellWidth,
+        cellSize,
+        'array-rect'
+      );
+      heapGroup.appendChild(cell);
+
+      // value
+      const valueText = this.createText(
+        String(val),
+        'array-value',
+        currentX + cellWidth / 2,
+        heapY + cellSize / 2
+      );
+      valueText.setAttribute('text-anchor', 'middle');
+      valueText.setAttribute('dominant-baseline', 'middle');
+      heapGroup.appendChild(valueText);
+
+      // index
+      const indexText = this.createText(
+        String(i),
+        'array-index',
+        currentX + cellWidth / 2,
+        heapY + cellSize + 10
+      );
+      indexText.setAttribute('text-anchor', 'middle');
+      heapGroup.appendChild(indexText);
+
+      currentX += cellWidth;
+    });
+
+    this.svg.appendChild(heapGroup);
   }
 }
