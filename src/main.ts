@@ -1,3 +1,4 @@
+import './index.css';
 import { EditorView } from '@codemirror/view';
 import { CodeMirrorEditor } from './editor.js';
 import { Tab } from './tab.js';
