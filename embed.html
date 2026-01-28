@@ -23,7 +23,7 @@
         </div>
       </div>
 
-      <!-- RESIZE BAR  -->
+      <!-- RESIZE BAR -->
       <div id="resize-bar-X" class="resize-bar"></div>
     </div>
 
@@ -68,8 +68,8 @@
           </button>
         </li>
 
-        <li class="hide"><button id="share-button" title="Share">Share</button></li>
-        <li class="hide"><button id="info-button" title="Info">Info</button></li>
+        <li class="hide"><button id="share-button">Share</button></li>
+        <li class="hide"><button id="info-button">Info</button></li>
       </ul>
 
       <div id="output-panel" class="panel">
@@ -77,7 +77,8 @@
         <p id="stderr"></p>
       </div>
 
-      <div id="output-vars-resize-bar" class="drawer-resize-bar" title="Drag to resize"></div>
+      <!-- TOP RESIZE BAR (tooltip removed) -->
+      <div id="output-vars-resize-bar" class="drawer-resize-bar"></div>
 
       <!-- bottom drawer -->
       <section id="bottom-drawer" class="drawer-stack">
@@ -107,8 +108,8 @@
           </div>
         </div>
 
-        <!-- existing horizontal resize bar between drawers -->
-        <div id="drawer-resize-bar" class="drawer-resize-bar" title="Drag to resize"></div>
+        <!-- MIDDLE RESIZE BAR (tooltip removed) -->
+        <div id="drawer-resize-bar" class="drawer-resize-bar"></div>
 
         <div class="drawer-section" data-drawer="memdia">
           <button class="drawer-header" type="button">
@@ -171,54 +172,42 @@
         return section.classList.contains("is-open");
       }
 
-      // Compute the drawer stack height should be based on what's currently open.
       function snapDrawerStackToContent() {
         const varsHeader = varsSection.querySelector(".drawer-header");
         const memHeader = memSection.querySelector(".drawer-header");
 
         const hVarsHeader = varsHeader ? varsHeader.getBoundingClientRect().height : 0;
         const hMemHeader = memHeader ? memHeader.getBoundingClientRect().height : 0;
-
         const hBarBetween = resizer.getBoundingClientRect().height || 6;
 
         const varsOpen = isOpen(varsSection);
         const memOpen = isOpen(memSection);
 
-        // If nothing is open, remove fixed height so it can snap to bottom
         if (!varsOpen && !memOpen) {
           bottomDrawer.style.height = "";
           return;
         }
 
-        // Determine open heights
         const hVarsBody = varsOpen ? Math.max(MIN_BODY, varsBody.getBoundingClientRect().height) : 0;
         const hMemBody = memOpen ? Math.max(MIN_BODY, memBody.getBoundingClientRect().height) : 0;
 
-        const desired = hVarsHeader + hMemHeader + hBarBetween + hVarsBody + hMemBody;
-        bottomDrawer.style.height = desired + "px";
+        bottomDrawer.style.height =
+          hVarsHeader + hMemHeader + hBarBetween + hVarsBody + hMemBody + "px";
       }
 
       bottomDrawer.addEventListener("click", (e) => {
-        const target = e.target;
-        if (!(target instanceof HTMLElement)) return;
-
-        const header = target.closest(".drawer-header");
+        const header = e.target.closest(".drawer-header");
         if (!header) return;
 
         const section = header.closest(".drawer-section");
-        if (!section) return;
-
         const body = section.querySelector(".drawer-body");
-        if (!body) return;
 
-        const open = section.classList.contains("is-open");
-
-        if (open) {
+        if (section.classList.contains("is-open")) {
           section.classList.remove("is-open");
           body.style.height = "";
         } else {
           section.classList.add("is-open");
-          body.style.height = DEFAULT_BODY + "px"; // snap to default
+          body.style.height = DEFAULT_BODY + "px";
         }
 
         requestAnimationFrame(snapDrawerStackToContent);
@@ -246,21 +235,17 @@
         if (!dragging) return;
 
         const dy = e.clientY - startY;
-
-        let newVars = startVars + dy;
-        let newMem = startMem - dy;
+        const newVars = startVars + dy;
+        const newMem = startMem - dy;
 
         if (newVars < MIN_BODY || newMem < MIN_BODY) return;
 
         varsBody.style.height = newVars + "px";
         memBody.style.height = newMem + "px";
-
-        // keep stack height correct while dragging too
         snapDrawerStackToContent();
       });
 
       document.addEventListener("mouseup", () => {
-        if (!dragging) return;
         dragging = false;
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
@@ -276,7 +261,6 @@
 
         draggingTop = true;
         startYTop = e.clientY;
-
         startDrawerH = bottomDrawer.getBoundingClientRect().height;
         startVarsH = varsBody.getBoundingClientRect().height;
 
@@ -289,32 +273,16 @@
         if (!draggingTop) return;
 
         const dy = e.clientY - startYTop;
-
-        let newDrawerH = startDrawerH - dy;
-        let newVarsH = startVarsH - dy;
+        const newDrawerH = startDrawerH - dy;
+        const newVarsH = startVarsH - dy;
 
         if (newVarsH < MIN_BODY) return;
-
-        // Minimum stack height
-        const varsHeader = varsSection.querySelector(".drawer-header");
-        const memHeader = memSection.querySelector(".drawer-header");
-        const hVarsHeader = varsHeader ? varsHeader.getBoundingClientRect().height : 0;
-        const hMemHeader = memHeader ? memHeader.getBoundingClientRect().height : 0;
-        const hBarBetween = resizer.getBoundingClientRect().height || 6;
-
-        const minDrawer =
-          hVarsHeader + hMemHeader + hBarBetween +
-          (isOpen(varsSection) ? MIN_BODY : 0) +
-          (isOpen(memSection) ? MIN_BODY : 0);
-
-        if (newDrawerH < minDrawer) return;
 
         bottomDrawer.style.height = newDrawerH + "px";
         varsBody.style.height = newVarsH + "px";
       });
 
       document.addEventListener("mouseup", () => {
-        if (!draggingTop) return;
         draggingTop = false;
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
@@ -323,5 +291,4 @@
     })();
   </script>
 </body>
-
 </html>
