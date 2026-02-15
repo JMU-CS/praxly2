@@ -3,147 +3,22 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/x-icon" href="/fallen-leaf_1f342.ico" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Praxly | The Bridge to Code</title>
+
+  <!-- Import Fonts Here (Best Practice) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+
+  <title>Praxly 2.0</title>
 </head>
 
-<body class="bg-slate-50 text-slate-800">
-  <div id="app">
-    <!-- Navigation -->
-    <nav class="bg-white border-b border-slate-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <div class="flex items-center">
-            <span class="text-2xl font-bold text-indigo-600">Praxly</span>
-          </div>
-          <div class="flex items-center space-x-4">
-            <a href="https://github.com/JMU-CS/praxly" target="_blank"
-              class="text-slate-500 hover:text-indigo-600 transition">GitHub</a>
-            <a href="docs/README.md" class="text-slate-500 hover:text-indigo-600 transition">Documentation</a>
-            <a href="/v2/main.html"
-              class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition shadow-sm">
-              Launch Editor
-            </a>
-          </div>
-        </div>
-      </div>
-    </nav>
-
-    <!-- Hero Section -->
-    <div class="relative overflow-hidden pt-16 pb-32">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div class="text-center">
-          <h1 class="text-4xl tracking-tight font-extrabold text-slate-900 sm:text-5xl md:text-6xl">
-            <span class="block">Learn to code with</span>
-            <span class="block text-indigo-600">Real-time Feedback</span>
-          </h1>
-          <p class="mt-3 max-w-md mx-auto text-base text-slate-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-            Bridge the gap between block-based learning and text-based programming. Praxly allows you to visualize
-            logic, debug instantly, and master Python and Java concepts.
-          </p>
-          <div class="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
-            <div class="rounded-md shadow">
-              <a href="/v2/sandbox.html"
-                class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 md:py-4 md:text-lg md:px-10">
-                Get Started
-              </a>
-            </div>
-            <div class="mt-3 rounded-md shadow sm:mt-0 sm:ml-3">
-              <a href="#features"
-                class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-indigo-600 bg-white hover:bg-slate-50 md:py-4 md:text-lg md:px-10">
-                Learn More
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Feature Section -->
-    <div id="features" class="py-12 bg-white">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="lg:text-center">
-          <h2 class="text-base text-indigo-600 font-semibold tracking-wide uppercase">Features</h2>
-          <p class="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            A Better Way to Learn
-          </p>
-        </div>
-
-        <div class="mt-10">
-          <dl class="space-y-10 md:space-y-0 md:grid md:grid-cols-3 md:gap-x-8 md:gap-y-10">
-
-            <!-- Feature 1 -->
-            <div class="relative">
-              <dt>
-                <div class="absolute flex items-center justify-center h-12 w-12 rounded-md bg-indigo-500 text-white">
-                  <!-- Icon: Switch/Sync -->
-                  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                  </svg>
-                </div>
-                <p class="ml-16 text-lg leading-6 font-medium text-slate-900">Bi-directional Editing</p>
-              </dt>
-              <dd class="mt-2 ml-16 text-base text-slate-500">
-                Switch seamlessly between drag-and-drop blocks and real text code. Changes in one view instantly update
-                the other.
-              </dd>
-            </div>
-
-            <!-- Feature 2 -->
-            <div class="relative">
-              <dt>
-                <div class="absolute flex items-center justify-center h-12 w-12 rounded-md bg-indigo-500 text-white">
-                  <!-- Icon: Code -->
-                  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                  </svg>
-                </div>
-                <p class="ml-16 text-lg leading-6 font-medium text-slate-900">Multi-Language Support</p>
-              </dt>
-              <dd class="mt-2 ml-16 text-base text-slate-500">
-                Write in Praxis and export to industry standards like Python and Java. Perfect for AP CSP and
-                introductory CS courses.
-              </dd>
-            </div>
-
-            <!-- Feature 3 -->
-            <div class="relative">
-              <dt>
-                <div class="absolute flex items-center justify-center h-12 w-12 rounded-md bg-indigo-500 text-white">
-                  <!-- Icon: Lightning -->
-                  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <p class="ml-16 text-lg leading-6 font-medium text-slate-900">Real-time Visualization</p>
-              </dt>
-              <dd class="mt-2 ml-16 text-base text-slate-500">
-                See variables update and logic flow in real-time. Our visual memory diagrams help you understand
-                <em>how</em> your code works.
-              </dd>
-            </div>
-
-          </dl>
-        </div>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <footer class="bg-slate-50 border-t border-slate-200 mt-12">
-      <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 md:flex md:items-center md:justify-between lg:px-8">
-        <div class="flex justify-center space-x-6 md:order-2">
-          <p class="text-center text-base text-slate-400">
-            &copy; 2026 Praxly Project. JMU CS.
-          </p>
-        </div>
-      </div>
-    </footer>
-  </div>
-  <script type="module" src="/src/main.ts"></script>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
   <script data-goatcounter="https://praxly.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 

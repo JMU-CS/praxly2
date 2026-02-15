@@ -1,212 +1,127 @@
-import {Lexer} from '../lexer.js';
-import {TokenType} from '../token.js';
-import {Where} from '../where.js';
-import {LexError} from '../error.js';
+import type { Token } from "../lexer";
 
-class PythonLexer extends Lexer {
-  indents: string[];
+export class Lexer {
+  private pos = 0;
+  private input: string;
+  private indentStack: number[] = [0];
+  private pendingTokens: Token[] = [];
 
-  constructor(source: string) {
-    super(source);
-    this.indents = [''];
+  constructor(input: string) {
+    this.input = input;
   }
 
-  initialize() {
-    this.lexIndent();
-  }
+  tokenize(): Token[] {
+    const tokens: Token[] = [];
 
-  lexToken() {
-    if (this.has(' ') || this.has("\r")) {
-      this.abandon();
-    } else if (this.hasDigit()) {
-      this.lexNumber();
-    } else if (this.accept("\n")) {
-      this.lexLinebreak();
-    } else if (this.accept(',')) {
-      this.emitToken(TokenType.Comma);
-    } else if (this.has('.')) {
-      this.lexDot();
-    } else if (this.accept(';')) {
-      this.emitToken(TokenType.Semicolon);
-    } else if (this.accept('+')) {
-      this.emitToken(TokenType.Plus);
-    } else if (this.accept('%')) {
-      this.emitToken(TokenType.Percent);
-    } else if (this.accept('(')) {
-      this.emitToken(TokenType.LeftParenthesis);
-    } else if (this.accept(')')) {
-      this.emitToken(TokenType.RightParenthesis);
-    } else if (this.accept('[')) {
-      this.emitToken(TokenType.LeftBracket);
-    } else if (this.accept(']')) {
-      this.emitToken(TokenType.RightBracket);
-    } else if (this.accept(':')) {
-      this.emitToken(TokenType.Colon);
-    } else if (this.accept('~')) {
-      this.emitToken(TokenType.Tilde);
-    } else if (this.accept('^')) {
-      this.emitToken(TokenType.Circumflex);
-    } else if (this.has('"')) {
-      this.lexString();
-    } else if (this.has("'")) {
-      this.emitToken(TokenType.Character);
-    } else if (this.hasAlphabetic()) {
-      this.lexIdentifier();
-    } else if (this.accept('*')) {
-      if (this.accept('*')) {
-        this.emitToken(TokenType.DoubleAsterisk);
-      } else {
-        this.emitToken(TokenType.Asterisk);
+    while (this.pos < this.input.length || this.pendingTokens.length > 0) {
+      if (this.pendingTokens.length > 0) {
+        tokens.push(this.pendingTokens.shift()!);
+        continue;
       }
-    } else if (this.accept('&')) {
-      this.emitToken(TokenType.Ampersand);
-    } else if (this.accept('|')) {
-        this.emitToken(TokenType.Pipe);
-    } else if (this.accept('!')) {
-      if (this.accept('=')) {
-        this.emitToken(TokenType.NotEqual);
-      } else {
-        this.emitToken(TokenType.Bang);
-      }
-    } else if (this.accept('=')) {
-      if (this.accept('=')) {
-        this.emitToken(TokenType.DoubleEqual);
-      } else {
-        this.emitToken(TokenType.Equal);
-      }
-    } else if (this.accept('<')) {
-      if (this.accept('<')) {
-        this.emitToken(TokenType.DoubleLessThan);
-      } else if (this.accept('=')) {
-        this.emitToken(TokenType.LessThanOrEqual);
-      } else {
-        this.emitToken(TokenType.LessThan);
-      }
-    } else if (this.accept('>')) {
-      if (this.accept('>')) {
-        this.emitToken(TokenType.DoubleGreaterThan);
-      } else if (this.accept('=')) {
-        this.emitToken(TokenType.GreaterThanOrEqual);
-      } else {
-        this.emitToken(TokenType.GreaterThan);
-      }
-    } else if (this.accept('/')) {
-      if (this.accept('/')) {
-        this.emitToken(TokenType.DoubleForwardSlash);
-      } else {
-        this.emitToken(TokenType.ForwardSlash);
-      }
-    } else if (this.has('-')) {
-      if (this.hasDigitAhead(1)) {
-        this.lexNumber();
-      } else {
-        this.advance();
-        this.emitToken(TokenType.Hyphen);
-      }
-    } else if (this.accept('_')) {
-      if (this.accept('_')) {
-        this.emitToken(TokenType.UnderscoreUnderscore);
-      } else {
-        this.emitToken(TokenType.Underscore);
-      }
-    } else if (this.has('#')) {
-         // Skip over leading whitespace.
-        while (this.accept(' ')) {}
-        let text = '';
-        while (this.hasOtherwise("\n")) {
-          text += this.source[this.i];
-          this.advance();
+
+      const char = this.input[this.pos];
+
+      if (char === '\n') {
+        const start = this.pos;
+        this.pos++;
+        let indentLevel = 0;
+        while (this.pos < this.input.length && this.input[this.pos] === ' ') {
+          indentLevel++;
+          this.pos++;
         }
-        this.emitTextToken(TokenType.LineComment, text);
-    } else {
-      throw new LexError(`The program contains an unexpected character: \`${this.source[this.i]}\`.`, new Where(this.i, this.i + 1));
-    }
-  }
-
-  lexLinebreak() {
-    this.emitToken(TokenType.Linebreak);
-    if (this.i < this.source.length) {
-      this.lexIndent();
-    }
-  }
-
-  lexDot() {
-    this.advance(); // eat .
-    if (this.accept('.')) {
-      this.emitToken(TokenType.DotDot);
-    } else {
-      this.emitToken(TokenType.Period);
-    }
-  }
-
-  lexIndent() {
-    let indent = '';
-
-    // First gobble up all the whitespace there is.
-    while (this.has(' ') || this.has("\t")) {
-      indent += this.source[this.i];
-      this.advance();
-    }
-
-    // If the whole line is whitespace, we do not give it any influence over
-    // the indentation.
-    if (this.i === this.source.length || this.has("\r") || this.has("\n")) {
-      this.abandon();
-    }
-
-    // Issue an indent token only if the indent extends the previous indent.
-    else if (indent.length > 0 && indent.length > this.indents[this.indents.length - 1].length && indent.startsWith(this.indents[this.indents.length - 1])) {
-      this.indents.push(indent);
-      this.emitToken(TokenType.Indent);
-    }
-
-    else {
-      // Pop indents until match. If no match, issue error.
-      while (this.indents.length > 1 &&
-             this.indents[this.indents.length - 1].startsWith(indent) &&
-             this.indents[this.indents.length - 1] !== indent) {
-        this.indents.pop();
-        this.emitToken(TokenType.Unindent);
+        if (this.pos < this.input.length && this.input[this.pos] === '\n') {
+          continue;
+        }
+        tokens.push({ type: 'NEWLINE', value: '\n', start });
+        const currentIndent = this.indentStack[this.indentStack.length - 1];
+        if (indentLevel > currentIndent) {
+          this.indentStack.push(indentLevel);
+          tokens.push({ type: 'INDENT', value: '  ', start: this.pos });
+        } else if (indentLevel < currentIndent) {
+          while (this.indentStack.length > 1 && this.indentStack[this.indentStack.length - 1] > indentLevel) {
+            this.indentStack.pop();
+            tokens.push({ type: 'DEDENT', value: '', start: this.pos });
+          }
+        }
+        continue;
       }
 
-      if (this.indents[this.indents.length - 1] !== indent) {
-        throw new LexError('A line is not indented like the line above it.', new Where(this.start, this.i));
+      if (/\s/.test(char)) { this.pos++; continue; }
+      if (char === '#') { while (this.pos < this.input.length && this.input[this.pos] !== '\n') { this.pos++; } continue; }
+
+      if (/\d/.test(char)) {
+        let value = '';
+        const start = this.pos;
+        while (this.pos < this.input.length && (/\d/.test(this.input[this.pos]) || this.input[this.pos] === '.')) {
+          value += this.input[this.pos++];
+        }
+        tokens.push({ type: 'NUMBER', value, start });
+        continue;
       }
+
+      if (char === '"' || char === "'") {
+        const quote = char;
+        const start = this.pos;
+        this.pos++;
+        let value = '';
+        while (this.pos < this.input.length && this.input[this.pos] !== quote) {
+          value += this.input[this.pos++];
+        }
+        this.pos++;
+        tokens.push({ type: 'STRING', value, start });
+        continue;
+      }
+
+      // Handle f-strings (f"..." or f'...')
+      if ((char === 'f' || char === 'r' || char === 'b') && this.pos + 1 < this.input.length && (this.input[this.pos + 1] === '"' || this.input[this.pos + 1] === "'")) {
+        const prefix = char;
+        const quote = this.input[this.pos + 1];
+        const start = this.pos;
+        this.pos += 2; // skip prefix and quote
+        let value = '';
+        while (this.pos < this.input.length && this.input[this.pos] !== quote) {
+          value += this.input[this.pos++];
+        }
+        this.pos++; // skip closing quote
+        tokens.push({ type: 'STRING', value: `${prefix}${value}`, start });
+        continue;
+      }
+
+      if (/[a-zA-Z_]/.test(char)) {
+        const start = this.pos;
+        let value = '';
+        while (this.pos < this.input.length && /[a-zA-Z0-9_]/.test(this.input[this.pos])) {
+          value += this.input[this.pos++];
+        }
+        const keywords = ['print', 'if', 'else', 'while', 'for', 'def', 'return', 'and', 'or', 'not', 'True', 'False', 'in', 'class', 'import', 'from', 'as', 'pass', 'break', 'continue', 'try', 'except', 'finally', 'with', 'None', 'self', 'super'];
+        const type = keywords.includes(value) ? 'KEYWORD' : 'IDENTIFIER';
+        if (value === 'True' || value === 'False') tokens.push({ type: 'BOOLEAN', value, start });
+        else tokens.push({ type, value, start });
+        continue;
+      }
+
+      if (['+', '-', '*', '/', '=', '>', '<', '!', '%'].includes(char)) {
+        const start = this.pos;
+        if (this.pos + 1 < this.input.length && this.input[this.pos + 1] === '=') {
+          tokens.push({ type: 'OPERATOR', value: char + '=', start });
+          this.pos += 2;
+          continue;
+        }
+        tokens.push({ type: 'OPERATOR', value: char, start: this.pos++ });
+        continue;
+      }
+
+      if (['(', ')', '[', ']', '{', '}', ':', ',', '.'].includes(char)) {
+        tokens.push({ type: 'PUNCTUATION', value: char, start: this.pos++ });
+        continue;
+      }
+      throw new Error(`Unexpected character: ${char} at position ${this.pos}`);
     }
+    while (this.indentStack.length > 1) {
+      this.indentStack.pop();
+      tokens.push({ type: 'DEDENT', value: '', start: this.pos });
+    }
+    tokens.push({ type: 'EOF', value: '', start: this.pos });
+    return tokens;
   }
-
-  lexIdentifier() {
-    let text = '';
-    while (this.hasAlphanumeric()) {
-      text += this.source[this.i];
-      this.advance();
-    }
-
-    if (PythonLexer.keywords.hasOwnProperty(text)) {
-      this.emitToken(PythonLexer.keywords[text]);
-    } else {
-      this.emitTextToken(TokenType.Identifier, text);
-    }
-  }
-
-  static keywords: {[index: string]: TokenType} = {
-    and: TokenType.And,
-    class: TokenType.Class,
-    else: TokenType.Else,
-    extends: TokenType.Extends,
-    False: TokenType.False,
-    if: TokenType.If,
-    not: TokenType.Not,
-    null: TokenType.Null,
-    or: TokenType.Or,
-    print: TokenType.Print,
-    return: TokenType.Return,
-    True: TokenType.True,
-    while: TokenType.While,
-    def: TokenType.Function,
-  };
-}
-
-export function lex(source: string) {
-  return new PythonLexer(source).lex();
 }
