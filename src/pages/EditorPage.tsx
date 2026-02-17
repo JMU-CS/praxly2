@@ -250,12 +250,12 @@ export default function EditorPage() {
             {/* Header */}
             <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0 shadow-sm z-[200]">
                 <div className="flex items-center gap-3">
-                    <Link to="/" className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
+                    <Link to="/v2/" className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
                         <Home size={20} />
                     </Link>
                     <div className="h-6 w-px bg-slate-800 mx-1" />
                     <div className="flex items-center gap-2">
-                        <img src='/fallen-leaf_1f342.ico' style={{ width: "32px", height: "32px" }} alt="Logo" />
+                        <img src='/v2/fallen-leaf_1f342.ico' style={{ width: "32px", height: "32px" }} alt="Logo" />
                         <h1 className="font-bold text-lg text-slate-100 tracking-tight">Praxly <span className="text-indigo-400">2.0</span></h1>
                     </div>
                 </div>
