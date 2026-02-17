@@ -1,0 +1,177 @@
+@top Program { statement* }
+
+@skip { space | LineComment | HashComment }
+
+@precedence {
+  exprEnd, // Low priority: treat identifier as end of expression/statement
+  call,    // High priority: shift parenthesis to start a function call
+  greedy,  // Existing priority: greedy statement endings (End If, etc.)
+  mult @left,
+  add @left,
+  mod @left,
+  compare @left,
+  and @left,
+  or @left
+}
+
+statement {
+  ProcedureDeclaration |
+  IfStatement |
+  WhileStatement |
+  ForStatement |
+  ReturnStatement |
+  PrintStatement |
+  CallStatement |
+  AssignmentStatement |
+  ExpressionStatement { expression }
+}
+
+IfStatement {
+  If expression Then? statement* (Else statement*)?
+  (End !greedy If | End)
+}
+
+WhileStatement {
+  While expression Do? statement* (End !greedy While | End)
+}
+
+ForStatement {
+  For Identifier (ForInExpression | ForRangeExpression) Do? statement* (End !greedy For | End)
+}
+
+ProcedureDeclaration {
+  (Procedure | Function) Identifier "(" ParamList? ")" statement*
+  (End !greedy (Procedure | Function) | End)
+}
+
+ReturnStatement {
+  Return !greedy expression |
+  Return
+}
+
+ForInExpression {
+  In expression
+}
+
+ForRangeExpression {
+  Arrow expression To expression (Step expression)?
+}
+
+PrintStatement {
+  Print "(" expression ")"
+}
+
+CallStatement {
+  Call expression
+}
+
+AssignmentStatement {
+  Identifier (Arrow | Assign) expression
+}
+
+ParamList {
+  Identifier ("," Identifier)*
+}
+
+expression {
+  Identifier !exprEnd |
+  Number |
+  String |
+  Boolean |
+  ArrayLiteral |
+  CallExpression |
+  UnaryExpression |
+  BinaryExpression |
+  ParenthesizedExpression { "(" expression ")" }
+}
+
+CallExpression {
+  Identifier !call "(" ArgList? ")"
+}
+
+ArgList {
+  expression ("," expression)*
+}
+
+ArrayLiteral {
+  "[" expression ("," expression)* "]"
+}
+
+// INLINED: NotKW | NotOp
+UnaryExpression {
+  (NotKW | NotOp | Minus) expression
+}
+
+// INLINED: All operator wrappers
+BinaryExpression {
+  expression !or (OrKW | OrOp) expression |
+  expression !and (AndKW | AndOp) expression |
+  expression !compare (Eq | Neq | Lt | Gt | Lte | Gte) expression |
+  expression !add (Plus | Minus) expression |
+  expression !mult (Asterisk | Slash) expression |
+  expression !mod (ModKW | Percent) expression
+}
+
+// --- Keywords as Specialized Identifiers ---
+Procedure { @specialize<Identifier, "procedure" | "PROCEDURE"> }
+Function { @specialize<Identifier, "function" | "FUNCTION"> }
+If { @specialize<Identifier, "if" | "IF"> }
+Then { @specialize<Identifier, "then" | "THEN"> }
+Else { @specialize<Identifier, "else" | "ELSE"> }
+While { @specialize<Identifier, "while" | "WHILE"> }
+Do { @specialize<Identifier, "do" | "DO"> }
+For { @specialize<Identifier, "for" | "FOR"> }
+To { @specialize<Identifier, "to" | "TO"> }
+Step { @specialize<Identifier, "step" | "STEP"> }
+In { @specialize<Identifier, "in" | "IN"> }
+Return { @specialize<Identifier, "return" | "RETURN"> }
+Print { @specialize<Identifier, "print" | "PRINT" | "display" | "DISPLAY"> }
+Call { @specialize<Identifier, "call" | "CALL"> }
+End { @specialize<Identifier, "end" | "END"> }
+
+// Operator Keywords
+ModKW { @specialize<Identifier, "mod" | "MOD"> }
+AndKW { @specialize<Identifier, "and" | "AND"> }
+OrKW { @specialize<Identifier, "or" | "OR"> }
+NotKW { @specialize<Identifier, "not" | "NOT"> }
+Boolean { @specialize<Identifier, "true" | "false" | "True" | "False"> }
+
+// Removed Wrapper Rules (Mod, And, Or, Not, AddOp, MultOp, CompareOp) to fix conflicts
+
+@tokens {
+  space { $[ \t\n\r]+ }
+  LineComment { "//" ![\n]* }
+  HashComment { "#" ![\n]* }
+
+  Identifier { $[a-zA-Z_] $[a-zA-Z0-9_]* }
+  Number { $[0-9]+ ("." $[0-9]+)? }
+  String { '"' (!["\\] | "\\" _)* '"' | "'" (!['\\] | "\\" _)* "'" }
+
+  // Explicit Operator Tokens
+  Arrow { "<-" | "←" }
+  Assign { "=" }
+
+  Plus { "+" }
+  Minus { "-" }
+  Asterisk { "*" }
+  Slash { "/" }
+  Percent { "%" }
+
+  Eq { "==" }
+  Neq { "!=" | "<>" }
+  Lt { "<" }
+  Gt { ">" }
+  Lte { "<=" | "≤" }
+  Gte { ">=" | "≥" }
+
+  AndOp { "&&" }
+  OrOp { "||" }
+  NotOp { "!" }
+
+  "(" ")" "[" "]" ","
+
+  // Resolution for the slash/comment overlap
+  @precedence { LineComment, Slash }
+}
+
+@detectDelim

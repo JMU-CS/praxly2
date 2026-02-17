@@ -10,4 +10,7 @@ export default defineConfig({
       typescript: true,
     }),
   ],
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx', '.json', '.grammar.js', '.grammar']
+  }
 });

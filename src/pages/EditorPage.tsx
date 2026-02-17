@@ -18,6 +18,9 @@ import { Interpreter } from '../language/interpreter';
 import { Translator } from '../language/translator';
 import type { Program } from '../language/ast';
 import { JSONTree } from '../components/JSONTree';
+import { PraxisLexer } from '../language/praxis/lexer';
+import { PraxisParser } from '../language/praxis/parser';
+import { praxis } from '../language/praxis/lezer';
 
 const SAMPLE_CODE_PYTHON = `x = 10
 y = 5.5
@@ -48,7 +51,16 @@ IF (x > 5) {
 }
 `;
 
-type SupportedLang = 'python' | 'java' | 'csp' | 'ast';
+const SAMPLE_CODE_PRAXIS = `primes <- [2, 3, 5, 7, 11]
+total <- 0
+
+for num in primes do
+  total <- total + num
+end for
+
+print(total)`
+
+type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'ast';
 
 interface Panel {
     id: string;
@@ -105,6 +117,10 @@ export default function EditorPage() {
                 case 'csp':
                     tokens = new CSPLexer(input).tokenize();
                     parser = new CSPParser(tokens);
+                    return parser.parse();
+                case 'praxis':
+                    tokens = new PraxisLexer(input).tokenize();
+                    parser = new PraxisParser(tokens);
                     return parser.parse();
                 case 'python':
                 default:
@@ -189,6 +205,7 @@ export default function EditorPage() {
         switch (lang) {
             case 'java': return [java()];
             case 'python': return [python()];
+            case 'praxis': return [praxis()];
             default: return [];
         }
     };
@@ -304,6 +321,7 @@ export default function EditorPage() {
                                         <button onClick={() => { setSourceLang('python'); setCode(SAMPLE_CODE_PYTHON); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Python</button>
                                         <button onClick={() => { setSourceLang('java'); setCode(SAMPLE_CODE_JAVA); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Java</button>
                                         <button onClick={() => { setSourceLang('csp'); setCode(SAMPLE_CODE_CSP); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">AP CSP</button>
+                                        <button onClick={() => { setSourceLang('praxis'); setCode(SAMPLE_CODE_PRAXIS); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Praxis</button>
                                     </div>
                                 </div>
                                 <span>SOURCE</span>
