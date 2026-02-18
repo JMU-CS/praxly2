@@ -69,10 +69,10 @@ interface Panel {
 }
 
 export default function EditorPage() {
-    const [code, setCode] = useState(SAMPLE_CODE_PYTHON);
+    const [code, setCode] = useState(SAMPLE_CODE_PRAXIS);
     const [output, setOutput] = useState<string[]>([]);
     const [ast, setAst] = useState<Program | null>(null);
-    const [sourceLang, setSourceLang] = useState<SupportedLang>('python');
+    const [sourceLang, setSourceLang] = useState<SupportedLang>('praxis');
     const [error, setError] = useState<string | null>(null);
     const [showAddMenu, setShowAddMenu] = useState(false);
 
@@ -318,10 +318,10 @@ export default function EditorPage() {
                                         <ChevronDown size={12} />
                                     </button>
                                     <div className="absolute top-full left-0 w-40 bg-slate-800 border border-slate-700 hidden group-hover:block rounded-md shadow-xl overflow-hidden mt-1 z-[110]">
-                                        <button onClick={() => { setSourceLang('python'); setCode(SAMPLE_CODE_PYTHON); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Python</button>
+                                        <button onClick={() => { setSourceLang('csp'); setCode(SAMPLE_CODE_CSP); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">CSP</button>
                                         <button onClick={() => { setSourceLang('java'); setCode(SAMPLE_CODE_JAVA); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Java</button>
-                                        <button onClick={() => { setSourceLang('csp'); setCode(SAMPLE_CODE_CSP); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">AP CSP</button>
                                         <button onClick={() => { setSourceLang('praxis'); setCode(SAMPLE_CODE_PRAXIS); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Praxis</button>
+                                        <button onClick={() => { setSourceLang('python'); setCode(SAMPLE_CODE_PYTHON); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Python</button>
                                     </div>
                                 </div>
                                 <span>SOURCE</span>
@@ -416,7 +416,15 @@ export default function EditorPage() {
                                                 className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-xs text-slate-300 hover:bg-indigo-600 hover:text-white rounded-md transition-colors capitalize group"
                                             >
                                                 {l === 'ast' ? <FileJson size={14} className="opacity-50 group-hover:opacity-100" /> : <Code size={14} className="opacity-50 group-hover:opacity-100" />}
-                                                {l === 'csp' ? 'AP CSP' : l}
+                                                {
+                                                    {
+                                                        'ast': 'AST',
+                                                        'csp': 'CSP',
+                                                        'java': 'Java',
+                                                        'praxis': 'Paxis',
+                                                        'python': 'Python',
+                                                    }[l] || l
+                                                }
                                             </button>
                                         ))}
                                     </div>
