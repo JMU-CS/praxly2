@@ -310,17 +310,18 @@ class JavaEmitter extends ASTVisitor {
         const paramTypes = this.context.functionParamTypes.get(stmt.name) || [];
 
         stmt.params.forEach((p: any, i: number) => {
-            let type = paramTypes[i];
-            if (!type || type === 'var') type = 'Object';
+            let type = p.paramType && p.paramType !== 'var' && p.paramType !== 'auto' ? p.paramType : paramTypes[i];
+            if (!type || type === 'var' || type === 'auto') type = 'Object';
             this.context.symbolTable.set(p.name, type);
         });
 
         const params = stmt.params.map((p: any, i: number) => {
-            let type = paramTypes[i] || 'Object';
+            let type = p.paramType && p.paramType !== 'var' && p.paramType !== 'auto' ? p.paramType : paramTypes[i];
+            if (!type || type === 'var' || type === 'auto') type = 'Object';
             return `${type} ${p.name}`;
         }).join(', ');
 
-        const returnType = this.context.functionReturnTypes.get(stmt.name) || 'void';
+        let returnType = stmt.returnType && stmt.returnType !== 'auto' ? stmt.returnType : (this.context.functionReturnTypes.get(stmt.name) || 'void');
         this.emit(`public static ${returnType} ${stmt.name}(${params}) {`);
         this.indent();
         this.visitBlock(stmt.body);
