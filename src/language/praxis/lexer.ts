@@ -16,9 +16,19 @@ export class PraxisLexer {
             // Skip whitespace
             if (/\s/.test(char)) { this.pos++; continue; }
 
-            // Comments (// or #)
-            if ((char === '/' && this.input[this.pos + 1] === '/') || char === '#') {
+            // Single-line Comments
+            if (char === '/' && this.input[this.pos + 1] === '/') {
                 while (this.pos < this.input.length && this.input[this.pos] !== '\n') this.pos++;
+                continue;
+            }
+
+            // Multi-line Comments (useful for the '/* missing code */' found in Praxis examples)
+            if (char === '/' && this.input[this.pos + 1] === '*') {
+                this.pos += 2;
+                while (this.pos < this.input.length && !(this.input[this.pos] === '*' && this.input[this.pos + 1] === '/')) {
+                    this.pos++;
+                }
+                this.pos += 2; // skip */
                 continue;
             }
 
@@ -56,38 +66,52 @@ export class PraxisLexer {
                 }
 
                 const keywords = [
-                    'if', 'then', 'else', 'end', 'while', 'do', 'for', 'to', 'step', 'in',
-                    'procedure', 'function', 'return', 'print', 'call',
-                    'and', 'or', 'not', 'true', 'false', 'mod'
+                    'if', 'else', 'end', 'while', 'do', 'for', 'repeat', 'until',
+                    'return', 'print', 'and', 'or', 'not', 'true', 'false', 'mod',
+                    'class', 'extends', 'new', 'public', 'private', 'null',
+                    'boolean', 'char', 'double', 'float', 'int', 'short', 'string', 'void'
                 ];
 
-                const type = keywords.includes(value.toLowerCase()) ? 'KEYWORD' : 'IDENTIFIER';
+                const lowerValue = value.toLowerCase();
+                const type = keywords.includes(lowerValue) ? 'KEYWORD' : 'IDENTIFIER';
 
                 // Normalize boolean values
-                if (value.toLowerCase() === 'true') tokens.push({ type: 'BOOLEAN', value: 'true', start });
-                else if (value.toLowerCase() === 'false') tokens.push({ type: 'BOOLEAN', value: 'false', start });
+                if (lowerValue === 'true') tokens.push({ type: 'BOOLEAN', value: 'true', start });
+                else if (lowerValue === 'false') tokens.push({ type: 'BOOLEAN', value: 'false', start });
+                else if (lowerValue === 'null') tokens.push({ type: 'KEYWORD', value: 'null', start });
                 else tokens.push({ type, value, start });
                 continue;
             }
 
             // Operators and Punctuation
-            if (['+', '-', '*', '/', '=', '>', '<', '!', '(', ')', '[', ']', ',', '.'].includes(char)) {
+            const operators = ['+', '-', '*', '/', '=', '>', '<', '!', '(', ')', '[', ']', '{', '}', ',', '.', ';', ':'];
+            if (operators.includes(char) || ['←', '≠', '≥', '≤'].includes(char)) {
                 const start = this.pos;
 
-                // Assignment: <-
+                // Multi-character Assignments and Comparisons
                 if (char === '<' && this.input[this.pos + 1] === '-') {
                     tokens.push({ type: 'OPERATOR', value: '<-', start });
                     this.pos += 2;
                     continue;
                 }
-
-                // Comparison: <=, >=, !=, ==
+                if (char === '<' && this.input[this.pos + 1] === '>') {
+                    tokens.push({ type: 'OPERATOR', value: '<>', start });
+                    this.pos += 2;
+                    continue;
+                }
                 if (['<', '>', '!', '='].includes(char) && this.input[this.pos + 1] === '=') {
                     tokens.push({ type: 'OPERATOR', value: char + '=', start });
                     this.pos += 2;
                     continue;
                 }
 
+                // Praxis Specific Unicode Math Symbols
+                if (char === '←') { tokens.push({ type: 'OPERATOR', value: '<-', start: this.pos++ }); continue; }
+                if (char === '≠') { tokens.push({ type: 'OPERATOR', value: '!=', start: this.pos++ }); continue; }
+                if (char === '≥') { tokens.push({ type: 'OPERATOR', value: '>=', start: this.pos++ }); continue; }
+                if (char === '≤') { tokens.push({ type: 'OPERATOR', value: '<=', start: this.pos++ }); continue; }
+
+                // Map symbols accurately to Operator vs Punctuation buckets
                 if (['+', '-', '*', '/', '%', '>', '<', '='].includes(char)) {
                     tokens.push({ type: 'OPERATOR', value: char, start: this.pos++ });
                 } else {

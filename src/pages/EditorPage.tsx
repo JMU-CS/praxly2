@@ -51,14 +51,17 @@ IF (x > 5) {
 }
 `;
 
-const SAMPLE_CODE_PRAXIS = `primes <- [2, 3, 5, 7, 11]
-total <- 0
-
-for num in primes do
-  total <- total + num
-end for
-
-print(total)`
+const SAMPLE_CODE_PRAXIS = `int newScore ( int diceOne, int diceTwo, int oldScore )
+    if ( diceOne == diceTwo )
+        return 0
+    else
+        if ( ( diceOne == 6 ) or ( diceTwo == 6 ) )
+            return oldScore
+        else
+            return oldScore + diceOne + diceTwo
+        end if
+    end if
+end newScore`
 
 type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'ast';
 
