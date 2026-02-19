@@ -107,7 +107,7 @@ abstract class ASTVisitor {
         }
     }
 
-    // Type Inference Helper
+    // Comprehensive Type Inference Helper
     protected inferType(expr: Expression): string {
         switch (expr.type) {
             case 'Literal':
@@ -120,14 +120,24 @@ abstract class ASTVisitor {
                 return 'Object';
             case 'Identifier': return this.context.symbolTable.get(expr.name) || 'var';
             case 'BinaryExpression':
-                if (['>', '<', '>=', '<=', '==', '!='].includes(expr.operator)) return 'boolean';
+                if (['>', '<', '>=', '<=', '==', '!=', 'and', 'or'].includes(expr.operator)) return 'boolean';
                 const left = this.inferType(expr.left);
                 if (left === 'double') return 'double';
                 return 'int';
+            case 'UnaryExpression':
+                if (expr.operator === 'not' || expr.operator === '!') return 'boolean';
+                return this.inferType(expr.argument); // Propagates numbers safely (e.g., -5 => int)
             case 'CallExpression':
                 const calleeName = (expr.callee as any).name;
+                if (calleeName === 'range') return 'int[]'; // Catch ranges from Praxis 'for' loops
                 if (calleeName && this.context.functionReturnTypes.has(calleeName)) return this.context.functionReturnTypes.get(calleeName)!;
                 return 'var';
+            case 'ArrayLiteral':
+                if (expr.elements && expr.elements.length > 0) {
+                    const elType = this.inferType(expr.elements[0]);
+                    return elType + '[]';
+                }
+                return 'Object[]';
             default: return 'var';
         }
     }
@@ -137,30 +147,25 @@ abstract class ASTVisitor {
 
 class JavaEmitter extends ASTVisitor {
     visitProgram(program: Program): void {
-        // Separate classes, functions, and main code
         const classes = program.body.filter(s => s.type === 'ClassDeclaration');
         const functions = program.body.filter(s => s.type === 'FunctionDeclaration');
         const mainBody = program.body.filter(s => s.type !== 'ClassDeclaration' && s.type !== 'FunctionDeclaration');
 
-        // Emit classes first
         classes.forEach(classDecl => {
             this.visitClassDeclaration(classDecl as ClassDeclaration);
             this.emit('');
         });
 
-        // Emit main class if there's any code to emit
         if (functions.length > 0 || mainBody.length > 0) {
             this.context.symbolTable = new SymbolTable();
             this.emit('public class Main {');
             this.indent();
 
-            // Emit functions as static methods
             functions.forEach(func => {
                 this.visitFunctionDeclaration(func as any);
                 this.emit('');
             });
 
-            // Emit main method with remaining code
             if (mainBody.length > 0) {
                 this.emit('public static void main(String[] args) {');
                 this.indent();
@@ -179,7 +184,6 @@ class JavaEmitter extends ASTVisitor {
         this.emit(`public class ${classDecl.name}${superClass} {`);
         this.indent();
 
-        // Emit fields and methods
         classDecl.body.forEach(member => {
             this.visitStatement(member);
             this.emit('');
@@ -202,7 +206,7 @@ class JavaEmitter extends ASTVisitor {
     }
 
     visitConstructor(ctor: Constructor): void {
-        const className = 'TempClass'; // We'll need context for this - for now using placeholder
+        const className = 'TempClass';
         const params = ctor.params.map(p => `${p.paramType} ${p.name}`).join(', ');
         this.emit(`public ${className}(${params}) {`);
         this.indent();
@@ -240,12 +244,19 @@ class JavaEmitter extends ASTVisitor {
 
     visitAssignment(stmt: any): void {
         const rVal = this.generateExpression(stmt.value, 0);
-        if (this.context.symbolTable.hasInCurrentScope(stmt.name)) {
+        if (this.context.symbolTable.get(stmt.name) !== undefined) {
             this.emit(`${stmt.name} = ${rVal};`);
         } else {
             let type = this.inferType(stmt.value);
             if (type === 'var') type = 'Object';
-            this.emit(`${type} ${stmt.name} = ${rVal};`);
+
+            // Clean up array initialization to use Java's shorthand { ... }
+            let initVal = rVal;
+            if (stmt.value.type === 'ArrayLiteral') {
+                initVal = initVal.replace(/^new \w+\[\] /, '');
+            }
+
+            this.emit(`${type} ${stmt.name} = ${initVal};`);
             this.context.symbolTable.set(stmt.name, type);
         }
     }
@@ -333,7 +344,6 @@ class JavaEmitter extends ASTVisitor {
         switch (expr.type) {
             case 'Literal':
                 if (typeof expr.value === 'string') {
-                    // Handle f-strings by removing the prefix
                     const strVal = expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
                         ? expr.value.substring(1)
                         : expr.value;
@@ -495,7 +505,6 @@ class CSPEmitter extends ASTVisitor {
         switch (expr.type) {
             case 'Literal':
                 if (typeof expr.value === 'string') {
-                    // Handle f-strings by removing the prefix
                     const strVal = expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
                         ? expr.value.substring(1)
                         : expr.value;
@@ -584,7 +593,6 @@ class PythonEmitter extends ASTVisitor {
     }
 
     visitFieldDeclaration(field: FieldDeclaration): void {
-        // In Python, fields are typically set in __init__
         let line = `self.${field.name}`;
         if (field.initializer) {
             line += ` = ${this.generateExpression(field.initializer, 0)}`;
@@ -668,7 +676,6 @@ class PythonEmitter extends ASTVisitor {
         switch (expr.type) {
             case 'Literal':
                 if (typeof expr.value === 'string') {
-                    // Handle f-strings by removing the prefix
                     const strVal = expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
                         ? expr.value.substring(1)
                         : expr.value;
@@ -748,7 +755,7 @@ export class Translator {
             functionParamTypes: new Map()
         };
 
-        // --- Helper to infer types during analysis ---
+        // --- Extensively mirrored helper to infer types during analysis ---
         const inferType = (expr: Expression): string => {
             switch (expr.type) {
                 case 'Literal':
@@ -761,14 +768,23 @@ export class Translator {
                     return 'Object';
                 case 'Identifier': return context.symbolTable.get(expr.name) || 'var';
                 case 'BinaryExpression':
-                    if (['>', '<', '>=', '<=', '==', '!='].includes(expr.operator)) return 'boolean';
+                    if (['>', '<', '>=', '<=', '==', '!=', 'and', 'or'].includes(expr.operator)) return 'boolean';
                     const left = inferType(expr.left);
                     if (left === 'double') return 'double';
                     return 'int';
+                case 'UnaryExpression':
+                    if (expr.operator === 'not' || expr.operator === '!') return 'boolean';
+                    return inferType(expr.argument);
                 case 'CallExpression':
                     const calleeNameForAnalysis = (expr.callee as any).name;
+                    if (calleeNameForAnalysis === 'range') return 'int[]';
                     if (calleeNameForAnalysis && context.functionReturnTypes.has(calleeNameForAnalysis)) return context.functionReturnTypes.get(calleeNameForAnalysis)!;
                     return 'var';
+                case 'ArrayLiteral':
+                    if (expr.elements && expr.elements.length > 0) {
+                        return inferType(expr.elements[0]) + '[]';
+                    }
+                    return 'Object[]';
                 default: return 'var';
             }
         };

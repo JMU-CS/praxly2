@@ -40,46 +40,33 @@ export class PraxisParser {
             return { id: generateId(), type: 'ExpressionStatement', expression: expr };
         }
 
-        // Assignment: x <- y
-        if (this.check('IDENTIFIER') && this.checkNext('OPERATOR', '<-')) {
-            const name = this.consume('IDENTIFIER').value;
-            this.consume('OPERATOR', '<-');
-            const value = this.expression();
-            return { id: generateId(), type: 'Assignment', name, value };
-        }
-
-        // Assignment with Equals: x = y (Optional support if Praxis variation allows it, otherwise remove)
-        if (this.check('IDENTIFIER') && this.checkNext('OPERATOR', '=')) {
-            const name = this.consume('IDENTIFIER').value;
-            this.consume('OPERATOR', '=');
-            const value = this.expression();
-            return { id: generateId(), type: 'Assignment', name, value };
-        }
-
-        // Array Assignment: arr[i] <- val
-        if (this.check('IDENTIFIER') && this.checkNext('PUNCTUATION', '[')) {
-            // This is a simplification; a full parser might need a 'lvalue' parser.
-            // For now, we fall through to expression statement if it's not a clear assignment
-            const expr = this.expression();
-            if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
-                // We have to convert the MemberExpression/CallExpression back to assignment target
-                // This is tricky without a dedicated LValue parser.
-                // For this example, we assume `expression()` handles the left side,
-                // and if we hit `<-` afterwards, we construct an assignment manually or throw error.
-                // Given the AST structure, standard Assignment node expects a string name.
-                // To support array assignment (arr[0] = 1), the Interpreter likely needs
-                // logic to handle "Member Assignment" which AST.Assignment doesn't fully support (it takes `name: string`).
-                // We will treat it as an ExpressionStatement for now or just parse simple var assignment.
-                const value = this.expression();
-                console.log(value);
-                // Hack: stringify the expr to use as name if supported, or error
-                // Ideally AST should support `target: Expression` instead of `name: string`.
-            }
-            return { id: generateId(), type: 'ExpressionStatement', expression: expr };
-        }
-
+        // Parse expression first, checking for an assignment operator following it
         const expr = this.expression();
+
+        if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
+            const value = this.expression();
+
+            if (expr.type === 'Identifier') {
+                return { id: generateId(), type: 'Assignment', name: (expr as Identifier).name, value };
+            } else if (expr.type === 'MemberExpression') {
+                return {
+                    id: generateId(),
+                    type: 'Assignment',
+                    name: this.generateMemberPath(expr),
+                    value
+                };
+            }
+        }
+
         return { id: generateId(), type: 'ExpressionStatement', expression: expr };
+    }
+
+    private generateMemberPath(expr: any): string {
+        if (expr.type === 'Identifier') return expr.name;
+        if (expr.type === 'MemberExpression') {
+            return `${this.generateMemberPath(expr.object)}.${expr.property.name}`;
+        }
+        return 'unknown';
     }
 
     private functionDeclaration(): FunctionDeclaration {
@@ -95,9 +82,6 @@ export class PraxisParser {
             } while (this.match('PUNCTUATION', ','));
         }
         this.consume('PUNCTUATION', ')');
-
-        // Consume 'do' or 'then' if present (some variations)
-        // ETS Praxis usually just goes to newline
 
         const body = this.block(); // Consumes until 'end'
 
@@ -199,7 +183,7 @@ export class PraxisParser {
         let value: Expression | undefined = undefined;
         // Check if next token is start of an expression
         const isExprStart = this.check('IDENTIFIER') || this.check('NUMBER') ||
-            this.check('STRING') || this.check('PUNCTUATION', '(');
+            this.check('STRING') || this.check('PUNCTUATION', '(') || this.check('OPERATOR', '-') || this.check('KEYWORD', 'not');
 
         if (isExprStart) {
             value = this.expression();
@@ -314,7 +298,6 @@ export class PraxisParser {
             do { args.push(this.expression()); } while (this.match('PUNCTUATION', ','));
         }
         this.consume('PUNCTUATION', ')');
-        // If callee is identifier, it's a function call
         return { id: generateId(), type: 'CallExpression', callee: callee as any, arguments: args };
     }
 
@@ -352,13 +335,6 @@ export class PraxisParser {
         const token = this.peek();
         if (token.type !== type) return false;
         if (values.length > 0 && !values.includes(token.value.toLowerCase())) return false;
-        return true;
-    }
-    private checkNext(type: TokenType, value?: string): boolean {
-        if (this.current + 1 >= this.tokens.length) return false;
-        const token = this.tokens[this.current + 1];
-        if (token.type !== type) return false;
-        if (value && token.value !== value) return false;
         return true;
     }
     private consume(type: TokenType, value?: string): Token {
