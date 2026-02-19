@@ -126,10 +126,11 @@ abstract class ASTVisitor {
                 return 'int';
             case 'UnaryExpression':
                 if (expr.operator === 'not' || expr.operator === '!') return 'boolean';
-                return this.inferType(expr.argument); // Propagates numbers safely (e.g., -5 => int)
+                return this.inferType(expr.argument);
+            case 'NewExpression': return (expr as any).className || 'Object';
             case 'CallExpression':
                 const calleeName = (expr.callee as any).name;
-                if (calleeName === 'range') return 'int[]'; // Catch ranges from Praxis 'for' loops
+                if (calleeName === 'range') return 'int[]';
                 if (calleeName && this.context.functionReturnTypes.has(calleeName)) return this.context.functionReturnTypes.get(calleeName)!;
                 return 'var';
             case 'ArrayLiteral':
@@ -184,11 +185,24 @@ class JavaEmitter extends ASTVisitor {
         this.emit(`public class ${classDecl.name}${superClass} {`);
         this.indent();
 
+        // Feed global fields into class context to avoid recreating locals during method parsing
+        this.context.symbolTable.enterScope();
+        classDecl.body.forEach(member => {
+            if (member.type === 'FieldDeclaration') {
+                let type = (member as any).fieldType;
+                if (type === 'auto' && (member as any).initializer) {
+                    type = this.inferType((member as any).initializer);
+                }
+                this.context.symbolTable.set((member as any).name, type);
+            }
+        });
+
         classDecl.body.forEach(member => {
             this.visitStatement(member);
             this.emit('');
         });
 
+        this.context.symbolTable.exitScope();
         this.dedent();
         this.emit('}');
     }
@@ -226,10 +240,13 @@ class JavaEmitter extends ASTVisitor {
         line += method.params.map(p => `${p.paramType} ${p.name}`).join(', ') + ')';
         this.emit(`${line} {`);
         this.indent();
+
+        // Scope variables correctly mapped for parameter injections!
         this.context.symbolTable.enterScope();
         method.params.forEach(p => this.context.symbolTable.set(p.name, p.paramType));
         this.visitBlock(method.body);
         this.context.symbolTable.exitScope();
+
         this.dedent();
         this.emit('}');
     }
@@ -244,17 +261,21 @@ class JavaEmitter extends ASTVisitor {
 
     visitAssignment(stmt: any): void {
         const rVal = this.generateExpression(stmt.value, 0);
-        if (this.context.symbolTable.get(stmt.name) !== undefined) {
+
+        let initVal = rVal;
+        if (stmt.value.type === 'ArrayLiteral') {
+            initVal = initVal.replace(/^new \w+\[\] /, '');
+        }
+
+        if (stmt.varType) {
+            // Explicit generic type assignment handled reliably
+            this.emit(`${stmt.varType} ${stmt.name} = ${initVal};`);
+            this.context.symbolTable.set(stmt.name, stmt.varType);
+        } else if (this.context.symbolTable.get(stmt.name) !== undefined) {
             this.emit(`${stmt.name} = ${rVal};`);
         } else {
             let type = this.inferType(stmt.value);
             if (type === 'var') type = 'Object';
-
-            // Clean up array initialization to use Java's shorthand { ... }
-            let initVal = rVal;
-            if (stmt.value.type === 'ArrayLiteral') {
-                initVal = initVal.replace(/^new \w+\[\] /, '');
-            }
 
             this.emit(`${type} ${stmt.name} = ${initVal};`);
             this.context.symbolTable.set(stmt.name, type);
@@ -291,18 +312,53 @@ class JavaEmitter extends ASTVisitor {
     }
 
     visitFor(stmt: any): void {
-        let varType = 'var';
-        const iterType = this.inferType(stmt.iterable);
-        if (iterType.endsWith('[]')) varType = iterType.slice(0, -2);
+        if (stmt.init && stmt.condition && stmt.update) {
+            // Translate explicit C-Style components mapping
+            this.context.symbolTable.enterScope();
 
-        this.emit(`for (${varType} ${stmt.variable} : ${this.generateExpression(stmt.iterable, 0)}) {`);
-        this.indent();
-        this.context.symbolTable.enterScope();
-        this.context.symbolTable.set(stmt.variable, varType);
-        this.visitBlock(stmt.body);
-        this.context.symbolTable.exitScope();
-        this.dedent();
-        this.emit('}');
+            let initCode = '';
+            if (stmt.init.type === 'Assignment') {
+                const rVal = this.generateExpression(stmt.init.value, 0);
+                let type = stmt.init.varType || this.inferType(stmt.init.value);
+                if (type === 'var') type = 'int';
+                initCode = `${type} ${stmt.init.name} = ${rVal}`;
+                this.context.symbolTable.set(stmt.init.name, type);
+            } else {
+                initCode = this.generateExpression(stmt.init.expression, 0);
+            }
+
+            const condCode = this.generateExpression(stmt.condition, 0);
+
+            let updateCode = '';
+            if (stmt.update.type === 'Assignment') {
+                updateCode = `${stmt.update.name} = ${this.generateExpression(stmt.update.value, 0)}`;
+            } else {
+                updateCode = this.generateExpression(stmt.update.expression, 0);
+            }
+
+            this.emit(`for (${initCode}; ${condCode}; ${updateCode}) {`);
+            this.indent();
+            this.visitBlock(stmt.body);
+            this.dedent();
+            this.emit('}');
+
+            this.context.symbolTable.exitScope();
+        } else {
+            // Translate generic iterables safely over
+            let varType = 'var';
+            const iterType = this.inferType(stmt.iterable);
+            if (iterType.endsWith('[]')) varType = iterType.slice(0, -2);
+            else if (iterType === 'int[]') varType = 'int';
+
+            this.emit(`for (${varType} ${stmt.variable} : ${this.generateExpression(stmt.iterable, 0)}) {`);
+            this.indent();
+            this.context.symbolTable.enterScope();
+            this.context.symbolTable.set(stmt.variable, varType);
+            this.visitBlock(stmt.body);
+            this.context.symbolTable.exitScope();
+            this.dedent();
+            this.emit('}');
+        }
     }
 
     visitFunctionDeclaration(stmt: any): void {
@@ -481,8 +537,21 @@ class CSPEmitter extends ASTVisitor {
     }
 
     visitFor(stmt: any): void {
-        this.emit(`FOR EACH ${stmt.variable} IN ${this.generateExpression(stmt.iterable, 0)}`);
-        this.emit('{'); this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
+        if (stmt.init && stmt.condition && stmt.update) {
+            this.context.symbolTable.enterScope();
+            this.visitStatement(stmt.init);
+            this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`);
+            this.emit('{');
+            this.indent();
+            this.visitBlock(stmt.body);
+            this.visitStatement(stmt.update);
+            this.dedent();
+            this.emit('}');
+            this.context.symbolTable.exitScope();
+        } else {
+            this.emit(`FOR EACH ${stmt.variable} IN ${this.generateExpression(stmt.iterable, 0)}`);
+            this.emit('{'); this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
+        }
     }
 
     visitFunctionDeclaration(stmt: any): void {
@@ -561,6 +630,8 @@ class CSPEmitter extends ASTVisitor {
 }
 
 class PythonEmitter extends ASTVisitor {
+    private currentClassFields = new Set<string>();
+
     visitProgram(program: Program): void {
         const classes = program.body.filter(s => s.type === 'ClassDeclaration');
         const nonClasses = program.body.filter(s => s.type !== 'ClassDeclaration');
@@ -585,16 +656,24 @@ class PythonEmitter extends ASTVisitor {
         this.emit(`class ${classDecl.name}${baseClass}:`);
         this.indent();
 
+        this.currentClassFields.clear();
+        classDecl.body.forEach(member => {
+            if (member.type === 'FieldDeclaration') {
+                this.currentClassFields.add((member as any).name);
+            }
+        });
+
         classDecl.body.forEach(member => {
             this.visitStatement(member);
             this.emit('');
         });
 
+        this.currentClassFields.clear();
         this.dedent();
     }
 
     visitFieldDeclaration(field: FieldDeclaration): void {
-        let line = `self.${field.name}`;
+        let line = `${field.name}`;
         if (field.initializer) {
             line += ` = ${this.generateExpression(field.initializer, 0)}`;
         } else {
@@ -605,7 +684,8 @@ class PythonEmitter extends ASTVisitor {
 
     visitConstructor(ctor: Constructor): void {
         const params = ctor.params.map(p => p.name).join(', ');
-        this.emit(`def __init__(self, ${params}):`);
+        const paramStr = params ? `, ${params}` : '';
+        this.emit(`def __init__(self${paramStr}):`);
         this.indent();
         this.context.symbolTable.enterScope();
         ctor.params.forEach(p => this.context.symbolTable.set(p.name, p.paramType || 'auto'));
@@ -616,7 +696,8 @@ class PythonEmitter extends ASTVisitor {
 
     visitMethodDeclaration(method: MethodDeclaration): void {
         const params = method.params.map(p => p.name).join(', ');
-        this.emit(`def ${method.name}(self, ${params}):`);
+        const paramStr = params ? `, ${params}` : '';
+        this.emit(`def ${method.name}(self${paramStr}):`);
         this.indent();
         this.context.symbolTable.enterScope();
         method.params.forEach(p => this.context.symbolTable.set(p.name, p.paramType || 'auto'));
@@ -634,7 +715,12 @@ class PythonEmitter extends ASTVisitor {
     }
 
     visitAssignment(stmt: any): void {
-        this.emit(`${stmt.name} = ${this.generateExpression(stmt.value, 0)}`);
+        let target = stmt.name;
+        // Dynamically apply `self.` bounds to fields evaluated inside class methods
+        if (this.currentClassFields.has(target)) {
+            target = `self.${target}`;
+        }
+        this.emit(`${target} = ${this.generateExpression(stmt.value, 0)}`);
     }
 
     visitIf(stmt: any): void {
@@ -652,8 +738,19 @@ class PythonEmitter extends ASTVisitor {
     }
 
     visitFor(stmt: any): void {
-        this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}:`);
-        this.indent(); this.visitBlock(stmt.body); this.dedent();
+        if (stmt.init && stmt.condition && stmt.update) {
+            this.context.symbolTable.enterScope();
+            this.visitStatement(stmt.init);
+            this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`);
+            this.indent();
+            this.visitBlock(stmt.body);
+            this.visitStatement(stmt.update);
+            this.dedent();
+            this.context.symbolTable.exitScope();
+        } else {
+            this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}:`);
+            this.indent(); this.visitBlock(stmt.body); this.dedent();
+        }
     }
 
     visitFunctionDeclaration(stmt: any): void {
@@ -684,7 +781,14 @@ class PythonEmitter extends ASTVisitor {
                 } else if (typeof expr.value === 'boolean') output = expr.value ? 'True' : 'False';
                 else output = String(expr.value);
                 break;
-            case 'Identifier': output = expr.name; break;
+            case 'Identifier':
+                // Re-bind method instances locally mapped fields exclusively for python translation
+                if (this.currentClassFields.has(expr.name)) {
+                    output = `self.${expr.name}`;
+                } else {
+                    output = expr.name;
+                }
+                break;
             case 'ThisExpression': output = 'self'; break;
             case 'NewExpression':
                 currentPrecedence = Precedence.Instantiation;
@@ -776,6 +880,7 @@ export class Translator {
                 case 'UnaryExpression':
                     if (expr.operator === 'not' || expr.operator === '!') return 'boolean';
                     return inferType(expr.argument);
+                case 'NewExpression': return (expr as any).className || 'Object';
                 case 'CallExpression':
                     const calleeNameForAnalysis = (expr.callee as any).name;
                     if (calleeNameForAnalysis === 'range') return 'int[]';

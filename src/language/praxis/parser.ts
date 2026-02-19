@@ -1,6 +1,6 @@
 import type { Token, TokenType } from '../lexer';
 import {
-    type Program, type Statement, type Block, type Expression, type If, type While, type For,
+    type Program, type Statement, type Block, type Expression, type If, type While,
     type Return, type CallExpression, type Identifier, type FunctionDeclaration,
     type ClassDeclaration, generateId
 } from '../ast';
@@ -46,14 +46,15 @@ export class PraxisParser {
                 classBody.push({
                     id: generateId(), type: 'MethodDeclaration',
                     name: func.name, access: 'public', isStatic: false,
-                    returnType: 'auto', params: func.params, body: func.body
+                    returnType: (func as any).returnType, // Ensure return type is carried over to methods
+                    params: func.params, body: func.body
                 });
             } else {
                 const stmt = this.statement();
                 if (stmt.type === 'Assignment') {
                     classBody.push({
                         id: generateId(), type: 'FieldDeclaration',
-                        name: (stmt as any).name, fieldType: 'auto', isStatic: false,
+                        name: (stmt as any).name, fieldType: (stmt as any).varType || 'auto', isStatic: false,
                         access: 'public', initializer: (stmt as any).value
                     });
                 }
@@ -62,13 +63,13 @@ export class PraxisParser {
 
         this.consume('KEYWORD', 'end');
         this.consume('KEYWORD', 'class');
-        this.consume('IDENTIFIER', name);
+        this.match('IDENTIFIER', name); // optional match
 
         return { id: generateId(), type: 'ClassDeclaration', name, superClass, body: classBody };
     }
 
     private isFunctionDeclaration(): boolean {
-        if (!this.isTypeStart()) return false;
+        if (!this.isTypeStart() && !this.check('KEYWORD', 'void')) return false;
         let offset = 1;
         while (this.checkPeekAhead('PUNCTUATION', '[', offset)) {
             offset++;
@@ -82,28 +83,32 @@ export class PraxisParser {
     }
 
     private isVariableDeclaration(): boolean {
-        if (!this.isTypeStart()) return false;
-        let offset = 1;
+        let offset = 0;
+        if (this.isTypeStart()) {
+            offset = 1;
+        } else if (this.check('IDENTIFIER')) {
+            offset = 1;
+        } else {
+            return false;
+        }
+
         while (this.checkPeekAhead('PUNCTUATION', '[', offset)) {
             offset++;
             if (this.checkPeekAhead('PUNCTUATION', ']', offset)) {
                 offset++;
             } else {
-                while (this.current + offset < this.tokens.length && !this.checkPeekAhead('PUNCTUATION', ']', offset)) {
-                    offset++;
-                }
+                while (this.current + offset < this.tokens.length && !this.checkPeekAhead('PUNCTUATION', ']', offset)) offset++;
                 if (this.checkPeekAhead('PUNCTUATION', ']', offset)) offset++;
             }
         }
-        if (this.checkPeekAhead('IDENTIFIER', undefined, offset)) {
-            return true;
-        }
-        return false;
+
+        // Two sequential identifiers implies 'Type Name' declaration
+        return this.checkPeekAhead('IDENTIFIER', undefined, offset);
     }
 
     private functionDeclaration(): FunctionDeclaration {
         let returnType = 'auto';
-        if (this.isTypeStart()) {
+        if (this.isTypeStart() || this.check('KEYWORD', 'void')) {
             returnType = this.peek().value;
             this.advance();
             while (this.check('PUNCTUATION', '[')) {
@@ -113,6 +118,7 @@ export class PraxisParser {
             }
         } else if (this.check('KEYWORD', 'procedure') || this.check('KEYWORD', 'function')) {
             this.advance();
+            returnType = 'void';
         }
 
         const name = this.consume('IDENTIFIER').value;
@@ -122,7 +128,7 @@ export class PraxisParser {
         if (!this.check('PUNCTUATION', ')')) {
             do {
                 let paramType = 'auto';
-                if (this.isTypeStart()) {
+                if (this.isTypeStart() || this.check('IDENTIFIER')) {
                     paramType = this.peek().value;
                     this.advance();
                     while (this.check('PUNCTUATION', '[')) {
@@ -132,7 +138,7 @@ export class PraxisParser {
                     }
                 }
                 const paramName = this.consume('IDENTIFIER').value;
-                params.push({ id: generateId(), type: 'Parameter', name: paramName, paramType });
+                params.push({ id: generateId(), type: 'Identifier', name: paramName, paramType } as any);
             } while (this.match('PUNCTUATION', ','));
         }
         this.consume('PUNCTUATION', ')');
@@ -140,29 +146,35 @@ export class PraxisParser {
         const body = this.block();
 
         this.consume('KEYWORD', 'end');
-        this.consume('IDENTIFIER', name); // Practice 'end procedureName' structure
+        this.match('IDENTIFIER', name); // Practice 'end procedureName' structure
 
         return { id: generateId(), type: 'FunctionDeclaration', name, params, body, returnType } as any;
     }
 
     private variableDeclaration(): Statement {
-        this.advance(); // consume type
+        const typeToken = this.advance(); // consume type
+        let typeName = typeToken.value;
+
         while (this.match('PUNCTUATION', '[')) {
             while (!this.check('PUNCTUATION', ']') && !this.isAtEnd()) this.advance();
             this.consume('PUNCTUATION', ']');
+            typeName += '[]';
         }
 
         const name = this.consume('IDENTIFIER').value;
         if (this.match('PUNCTUATION', '[')) {
             while (!this.check('PUNCTUATION', ']') && !this.isAtEnd()) this.advance();
             this.consume('PUNCTUATION', ']');
+            typeName += '[]';
         }
 
         let value: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
         if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
             value = this.expression();
         }
-        return { id: generateId(), type: 'Assignment', name, value };
+
+        // Include varType to lock down specific custom class typings into translator
+        return { id: generateId(), type: 'Assignment', name, value, varType: typeName } as any;
     }
 
     private statement(): Statement {
@@ -231,9 +243,9 @@ export class PraxisParser {
 
     private ifStatement(): If {
         this.consume('KEYWORD', 'if');
-        this.consume('PUNCTUATION', '(');
+        this.match('PUNCTUATION', '(');
         const condition = this.expression();
-        this.consume('PUNCTUATION', ')');
+        this.match('PUNCTUATION', ')');
 
         const thenBranch = this.block();
         let elseBranch: Block | undefined = undefined;
@@ -250,9 +262,9 @@ export class PraxisParser {
 
     private whileStatement(): While {
         this.consume('KEYWORD', 'while');
-        this.consume('PUNCTUATION', '(');
+        this.match('PUNCTUATION', '(');
         const condition = this.expression();
-        this.consume('PUNCTUATION', ')');
+        this.match('PUNCTUATION', ')');
 
         const body = this.block();
 
@@ -266,67 +278,106 @@ export class PraxisParser {
         this.consume('KEYWORD', 'do');
         const body = this.block(['end', 'else', 'until', 'while']);
         this.consume('KEYWORD', 'while');
-        this.consume('PUNCTUATION', '(');
+        this.match('PUNCTUATION', '(');
         const condition = this.expression();
-        this.consume('PUNCTUATION', ')');
+        this.match('PUNCTUATION', ')');
 
-        return { id: generateId(), type: 'While', condition, body }; // Approximating Do-While for generic execution
+        return { id: generateId(), type: 'While', condition, body };
     }
 
     private repeatUntilStatement(): While {
         this.consume('KEYWORD', 'repeat');
         const body = this.block();
         this.consume('KEYWORD', 'until');
-        this.consume('PUNCTUATION', '(');
+        this.match('PUNCTUATION', '(');
         const condition = this.expression();
-        this.consume('PUNCTUATION', ')');
+        this.match('PUNCTUATION', ')');
 
         const notCond: Expression = { id: generateId(), type: 'UnaryExpression', operator: 'not', argument: condition };
         return { id: generateId(), type: 'While', condition: notCond, body };
     }
 
-    private forStatement(): For {
+    private forStatement(): any {
         this.consume('KEYWORD', 'for');
-        this.consume('PUNCTUATION', '(');
+        const hasParen = this.match('PUNCTUATION', '(');
 
-        let variable = '';
-        let startExpr: Expression;
-
-        // C-Style For Loop Initialization
-        if (this.isTypeStart()) {
-            this.advance();
-            while (this.match('PUNCTUATION', '[')) { this.consume('PUNCTUATION', ']'); }
+        // Detect whether this is a C-Style (init; cond; update) loop or a Python-style iterator loop
+        let isCStyle = false;
+        for (let i = this.current; i < this.tokens.length; i++) {
+            const val = this.tokens[i].value;
+            if (val === ';' || val === 'do' || val === ')' || val === 'end') {
+                if (val === ';') isCStyle = true;
+                break;
+            }
         }
-        if (this.check('IDENTIFIER')) {
-            variable = this.consume('IDENTIFIER').value;
-            this.match('OPERATOR', '<-') || this.match('OPERATOR', '=');
-            startExpr = this.expression();
+
+        if (isCStyle) {
+            // Parse C-Style components
+            let initStmt: Statement;
+            if (this.isTypeStart() || this.checkPeekAhead('IDENTIFIER', undefined, 1)) {
+                initStmt = this.variableDeclaration();
+            } else {
+                const expr = this.expression();
+                if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
+                    initStmt = { id: generateId(), type: 'Assignment', name: this.generateMemberPath(expr), value: this.expression() };
+                } else {
+                    initStmt = { id: generateId(), type: 'ExpressionStatement', expression: expr };
+                }
+            }
+            this.consume('PUNCTUATION', ';');
+            const condition = this.expression();
+            this.consume('PUNCTUATION', ';');
+
+            let updateStmt: Statement;
+            const updateExpr = this.expression();
+            if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
+                updateStmt = { id: generateId(), type: 'Assignment', name: this.generateMemberPath(updateExpr), value: this.expression() };
+            } else {
+                updateStmt = { id: generateId(), type: 'ExpressionStatement', expression: updateExpr };
+            }
+
+            if (hasParen) this.consume('PUNCTUATION', ')');
+            this.match('KEYWORD', 'do');
+
+            const body = this.block();
+
+            this.consume('KEYWORD', 'end');
+            this.consume('KEYWORD', 'for');
+
+            return { id: generateId(), type: 'For', init: initStmt, condition, update: updateStmt, body };
         } else {
-            startExpr = this.expression();
-            if ((startExpr as any).type === 'Assignment') variable = (startExpr as any).name;
+            // Iterator Loop
+            let variable = '';
+            if (this.isTypeStart()) {
+                this.advance();
+                while (this.match('PUNCTUATION', '[')) { this.consume('PUNCTUATION', ']'); }
+            }
+            variable = this.consume('IDENTIFIER').value;
+
+            let iterable: Expression;
+            if (this.match('KEYWORD', 'in')) {
+                iterable = this.expression();
+            } else {
+                this.match('OPERATOR', '<-') || this.match('OPERATOR', '=');
+                const start = this.expression();
+                this.consume('KEYWORD', 'to');
+                const end = this.expression();
+                iterable = {
+                    id: generateId(), type: 'CallExpression',
+                    callee: { id: generateId(), type: 'Identifier', name: 'range' },
+                    arguments: [start, end]
+                };
+            }
+
+            if (hasParen) this.consume('PUNCTUATION', ')');
+            this.match('KEYWORD', 'do');
+
+            const body = this.block();
+            this.consume('KEYWORD', 'end');
+            this.consume('KEYWORD', 'for');
+
+            return { id: generateId(), type: 'For', variable, iterable, body };
         }
-        this.consume('PUNCTUATION', ';');
-
-        const condition = this.expression();
-        this.consume('PUNCTUATION', ';');
-
-        this.expression(); // Run increment block without persisting to AST shape entirely
-        this.consume('PUNCTUATION', ')');
-
-        const body = this.block();
-
-        this.consume('KEYWORD', 'end');
-        this.consume('KEYWORD', 'for');
-
-        // Emulate Python range() internally so AST doesn't break backwards compatibility
-        const iterable: Expression = {
-            id: generateId(),
-            type: 'CallExpression',
-            callee: { id: generateId(), type: 'Identifier', name: 'range' },
-            arguments: [startExpr, condition]
-        };
-
-        return { id: generateId(), type: 'For', variable, iterable, body };
     }
 
     private returnStatement(): Return {
@@ -481,7 +532,18 @@ export class PraxisParser {
         if (this.match('KEYWORD', 'null')) return { id: generateId(), type: 'Literal', value: null, raw: 'null' };
         if (this.match('IDENTIFIER')) return { id: generateId(), type: 'Identifier', name: this.previous().value };
 
-        // Support for Array initialization (e.g. {1, 2, 3})
+        // Handle Object Instantiation
+        if (this.match('KEYWORD', 'new')) {
+            const className = this.consume('IDENTIFIER').value;
+            this.consume('PUNCTUATION', '(');
+            const args: Expression[] = [];
+            if (!this.check('PUNCTUATION', ')')) {
+                do { args.push(this.expression()); } while (this.match('PUNCTUATION', ','));
+            }
+            this.consume('PUNCTUATION', ')');
+            return { id: generateId(), type: 'NewExpression', className, arguments: args } as any;
+        }
+
         if (this.match('PUNCTUATION', '[') || this.match('PUNCTUATION', '{')) {
             const isBrace = this.previous().value === '{';
             const closePunct = isBrace ? '}' : ']';
