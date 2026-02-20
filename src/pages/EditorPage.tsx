@@ -412,7 +412,7 @@ export default function EditorPage() {
                                         Open View
                                     </div>
                                     <div className="p-1">
-                                        {(['python', 'java', 'csp', 'ast'] as SupportedLang[]).map(l => (
+                                        {(['python', 'java', 'csp', 'ast', 'praxis'] as SupportedLang[]).map(l => (
                                             <button
                                                 key={l}
                                                 onClick={() => addPanel(l)}
