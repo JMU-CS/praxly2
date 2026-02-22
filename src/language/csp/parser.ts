@@ -1,5 +1,5 @@
 import type { Token, TokenType } from '../lexer';
-import { type Program, type Statement, type Block, type Expression, type If, type While, type For, type Return, type CallExpression, type Identifier, type UnaryExpression, type ClassDeclaration, type FieldDeclaration, type Constructor, type MethodDeclaration, type Parameter, type AccessModifier, generateId } from '../ast';
+import { type Program, type Statement, type Block, type Expression, type If, type For, type Return, type CallExpression, type Identifier, type UnaryExpression, type FunctionDeclaration, type ClassDeclaration, type FieldDeclaration, type Constructor, type MethodDeclaration, type Parameter, type AccessModifier, generateId, generateVariableName } from '../ast';
 
 export class CSPParser {
   private tokens: Token[];
@@ -21,7 +21,25 @@ export class CSPParser {
     if (this.check('KEYWORD', 'CLASS')) {
       return this.classDeclaration();
     }
+    if (this.check('KEYWORD', 'PROCEDURE')) {
+      return this.procedureDeclaration();
+    }
     return this.statement();
+  }
+
+  private procedureDeclaration(): FunctionDeclaration {
+    this.consume('KEYWORD', 'PROCEDURE');
+    const name = this.consume('IDENTIFIER').value;
+    this.consume('PUNCTUATION', '(');
+    const params: Identifier[] = [];
+    if (!this.check('PUNCTUATION', ')')) {
+      do {
+        params.push({ id: generateId(), type: 'Identifier', name: this.consume('IDENTIFIER').value });
+      } while (this.match('PUNCTUATION', ','));
+    }
+    this.consume('PUNCTUATION', ')');
+    const body = this.block();
+    return { id: generateId(), type: 'FunctionDeclaration', name, params, body };
   }
 
   private classDeclaration(): ClassDeclaration {
@@ -29,7 +47,6 @@ export class CSPParser {
     const name = this.consume('IDENTIFIER').value;
 
     let superClass: Identifier | undefined = undefined;
-    // CSP doesn't have explicit inheritance syntax, but we support it
 
     this.consume('PUNCTUATION', '{');
     const body: (FieldDeclaration | Constructor | MethodDeclaration)[] = [];
@@ -53,7 +70,6 @@ export class CSPParser {
       return this.cspMethod(access);
     }
 
-    // Field declaration
     if (this.check('IDENTIFIER')) {
       const name = this.consume('IDENTIFIER').value;
       let initializer: Expression | undefined = undefined;
@@ -120,21 +136,21 @@ export class CSPParser {
     if (this.check('KEYWORD', 'RETURN')) return this.returnStatement();
     if (this.check('KEYWORD', 'DISPLAY')) return this.printStatement();
 
-    // Assignment: x <- 10
-    if (this.check('IDENTIFIER') && this.checkNext('OPERATOR', '<-')) {
-      const name = this.consume('IDENTIFIER').value;
-      this.consume('OPERATOR', '<-');
-      const value = this.expression();
-      return { id: generateId(), type: 'Assignment', name, value };
+    const expr = this.expression();
+
+    // Assignment Check (handles variable and array index assignments)
+    if (this.match('OPERATOR', '<-')) {
+        const value = this.expression();
+        let nameStr = 'unknown';
+        if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
+        return { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value };
     }
 
-    const expr = this.expression();
     return { id: generateId(), type: 'ExpressionStatement', expression: expr };
   }
 
   private printStatement(): Statement {
     this.consume('KEYWORD', 'DISPLAY');
-    // Fix: Optional Parentheses
     if (this.check('PUNCTUATION', '(')) {
       this.consume('PUNCTUATION', '(');
       const expr = this.expression();
@@ -147,7 +163,6 @@ export class CSPParser {
 
   private ifStatement(): If {
     this.consume('KEYWORD', 'IF');
-    // Fix: Optional Parentheses
     if (this.check('PUNCTUATION', '(')) this.consume('PUNCTUATION', '(');
     const condition = this.expression();
     if (this.check('PUNCTUATION', ')')) this.consume('PUNCTUATION', ')');
@@ -160,25 +175,65 @@ export class CSPParser {
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
   }
 
-  private repeatStatement(): While {
+  private repeatStatement(): Statement {
     this.consume('KEYWORD', 'REPEAT');
-    this.consume('KEYWORD', 'UNTIL');
 
-    // Fix: Optional Parentheses
-    if (this.check('PUNCTUATION', '(')) this.consume('PUNCTUATION', '(');
-    const condition = this.expression();
-    if (this.check('PUNCTUATION', ')')) this.consume('PUNCTUATION', ')');
+    if (this.match('KEYWORD', 'UNTIL')) {
+        if (this.check('PUNCTUATION', '(')) this.consume('PUNCTUATION', '(');
+        const condition = this.expression();
+        if (this.check('PUNCTUATION', ')')) this.consume('PUNCTUATION', ')');
 
-    // Invert condition for While
-    const negatedCondition: UnaryExpression = {
-      id: generateId(),
-      type: 'UnaryExpression',
-      operator: 'not',
-      argument: condition
-    };
+        const negatedCondition: UnaryExpression = {
+          id: generateId(),
+          type: 'UnaryExpression',
+          operator: 'not',
+          argument: condition
+        };
 
-    const body = this.block();
-    return { id: generateId(), type: 'While', condition: negatedCondition, body };
+        const body = this.block();
+        return { id: generateId(), type: 'While', condition: negatedCondition, body };
+    } else {
+        // REPEAT n TIMES
+        const timesExpr = this.expression();
+        this.consume('KEYWORD', 'TIMES');
+        const body = this.block();
+
+        // Edit this varname to not be weird
+        const varName = `i${generateVariableName().next().value}`;
+        const initStmt: Statement = {
+            id: generateId(), type: 'Assignment', name: varName,
+            target: { id: generateId(), type: 'Identifier', name: varName },
+            value: { id: generateId(), type: 'Literal', value: 0, raw: '0' },
+            varType: 'int'
+        };
+        const condExpr: Expression = {
+            id: generateId(), type: 'BinaryExpression',
+            left: { id: generateId(), type: 'Identifier', name: varName },
+            operator: '<',
+            right: timesExpr
+        };
+        const updateStmt: Statement = {
+            id: generateId(), type: 'Assignment', name: varName,
+            target: { id: generateId(), type: 'Identifier', name: varName },
+            value: {
+                id: generateId(), type: 'BinaryExpression',
+                left: { id: generateId(), type: 'Identifier', name: varName },
+                operator: '+',
+                right: { id: generateId(), type: 'Literal', value: 1, raw: '1' }
+            }
+        };
+
+        return {
+            id: generateId(),
+            type: 'For',
+            variable: varName,
+            iterable: { id: generateId(), type: 'Identifier', name: 'null' },
+            init: initStmt,
+            condition: condExpr,
+            update: updateStmt,
+            body
+        };
+    }
   }
 
   private forStatement(): For {
@@ -194,7 +249,6 @@ export class CSPParser {
   private returnStatement(): Return {
     this.consume('KEYWORD', 'RETURN');
     let value: Expression | undefined = undefined;
-    // Heuristic: start of expression check
     if (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) {
       value = this.expression();
     }
@@ -280,8 +334,20 @@ export class CSPParser {
   private call(): Expression {
     let expr = this.primary();
     while (true) {
-      if (this.match('PUNCTUATION', '(')) expr = this.finishCall(expr);
-      else break;
+      if (this.match('PUNCTUATION', '(')) {
+        expr = this.finishCall(expr);
+      } else if (this.match('PUNCTUATION', '[')) {
+        const index = this.expression();
+        this.consume('PUNCTUATION', ']');
+        expr = {
+            id: generateId(),
+            type: 'IndexExpression',
+            object: expr,
+            index
+        };
+      } else {
+        break;
+      }
     }
     return expr;
   }
@@ -340,16 +406,15 @@ export class CSPParser {
     if (values.length > 0 && !values.includes(token.value)) return false;
     return true;
   }
-  private checkNext(type: TokenType, value?: string): boolean {
-    if (this.current + 1 >= this.tokens.length) return false;
-    const token = this.tokens[this.current + 1];
-    if (token.type !== type) return false;
-    if (value && token.value !== value) return false;
-    return true;
-  }
+  // private checkNext(type: TokenType, value?: string): boolean {
+  //   if (this.current + 1 >= this.tokens.length) return false;
+  //   const token = this.tokens[this.current + 1];
+  //   if (token.type !== type) return false;
+  //   if (value && token.value !== value) return false;
+  //   return true;
+  // }
   private consume(type: TokenType, value?: string): Token {
     if (this.check(type, ...(value ? [value] : []))) return this.advance();
-    // Improved Error Message
     const found = this.peek();
     throw new Error(`Expected token ${type} ${value || ''} but found ${found.type} '${found.value}' at position ${found.start}`);
   }

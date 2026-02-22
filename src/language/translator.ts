@@ -128,6 +128,10 @@ abstract class ASTVisitor {
                 if (expr.operator === 'not' || expr.operator === '!') return 'boolean';
                 return this.inferType(expr.argument);
             case 'NewExpression': return (expr as any).className || 'Object';
+            case 'IndexExpression':
+                const objType = this.inferType(expr.object);
+                if (objType.endsWith('[]')) return objType.slice(0, -2);
+                return 'var';
             case 'CallExpression':
                 const calleeName = (expr.callee as any).name;
                 if (calleeName === 'range') return 'int[]';
@@ -267,17 +271,19 @@ class JavaEmitter extends ASTVisitor {
             initVal = initVal.replace(/^new \w+\[\] /, '');
         }
 
+        const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
+
         if (stmt.varType) {
-            // Explicit generic type assignment handled reliably
-            this.emit(`${stmt.varType} ${stmt.name} = ${initVal};`);
+            this.emit(`${stmt.varType} ${targetStr} = ${initVal};`);
             this.context.symbolTable.set(stmt.name, stmt.varType);
+        } else if (stmt.target && stmt.target.type !== 'Identifier') {
+            this.emit(`${targetStr} = ${rVal};`);
         } else if (this.context.symbolTable.get(stmt.name) !== undefined) {
-            this.emit(`${stmt.name} = ${rVal};`);
+            this.emit(`${targetStr} = ${rVal};`);
         } else {
             let type = this.inferType(stmt.value);
             if (type === 'var') type = 'Object';
-
-            this.emit(`${type} ${stmt.name} = ${initVal};`);
+            this.emit(`${type} ${targetStr} = ${initVal};`);
             this.context.symbolTable.set(stmt.name, type);
         }
     }
@@ -313,7 +319,6 @@ class JavaEmitter extends ASTVisitor {
 
     visitFor(stmt: any): void {
         if (stmt.init && stmt.condition && stmt.update) {
-            // Translate explicit C-Style components mapping
             this.context.symbolTable.enterScope();
 
             let initCode = '';
@@ -331,7 +336,8 @@ class JavaEmitter extends ASTVisitor {
 
             let updateCode = '';
             if (stmt.update.type === 'Assignment') {
-                updateCode = `${stmt.update.name} = ${this.generateExpression(stmt.update.value, 0)}`;
+                const updateTarget = stmt.update.target ? this.generateExpression(stmt.update.target, 0) : stmt.update.name;
+                updateCode = `${updateTarget} = ${this.generateExpression(stmt.update.value, 0)}`;
             } else {
                 updateCode = this.generateExpression(stmt.update.expression, 0);
             }
@@ -344,7 +350,6 @@ class JavaEmitter extends ASTVisitor {
 
             this.context.symbolTable.exitScope();
         } else {
-            // Translate generic iterables safely over
             let varType = 'var';
             const iterType = this.inferType(stmt.iterable);
             if (iterType.endsWith('[]')) varType = iterType.slice(0, -2);
@@ -415,6 +420,10 @@ class JavaEmitter extends ASTVisitor {
                 const args = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
                 output = `new ${expr.className}(${args})`;
                 break;
+            case 'IndexExpression':
+                currentPrecedence = Precedence.Member;
+                output = `${this.generateExpression(expr.object, currentPrecedence)}[${this.generateExpression(expr.index, 0)}]`;
+                break;
             case 'MemberExpression':
                 currentPrecedence = Precedence.Member;
                 output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
@@ -440,10 +449,32 @@ class JavaEmitter extends ASTVisitor {
                 break;
             case 'CallExpression':
                 currentPrecedence = Precedence.Call;
+                let calleeStr = '';
+                if ((expr.callee as any).type === 'MemberExpression') {
+                    calleeStr = this.generateExpression(expr.callee as any, 0);
+                } else {
+                    calleeStr = (expr.callee as any).name;
+                }
+
+                // CSP Array Intercepts
+                if (calleeStr === 'LENGTH' && expr.arguments.length === 1) {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.length`;
+                    break;
+                }
+                if (calleeStr === 'APPEND' && expr.arguments.length === 2) {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.add(${this.generateExpression(expr.arguments[1], 0)})`;
+                    break;
+                }
+                if (calleeStr === 'INSERT' && expr.arguments.length === 3) {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.add(${this.generateExpression(expr.arguments[1], 0)} - 1, ${this.generateExpression(expr.arguments[2], 0)})`;
+                    break;
+                }
+                if (calleeStr === 'REMOVE' && expr.arguments.length === 2) {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.remove(${this.generateExpression(expr.arguments[1], 0)} - 1)`;
+                    break;
+                }
+
                 const args2 = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
-                const calleeStr = (expr.callee as any).type === 'MemberExpression'
-                    ? this.generateExpression(expr.callee as any, 0)
-                    : (expr.callee as any).name;
                 output = `${calleeStr}(${args2})`;
                 break;
             case 'ArrayLiteral':
@@ -519,7 +550,8 @@ class CSPEmitter extends ASTVisitor {
     }
 
     visitAssignment(stmt: any): void {
-        this.emit(`${stmt.name} <- ${this.generateExpression(stmt.value, 0)}`);
+        const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
+        this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`);
     }
 
     visitIf(stmt: any): void {
@@ -588,6 +620,10 @@ class CSPEmitter extends ASTVisitor {
                 currentPrecedence = Precedence.Instantiation;
                 const args = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
                 output = `NEW ${expr.className}(${args})`;
+                break;
+            case 'IndexExpression':
+                currentPrecedence = Precedence.Member;
+                output = `${this.generateExpression(expr.object, currentPrecedence)}[${this.generateExpression(expr.index, 0)}]`;
                 break;
             case 'MemberExpression':
                 currentPrecedence = Precedence.Member;
@@ -716,8 +752,9 @@ class PythonEmitter extends ASTVisitor {
 
     visitAssignment(stmt: any): void {
         let target = stmt.name;
-        // Dynamically apply `self.` bounds to fields evaluated inside class methods
-        if (this.currentClassFields.has(target)) {
+        if (stmt.target) {
+            target = this.generateExpression(stmt.target, 0);
+        } else if (this.currentClassFields.has(target)) {
             target = `self.${target}`;
         }
         this.emit(`${target} = ${this.generateExpression(stmt.value, 0)}`);
@@ -795,6 +832,10 @@ class PythonEmitter extends ASTVisitor {
                 const args = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
                 output = `${expr.className}(${args})`;
                 break;
+            case 'IndexExpression':
+                currentPrecedence = Precedence.Member;
+                output = `${this.generateExpression(expr.object, currentPrecedence)}[${this.generateExpression(expr.index, 0)}]`;
+                break;
             case 'MemberExpression':
                 currentPrecedence = Precedence.Member;
                 output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
@@ -820,11 +861,33 @@ class PythonEmitter extends ASTVisitor {
                 break;
             case 'CallExpression':
                 currentPrecedence = Precedence.Call;
-                const args2 = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
-                const calleeStr = (expr.callee as any).type === 'MemberExpression'
-                    ? this.generateExpression(expr.callee as any, 0)
-                    : (expr.callee as any).name;
-                output = `${calleeStr}(${args2})`;
+                let calleeStrPy = '';
+                if ((expr.callee as any).type === 'MemberExpression') {
+                    calleeStrPy = this.generateExpression(expr.callee as any, 0);
+                } else {
+                    calleeStrPy = (expr.callee as any).name;
+                }
+
+                // CSP Array Intercepts
+                if (calleeStrPy === 'LENGTH' && expr.arguments.length === 1) {
+                    output = `len(${this.generateExpression(expr.arguments[0], 0)})`;
+                    break;
+                }
+                if (calleeStrPy === 'APPEND' && expr.arguments.length === 2) {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.append(${this.generateExpression(expr.arguments[1], 0)})`;
+                    break;
+                }
+                if (calleeStrPy === 'INSERT' && expr.arguments.length === 3) {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.insert(${this.generateExpression(expr.arguments[1], 0)} - 1, ${this.generateExpression(expr.arguments[2], 0)})`;
+                    break;
+                }
+                if (calleeStrPy === 'REMOVE' && expr.arguments.length === 2) {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.pop(${this.generateExpression(expr.arguments[1], 0)} - 1)`;
+                    break;
+                }
+
+                const args2Py = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
+                output = `${calleeStrPy}(${args2Py})`;
                 break;
             case 'ArrayLiteral':
                 const elems = expr.elements.map(e => this.generateExpression(e, 0)).join(', ');
@@ -860,7 +923,6 @@ class PraxisEmitter extends ASTVisitor {
         this.indent();
         this.context.symbolTable.enterScope();
 
-        // Map fields to context scope
         classDecl.body.forEach(member => {
             if (member.type === 'FieldDeclaration') {
                 let type = (member as any).fieldType;
@@ -938,19 +1000,23 @@ class PraxisEmitter extends ASTVisitor {
         if (stmt.value.type === 'ArrayLiteral') {
             initVal = initVal.replace(/^new \w+\[\] /, '');
             if (initVal.startsWith('[') && initVal.endsWith(']')) {
-                initVal = '{' + initVal.slice(1, -1) + '}'; // Enforce Praxis {1, 2} array literal rules
+                initVal = '{' + initVal.slice(1, -1) + '}';
             }
         }
 
+        const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
+
         if (stmt.varType) {
-            this.emit(`${stmt.varType} ${stmt.name} <- ${initVal}`);
+            this.emit(`${stmt.varType} ${targetStr} <- ${initVal}`);
             this.context.symbolTable.set(stmt.name, stmt.varType);
+        } else if (stmt.target && stmt.target.type !== 'Identifier') {
+            this.emit(`${targetStr} <- ${rVal}`);
         } else if (this.context.symbolTable.get(stmt.name) !== undefined) {
-            this.emit(`${stmt.name} <- ${rVal}`);
+            this.emit(`${targetStr} <- ${rVal}`);
         } else {
             let type = this.inferType(stmt.value);
             if (type === 'var') type = 'int';
-            this.emit(`${type} ${stmt.name} <- ${initVal}`);
+            this.emit(`${type} ${targetStr} <- ${initVal}`);
             this.context.symbolTable.set(stmt.name, type);
         }
     }
@@ -1000,7 +1066,8 @@ class PraxisEmitter extends ASTVisitor {
 
             let updateCode = '';
             if (stmt.update.type === 'Assignment') {
-                updateCode = `${stmt.update.name} <- ${this.generateExpression(stmt.update.value, 0)}`;
+                const updateTarget = stmt.update.target ? this.generateExpression(stmt.update.target, 0) : stmt.update.name;
+                updateCode = `${updateTarget} <- ${this.generateExpression(stmt.update.value, 0)}`;
             } else {
                 updateCode = this.generateExpression(stmt.update.expression, 0);
             }
@@ -1070,6 +1137,10 @@ class PraxisEmitter extends ASTVisitor {
                 const args = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
                 output = `new ${expr.className}(${args})`;
                 break;
+            case 'IndexExpression':
+                currentPrecedence = Precedence.Member;
+                output = `${this.generateExpression(expr.object, currentPrecedence)}[${this.generateExpression(expr.index, 0)}]`;
+                break;
             case 'MemberExpression':
                 currentPrecedence = Precedence.Member;
                 output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
@@ -1136,7 +1207,6 @@ export class Translator {
             functionParamTypes: new Map()
         };
 
-        // --- Extensively mirrored helper to infer types during analysis ---
         const inferType = (expr: Expression): string => {
             switch (expr.type) {
                 case 'Literal':
@@ -1157,6 +1227,10 @@ export class Translator {
                     if (expr.operator === 'not' || expr.operator === '!') return 'boolean';
                     return inferType(expr.argument);
                 case 'NewExpression': return (expr as any).className || 'Object';
+                case 'IndexExpression':
+                    const objType = inferType(expr.object);
+                    if (objType.endsWith('[]')) return objType.slice(0, -2);
+                    return 'var';
                 case 'CallExpression':
                     const calleeNameForAnalysis = (expr.callee as any).name;
                     if (calleeNameForAnalysis === 'range') return 'int[]';
@@ -1170,8 +1244,6 @@ export class Translator {
                 default: return 'var';
             }
         };
-
-        // --- Analysis Walkers ---
 
         const analyzeBlock = (statements: Statement[]) => {
             statements.forEach(stmt => {
@@ -1220,7 +1292,6 @@ export class Translator {
             return 'void';
         };
 
-        // --- Execute Analysis ---
         const functions = program.body.filter(s => s.type === 'FunctionDeclaration');
         functions.forEach((func: any) => {
             context.functionReturnTypes.set(func.name, analyzeReturnType(func.body));

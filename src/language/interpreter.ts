@@ -103,16 +103,18 @@ export class Interpreter {
         this.classes = new Map();
 
         try {
-            // First pass: register all classes
+            // First pass: register all classes and procedures
             for (const stmt of program.body) {
                 if (stmt.type === 'ClassDeclaration') {
                     this.registerClass(stmt);
+                } else if (stmt.type === 'FunctionDeclaration') {
+                    this.globalEnv.define(stmt.name, stmt);
                 }
             }
 
-            // Second pass: execute all non-class statements
-            const nonClassStatements = program.body.filter(stmt => stmt.type !== 'ClassDeclaration');
-            this.executeBlock(nonClassStatements, this.globalEnv);
+            // Second pass: execute all non-class and non-function statements
+            const statements = program.body.filter(stmt => stmt.type !== 'ClassDeclaration' && stmt.type !== 'FunctionDeclaration');
+            this.executeBlock(statements, this.globalEnv);
 
             // Third pass: if there's a Main class, execute its main() method
             if (this.classes.has('Main')) {
@@ -161,7 +163,6 @@ export class Interpreter {
     private registerClass(classDecl: ClassDeclaration) {
         const javaClass = new JavaClass(classDecl.name);
 
-        // Register methods
         for (const member of classDecl.body) {
             if (member.type === 'MethodDeclaration') {
                 javaClass.addMethod(member);
@@ -185,7 +186,6 @@ export class Interpreter {
     private execute(stmt: Statement, env: Environment) {
         switch (stmt.type) {
             case 'ClassDeclaration':
-                // Classes are registered in first pass
                 break;
             case 'Print':
                 const val = this.evaluate(stmt.expression, env);
@@ -193,8 +193,23 @@ export class Interpreter {
                 break;
             case 'Assignment':
                 const value = this.evaluate(stmt.value, env);
-                if (stmt.name.includes('.')) {
-                    // Handle member assignment (e.g., self.x = 10)
+                if (stmt.target) {
+                    if (stmt.target.type === 'MemberExpression') {
+                        const obj = this.evaluate((stmt.target as any).object, env);
+                        const fieldName = (stmt.target as any).property.name;
+                        if (obj instanceof JavaInstance) {
+                            obj.setField(fieldName, value);
+                        } else {
+                            obj[fieldName] = value;
+                        }
+                    } else if (stmt.target.type === 'IndexExpression') {
+                        const obj = this.evaluate((stmt.target as any).object, env);
+                        const idx = this.evaluate((stmt.target as any).index, env);
+                        obj[idx] = value;
+                    } else {
+                        env.define(stmt.name, value);
+                    }
+                } else if (stmt.name.includes('.')) {
                     const parts = stmt.name.split('.');
                     const objName = parts[0];
                     const fieldName = parts.slice(1).join('.');
@@ -205,7 +220,6 @@ export class Interpreter {
                         throw new Error(`Cannot assign to field on non-object`);
                     }
                 } else {
-                    // Handle simple variable assignment
                     env.define(stmt.name, value);
                 }
                 break;
@@ -218,11 +232,20 @@ export class Interpreter {
                 while (this.evaluate(stmt.condition, env)) { this.executeBlock(stmt.body.body, env); }
                 break;
             case 'For':
-                const iterable = this.evaluate(stmt.iterable, env);
-                if (!Array.isArray(iterable) && typeof iterable !== 'string') throw new Error("For loop requires array or string");
-                for (const item of iterable) {
-                    env.define(stmt.variable, item);
-                    this.executeBlock(stmt.body.body, env);
+                if (stmt.init && stmt.condition && stmt.update) {
+                    // C-Style evaluation mappings
+                    this.execute(stmt.init, env);
+                    while (this.evaluate(stmt.condition, env)) {
+                        this.executeBlock(stmt.body.body, env);
+                        this.execute(stmt.update, env);
+                    }
+                } else {
+                    const iterable = this.evaluate(stmt.iterable, env);
+                    if (!Array.isArray(iterable) && typeof iterable !== 'string') throw new Error("For loop requires array or string");
+                    for (const item of iterable) {
+                        env.define(stmt.variable, item);
+                        this.executeBlock(stmt.body.body, env);
+                    }
                 }
                 break;
             case 'FunctionDeclaration':
@@ -246,7 +269,6 @@ export class Interpreter {
             case 'Identifier':
                 return env.get(expr.name);
             case 'ThisExpression':
-                // Support both 'this' (Java) and 'self' (Python)
                 try {
                     return env.get('this');
                 } catch {
@@ -285,11 +307,10 @@ export class Interpreter {
                 const instance = new JavaInstance(klass);
                 const args = expr.arguments.map(a => this.evaluate(a, env));
 
-                // Call constructor if it exists
                 if (klass.ctorDecl) {
                     const ctorEnv = new Environment(env);
                     ctorEnv.define('this', instance);
-                    ctorEnv.define('self', instance); // Python compatibility
+                    ctorEnv.define('self', instance);
                     klass.ctorDecl.params.forEach((param, i) => {
                         ctorEnv.define(param.name, args[i] || null);
                     });
@@ -302,6 +323,11 @@ export class Interpreter {
 
                 return instance;
 
+            case 'IndexExpression':
+                const indexObj = this.evaluate(expr.object, env);
+                const idxValue = this.evaluate(expr.index, env);
+                return indexObj[idxValue];
+
             case 'MemberExpression':
                 const obj = this.evaluate(expr.object, env);
                 if (obj instanceof JavaInstance) {
@@ -310,7 +336,6 @@ export class Interpreter {
                 throw new Error(`Cannot access member on non-object`);
 
             case 'CallExpression':
-                // Handle method calls (obj.method())
                 if ((expr.callee as any).type === 'MemberExpression') {
                     const memberExpr = expr.callee as any;
                     const obj = this.evaluate(memberExpr.object, env);
@@ -323,8 +348,34 @@ export class Interpreter {
                     throw new Error(`Cannot call method on non-object`);
                 }
 
-                // Handle function calls
-                const callee = env.get((expr.callee as any).name);
+                const calleeName = (expr.callee as any).name;
+
+                // Built-in CSP intercepts
+                if (calleeName === 'LENGTH') {
+                    const arg = this.evaluate(expr.arguments[0], env);
+                    return arg ? arg.length : 0;
+                }
+                if (calleeName === 'APPEND') {
+                    const list = this.evaluate(expr.arguments[0], env);
+                    const val = this.evaluate(expr.arguments[1], env);
+                    if (Array.isArray(list)) list.push(val);
+                    return null;
+                }
+                if (calleeName === 'INSERT') {
+                    const list = this.evaluate(expr.arguments[0], env);
+                    const idx = this.evaluate(expr.arguments[1], env) - 1; // 1-based mapped to JS native index
+                    const val = this.evaluate(expr.arguments[2], env);
+                    if (Array.isArray(list)) list.splice(idx, 0, val);
+                    return null;
+                }
+                if (calleeName === 'REMOVE') {
+                    const list = this.evaluate(expr.arguments[0], env);
+                    const idx = this.evaluate(expr.arguments[1], env) - 1;
+                    if (Array.isArray(list)) list.splice(idx, 1);
+                    return null;
+                }
+
+                const callee = env.get(calleeName);
                 if (callee && callee.type === 'FunctionDeclaration') {
                     const func = callee as FunctionDeclaration;
                     const args = expr.arguments.map(a => this.evaluate(a, env));
@@ -335,14 +386,14 @@ export class Interpreter {
                     catch (e) { if (e instanceof ReturnException) return e.value; throw e; }
                     return null;
                 }
-                throw new Error(`Undefined function ${(expr.callee as any).name}`);
+                throw new Error(`Undefined function ${calleeName}`);
         }
     }
 
     private stringify(val: any): string {
         if (val === null) return 'None';
-        if (val === true) return 'True';
-        if (val === false) return 'False';
+        if (val === true) return 'true';
+        if (val === false) return 'false';
         if (val instanceof JavaInstance) return `${val.klass.name} instance`;
         if (Array.isArray(val)) return `[${val.map(v => this.stringify(v)).join(', ')}]`;
         return String(val);

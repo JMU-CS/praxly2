@@ -3,7 +3,7 @@ export type NodeType =
   | 'FunctionDeclaration' | 'Return' | 'BinaryExpression' | 'UnaryExpression'
   | 'Identifier' | 'Literal' | 'ArrayLiteral' | 'CallExpression' | 'ExpressionStatement'
   | 'ClassDeclaration' | 'FieldDeclaration' | 'Constructor' | 'MethodDeclaration'
-  | 'NewExpression' | 'MemberExpression' | 'ThisExpression' | 'Parameter';
+  | 'NewExpression' | 'MemberExpression' | 'ThisExpression' | 'Parameter' | 'IndexExpression';
 
 export interface ASTNode {
   id: string;
@@ -33,7 +33,9 @@ export interface ExpressionStatement extends ASTNode {
 export interface Assignment extends ASTNode {
   type: 'Assignment';
   name: string;
+  target?: Expression;
   value: Expression;
+  varType?: string;
 }
 
 export interface Print extends ASTNode {
@@ -58,6 +60,9 @@ export interface For extends ASTNode {
   type: 'For';
   variable: string;
   iterable: Expression;
+  init?: Statement;
+  condition?: Expression;
+  update?: Statement;
   body: Block;
 }
 
@@ -75,7 +80,7 @@ export interface Return extends ASTNode {
 
 export type Expression =
   | BinaryExpression | UnaryExpression | Identifier | Literal | ArrayLiteral | CallExpression
-  | NewExpression | MemberExpression | ThisExpression;
+  | NewExpression | MemberExpression | ThisExpression | IndexExpression;
 
 export interface BinaryExpression extends ASTNode {
   type: 'BinaryExpression';
@@ -110,6 +115,12 @@ export interface Literal extends ASTNode {
 export interface ArrayLiteral extends ASTNode {
   type: 'ArrayLiteral';
   elements: Expression[];
+}
+
+export interface IndexExpression extends ASTNode {
+  type: 'IndexExpression';
+  object: Expression;
+  index: Expression;
 }
 
 // OOP-related nodes
@@ -172,3 +183,10 @@ export interface ThisExpression extends ASTNode {
 }
 
 export const generateId = () => Math.random().toString(36).substr(2, 9);
+
+export function* generateVariableName() {
+  let id = 0;
+  while (true) {
+    yield id++;
+  }
+}
