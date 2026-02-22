@@ -3,7 +3,8 @@ export type NodeType =
   | 'FunctionDeclaration' | 'Return' | 'BinaryExpression' | 'UnaryExpression'
   | 'Identifier' | 'Literal' | 'ArrayLiteral' | 'CallExpression' | 'ExpressionStatement'
   | 'ClassDeclaration' | 'FieldDeclaration' | 'Constructor' | 'MethodDeclaration'
-  | 'NewExpression' | 'MemberExpression' | 'ThisExpression' | 'Parameter' | 'IndexExpression';
+  | 'NewExpression' | 'MemberExpression' | 'ThisExpression' | 'Parameter' | 'IndexExpression'
+  | 'Break' | 'Continue';
 
 export interface ASTNode {
   id: string;
@@ -23,7 +24,16 @@ export interface Block extends ASTNode {
 
 export type Statement =
   | Assignment | Print | If | While | For | FunctionDeclaration | Return | ExpressionStatement
-  | ClassDeclaration | FieldDeclaration | Constructor | MethodDeclaration;
+  | ClassDeclaration | FieldDeclaration | Constructor | MethodDeclaration
+  | Break | Continue;
+
+export interface Break extends ASTNode {
+  type: 'Break';
+}
+
+export interface Continue extends ASTNode {
+  type: 'Continue';
+}
 
 export interface ExpressionStatement extends ASTNode {
   type: 'ExpressionStatement';
@@ -40,7 +50,7 @@ export interface Assignment extends ASTNode {
 
 export interface Print extends ASTNode {
   type: 'Print';
-  expression: Expression;
+  expressions: Expression[];
 }
 
 export interface If extends ASTNode {
@@ -59,17 +69,19 @@ export interface While extends ASTNode {
 export interface For extends ASTNode {
   type: 'For';
   variable: string;
+  variables?: string[];
   iterable: Expression;
   init?: Statement;
   condition?: Expression;
   update?: Statement;
   body: Block;
+  elseBranch?: Block;
 }
 
 export interface FunctionDeclaration extends ASTNode {
   type: 'FunctionDeclaration';
   name: string;
-  params: Identifier[];
+  params: Parameter[];
   body: Block;
 }
 
@@ -121,6 +133,8 @@ export interface IndexExpression extends ASTNode {
   type: 'IndexExpression';
   object: Expression;
   index: Expression;
+  indexEnd?: Expression;
+  indexStep?: Expression;
 }
 
 // OOP-related nodes
@@ -153,6 +167,7 @@ export interface Parameter extends ASTNode {
   type: 'Parameter';
   name: string;
   paramType: string;
+  defaultValue?: Expression;
 }
 
 export interface MethodDeclaration extends ASTNode {

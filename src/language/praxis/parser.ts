@@ -238,7 +238,7 @@ export class PraxisParser {
         if (hasParen) {
             this.consume('PUNCTUATION', ')');
         }
-        return { id: generateId(), type: 'Print', expression: expr };
+        return { id: generateId(), type: 'Print', expressions: [expr] };
     }
 
     private ifStatement(): If {

@@ -188,8 +188,8 @@ export class Interpreter {
             case 'ClassDeclaration':
                 break;
             case 'Print':
-                const val = this.evaluate(stmt.expression, env);
-                this.output.push(this.stringify(val));
+                const vals = stmt.expressions.map(e => this.stringify(this.evaluate(e, env)));
+                this.output.push(vals.join(' '));
                 break;
             case 'Assignment':
                 const value = this.evaluate(stmt.value, env);

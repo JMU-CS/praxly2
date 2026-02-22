@@ -33,7 +33,7 @@ def check(val):
     return False
 
 result = check(x)
-print result
+print(result)
 `;
 
 const SAMPLE_CODE_JAVA = `public class Main {

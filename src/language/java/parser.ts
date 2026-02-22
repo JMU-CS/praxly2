@@ -219,7 +219,7 @@ export class JavaParser {
     const expr = this.expression();
     this.consume('PUNCTUATION', ')');
     this.consume('PUNCTUATION', ';');
-    return { id: generateId(), type: 'Print', expression: expr };
+    return { id: generateId(), type: 'Print', expressions: [expr] };
   }
 
   private ifStatement(): If {

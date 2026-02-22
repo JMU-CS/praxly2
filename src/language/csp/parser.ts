@@ -1,5 +1,5 @@
 import type { Token, TokenType } from '../lexer';
-import { type Program, type Statement, type Block, type Expression, type If, type For, type Return, type CallExpression, type Identifier, type UnaryExpression, type FunctionDeclaration, type ClassDeclaration, type FieldDeclaration, type Constructor, type MethodDeclaration, type Parameter, type AccessModifier, generateId, generateVariableName } from '../ast';
+import { type Program, type Statement, type Block, type Expression, type If, type For, type Return, type CallExpression, type Identifier, type UnaryExpression, type FunctionDeclaration, type ClassDeclaration, type FieldDeclaration, type Constructor, type MethodDeclaration, type Parameter, type AccessModifier, generateId } from '../ast';
 
 export class CSPParser {
   private tokens: Token[];
@@ -31,10 +31,10 @@ export class CSPParser {
     this.consume('KEYWORD', 'PROCEDURE');
     const name = this.consume('IDENTIFIER').value;
     this.consume('PUNCTUATION', '(');
-    const params: Identifier[] = [];
+    const params: Parameter[] = [];
     if (!this.check('PUNCTUATION', ')')) {
       do {
-        params.push({ id: generateId(), type: 'Identifier', name: this.consume('IDENTIFIER').value });
+        params.push({ id: generateId(), type: 'Parameter', name: this.consume('IDENTIFIER').value, paramType: 'auto' });
       } while (this.match('PUNCTUATION', ','));
     }
     this.consume('PUNCTUATION', ')');
@@ -140,10 +140,10 @@ export class CSPParser {
 
     // Assignment Check (handles variable and array index assignments)
     if (this.match('OPERATOR', '<-')) {
-        const value = this.expression();
-        let nameStr = 'unknown';
-        if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
-        return { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value };
+      const value = this.expression();
+      let nameStr = 'unknown';
+      if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
+      return { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value };
     }
 
     return { id: generateId(), type: 'ExpressionStatement', expression: expr };
@@ -155,10 +155,10 @@ export class CSPParser {
       this.consume('PUNCTUATION', '(');
       const expr = this.expression();
       this.consume('PUNCTUATION', ')');
-      return { id: generateId(), type: 'Print', expression: expr };
+      return { id: generateId(), type: 'Print', expressions: [expr] };
     }
     const expr = this.expression();
-    return { id: generateId(), type: 'Print', expression: expr };
+    return { id: generateId(), type: 'Print', expressions: [expr] };
   }
 
   private ifStatement(): If {
@@ -179,60 +179,59 @@ export class CSPParser {
     this.consume('KEYWORD', 'REPEAT');
 
     if (this.match('KEYWORD', 'UNTIL')) {
-        if (this.check('PUNCTUATION', '(')) this.consume('PUNCTUATION', '(');
-        const condition = this.expression();
-        if (this.check('PUNCTUATION', ')')) this.consume('PUNCTUATION', ')');
+      if (this.check('PUNCTUATION', '(')) this.consume('PUNCTUATION', '(');
+      const condition = this.expression();
+      if (this.check('PUNCTUATION', ')')) this.consume('PUNCTUATION', ')');
 
-        const negatedCondition: UnaryExpression = {
-          id: generateId(),
-          type: 'UnaryExpression',
-          operator: 'not',
-          argument: condition
-        };
+      const negatedCondition: UnaryExpression = {
+        id: generateId(),
+        type: 'UnaryExpression',
+        operator: 'not',
+        argument: condition
+      };
 
-        const body = this.block();
-        return { id: generateId(), type: 'While', condition: negatedCondition, body };
+      const body = this.block();
+      return { id: generateId(), type: 'While', condition: negatedCondition, body };
     } else {
-        // REPEAT n TIMES
-        const timesExpr = this.expression();
-        this.consume('KEYWORD', 'TIMES');
-        const body = this.block();
+      // REPEAT n TIMES
+      const timesExpr = this.expression();
+      this.consume('KEYWORD', 'TIMES');
+      const body = this.block();
 
-        // Edit this varname to not be weird
-        const varName = `i${generateVariableName().next().value}`;
-        const initStmt: Statement = {
-            id: generateId(), type: 'Assignment', name: varName,
-            target: { id: generateId(), type: 'Identifier', name: varName },
-            value: { id: generateId(), type: 'Literal', value: 0, raw: '0' },
-            varType: 'int'
-        };
-        const condExpr: Expression = {
-            id: generateId(), type: 'BinaryExpression',
-            left: { id: generateId(), type: 'Identifier', name: varName },
-            operator: '<',
-            right: timesExpr
-        };
-        const updateStmt: Statement = {
-            id: generateId(), type: 'Assignment', name: varName,
-            target: { id: generateId(), type: 'Identifier', name: varName },
-            value: {
-                id: generateId(), type: 'BinaryExpression',
-                left: { id: generateId(), type: 'Identifier', name: varName },
-                operator: '+',
-                right: { id: generateId(), type: 'Literal', value: 1, raw: '1' }
-            }
-        };
+      const varName = `_i_${generateId()}`;
+      const initStmt: Statement = {
+        id: generateId(), type: 'Assignment', name: varName,
+        target: { id: generateId(), type: 'Identifier', name: varName },
+        value: { id: generateId(), type: 'Literal', value: 0, raw: '0' },
+        varType: 'int'
+      };
+      const condExpr: Expression = {
+        id: generateId(), type: 'BinaryExpression',
+        left: { id: generateId(), type: 'Identifier', name: varName },
+        operator: '<',
+        right: timesExpr
+      };
+      const updateStmt: Statement = {
+        id: generateId(), type: 'Assignment', name: varName,
+        target: { id: generateId(), type: 'Identifier', name: varName },
+        value: {
+          id: generateId(), type: 'BinaryExpression',
+          left: { id: generateId(), type: 'Identifier', name: varName },
+          operator: '+',
+          right: { id: generateId(), type: 'Literal', value: 1, raw: '1' }
+        }
+      };
 
-        return {
-            id: generateId(),
-            type: 'For',
-            variable: varName,
-            iterable: { id: generateId(), type: 'Identifier', name: 'null' },
-            init: initStmt,
-            condition: condExpr,
-            update: updateStmt,
-            body
-        };
+      return {
+        id: generateId(),
+        type: 'For',
+        variable: varName,
+        iterable: { id: generateId(), type: 'Identifier', name: 'null' },
+        init: initStmt,
+        condition: condExpr,
+        update: updateStmt,
+        body
+      };
     }
   }
 
@@ -340,10 +339,10 @@ export class CSPParser {
         const index = this.expression();
         this.consume('PUNCTUATION', ']');
         expr = {
-            id: generateId(),
-            type: 'IndexExpression',
-            object: expr,
-            index
+          id: generateId(),
+          type: 'IndexExpression',
+          object: expr,
+          index
         };
       } else {
         break;
