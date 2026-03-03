@@ -1,0 +1,388 @@
+import { ASTVisitor, Precedence, SymbolTable } from '../visitor';
+import type { Program, ClassDeclaration, FieldDeclaration, Constructor, MethodDeclaration, Block, For, Expression } from '../ast';
+
+export class JavaEmitter extends ASTVisitor {
+    visitProgram(program: Program): void {
+        const classes = program.body.filter(s => s.type === 'ClassDeclaration');
+        const functions = program.body.filter(s => s.type === 'FunctionDeclaration');
+        const mainBody = program.body.filter(s => s.type !== 'ClassDeclaration' && s.type !== 'FunctionDeclaration');
+
+        classes.forEach(classDecl => {
+            this.visitClassDeclaration(classDecl as ClassDeclaration);
+            this.emit('');
+        });
+
+        if (functions.length > 0 || mainBody.length > 0) {
+            this.context.symbolTable = new SymbolTable();
+            this.emit('public class Main {');
+            this.indent();
+
+            functions.forEach(func => {
+                this.visitFunctionDeclaration(func as any);
+                this.emit('');
+            });
+
+            if (mainBody.length > 0) {
+                this.emit('public static void main(String[] args) {');
+                this.indent();
+                mainBody.forEach(stmt => this.visitStatement(stmt));
+                this.dedent();
+                this.emit('}');
+            }
+
+            this.dedent();
+            this.emit('}');
+        }
+    }
+
+    visitClassDeclaration(classDecl: ClassDeclaration): void {
+        const superClass = classDecl.superClass ? ` extends ${classDecl.superClass.name}` : '';
+        this.emit(`public class ${classDecl.name}${superClass} {`);
+        this.indent();
+        this.context.symbolTable.enterScope();
+        classDecl.body.forEach(member => {
+            if (member.type === 'FieldDeclaration') {
+                let type = (member as any).fieldType;
+                if (type === 'auto' && (member as any).initializer) {
+                    type = this.inferType((member as any).initializer);
+                }
+                this.context.symbolTable.set((member as any).name, type);
+            }
+        });
+        classDecl.body.forEach(member => {
+            this.visitStatement(member);
+            this.emit('');
+        });
+        this.context.symbolTable.exitScope();
+        this.dedent();
+        this.emit('}');
+    }
+
+    visitFieldDeclaration(field: FieldDeclaration): void {
+        let line = `${field.access} `;
+        if (field.isStatic) line += 'static ';
+        let type = field.fieldType;
+        if (type === 'auto') type = field.initializer ? this.inferType(field.initializer) : 'Object';
+        line += `${type} ${field.name}`;
+        if (field.initializer) {
+            line += ` = ${this.generateExpression(field.initializer, 0)}`;
+        }
+        this.emit(`${line};`);
+    }
+
+    visitConstructor(ctor: Constructor): void {
+        const className = 'TempClass';
+        const params = ctor.params.map(p => `${p.paramType} ${p.name}`).join(', ');
+        this.emit(`public ${className}(${params}) {`);
+        this.indent();
+        this.context.symbolTable.enterScope();
+        ctor.params.forEach(p => this.context.symbolTable.set(p.name, p.paramType));
+        this.visitBlock(ctor.body);
+        this.context.symbolTable.exitScope();
+        this.dedent();
+        this.emit('}');
+    }
+
+    visitMethodDeclaration(method: MethodDeclaration): void {
+        let line = `${method.access} `;
+        if (method.isStatic) line += 'static ';
+        let returnType = method.returnType === 'auto' ? 'Object' : method.returnType;
+        line += `${returnType} ${method.name}(`;
+        line += method.params.map(p => `${p.paramType} ${p.name}`).join(', ') + ')';
+        this.emit(`${line} {`);
+        this.indent();
+        this.context.symbolTable.enterScope();
+        method.params.forEach(p => this.context.symbolTable.set(p.name, p.paramType));
+        this.visitBlock(method.body);
+        this.context.symbolTable.exitScope();
+        this.dedent();
+        this.emit('}');
+    }
+
+    visitBlock(block: Block): void {
+        block.body.forEach(stmt => this.visitStatement(stmt));
+    }
+
+    visitPrint(stmt: any): void {
+        const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
+        this.emit(`System.out.println(${args.join(' + " " + ')});`);
+    }
+
+    visitAssignment(stmt: any): void {
+        const rVal = this.generateExpression(stmt.value, 0);
+        let initVal = rVal;
+        if (stmt.value.type === 'ArrayLiteral') {
+            initVal = initVal.replace(/^new \w+\[\] /, '');
+        }
+
+        const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
+
+        if (stmt.varType) {
+            this.emit(`${stmt.varType} ${targetStr} = ${initVal};`);
+            this.context.symbolTable.set(stmt.name, stmt.varType);
+        } else if (stmt.target && stmt.target.type !== 'Identifier') {
+            this.emit(`${targetStr} = ${rVal};`);
+        } else if (this.context.symbolTable.get(stmt.name) !== undefined) {
+            this.emit(`${targetStr} = ${rVal};`);
+        } else {
+            let type = this.inferType(stmt.value);
+            if (type === 'var') type = 'Object';
+            this.emit(`${type} ${targetStr} = ${initVal};`);
+            this.context.symbolTable.set(stmt.name, type);
+        }
+    }
+
+    visitIf(stmt: any): void {
+        this.emit(`if (${this.generateExpression(stmt.condition, 0)}) {`);
+        this.indent();
+        this.context.symbolTable.enterScope();
+        this.visitBlock(stmt.thenBranch);
+        this.context.symbolTable.exitScope();
+        this.dedent();
+
+        let currentElse = stmt.elseBranch;
+
+        // Unroll nested `elif` blocks into `else if` chains
+        while (currentElse && currentElse.body.length === 1 && currentElse.body[0].type === 'If') {
+            const elifStmt = currentElse.body[0];
+            this.emit(`} else if (${this.generateExpression(elifStmt.condition, 0)}) {`);
+            this.indent();
+            this.context.symbolTable.enterScope();
+            this.visitBlock(elifStmt.thenBranch);
+            this.context.symbolTable.exitScope();
+            this.dedent();
+            currentElse = elifStmt.elseBranch;
+        }
+
+        if (currentElse) {
+            this.emit(`} else {`);
+            this.indent();
+            this.context.symbolTable.enterScope();
+            this.visitBlock(currentElse);
+            this.context.symbolTable.exitScope();
+            this.dedent();
+            this.emit(`}`);
+        } else {
+            this.emit(`}`);
+        }
+    }
+
+    visitWhile(stmt: any): void {
+        this.emit(`while (${this.generateExpression(stmt.condition, 0)}) {`);
+        this.indent();
+        this.context.symbolTable.enterScope();
+        this.visitBlock(stmt.body);
+        this.context.symbolTable.exitScope();
+        this.dedent();
+        this.emit('}');
+    }
+
+    visitFor(stmt: For): void {
+        if (stmt.init && stmt.condition && stmt.update) {
+            this.context.symbolTable.enterScope();
+            let initCode = '';
+            if (stmt.init.type === 'Assignment') {
+                const initStmt = stmt.init as any;
+                const rVal = this.generateExpression(initStmt.value, 0);
+                let type = initStmt.varType || this.inferType(initStmt.value);
+                if (type === 'var') type = 'int';
+                initCode = `${type} ${initStmt.name} = ${rVal}`;
+                this.context.symbolTable.set(initStmt.name, type);
+            } else {
+                initCode = this.generateExpression((stmt.init as any).expression, 0);
+            }
+
+            const condCode = this.generateExpression(stmt.condition, 0);
+
+            let updateCode = '';
+            if (stmt.update.type === 'Assignment') {
+                const updateStmt = stmt.update as any;
+                const updateTarget = updateStmt.target ? this.generateExpression(updateStmt.target, 0) : updateStmt.name;
+                updateCode = `${updateTarget} = ${this.generateExpression(updateStmt.value, 0)}`;
+            } else {
+                updateCode = this.generateExpression((stmt.update as any).expression, 0);
+            }
+
+            this.emit(`for (${initCode}; ${condCode}; ${updateCode}) {`);
+            this.indent();
+            this.visitBlock(stmt.body);
+            this.dedent();
+            this.emit('}');
+            this.context.symbolTable.exitScope();
+        } else if (stmt.iterable.type === 'CallExpression' && (stmt.iterable as any).callee.name === 'range') {
+            const args = (stmt.iterable as any).arguments;
+            let start = '0', end = '0', step = '1';
+            if (args.length === 1) { end = this.generateExpression(args[0], 0); }
+            else if (args.length === 2) { start = this.generateExpression(args[0], 0); end = this.generateExpression(args[1], 0); }
+            else if (args.length === 3) { start = this.generateExpression(args[0], 0); end = this.generateExpression(args[1], 0); step = this.generateExpression(args[2], 0); }
+
+            this.emit(`for (int ${stmt.variable} = ${start}; ${stmt.variable} < ${end}; ${stmt.variable} += ${step}) {`);
+            this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
+        } else if (stmt.variables && stmt.variables.length > 1 && stmt.iterable.type === 'CallExpression' && (stmt.iterable as any).callee.name === 'enumerate') {
+            const arr = this.generateExpression((stmt.iterable as any).arguments[0], 0);
+            const idx = stmt.variables[0];
+            const val = stmt.variables[1];
+            this.emit(`for (int ${idx} = 0; ${idx} < ${arr}.length; ${idx}++) {`);
+            this.indent();
+            let varType = this.inferType((stmt.iterable as any).arguments[0]);
+            if (varType.endsWith('[]')) varType = varType.slice(0, -2); else varType = 'var';
+            this.emit(`${varType} ${val} = ${arr}[${idx}];`);
+            this.visitBlock(stmt.body);
+            this.dedent();
+            this.emit('}');
+        } else {
+            let varType = 'var';
+            const iterType = this.inferType(stmt.iterable);
+            if (iterType.endsWith('[]')) varType = iterType.slice(0, -2);
+            else if (iterType === 'int[]') varType = 'int';
+
+            this.emit(`for (${varType} ${stmt.variable} : ${this.generateExpression(stmt.iterable, 0)}) {`);
+            this.indent();
+            this.context.symbolTable.enterScope();
+            this.context.symbolTable.set(stmt.variable, varType);
+            this.visitBlock(stmt.body);
+            this.context.symbolTable.exitScope();
+            this.dedent();
+            this.emit('}');
+        }
+
+        if (stmt.elseBranch) {
+            this.emit('// for-else fallback');
+            this.visitBlock(stmt.elseBranch);
+        }
+    }
+
+    visitFunctionDeclaration(stmt: any): void {
+        this.context.symbolTable.enterScope();
+        const paramTypes = this.context.functionParamTypes.get(stmt.name) || [];
+
+        stmt.params.forEach((p: any, i: number) => {
+            let type = p.paramType && p.paramType !== 'var' && p.paramType !== 'auto' ? p.paramType : paramTypes[i];
+            if (!type || type === 'var' || type === 'auto') type = 'Object';
+            this.context.symbolTable.set(p.name, type);
+        });
+
+        const params = stmt.params.map((p: any, i: number) => {
+            let type = p.paramType && p.paramType !== 'var' && p.paramType !== 'auto' ? p.paramType : paramTypes[i];
+            if (!type || type === 'var' || type === 'auto') type = 'Object';
+            return `${type} ${p.name}`;
+        }).join(', ');
+
+        let returnType = stmt.returnType && stmt.returnType !== 'auto' ? stmt.returnType : (this.context.functionReturnTypes.get(stmt.name) || 'void');
+        this.emit(`public static ${returnType} ${stmt.name}(${params}) {`);
+        this.indent();
+        this.visitBlock(stmt.body);
+        this.dedent();
+        this.emit('}');
+        this.context.symbolTable.exitScope();
+    }
+
+    visitReturn(stmt: any): void {
+        this.emit(`return ${stmt.value ? this.generateExpression(stmt.value, 0) : ''};`);
+    }
+
+    visitExpressionStatement(stmt: any): void {
+        this.emit(`${this.generateExpression(stmt.expression, 0)};`);
+    }
+
+    generateExpression(expr: Expression, parentPrecedence: number): string {
+        let output = '';
+        let currentPrecedence = 99;
+
+        switch (expr.type) {
+            case 'Literal':
+                if (expr.value === null || expr.raw === '"None"') output = 'null';
+                else if (typeof expr.value === 'string') {
+                    const strVal = expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
+                        ? expr.value.substring(1) : expr.value;
+                    output = `"${strVal}"`;
+                } else if (typeof expr.value === 'boolean') output = expr.value.toString();
+                else output = String(expr.value);
+                break;
+            case 'Identifier': output = expr.name; break;
+            case 'ThisExpression': output = 'this'; break;
+            case 'NewExpression':
+                currentPrecedence = Precedence.Instantiation;
+                const args = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
+                output = `new ${expr.className}(${args})`;
+                break;
+            case 'IndexExpression':
+                currentPrecedence = Precedence.Member;
+                const objE = this.generateExpression(expr.object, currentPrecedence);
+                const idxE = this.generateExpression(expr.index, 0);
+                if (expr.indexEnd) {
+                    const endE = this.generateExpression(expr.indexEnd, 0);
+                    output = `Arrays.copyOfRange(${objE}, ${idxE}, ${endE})`;
+                } else {
+                    output = `${objE}[${idxE}]`;
+                }
+                break;
+            case 'MemberExpression':
+                currentPrecedence = Precedence.Member;
+                output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
+                break;
+            case 'BinaryExpression':
+                const opMap: Record<string, { op: string, prec: number }> = {
+                    'or': { op: '||', prec: Precedence.LogicalOr }, 'and': { op: '&&', prec: Precedence.LogicalAnd },
+                    '==': { op: '==', prec: Precedence.Equality }, '!=': { op: '!=', prec: Precedence.Equality },
+                    '<': { op: '<', prec: Precedence.Relational }, '>': { op: '>', prec: Precedence.Relational },
+                    '<=': { op: '<=', prec: Precedence.Relational }, '>=': { op: '>=', prec: Precedence.Relational },
+                    '+': { op: '+', prec: Precedence.Additive }, '-': { op: '-', prec: Precedence.Additive },
+                    '*': { op: '*', prec: Precedence.Multiplicative }, '/': { op: '/', prec: Precedence.Multiplicative },
+                    '%': { op: '%', prec: Precedence.Multiplicative }
+                };
+                const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
+                currentPrecedence = opData.prec;
+                output = `${this.generateExpression(expr.left, currentPrecedence)} ${opData.op} ${this.generateExpression(expr.right, currentPrecedence)}`;
+                break;
+            case 'UnaryExpression':
+                currentPrecedence = Precedence.Unary;
+                let op = expr.operator === 'not' ? '!' : expr.operator;
+                output = `${op}${this.generateExpression(expr.argument, currentPrecedence)}`;
+                break;
+            case 'CallExpression':
+                currentPrecedence = Precedence.Call;
+                let calleeStr = '';
+                const argsF = expr.arguments.map(a => this.generateExpression(a, 0));
+
+                if ((expr.callee as any).type === 'MemberExpression') {
+                    const memberExpr = expr.callee as any;
+                    const obj = this.generateExpression(memberExpr.object, 0);
+                    const method = memberExpr.property.name;
+
+                    if (method === 'append') output = `${obj}.add(${argsF[0]})`;
+                    else if (method === 'insert') output = `${obj}.add(${argsF[0]}, ${argsF[1]})`;
+                    else if (method === 'remove') output = `${obj}.remove((Object)${argsF[0]})`;
+                    else if (method === 'pop') output = argsF.length > 0 ? `${obj}.remove(${argsF[0]})` : `${obj}.remove(${obj}.size() - 1)`;
+                    else if (method === 'extend') output = `${obj}.addAll(${argsF[0]})`;
+                    else if (method === 'sort') output = `Collections.sort(${obj})`;
+                    else if (method === 'lower') output = `${obj}.toLowerCase()`;
+                    else if (method === 'upper') output = `${obj}.toUpperCase()`;
+                    else if (method === 'replace') output = `${obj}.replace(${argsF[0]}, ${argsF[1]})`;
+                    else output = `${obj}.${method}(${argsF.join(', ')})`;
+                    break;
+                } else {
+                    calleeStr = (expr.callee as any).name;
+                }
+
+                // Global Intercepts
+                if (calleeStr === 'LENGTH' || calleeStr === 'len') {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.length`; // simplified
+                    break;
+                }
+                if (calleeStr === 'APPEND' && argsF.length === 2) { output = `${argsF[0]}.add(${argsF[1]})`; break; }
+                if (calleeStr === 'INSERT' && argsF.length === 3) { output = `${argsF[0]}.add(${argsF[1]} - 1, ${argsF[2]})`; break; }
+                if (calleeStr === 'REMOVE' && argsF.length === 2) { output = `${argsF[0]}.remove(${argsF[1]} - 1)`; break; }
+
+                output = `${calleeStr}(${argsF.join(', ')})`;
+                break;
+            case 'ArrayLiteral':
+                const type = this.inferType(expr);
+                const baseType = type.endsWith('[]') ? type.slice(0, -2) : 'Object';
+                const elems = expr.elements.map(e => this.generateExpression(e, 0)).join(', ');
+                output = `new ${baseType}[] {${elems}}`;
+                break;
+        }
+        return (currentPrecedence < parentPrecedence) ? `(${output})` : output;
+    }
+}
