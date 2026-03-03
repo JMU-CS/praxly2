@@ -1,5 +1,5 @@
 import { styleTags, tags as t } from "@lezer/highlight";
-import { parser } from "./praxis.grammar.js";
+import { parser } from "./praxis.grammar.js"; // Compiled via lezer-generator
 import { LRLanguage, LanguageSupport } from "@codemirror/language";
 
 export const praxisLanguage = LRLanguage.define({
@@ -7,33 +7,43 @@ export const praxisLanguage = LRLanguage.define({
         props: [
             styleTags({
                 // Keywords
-                "Procedure Function If Then Else While Do For To Step In Return Print Call End": t.keyword,
-                "Mod And Or Not": t.operatorKeyword,
+                "class extends end procedure public private if else for while do repeat until return print new": t.keyword,
+
+                // Praxis Logic Operators (and, or, not)
+                "and or not": t.operatorKeyword,
 
                 // Literals
-                "String": t.string,
-                "Number": t.number,
                 "Boolean": t.bool,
-                "ArrayLiteral": t.squareBracket,
+                "Null": t.null,
+                "Number": t.number,
+                "String": t.string,
 
-                // Identifiers
+                // Variables & Identifiers
                 "Identifier": t.variableName,
-                "ProcedureDeclaration/Identifier": t.function(t.definition(t.variableName)),
+                "Type/Identifier": t.typeName,
+                "ProcName/Identifier": t.function(t.definition(t.variableName)),
                 "CallExpression/Identifier": t.function(t.variableName),
 
-                // Operators & Punctuation
-                "Arrow AssignOp": t.definitionOperator,
-                "AddOp MultOp CompareOp": t.arithmeticOperator,
-                "LineComment HashComment": t.lineComment,
+                // Comments
+                "LineComment BlockComment": t.comment,
+
+                // Praxis Operators
+                "AssignOp": t.definitionOperator,
+                "Equals NotEquals Less Greater LessEqual GreaterEqual": t.compareOperator,
+                "Plus Minus Multiply Divide Modulo": t.arithmeticOperator,
+
+                // Punctuation
                 "( )": t.paren,
                 "[ ]": t.squareBracket,
-                ",": t.separator
+                "{ }": t.brace,
+                ".": t.derefOperator,
+                ", ; ..": t.separator
             })
         ]
     }),
     languageData: {
-        commentTokens: { line: "//" },
-        indentOnInput: /^\s*(?:else|end)$/  // Auto-dedent on 'else' or 'end'
+        commentTokens: { line: "//", block: { open: "/*", close: "*/" } },
+        indentOnInput: /^\s*(?:else|end)$/  // Auto-dedent on block closures
     }
 });
 
