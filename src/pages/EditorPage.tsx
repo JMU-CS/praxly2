@@ -21,6 +21,7 @@ import { JSONTree } from '../components/JSONTree';
 import { PraxisLexer } from '../language/praxis/lexer';
 import { PraxisParser } from '../language/praxis/parser';
 import { praxis } from '../language/praxis/lezer';
+import { csp } from '../language/csp/lezer';
 
 const SAMPLE_CODE_PYTHON = `x = 10
 y = 5.5
@@ -209,6 +210,7 @@ export default function EditorPage() {
             case 'java': return [java()];
             case 'python': return [python()];
             case 'praxis': return [praxis()];
+            case 'csp': return [csp()];
             default: return [];
         }
     };
