@@ -1,8 +1,8 @@
 import type { Program, Statement, Expression, FunctionDeclaration, ClassDeclaration, MethodDeclaration, Constructor } from './ast';
 
-class Environment {
-    private values: Record<string, any> = {};
-    private parent?: Environment;
+export class Environment {
+    public values: Record<string, any> = {};
+    public parent?: Environment;
     constructor(parent?: Environment) { this.parent = parent; }
     define(name: string, value: any) { this.values[name] = value; }
     assign(name: string, value: any) {
@@ -14,6 +14,13 @@ class Environment {
         if (name in this.values) return this.values[name];
         if (this.parent) return this.parent.get(name);
         throw new Error(`Undefined variable '${name}'`);
+    }
+    getAllVariables(): Record<string, any> {
+        const vars: Record<string, any> = { ...this.values };
+        if (this.parent) {
+            return { ...this.parent.getAllVariables(), ...vars };
+        }
+        return vars;
     }
 }
 
@@ -96,6 +103,7 @@ export class Interpreter {
     private globalEnv = new Environment();
     private output: string[] = [];
     private classes: Map<string, JavaClass> = new Map();
+    private currentEnv: Environment = this.globalEnv;
 
     interpret(program: Program): string[] {
         this.output = [];
@@ -131,24 +139,54 @@ export class Interpreter {
         return this.output;
     }
 
-    *stepThrough(program: Program): Generator<{ id: string, index: number }, string[], void> {
+
+
+    *stepThroughWithState(program: Program): Generator<{ nodeId: string; nodeType: string; loc: any; variables: Record<string, any> }, string[], void> {
         this.output = [];
         this.globalEnv = new Environment();
+        this.currentEnv = this.globalEnv;
 
         try {
-            yield* this.executeBlockGenerator(program.body, this.globalEnv);
+            // First pass: register all classes and procedures
+            for (const stmt of program.body) {
+                if (stmt.type === 'ClassDeclaration') {
+                    this.registerClass(stmt);
+                } else if (stmt.type === 'FunctionDeclaration') {
+                    this.globalEnv.define(stmt.name, stmt);
+                }
+            }
+
+            // Second pass: execute all non-class and non-function statements
+            const statements = program.body.filter(stmt => stmt.type !== 'ClassDeclaration' && stmt.type !== 'FunctionDeclaration');
+            yield* this.executeBlockGeneratorWithState(statements, this.globalEnv);
+
+            // Third pass: if there's a Main class, execute its main() method
+            if (this.classes.has('Main')) {
+                const mainClass = this.classes.get('Main')!;
+                const mainMethod = mainClass.getMethod('main');
+                if (mainMethod) {
+                    yield* this.executeBlockGeneratorWithState([{ type: 'ExpressionStatement', expression: { type: 'CallExpression', callee: { type: 'Identifier', name: 'main' }, arguments: [] } } as any], this.globalEnv);
+                }
+            }
         } catch (e: any) {
             this.output.push(`Runtime Error: ${e.message}`);
         }
         return this.output;
     }
 
-    private *executeBlockGenerator(statements: Statement[], env: Environment): Generator<{ id: string, index: number }, void, void> {
+    private *executeBlockGeneratorWithState(statements: Statement[], env: Environment): Generator<{ nodeId: string; nodeType: string; loc: any; variables: Record<string, any> }, void, void> {
         for (const stmt of statements) {
-            if (stmt.loc && stmt.loc.start) {
-                yield { id: stmt.id, index: stmt.loc.start };
-            } else {
-                yield { id: stmt.id, index: 0 };
+            this.currentEnv = env;
+
+            // Only yield steps for statements that have source location information
+            // This filters out synthetic statements like function parameters
+            if (stmt.loc) {
+                yield {
+                    nodeId: stmt.id,
+                    nodeType: stmt.type,
+                    loc: stmt.loc,
+                    variables: env.getAllVariables(),
+                };
             }
 
             try {
@@ -397,5 +435,17 @@ export class Interpreter {
         if (val instanceof JavaInstance) return `${val.klass.name} instance`;
         if (Array.isArray(val)) return `[${val.map(v => this.stringify(v)).join(', ')}]`;
         return String(val);
+    }
+
+    getOutput(): string[] {
+        return this.output;
+    }
+
+    getCurrentEnv(): Environment {
+        return this.currentEnv;
+    }
+
+    getGlobalEnv(): Environment {
+        return this.globalEnv;
     }
 }

@@ -13,6 +13,21 @@ export class PraxisParser {
         this.tokens = tokens;
     }
 
+    /**
+     * Helper to attach location info to a statement based on current position
+     */
+    private withLocation<T extends Statement>(stmt: T, startIdx: number): T {
+        if (startIdx >= 0 && startIdx < this.tokens.length && this.current > startIdx) {
+            const startToken = this.tokens[startIdx];
+            const endToken = this.tokens[this.current - 1];
+            stmt.loc = {
+                start: startToken.start,
+                end: endToken.start + endToken.value.length
+            };
+        }
+        return stmt;
+    }
+
     parse(): Program {
         const body: Statement[] = [];
         while (!this.isAtEnd()) {
@@ -184,37 +199,43 @@ export class PraxisParser {
     }
 
     private statement(): Statement {
-        if (this.check('KEYWORD', 'print')) return this.printStatement();
-        if (this.check('KEYWORD', 'if')) return this.ifStatement();
-        if (this.check('KEYWORD', 'while')) return this.whileStatement();
-        if (this.check('KEYWORD', 'do')) return this.doWhileStatement();
-        if (this.check('KEYWORD', 'repeat')) return this.repeatUntilStatement();
-        if (this.check('KEYWORD', 'for')) return this.forStatement();
-        if (this.check('KEYWORD', 'return')) return this.returnStatement();
+        const startIdx = this.current;
+        let stmt: Statement;
 
+        if (this.check('KEYWORD', 'print')) stmt = this.printStatement();
+        else if (this.check('KEYWORD', 'if')) stmt = this.ifStatement();
+        else if (this.check('KEYWORD', 'while')) stmt = this.whileStatement();
+        else if (this.check('KEYWORD', 'do')) stmt = this.doWhileStatement();
+        else if (this.check('KEYWORD', 'repeat')) stmt = this.repeatUntilStatement();
+        else if (this.check('KEYWORD', 'for')) stmt = this.forStatement();
+        else if (this.check('KEYWORD', 'return')) stmt = this.returnStatement();
         // Check for 'Type Identifier <- value'
-        if (this.isVariableDeclaration()) {
-            return this.variableDeclaration();
-        }
+        else if (this.isVariableDeclaration()) {
+            stmt = this.variableDeclaration();
+        } else {
+            // Generic Expression Evaluation or Assignment
+            const expr = this.expression();
+            if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
+                const value = this.expression();
 
-        // Generic Expression Evaluation or Assignment
-        const expr = this.expression();
-        if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
-            const value = this.expression();
-
-            if (expr.type === 'Identifier') {
-                return { id: generateId(), type: 'Assignment', name: (expr as Identifier).name, value };
-            } else if (expr.type === 'MemberExpression') {
-                return {
-                    id: generateId(),
-                    type: 'Assignment',
-                    name: this.generateMemberPath(expr),
-                    value
-                };
+                if (expr.type === 'Identifier') {
+                    stmt = { id: generateId(), type: 'Assignment', name: (expr as Identifier).name, value };
+                } else if (expr.type === 'MemberExpression') {
+                    stmt = {
+                        id: generateId(),
+                        type: 'Assignment',
+                        name: this.generateMemberPath(expr),
+                        value
+                    };
+                } else {
+                    stmt = { id: generateId(), type: 'ExpressionStatement', expression: expr };
+                }
+            } else {
+                stmt = { id: generateId(), type: 'ExpressionStatement', expression: expr };
             }
         }
 
-        return { id: generateId(), type: 'ExpressionStatement', expression: expr };
+        return this.withLocation(stmt, startIdx);
     }
 
     private generateMemberPath(expr: any): string {

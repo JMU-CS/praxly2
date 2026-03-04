@@ -9,6 +9,21 @@ export class JavaParser {
     this.tokens = tokens;
   }
 
+  /**
+   * Helper to attach location info to a statement based on token positions
+   */
+  private withLocation<T extends Statement>(stmt: T, startIdx: number): T {
+    if (startIdx >= 0 && startIdx < this.tokens.length && this.current > startIdx) {
+      const startToken = this.tokens[startIdx];
+      const endToken = this.tokens[this.current - 1];
+      stmt.loc = {
+        start: startToken.start,
+        end: endToken.start + endToken.value.length
+      };
+    }
+    return stmt;
+  }
+
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
@@ -153,17 +168,19 @@ export class JavaParser {
   }
 
   private statement(): Statement {
-    if (this.check('KEYWORD', 'if')) return this.ifStatement();
-    if (this.check('KEYWORD', 'while')) return this.whileStatement();
-    if (this.check('KEYWORD', 'do')) return this.doWhileStatement();
-    if (this.check('KEYWORD', 'switch')) return this.switchStatement();
-    if (this.check('KEYWORD', 'for')) return this.forStatement();
-    if (this.check('KEYWORD', 'break')) return this.breakStatement();
-    if (this.check('KEYWORD', 'continue')) return this.continueStatement();
-    if (this.check('KEYWORD', 'return')) return this.returnStatement();
+    const startIdx = this.current;
+    
+    if (this.check('KEYWORD', 'if')) return this.withLocation(this.ifStatement(), startIdx);
+    if (this.check('KEYWORD', 'while')) return this.withLocation(this.whileStatement(), startIdx);
+    if (this.check('KEYWORD', 'do')) return this.withLocation(this.doWhileStatement(), startIdx);
+    if (this.check('KEYWORD', 'switch')) return this.withLocation(this.switchStatement(), startIdx);
+    if (this.check('KEYWORD', 'for')) return this.withLocation(this.forStatement(), startIdx);
+    if (this.check('KEYWORD', 'break')) return this.withLocation(this.breakStatement(), startIdx);
+    if (this.check('KEYWORD', 'continue')) return this.withLocation(this.continueStatement(), startIdx);
+    if (this.check('KEYWORD', 'return')) return this.withLocation(this.returnStatement(), startIdx);
 
     // Fix: System is now an IDENTIFIER in Lexer
-    if (this.check('IDENTIFIER', 'System')) return this.printStatement();
+    if (this.check('IDENTIFIER', 'System')) return this.withLocation(this.printStatement(), startIdx);
 
     if (this.isTypeStart()) {
       let typeStr = this.peek().value;
@@ -182,7 +199,7 @@ export class JavaParser {
         value = this.expression();
       }
       if (!this.isAtEnd() && this.check('PUNCTUATION', ';')) this.advance();
-      return { id: generateId(), type: 'Assignment', name, value, varType: typeStr };
+      return this.withLocation({ id: generateId(), type: 'Assignment', name, value, varType: typeStr }, startIdx);
     }
 
     if (this.check('IDENTIFIER')) {
@@ -192,7 +209,7 @@ export class JavaParser {
         this.consume('OPERATOR', '=');
         const value = this.expression();
         if (!this.isAtEnd() && this.check('PUNCTUATION', ';')) this.advance();
-        return { id: generateId(), type: 'Assignment', name, value };
+        return this.withLocation({ id: generateId(), type: 'Assignment', name, value }, startIdx);
       }
       // Check for type declarations: identifier identifier (e.g., "String name", "int x")
       // NOT for: this.xxx, obj.xxx, or other member accesses
@@ -215,7 +232,7 @@ export class JavaParser {
               value = this.expression();
             }
             if (!this.isAtEnd() && this.check('PUNCTUATION', ';')) this.advance();
-            return { id: generateId(), type: 'Assignment', name, value, varType: typeStr };
+            return this.withLocation({ id: generateId(), type: 'Assignment', name, value, varType: typeStr }, startIdx);
           }
         }
       }
@@ -231,7 +248,7 @@ export class JavaParser {
       return (expr as any) as Statement;
     }
     
-    return { id: generateId(), type: 'ExpressionStatement', expression: expr };
+    return this.withLocation({ id: generateId(), type: 'ExpressionStatement', expression: expr }, startIdx);
   }
 
   private isTypeStart(): boolean {

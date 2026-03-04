@@ -9,6 +9,21 @@ export class Parser {
     this.tokens = tokens;
   }
 
+  /**
+   * Helper to attach location info to a statement based on token positions
+   */
+  private withLocation<T extends Statement>(stmt: T, startIdx: number): T {
+    if (startIdx >= 0 && startIdx < this.tokens.length && this.current > startIdx) {
+      const startToken = this.tokens[startIdx];
+      const endToken = this.tokens[this.current - 1];
+      stmt.loc = {
+        start: startToken.start,
+        end: endToken.start + endToken.value.length
+      };
+    }
+    return stmt;
+  }
+
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
@@ -108,20 +123,22 @@ export class Parser {
   }
 
   private statement(): Statement {
-    if (this.check('KEYWORD', 'if')) return this.ifStatement();
-    if (this.check('KEYWORD', 'while')) return this.whileStatement();
-    if (this.check('KEYWORD', 'for')) return this.forStatement();
-    if (this.check('KEYWORD', 'try')) return this.tryStatement();
-    if (this.check('KEYWORD', 'return')) return this.returnStatement();
+    const startIdx = this.current;
+    
+    if (this.check('KEYWORD', 'if')) return this.withLocation(this.ifStatement(), startIdx);
+    if (this.check('KEYWORD', 'while')) return this.withLocation(this.whileStatement(), startIdx);
+    if (this.check('KEYWORD', 'for')) return this.withLocation(this.forStatement(), startIdx);
+    if (this.check('KEYWORD', 'try')) return this.withLocation(this.tryStatement(), startIdx);
+    if (this.check('KEYWORD', 'return')) return this.withLocation(this.returnStatement(), startIdx);
     if (this.match('KEYWORD', 'break')) {
       const stmt: Statement = { id: generateId(), type: 'Break' };
       while (this.match('PUNCTUATION', ';')) { }
-      return stmt;
+      return this.withLocation(stmt, startIdx);
     }
     if (this.match('KEYWORD', 'continue')) {
       const stmt: Statement = { id: generateId(), type: 'Continue' };
       while (this.match('PUNCTUATION', ';')) { }
-      return stmt;
+      return this.withLocation(stmt, startIdx);
     }
 
     if (this.check('IDENTIFIER', 'print') && this.checkNext('PUNCTUATION', '(')) {
@@ -133,7 +150,7 @@ export class Parser {
       }
       this.consume('PUNCTUATION', ')');
       while (this.match('PUNCTUATION', ';')) { }
-      return { id: generateId(), type: 'Print', expressions };
+      return this.withLocation({ id: generateId(), type: 'Print', expressions }, startIdx);
     }
 
     const expr = this.expression();
@@ -175,10 +192,10 @@ export class Parser {
           else if (target.type === 'MemberExpression') targetName = (target.property as Identifier).name;
           result = { id: generateId(), type: 'Assignment', name: targetName, target, value: result };
         }
-        return result;
+        return this.withLocation(result, startIdx);
       }
       
-      return { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value };
+      return this.withLocation({ id: generateId(), type: 'Assignment', name: nameStr, target: expr, value }, startIdx);
     }
 
     // Augmented assignments e.g., +=, -=
@@ -192,11 +209,11 @@ export class Parser {
         id: generateId(), type: 'BinaryExpression', left: expr, operator: op, right: rVal
       };
       while (this.match('PUNCTUATION', ';')) { }
-      return { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value: augmentedValue };
+      return this.withLocation({ id: generateId(), type: 'Assignment', name: nameStr, target: expr, value: augmentedValue }, startIdx);
     }
 
     while (this.match('PUNCTUATION', ';')) { }
-    return { id: generateId(), type: 'ExpressionStatement', expression: expr };
+    return this.withLocation({ id: generateId(), type: 'ExpressionStatement', expression: expr }, startIdx);
   }
 
   private ifStatement(): If {

@@ -9,6 +9,21 @@ export class CSPParser {
     this.tokens = tokens;
   }
 
+  /**
+   * Helper to attach location info to a statement based on token positions
+   */
+  private withLocation<T extends Statement>(stmt: T, startIdx: number): T {
+    if (startIdx >= 0 && startIdx < this.tokens.length && this.current > startIdx) {
+      const startToken = this.tokens[startIdx];
+      const endToken = this.tokens[this.current - 1];
+      stmt.loc = {
+        start: startToken.start,
+        end: endToken.start + endToken.value.length
+      };
+    }
+    return stmt;
+  }
+
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
@@ -130,11 +145,13 @@ export class CSPParser {
   }
 
   private statement(): Statement {
-    if (this.check('KEYWORD', 'IF')) return this.ifStatement();
-    if (this.check('KEYWORD', 'REPEAT')) return this.repeatStatement();
-    if (this.check('KEYWORD', 'FOR')) return this.forStatement();
-    if (this.check('KEYWORD', 'RETURN')) return this.returnStatement();
-    if (this.check('KEYWORD', 'DISPLAY')) return this.printStatement();
+    const startIdx = this.current;
+    
+    if (this.check('KEYWORD', 'IF')) return this.withLocation(this.ifStatement(), startIdx);
+    if (this.check('KEYWORD', 'REPEAT')) return this.withLocation(this.repeatStatement(), startIdx);
+    if (this.check('KEYWORD', 'FOR')) return this.withLocation(this.forStatement(), startIdx);
+    if (this.check('KEYWORD', 'RETURN')) return this.withLocation(this.returnStatement(), startIdx);
+    if (this.check('KEYWORD', 'DISPLAY')) return this.withLocation(this.printStatement(), startIdx);
 
     const expr = this.expression();
 
@@ -143,10 +160,10 @@ export class CSPParser {
       const value = this.expression();
       let nameStr = 'unknown';
       if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
-      return { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value };
+      return this.withLocation({ id: generateId(), type: 'Assignment', name: nameStr, target: expr, value }, startIdx);
     }
 
-    return { id: generateId(), type: 'ExpressionStatement', expression: expr };
+    return this.withLocation({ id: generateId(), type: 'ExpressionStatement', expression: expr }, startIdx);
   }
 
   private printStatement(): Statement {

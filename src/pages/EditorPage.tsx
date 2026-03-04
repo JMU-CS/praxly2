@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, Trash2, Code, Terminal, FileJson, AlertCircle, Home, ArrowRightLeft, Bug, FastForward, Square, X, Plus, Share2, Check } from 'lucide-react';
+import { Play, Trash2, Code, Terminal, FileJson, AlertCircle, Home, ArrowRightLeft, Bug, FastForward, Square, X, Plus, Share2, Check, Package } from 'lucide-react';
 
 import CodeMirror from '@uiw/react-codemirror';
 import { python } from '@codemirror/lang-python';
 import { java } from '@codemirror/lang-java';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import { Decoration, EditorView } from '@codemirror/view';
+import { StateField, StateEffect, RangeSetBuilder } from '@codemirror/state';
 
 import { Lexer as PythonLexer } from '../language/python/lexer';
 import { Parser as PythonParser } from '../language/python/parser';
@@ -16,6 +18,7 @@ import { CSPParser } from '../language/csp/parser';
 
 import { Interpreter } from '../language/interpreter';
 import { Translator } from '../language/translator';
+import { Debugger, type SupportedLang } from '../language/debugger';
 import type { Program } from '../language/ast';
 import { JSONTree } from '../components/JSONTree';
 import { PraxisLexer } from '../language/praxis/lexer';
@@ -23,6 +26,7 @@ import { PraxisParser } from '../language/praxis/parser';
 import { praxis } from '../language/praxis/lezer';
 import { csp } from '../language/csp/lezer';
 import { encodeEmbed, generateEmbedHTML, copyToClipboard } from '../utils/embedCodec';
+import { getRangeLines } from '../utils/debuggerUtils';
 
 const SAMPLE_CODE_PYTHON = `x = 10
 y = 5.5
@@ -65,7 +69,38 @@ const SAMPLE_CODE_PRAXIS = `int newScore ( int diceOne, int diceTwo, int oldScor
   end if
 end newScore`
 
-type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'ast';
+// CodeMirror decoration helper
+const highlightLineDecoration = Decoration.line({
+    attributes: {
+        style: 'background-color: rgba(99, 102, 241, 0.25); border-left: 3px solid rgb(99, 102, 241);'
+    }
+});
+
+const highlightLinesEffect = StateEffect.define<number[]>();
+
+const highlightedLinesField = StateField.define({
+    create() {
+        return Decoration.none;
+    },
+    update(decorations, tr) {
+        for (const effect of tr.effects) {
+            if (effect.is(highlightLinesEffect)) {
+                const ranges = effect.value;
+                const builder = new RangeSetBuilder<Decoration>();
+                
+                for (const lineNum of ranges) {
+                    const line = tr.state.doc.line(lineNum + 1);
+                    if (line) {
+                        builder.add(line.from, line.from, highlightLineDecoration);
+                    }
+                }
+                return builder.finish();
+            }
+        }
+        return decorations.map(tr.changes);
+    },
+    provide: f => EditorView.decorations.from(f)
+});
 
 interface Panel {
     id: string;
@@ -90,12 +125,17 @@ export default function EditorPage() {
 
     // Debugger State
     const [isDebugging, setIsDebugging] = useState(false);
-    const [debugStep, setDebugStep] = useState(0);
+    const [isDebugComplete, setIsDebugComplete] = useState(false);
+    const [debuggerInstance, setDebuggerInstance] = useState<Debugger | null>(null);
+    const [highlightedLines, setHighlightedLines] = useState<number[]>([]);
+    const [currentVariables, setCurrentVariables] = useState<Record<string, any>>({});
 
     // Resizing State
     const [resizingIdx, setResizingIdx] = useState<number | 'editor' | 'output' | null>(null);
     const [outputHeight, setOutputHeight] = useState(176); // Initial height (h-44 = 176px)
     const containerRef = useRef<HTMLDivElement>(null);
+    const editorRef = useRef<HTMLDivElement>(null);
+    const editorViewRef = useRef<any>(null);
 
     // Adaptive layout: Split space equally among editor + all open panels
     useEffect(() => {
@@ -108,6 +148,22 @@ export default function EditorPage() {
         setEditorWidth(equalWidth);
         setPanels(prev => prev.map(p => ({ ...p, width: equalWidth })));
     }, [panels.length]);
+
+    // Capture EditorView using onCreateEditor callback
+    const handleCreateEditor = useCallback((view: any) => {
+        editorViewRef.current = view;
+        console.log('✓ EditorView captured via onCreateEditor');
+    }, []);
+
+    // Handle line highlighting using CodeMirror decorations
+    useEffect(() => {
+        if (!editorViewRef.current) return;
+
+        // Dispatch the state effect to update highlighted lines
+        editorViewRef.current.dispatch({
+            effects: highlightLinesEffect.of(highlightedLines)
+        });
+    }, [highlightedLines]);
 
     // --- Logic ---
     const parseCode = useCallback((lang: SupportedLang, input: string): Program | null => {
@@ -172,20 +228,99 @@ export default function EditorPage() {
     };
 
     const handleDebugStart = () => {
-        setIsDebugging(true);
-        setDebugStep(0);
-        setOutput(["Debugger started...", "Ready to step."]);
+        setError(null);
+        setOutput([]);
+        try {
+            const runLang = sourceLang === 'ast' ? 'python' : sourceLang;
+            const program = parseCode(runLang as SupportedLang, code);
+            if (!program) return;
+            setAst(program);
+
+            // Initialize debugger
+            const debugInstance = new Debugger();
+            debugInstance.init(program, runLang as SupportedLang);
+            setDebuggerInstance(debugInstance);
+            setIsDebugging(true);
+            setIsDebugComplete(false);
+            setCurrentVariables({});
+            setOutput(['Debugger initialized. Click Step to begin.']);
+            setHighlightedLines([]);
+        } catch (e: any) {
+            console.error(e);
+            setError(e.message);
+        }
     };
 
     const handleDebugStep = () => {
-        setDebugStep(prev => prev + 1);
-        setOutput(prev => [...prev, `Step ${debugStep + 1} executed.`]);
+        if (!debuggerInstance) return;
+
+        try {
+            const step = debuggerInstance.step();
+            if (!step) return;
+
+            // Update current variables pane
+            setCurrentVariables(step.variables);
+
+            // Calculate which lines to highlight in source code
+            if (step.sourceLocation) {
+                const linesToHighlight = getRangeLines(
+                    code,
+                    step.sourceLocation.start
+                );
+                setHighlightedLines(linesToHighlight);
+            } else {
+                setHighlightedLines([]);
+            }
+
+            // Update output with step info
+            const outputLines: string[] = [];
+            outputLines.push(`--- Step ${step.stepNumber} ---`);
+            outputLines.push(`Node: ${step.nodeType}`);
+            if (step.sourceLocation) {
+                outputLines.push(`Location: ${step.sourceLocation.start} - ${step.sourceLocation.end}`);
+            }
+            outputLines.push('');
+
+            setOutput(outputLines);
+
+            // Check if execution is complete
+            if (step.isComplete) {
+                setIsDebugComplete(true);
+                setOutput((prev) => [...prev, 'Execution complete.']);
+            }
+        } catch (e: any) {
+            console.error(e);
+            setError(e.message);
+            setOutput((prev) => [...prev, `Error: ${e.message}`]);
+            setIsDebugComplete(true);
+        }
     };
 
     const handleDebugStop = () => {
         setIsDebugging(false);
-        setDebugStep(0);
-        setOutput(prev => [...prev, "Debugger stopped."]);
+        setDebuggerInstance(null);
+        setHighlightedLines([]);
+        setIsDebugComplete(false);
+        setCurrentVariables({});
+        setOutput((prev) => [...prev, 'Debugger stopped.']);
+    };
+
+    const formatVariableForOutput = (value: any): string => {
+        if (value === null) return 'null';
+        if (value === undefined) return 'undefined';
+        if (typeof value === 'boolean') return value.toString();
+        if (typeof value === 'number') return value.toString();
+        if (typeof value === 'string') return `"${value}"`;
+        if (Array.isArray(value)) {
+            return `[${value.map(v => formatVariableForOutput(v)).join(', ')}]`;
+        }
+        if (typeof value === 'object' && value.klass?.name) {
+            return `${value.klass.name} instance`;
+        }
+        if (typeof value === 'object' && value.klass) {
+            return `JavaClass(${(value as any).name || 'unknown'})`;
+        }
+        return String(value);
     };
 
     const handleClear = () => {
@@ -221,13 +356,19 @@ export default function EditorPage() {
     };
 
     const getExtensions = (lang: SupportedLang) => {
+        const baseExtensions: any[] = [];
+        
         switch (lang) {
-            case 'java': return [java()];
-            case 'python': return [python()];
-            case 'praxis': return [praxis()];
-            case 'csp': return [csp()];
-            default: return [];
+            case 'java': baseExtensions.push(java()); break;
+            case 'python': baseExtensions.push(python()); break;
+            case 'praxis': baseExtensions.push(praxis()); break;
+            case 'csp': baseExtensions.push(csp()); break;
         }
+        
+        // Add highlighting field extension
+        baseExtensions.push(highlightedLinesField);
+        
+        return baseExtensions;
     };
 
     // Panel Management
@@ -323,7 +464,7 @@ export default function EditorPage() {
                         </>
                     ) : (
                         <>
-                            <button onClick={handleDebugStep} className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-all">
+                            <button onClick={handleDebugStep} disabled={isDebugComplete} className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-all disabled:bg-slate-600 disabled:cursor-not-allowed disabled:hover:bg-slate-600 disabled:opacity-50">
                                 <FastForward size={16} fill="currentColor" /> Step
                             </button>
                             <button onClick={handleDebugStop} className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-md transition-all">
@@ -357,13 +498,17 @@ export default function EditorPage() {
                                 </div>
                                 <span>SOURCE</span>
                             </div>
-                            <div className="flex-1 relative bg-slate-950 overflow-hidden">
+                            <div className="flex-1 relative bg-slate-950 overflow-hidden" ref={editorRef}>
                                 <CodeMirror
                                     value={code}
                                     height="100%"
                                     theme={vscodeDark}
                                     extensions={getExtensions(sourceLang === 'ast' ? 'python' : sourceLang)}
-                                    onChange={(val) => setCode(val)}
+                                    onChange={(val) => {
+                                        setCode(val);
+                                        if (isDebugging) setHighlightedLines([]);
+                                    }}
+                                    onCreateEditor={handleCreateEditor}
                                     className="text-sm h-full font-mono"
                                 />
                             </div>
@@ -467,7 +612,7 @@ export default function EditorPage() {
 
                 {/* Bottom Console Panel */}
                 <div
-                    className="border-t border-slate-800 flex flex-col bg-slate-900 shrink-0 z-[60] relative"
+                    className="border-t border-slate-800 flex gap-0 bg-slate-900 shrink-0 z-[60] relative"
                     style={{ height: outputHeight }}
                 >
                     {/* Output Resize Handle */}
@@ -476,27 +621,57 @@ export default function EditorPage() {
                         onMouseDown={(e) => onMouseDown(e, 'output')}
                     />
 
-                    <div className="h-8 flex items-center px-4 bg-slate-900 border-b border-slate-800 shrink-0">
-                        <Terminal size={14} className="mr-2 text-indigo-400" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Console Output</span>
-                        {error && (
-                            <div className="ml-4 flex items-center gap-2 text-red-400 text-[10px] font-bold animate-pulse">
-                                <AlertCircle size={12} />
-                                {error}
+                    {/* Variables Panel */}
+                    {isDebugging && (
+                        <div className="flex flex-col border-r border-slate-800 w-64 shrink-0">
+                            <div className="h-8 flex items-center px-4 bg-slate-900 border-b border-slate-800 shrink-0">
+                                <Package size={14} className="mr-2 text-indigo-400" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Variables</span>
                             </div>
-                        )}
-                    </div>
-                    <div className="flex-1 overflow-auto p-4 font-mono text-sm leading-6 bg-slate-950">
-                        {output.length === 0 && !error ? (
-                            <div className="text-slate-700 italic opacity-40">Run code to see execution results...</div>
-                        ) : (
-                            output.map((line, idx) => (
-                                <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5">
-                                    <span className="text-slate-700 select-none w-6 text-right text-xs pt-1">{idx + 1}</span>
-                                    <span className="text-slate-300 break-all">{line}</span>
+                            <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-5 bg-slate-950">
+                                {Object.keys(currentVariables).length === 0 ? (
+                                    <div className="text-slate-700 italic opacity-40">No variables</div>
+                                ) : (
+                                    Object.entries(currentVariables).map(([name, value]) => {
+                                        if (typeof value === 'function' || name.startsWith('_')) return null;
+                                        const valueStr = typeof value === 'string' ? `"${value}"` : JSON.stringify(value);
+                                        return (
+                                            <div key={name} className="flex gap-2 py-1 border-b border-slate-900/40 last:border-0">
+                                                <span className="text-indigo-400 flex-shrink-0">{name}</span>
+                                                <span className="text-slate-500">:</span>
+                                                <span className="text-slate-300 break-all">{valueStr}</span>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Output Panel */}
+                    <div className="flex-1 flex flex-col border-r border-slate-800 overflow-hidden">
+                        <div className="h-8 flex items-center px-4 bg-slate-900 border-b border-slate-800 shrink-0">
+                            <Terminal size={14} className="mr-2 text-indigo-400" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Console Output</span>
+                            {error && (
+                                <div className="ml-4 flex items-center gap-2 text-red-400 text-[10px] font-bold animate-pulse">
+                                    <AlertCircle size={12} />
+                                    {error}
                                 </div>
-                            ))
-                        )}
+                            )}
+                        </div>
+                        <div className="flex-1 overflow-auto p-4 font-mono text-sm leading-6 bg-slate-950">
+                            {output.length === 0 && !error ? (
+                                <div className="text-slate-700 italic opacity-40">Run code to see execution results...</div>
+                            ) : (
+                                output.map((line, idx) => (
+                                    <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5">
+                                        <span className="text-slate-700 select-none w-6 text-right text-xs pt-1">{idx + 1}</span>
+                                        <span className="text-slate-300 break-all">{line}</span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             </main>
