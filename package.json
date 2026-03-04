@@ -7,9 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "npm run build && npx mocha",
-    "retest": "npx mocha",
-    "parser": "mkdir -p build/language/praxis/ && npx lezer-generator src/language/praxis/lezer.grammar > build/language/praxis/lezer-parser.js && echo \"import {LRParser} from \\\"@lezer/lr\\\"\n\nexport declare const parser: LRParser;\" > build/language/praxis/lezer-parser.d.ts"
+    "test": "vitest"
   },
   "devDependencies": {
     "@codemirror/lang-java": "^6.0.2",
@@ -26,7 +24,8 @@
     "react-router-dom": "^7.13.0",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.7.2",
-    "vite": "^6.1.0"
+    "vite": "^6.1.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@codemirror/lang-java": "^6.0.2",
