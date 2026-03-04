@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, Trash2, Code, Terminal, FileJson, AlertCircle, Home, ArrowRightLeft, Bug, FastForward, Square, X, Plus } from 'lucide-react';
+import { Play, Trash2, Code, Terminal, FileJson, AlertCircle, Home, ArrowRightLeft, Bug, FastForward, Square, X, Plus, Share2, Check } from 'lucide-react';
 
 import CodeMirror from '@uiw/react-codemirror';
 import { python } from '@codemirror/lang-python';
@@ -22,6 +22,7 @@ import { PraxisLexer } from '../language/praxis/lexer';
 import { PraxisParser } from '../language/praxis/parser';
 import { praxis } from '../language/praxis/lezer';
 import { csp } from '../language/csp/lezer';
+import { encodeEmbed, generateEmbedHTML, copyToClipboard } from '../utils/embedCodec';
 
 const SAMPLE_CODE_PYTHON = `x = 10
 y = 5.5
@@ -79,6 +80,7 @@ export default function EditorPage() {
     const [sourceLang, setSourceLang] = useState<SupportedLang>('praxis');
     const [error, setError] = useState<string | null>(null);
     const [showAddMenu, setShowAddMenu] = useState(false);
+    const [embedCopied, setEmbedCopied] = useState(false);
 
     // Width for the left-most source editor
     const [editorWidth, setEditorWidth] = useState(window.innerWidth / 2);
@@ -193,6 +195,19 @@ export default function EditorPage() {
         setError(null);
     };
 
+    const handleShare = async () => {
+        const encoded = encodeEmbed({
+            code,
+            lang: sourceLang === 'ast' ? 'python' : (sourceLang as any),
+        });
+        const embedHtml = generateEmbedHTML(encoded);
+        const success = await copyToClipboard(embedHtml);
+        if (success) {
+            setEmbedCopied(true);
+            setTimeout(() => setEmbedCopied(false), 2000);
+        }
+    };
+
     const getTranslation = (target: SupportedLang) => {
         if (!ast) return "// Valid source code required...";
         if (target === 'ast') return JSON.stringify(ast, null, 2);
@@ -285,6 +300,17 @@ export default function EditorPage() {
                 <div className="flex items-center gap-3">
                     <button onClick={handleClear} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors">
                         <Trash2 size={14} /> Clear
+                    </button>
+                    <button
+                        onClick={handleShare}
+                        className={`flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                            embedCopied
+                                ? 'bg-green-600/20 text-green-400'
+                                : 'text-slate-200 bg-slate-700 hover:bg-slate-600'
+                        }`}
+                    >
+                        {embedCopied ? <Check size={14} /> : <Share2 size={14} />}
+                        {embedCopied ? 'Copied!' : 'Share'}
                     </button>
                     {!isDebugging ? (
                         <>

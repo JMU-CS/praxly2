@@ -44,6 +44,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "lz-string": "^1.5.0",
     "mocha": "^11.1.0",
     "pure-rand": "^7.0.1",
     "tailwindcss": "^4.1.18",
