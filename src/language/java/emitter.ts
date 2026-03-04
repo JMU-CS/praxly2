@@ -227,6 +227,8 @@ export class JavaEmitter extends ASTVisitor {
         if (stmt.init && stmt.condition && stmt.update) {
             this.context.symbolTable.enterScope();
             let initCode = '';
+            let initCodes: string[] = [];
+            
             if (stmt.init.type === 'Assignment') {
                 const initStmt = stmt.init as any;
                 const rVal = this.generateExpression(initStmt.value, 0);
@@ -234,6 +236,34 @@ export class JavaEmitter extends ASTVisitor {
                 if (type === 'var') type = 'int';
                 initCode = `${type} ${initStmt.name} = ${rVal}`;
                 this.context.symbolTable.set(initStmt.name, type);
+            } else if (Array.isArray(stmt.init)) {
+                // Handle multiple initializations (array of statements)
+                const stmts = stmt.init as any;
+                initCodes = stmts.map((s: any) => {
+                    if (s.type === 'Assignment') {
+                        const rVal = this.generateExpression(s.value, 0);
+                        let type = s.varType || this.inferType(s.value);
+                        if (type === 'var') type = 'int';
+                        this.context.symbolTable.set(s.name, type);
+                        return `${type} ${s.name} = ${rVal}`;
+                    }
+                    return this.generateExpression((s as any).expression, 0);
+                });
+                initCode = initCodes.join(', ');
+            } else if ((stmt.init as any)?.type === 'Block') {
+                // Handle Block node (shouldn't happen with new code, but keep for compatibility)
+                const blockStmt = stmt.init as any;
+                initCodes = blockStmt.body.map((s: any) => {
+                    if (s.type === 'Assignment') {
+                        const rVal = this.generateExpression(s.value, 0);
+                        let type = s.varType || this.inferType(s.value);
+                        if (type === 'var') type = 'int';
+                        this.context.symbolTable.set(s.name, type);
+                        return `${type} ${s.name} = ${rVal}`;
+                    }
+                    return this.generateExpression((s as any).expression, 0);
+                });
+                initCode = initCodes.join(', ');
             } else {
                 initCode = this.generateExpression((stmt.init as any).expression, 0);
             }
@@ -241,10 +271,31 @@ export class JavaEmitter extends ASTVisitor {
             const condCode = this.generateExpression(stmt.condition, 0);
 
             let updateCode = '';
+            let updateCodes: string[] = [];
             if (stmt.update.type === 'Assignment') {
                 const updateStmt = stmt.update as any;
                 const updateTarget = updateStmt.target ? this.generateExpression(updateStmt.target, 0) : updateStmt.name;
                 updateCode = `${updateTarget} = ${this.generateExpression(updateStmt.value, 0)}`;
+            } else if (Array.isArray(stmt.update)) {
+                // Handle multiple update statements (array of statements)
+                const stmts = stmt.update as any;
+                updateCodes = stmts.map((s: any) => {
+                    if (s.type === 'ExpressionStatement') {
+                        return this.generateExpression(s.expression, 0);
+                    }
+                    return this.generateExpression((s as any).expression, 0);
+                });
+                updateCode = updateCodes.join(', ');
+            } else if ((stmt.update as any)?.type === 'Block') {
+                // Handle Block node (shouldn't happen with new code, but keep for compatibility)
+                const blockStmt = stmt.update as any;
+                updateCodes = blockStmt.body.map((s: any) => {
+                    if (s.type === 'ExpressionStatement') {
+                        return this.generateExpression(s.expression, 0);
+                    }
+                    return this.generateExpression((s as any).expression, 0);
+                });
+                updateCode = updateCodes.join(', ');
             } else {
                 updateCode = this.generateExpression((stmt.update as any).expression, 0);
             }
@@ -331,6 +382,32 @@ export class JavaEmitter extends ASTVisitor {
         this.emit(`${this.generateExpression(stmt.expression, 0)};`);
     }
 
+    visitTry(stmt: any): void {
+        this.emit('try {');
+        this.indent(); this.visitBlock(stmt.body); this.dedent();
+        this.emit('}');
+        
+        stmt.handlers.forEach((handler: any) => {
+            if (handler.exceptionType) {
+                if (handler.varName) {
+                    this.emit(`catch (${handler.exceptionType} ${handler.varName}) {`);
+                } else {
+                    this.emit(`catch (Exception e) {`);
+                }
+            } else {
+                this.emit(`catch (Exception e) {`);
+            }
+            this.indent(); this.visitBlock(handler.body); this.dedent();
+            this.emit('}');
+        });
+        
+        if (stmt.finallyBlock) {
+            this.emit('finally {');
+            this.indent(); this.visitBlock(stmt.finallyBlock); this.dedent();
+            this.emit('}');
+        }
+    }
+
     generateExpression(expr: Expression, parentPrecedence: number): string {
         let output = '';
         let currentPrecedence = 99;
@@ -384,7 +461,10 @@ export class JavaEmitter extends ASTVisitor {
                     '<=': { op: '<=', prec: Precedence.Relational }, '>=': { op: '>=', prec: Precedence.Relational },
                     '+': { op: '+', prec: Precedence.Additive }, '-': { op: '-', prec: Precedence.Additive },
                     '*': { op: '*', prec: Precedence.Multiplicative }, '/': { op: '/', prec: Precedence.Multiplicative },
-                    '%': { op: '%', prec: Precedence.Multiplicative }
+                    '%': { op: '%', prec: Precedence.Multiplicative },
+                    '&': { op: '&', prec: Precedence.BitwiseAnd }, '|': { op: '|', prec: Precedence.BitwiseOr },
+                    '^': { op: '^', prec: Precedence.Xor }, '<<': { op: '<<', prec: Precedence.Shift },
+                    '>>': { op: '>>', prec: Precedence.Shift }, '>>>': { op: '>>>', prec: Precedence.Shift }
                 };
                 const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
                 currentPrecedence = opData.prec;
@@ -445,6 +525,18 @@ export class JavaEmitter extends ASTVisitor {
                 const baseType = type.endsWith('[]') ? type.slice(0, -2) : 'Object';
                 const elems = expr.elements.map(e => this.generateExpression(e, 0)).join(', ');
                 output = `new ${baseType}[] {${elems}}`;
+                break;
+            case 'ConditionalExpression':
+                currentPrecedence = Precedence.Conditional;
+                const test = this.generateExpression((expr as any).test, currentPrecedence);
+                const consequent = this.generateExpression((expr as any).consequent, currentPrecedence);
+                const alternate = this.generateExpression((expr as any).alternate, currentPrecedence);
+                output = `${test} ? ${consequent} : ${alternate}`;
+                break;
+            case 'CompoundAssignment':
+                const target = (expr as any).name;
+                const value = this.generateExpression((expr as any).value, 0);
+                output = `${target} ${(expr as any).operator}= ${value}`;
                 break;
         }
         return (currentPrecedence < parentPrecedence) ? `(${output})` : output;

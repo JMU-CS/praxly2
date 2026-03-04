@@ -43,7 +43,7 @@ export const Precedence = {
     Member: 18, Call: 17, Instantiation: 16, Postfix: 15, Unary: 14,
     Exponential: 13, Multiplicative: 12, Additive: 11, Shift: 10,
     Relational: 9, Equality: 8, BitwiseAnd: 7, Xor: 6, BitwiseOr: 5,
-    LogicalAnd: 4, LogicalOr: 3, Assignment: 2, Sequence: 1
+    LogicalAnd: 4, LogicalOr: 3, Conditional: 2.5, Assignment: 2, Sequence: 1
 };
 
 
@@ -88,6 +88,7 @@ export abstract class ASTVisitor {
     abstract visitFunctionDeclaration(stmt: any): void;
     abstract visitReturn(stmt: any): void;
     abstract visitExpressionStatement(stmt: any): void;
+    abstract visitTry(stmt: any): void;
 
     // Dispatcher
     visitStatement(stmt: Statement) {
@@ -101,6 +102,7 @@ export abstract class ASTVisitor {
             case 'Break': this.visitBreak(stmt); break;
             case 'Continue': this.visitContinue(stmt); break;
             case 'For': this.visitFor(stmt); break;
+            case 'Try': this.visitTry(stmt); break;
             case 'FunctionDeclaration': this.visitFunctionDeclaration(stmt); break;
             case 'Return': this.visitReturn(stmt); break;
             case 'ExpressionStatement': this.visitExpressionStatement(stmt); break;

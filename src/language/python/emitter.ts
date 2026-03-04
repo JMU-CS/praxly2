@@ -98,7 +98,16 @@ export class PythonEmitter extends ASTVisitor {
         } else if (this.currentClassFields.has(target)) {
             target = `self.${target}`;
         }
-        this.emit(`${target} = ${this.generateExpression(stmt.value, 0)}`);
+        
+        // Handle nested assignments (chained assignment: x = y = z = 10)
+        if (stmt.value && stmt.value.type === 'Assignment') {
+            // Recursively visit the nested assignment
+            this.visitAssignment(stmt.value);
+            // Also emit the current assignment
+            this.emit(`${target} = ${this.generateExpression(stmt.value.target, 0)}`);
+        } else {
+            this.emit(`${target} = ${this.generateExpression(stmt.value, 0)}`);
+        }
     }
 
     visitIf(stmt: any): void {
@@ -123,6 +132,10 @@ export class PythonEmitter extends ASTVisitor {
     visitWhile(stmt: any): void {
         this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`);
         this.indent(); this.visitBlock(stmt.body); this.dedent();
+        if (stmt.elseBranch) {
+            this.emit(`else:`);
+            this.indent(); this.visitBlock(stmt.elseBranch); this.dedent();
+        }
     }
 
     visitDoWhile(stmt: any): void {
@@ -200,6 +213,29 @@ export class PythonEmitter extends ASTVisitor {
 
     visitExpressionStatement(stmt: any): void {
         this.emit(this.generateExpression(stmt.expression, 0));
+    }
+
+    visitTry(stmt: any): void {
+        this.emit('try:');
+        this.indent(); this.visitBlock(stmt.body); this.dedent();
+        
+        stmt.handlers.forEach((handler: any) => {
+            if (handler.exceptionType) {
+                if (handler.varName) {
+                    this.emit(`except ${handler.exceptionType} as ${handler.varName}:`);
+                } else {
+                    this.emit(`except ${handler.exceptionType}:`);
+                }
+            } else {
+                this.emit(`except:`);
+            }
+            this.indent(); this.visitBlock(handler.body); this.dedent();
+        });
+        
+        if (stmt.finallyBlock) {
+            this.emit('finally:');
+            this.indent(); this.visitBlock(stmt.finallyBlock); this.dedent();
+        }
     }
 
     generateExpression(expr: Expression, parentPrecedence: number): string {
@@ -305,6 +341,12 @@ export class PythonEmitter extends ASTVisitor {
             case 'ArrayLiteral':
                 const elems = expr.elements.map(e => this.generateExpression(e, 0)).join(', ');
                 output = `[${elems}]`;
+                break;
+            case 'ListComprehension':
+                const elemExpr = this.generateExpression((expr as any).element, 0);
+                const compVar = (expr as any).variable;
+                const iterExpr = this.generateExpression((expr as any).iterable, 0);
+                output = `[${elemExpr} for ${compVar} in ${iterExpr}]`;
                 break;
         }
         return (currentPrecedence < parentPrecedence) ? `(${output})` : output;

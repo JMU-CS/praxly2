@@ -57,13 +57,29 @@ export class JavaLexer {
         continue;
       }
 
-      if (['+', '-', '*', '/', '=', '>', '<', '!', '&', '|', '%'].includes(char)) {
+      if (['+', '-', '*', '/', '=', '>', '<', '!', '&', '|', '%', '^', '~'].includes(char)) {
         const start = this.pos;
         const next = this.input[this.pos + 1];
+        const next2 = this.input[this.pos + 2];
         if (char === '=' && next === '=') { tokens.push({ type: 'OPERATOR', value: '==', start }); this.pos += 2; continue; }
         if (char === '!' && next === '=') { tokens.push({ type: 'OPERATOR', value: '!=', start }); this.pos += 2; continue; }
         if (char === '&' && next === '&') { tokens.push({ type: 'OPERATOR', value: '&&', start }); this.pos += 2; continue; }
+        if (char === '&' && next === '=') { tokens.push({ type: 'OPERATOR', value: '&=', start }); this.pos += 2; continue; }
         if (char === '|' && next === '|') { tokens.push({ type: 'OPERATOR', value: '||', start }); this.pos += 2; continue; }
+        if (char === '|' && next === '=') { tokens.push({ type: 'OPERATOR', value: '|=', start }); this.pos += 2; continue; }
+        if (char === '^' && next === '=') { tokens.push({ type: 'OPERATOR', value: '^=', start }); this.pos += 2; continue; }
+        if (char === '<' && next === '<') { 
+          if (next2 === '=') { tokens.push({ type: 'OPERATOR', value: '<<=', start }); this.pos += 3; continue; }
+          tokens.push({ type: 'OPERATOR', value: '<<', start }); this.pos += 2; continue; 
+        }
+        if (char === '>' && next === '>') {
+          if (next2 === '>') {
+            if (this.input[this.pos + 3] === '=') { tokens.push({ type: 'OPERATOR', value: '>>>=', start }); this.pos += 4; continue; }
+            tokens.push({ type: 'OPERATOR', value: '>>>', start }); this.pos += 3; continue;
+          }
+          if (next2 === '=') { tokens.push({ type: 'OPERATOR', value: '>>=', start }); this.pos += 3; continue; }
+          tokens.push({ type: 'OPERATOR', value: '>>', start }); this.pos += 2; continue;
+        }
         if (char === '<' && next === '=') { tokens.push({ type: 'OPERATOR', value: '<=', start }); this.pos += 2; continue; }
         if (char === '>' && next === '=') { tokens.push({ type: 'OPERATOR', value: '>=', start }); this.pos += 2; continue; }
         if (char === '+' && next === '+') { tokens.push({ type: 'OPERATOR', value: '++', start }); this.pos += 2; continue; }
@@ -73,12 +89,13 @@ export class JavaLexer {
         if (char === '*' && next === '*') { tokens.push({ type: 'OPERATOR', value: '**', start }); this.pos += 2; continue; }
         if (char === '*' && next === '=') { tokens.push({ type: 'OPERATOR', value: '*=', start }); this.pos += 2; continue; }
         if (char === '/' && next === '=') { tokens.push({ type: 'OPERATOR', value: '/=', start }); this.pos += 2; continue; }
+        if (char === '%' && next === '=') { tokens.push({ type: 'OPERATOR', value: '%=', start }); this.pos += 2; continue; }
 
         tokens.push({ type: 'OPERATOR', value: char, start: this.pos++ });
         continue;
       }
 
-      if (['(', ')', '{', '}', '[', ']', ';', ',', '.', ':'].includes(char)) {
+      if (['(', ')', '{', '}', '[', ']', ';', ',', '.', ':', '?'].includes(char)) {
         tokens.push({ type: 'PUNCTUATION', value: char, start: this.pos++ });
         continue;
       }

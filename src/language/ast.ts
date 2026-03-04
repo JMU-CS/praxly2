@@ -4,7 +4,7 @@ export type NodeType =
   | 'Identifier' | 'Literal' | 'ArrayLiteral' | 'CallExpression' | 'ExpressionStatement'
   | 'ClassDeclaration' | 'FieldDeclaration' | 'Constructor' | 'MethodDeclaration'
   | 'NewExpression' | 'MemberExpression' | 'ThisExpression' | 'Parameter' | 'IndexExpression'
-  | 'Break' | 'Continue';
+  | 'Break' | 'Continue' | 'Try' | 'ExceptionHandler' | 'ConditionalExpression' | 'CompoundAssignment' | 'ListComprehension';
 
 export interface ASTNode {
   id: string;
@@ -25,7 +25,7 @@ export interface Block extends ASTNode {
 export type Statement =
   | Assignment | Print | If | While | DoWhile | For | Switch | FunctionDeclaration | Return | ExpressionStatement
   | ClassDeclaration | FieldDeclaration | Constructor | MethodDeclaration
-  | Break | Continue;
+  | Break | Continue | Try;
 
 export interface Break extends ASTNode {
   type: 'Break';
@@ -66,12 +66,27 @@ export interface While extends ASTNode {
   type: 'While';
   condition: Expression;
   body: Block;
+  elseBranch?: Block;
 }
 
 export interface DoWhile extends ASTNode {
   type: 'DoWhile';
   body: Block;
   condition: Expression;
+}
+
+export interface Try extends ASTNode {
+  type: 'Try';
+  body: Block;
+  handlers: ExceptionHandler[];
+  finallyBlock?: Block;
+}
+
+export interface ExceptionHandler extends ASTNode {
+  type: 'ExceptionHandler';
+  exceptionType?: string;
+  varName?: string;
+  body: Block;
 }
 
 export interface Switch extends ASTNode {
@@ -112,7 +127,7 @@ export interface Return extends ASTNode {
 
 export type Expression =
   | BinaryExpression | UnaryExpression | UpdateExpression | Identifier | Literal | ArrayLiteral | CallExpression
-  | NewExpression | MemberExpression | ThisExpression | IndexExpression;
+  | NewExpression | MemberExpression | ThisExpression | IndexExpression | ConditionalExpression | CompoundAssignment | ListComprehension;
 
 export interface BinaryExpression extends ASTNode {
   type: 'BinaryExpression';
@@ -222,6 +237,28 @@ export interface MemberExpression extends ASTNode {
 
 export interface ThisExpression extends ASTNode {
   type: 'ThisExpression';
+}
+
+export interface ConditionalExpression extends ASTNode {
+  type: 'ConditionalExpression';
+  test: Expression;
+  consequent: Expression;
+  alternate: Expression;
+}
+
+export interface CompoundAssignment extends ASTNode {
+  type: 'CompoundAssignment';
+  operator: string;
+  name: string;
+  left: Expression;
+  right: Expression;
+}
+
+export interface ListComprehension extends ASTNode {
+  type: 'ListComprehension';
+  element: Expression;
+  variable: string;
+  iterable: Expression;
 }
 
 export const generateId = () => Math.random().toString(36).substr(2, 9);

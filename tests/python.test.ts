@@ -448,6 +448,65 @@ describe('Python Emitter', () => {
       expect(code).toContain('self');
     });
   });
+
+  describe('Advanced Features', () => {
+    it('should emit try-except-finally block', () => {
+      const source = `try:
+  x = 10 / 0
+except ZeroDivisionError:
+  print("Error")
+finally:
+  print("Done")`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const emitter = new PythonEmitter({ 
+        symbolTable: new SymbolTable(), 
+        functionReturnTypes: new Map(), 
+        functionParamTypes: new Map() 
+      });
+      emitter.visitProgram(program);
+      const code = emitter.getGeneratedCode();
+      expect(code).toContain('try');
+    });
+
+    it('should emit list comprehension', () => {
+      const source = `squares = [x * x for x in items]`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const emitter = new PythonEmitter({ 
+        symbolTable: new SymbolTable(), 
+        functionReturnTypes: new Map(), 
+        functionParamTypes: new Map() 
+      });
+      emitter.visitProgram(program);
+      const code = emitter.getGeneratedCode();
+      expect(code).toContain('for');
+    });
+
+    it('should emit while-else block', () => {
+      const source = `while x < 10:
+  x = x + 1
+else:
+  print("Done")`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const emitter = new PythonEmitter({ 
+        symbolTable: new SymbolTable(), 
+        functionReturnTypes: new Map(), 
+        functionParamTypes: new Map() 
+      });
+      emitter.visitProgram(program);
+      const code = emitter.getGeneratedCode();
+      expect(code).toContain('while');
+      expect(code).toContain('else');
+    });
+  });
 });
 
 describe('Python Translation', () => {
@@ -615,6 +674,78 @@ print(xs[0])`;
       const result = translator.translate(program, 'python');
       expect(result).toContain('for');
       expect(result).toContain('in');
+    });
+  });
+
+  describe('Advanced Features', () => {
+    it('should translate try-except-finally', () => {
+      const source = `try:
+  x = 10 / 0
+except ZeroDivisionError:
+  print("Cannot divide by zero")
+finally:
+  print("Cleanup")`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'python');
+      expect(result).toContain('try');
+      expect(result).toContain('except');
+      expect(result).toContain('finally');
+    });
+
+    it('should translate list comprehensions', () => {
+      const source = `squares = [x * x for x in range(10)]`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'python');
+      expect(result).toContain('for');
+      expect(result).toContain('in');
+    });
+
+    it('should translate while-else', () => {
+      const source = `while x < 10:
+  x = x + 1
+else:
+  print("Done")`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'python');
+      expect(result).toContain('while');
+      expect(result).toContain('else');
+    });
+
+    it('should translate tuple unpacking', () => {
+      const source = `a, b = 1, 2`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'python');
+      expect(result).toContain('a');
+      expect(result).toContain('b');
+    });
+
+    it('should translate multiple assignments', () => {
+      const source = `x = y = z = 10`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'python');
+      expect(result).toContain('x');
+      expect(result).toContain('y');
+      expect(result).toContain('z');
     });
   });
 });

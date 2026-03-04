@@ -338,4 +338,121 @@ System.out.println(xs[0]);`;
       expect(result).toContain('this.count');
     });
   });
+
+  describe('Advanced Features', () => {
+    it('should translate multiple statements in c-style for loop', () => {
+      const source = `for (int i = 0, j = 10; i < j; i++, j--) {
+  System.out.println(i);
+}`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('for');
+      expect(result).toContain('i');
+      expect(result).toContain('j');
+    });
+
+    it('should translate switch-case with fall through', () => {
+      const source = `switch (x) {
+  case 1:
+    y = 10;
+  case 2:
+    y = 20;
+    break;
+  default:
+    y = 0;
+}`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('switch');
+      expect(result).toContain('case');
+      expect(result).toContain('default');
+    });
+
+    it('should translate bitwise XOR operation', () => {
+      const source = `int result = a ^ b;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('^');
+    });
+
+    it('should translate other compound assignment operators', () => {
+      const source = `x *= 2;
+y /= 3;
+z %= 5;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('*=');
+      expect(result).toContain('/=');
+      expect(result).toContain('%=');
+    });
+
+    it('should translate ternary operator', () => {
+      const source = `int max = a > b ? a : b;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('?');
+      expect(result).toContain(':');
+    });
+
+    it('should translate array element mutation', () => {
+      const source = `int[] nums = {1, 2, 3};
+nums[1] = 4;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('nums');
+      expect(result).toContain('[1]');
+      expect(result).toContain('4');
+    });
+
+    it('should translate compound assignment correctly', () => {
+      const source = `int total = 0;
+total += k;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('total');
+      expect(result).toContain('+=');
+    });
+
+    it('should translate negated method call', () => {
+      const source = `if (!password.equals("ABC123")) {
+  System.out.println("Invalid");
+}`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('!');
+      expect(result).toContain('equals');
+    });
+  });
 });

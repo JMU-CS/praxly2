@@ -168,6 +168,25 @@ export class CSPEmitter extends ASTVisitor {
         this.emit(this.generateExpression(stmt.expression, 0));
     }
 
+    visitTry(stmt: any): void {
+        this.emit('TRY');
+        this.emit('{'); this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
+        
+        stmt.handlers.forEach((handler: any) => {
+            if (handler.exceptionType) {
+                this.emit(`EXCEPT ${handler.exceptionType}${handler.varName ? ` AS ${handler.varName}` : ''}`);
+            } else {
+                this.emit(`EXCEPT`);
+            }
+            this.emit('{'); this.indent(); this.visitBlock(handler.body); this.dedent(); this.emit('}');
+        });
+        
+        if (stmt.finallyBlock) {
+            this.emit('FINALLY');
+            this.emit('{'); this.indent(); this.visitBlock(stmt.finallyBlock); this.dedent(); this.emit('}');
+        }
+    }
+
     generateExpression(expr: Expression, parentPrecedence: number): string {
         let output = '';
         let currentPrecedence = 99;

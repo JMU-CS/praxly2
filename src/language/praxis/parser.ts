@@ -498,13 +498,11 @@ export class PraxisParser {
                 try {
                     const index = this.expression();
                     this.consume('PUNCTUATION', ']');
-                    const propName = `[${this.stringifyExpressionForProperty(index)}]`;
                     expr = {
                         id: generateId(),
-                        type: 'MemberExpression',
+                        type: 'IndexExpression',
                         object: expr,
-                        property: { id: generateId(), type: 'Identifier', name: propName },
-                        isMethod: false
+                        index: index
                     };
                 } catch (e) {
                     this.current = savedPos;
@@ -517,8 +515,9 @@ export class PraxisParser {
         return expr;
     }
 
+    // @ts-ignore - Used recursively for binary expression string conversion
     private stringifyExpressionForProperty(expr: Expression): string {
-        if (expr.type === 'Identifier') return (expr as Identifier).name;
+        if (expr.type === 'Identifier') return (expr as any).name;
         if (expr.type === 'Literal') return String((expr as any).value);
         if (expr.type === 'BinaryExpression') {
             const bin = expr as any;

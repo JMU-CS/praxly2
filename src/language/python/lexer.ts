@@ -88,7 +88,7 @@ export class Lexer {
       if (/[a-zA-Z_]/.test(char)) {
         let value = '';
         while (p < line.length && /[a-zA-Z0-9_]/.test(line[p])) value += line[p++];
-        const keywords = ['def', 'class', 'if', 'elif', 'else', 'while', 'for', 'in', 'return', 'break', 'continue', 'and', 'or', 'not', 'True', 'False', 'None', 'pass'];
+        const keywords = ['def', 'class', 'if', 'elif', 'else', 'while', 'for', 'in', 'return', 'break', 'continue', 'and', 'or', 'not', 'True', 'False', 'None', 'pass', 'try', 'except', 'finally', 'as'];
 
         if (keywords.includes(value)) {
           if (value === 'True' || value === 'False') this.tokens.push({ type: 'BOOLEAN', value: value === 'True' ? 'true' : 'false', start: offset + p });

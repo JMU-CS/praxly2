@@ -354,19 +354,37 @@ export class JavaParser {
       const varName = this.consume('IDENTIFIER').value;
       
       if (this.check('OPERATOR', '=')) {
-        // C-style: int i = 0;
+        // C-style: int i = 0; or int i = 0, j = 10;
         this.consume('OPERATOR', '=');
         const value = this.expression();
-        init = { id: generateId(), type: 'Assignment', name: varName, value };
+        const inits: Statement[] = [{ id: generateId(), type: 'Assignment', name: varName, value }];
+        
+        // Handle multiple variable declarations with commas
+        while (this.match('PUNCTUATION', ',')) {
+          const nextVarName = this.consume('IDENTIFIER').value;
+          this.consume('OPERATOR', '=');
+          const nextValue = this.expression();
+          inits.push({ id: generateId(), type: 'Assignment', name: nextVarName, value: nextValue });
+        }
+        
+        init = inits.length === 1 ? inits[0] : (inits as any);
         this.consume('PUNCTUATION', ';');
         condition = this.expression();
         this.consume('PUNCTUATION', ';');
         
-        // Parse update expression (could be i++, i = i + 1, etc.)
+        // Parse update expression(s) - could be i++, i = i + 1, etc., or multiple comma-separated
+        const updates: Statement[] = [];
         if (!this.check('PUNCTUATION', ')')) {
           const updateExpr = this.expression();
-          update = { id: generateId(), type: 'ExpressionStatement', expression: updateExpr };
+          updates.push({ id: generateId(), type: 'ExpressionStatement', expression: updateExpr });
+          
+          while (this.match('PUNCTUATION', ',')) {
+            const nextUpdateExpr = this.expression();
+            updates.push({ id: generateId(), type: 'ExpressionStatement', expression: nextUpdateExpr });
+          }
         }
+        update = updates.length === 1 ? updates[0] : updates.length > 1 ? (updates as any) : undefined;
+        
         this.consume('PUNCTUATION', ')');
         const body = this.block();
         return { id: generateId(), type: 'For', variable: varName, iterable, body, init, condition, update };
@@ -442,38 +460,64 @@ export class JavaParser {
   private expression(): Expression { return this.assignment(); }
 
   private assignment(): Expression {
-    let left = this.logicOr();
+    let left = this.ternary();
     
-    if (this.check('OPERATOR', '=', '+=', '-=', '*=', '/=', '%=')) {
+    if (this.check('OPERATOR', '=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', '>>>=')) {
       const operator = this.peek().value;
       this.advance();
       const right = this.assignment(); // Right-associative
       
-      // Convert compound assignments to binary expressions
-      if (operator === '+=') {
-        return { id: generateId(), type: 'BinaryExpression', left, operator: '+', right };
-      } else if (operator === '-=') {
-        return { id: generateId(), type: 'BinaryExpression', left, operator: '-', right };
-      } else if (operator === '*=') {
-        return { id: generateId(), type: 'BinaryExpression', left, operator: '*', right };
-      } else if (operator === '/=') {
-        return { id: generateId(), type: 'BinaryExpression', left, operator: '/', right };
-      } else if (operator === '%=') {
-        return { id: generateId(), type: 'BinaryExpression', left, operator: '%', right };
-      } else {
-        // Regular assignment (=) - return as any type since it's actually an Assignment node
+      // Regular assignment (=)
+      if (operator === '=') {
         let name = '';
         if (left.type === 'Identifier') {
           name = (left as any).name;
-        } else if (left.type === 'MemberExpression') {
-          // For member expressions like this.count, we need to preserve them
+        } else if (left.type === 'MemberExpression' || left.type === 'IndexExpression') {
+          // For member expressions like this.count or array[i], we need to preserve them
           return { id: generateId(), type: 'Assignment', name: JSON.stringify(left), value: right, isMemberAssignment: true, memberExpr: left } as any;
         }
         return { id: generateId(), type: 'Assignment', name, value: right } as any;
       }
+      
+      // Compound assignments - return as CompoundAssignment or convert to binary
+      let binaryOp = '';
+      switch (operator) {
+        case '+=': binaryOp = '+'; break;
+        case '-=': binaryOp = '-'; break;
+        case '*=': binaryOp = '*'; break;
+        case '/=': binaryOp = '/'; break;
+        case '%=': binaryOp = '%'; break;
+        case '&=': binaryOp = '&'; break;
+        case '|=': binaryOp = '|'; break;
+        case '^=': binaryOp = '^'; break;
+        case '<<=': binaryOp = '<<'; break;
+        case '>>=': binaryOp = '>>'; break;
+        case '>>>=': binaryOp = '>>>'; break;
+      }
+      
+      let name = '';
+      if (left.type === 'Identifier') {
+        name = (left as any).name;
+      }
+      
+      // Return as CompoundAssignment node (or use Assignment with operator field)
+      return { id: generateId(), type: 'CompoundAssignment', name, operator: binaryOp, value: right } as any;
     }
     
     return left;
+  }
+
+  private ternary(): Expression {
+    let expr = this.logicOr();
+    
+    if (this.match('PUNCTUATION', '?')) {
+      const thenExpr = this.expression();
+      this.consume('PUNCTUATION', ':');
+      const elseExpr = this.ternary();
+      return { id: generateId(), type: 'ConditionalExpression', test: expr, consequent: thenExpr, alternate: elseExpr } as any;
+    }
+    
+    return expr;
   }
 
   private logicOr(): Expression {
@@ -486,17 +530,54 @@ export class JavaParser {
   }
 
   private logicAnd(): Expression {
-    let left = this.equality();
+    let left = this.bitwiseOr();
     while (this.match('OPERATOR', '&&')) {
-      const right = this.equality();
+      const right = this.bitwiseOr();
       left = { id: generateId(), type: 'BinaryExpression', left, operator: 'and', right };
     }
     return left;
   }
 
+  private bitwiseOr(): Expression {
+    let left = this.bitwiseXor();
+    while (this.match('OPERATOR', '|')) {
+      const right = this.bitwiseXor();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator: '|', right };
+    }
+    return left;
+  }
+
+  private bitwiseXor(): Expression {
+    let left = this.bitwiseAnd();
+    while (this.match('OPERATOR', '^')) {
+      const right = this.bitwiseAnd();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator: '^', right };
+    }
+    return left;
+  }
+
+  private bitwiseAnd(): Expression {
+    let left = this.equality();
+    while (this.match('OPERATOR', '&')) {
+      const right = this.equality();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator: '&', right };
+    }
+    return left;
+  }
+
   private equality(): Expression {
-    let left = this.comparison();
+    let left = this.shift();
     while (this.match('OPERATOR', '==', '!=')) {
+      const operator = this.previous().value;
+      const right = this.shift();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+    }
+    return left;
+  }
+
+  private shift(): Expression {
+    let left = this.comparison();
+    while (this.match('OPERATOR', '<<', '>>', '>>>')) {
       const operator = this.previous().value;
       const right = this.comparison();
       left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
@@ -551,7 +632,7 @@ export class JavaParser {
       const argument = this.unary();
       return { id: generateId(), type: 'UpdateExpression', operator, argument, prefix: true };
     }
-    if (this.match('OPERATOR', '!', '-')) {
+    if (this.match('OPERATOR', '!', '-', '~')) {
       let operator = this.previous().value;
       if (operator === '!') operator = 'not';
       const right = this.unary();

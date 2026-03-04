@@ -111,6 +111,7 @@ export class Parser {
     if (this.check('KEYWORD', 'if')) return this.ifStatement();
     if (this.check('KEYWORD', 'while')) return this.whileStatement();
     if (this.check('KEYWORD', 'for')) return this.forStatement();
+    if (this.check('KEYWORD', 'try')) return this.tryStatement();
     if (this.check('KEYWORD', 'return')) return this.returnStatement();
     if (this.match('KEYWORD', 'break')) {
       const stmt: Statement = { id: generateId(), type: 'Break' };
@@ -138,12 +139,45 @@ export class Parser {
     const expr = this.expression();
 
     if (this.match('OPERATOR', '=')) {
-      const value = this.expression();
+      // For chained assignment: x = y = z = 10
+      // We need to collect all targets
+      const targets: Expression[] = [expr];
+      
+      // Check if the right side is another assignment (or could be)
+      let rightExpr = this.expression();
+      
+      // Handle chained assignments: collect all intermediate targets
+      while (this.check('OPERATOR', '=')) {
+        // rightExpr is actually another target, collect it
+        targets.push(rightExpr);
+        this.consume('OPERATOR', '=');
+        rightExpr = this.expression();
+      }
+      
+      // Now rightExpr is the final value
+      const value = rightExpr;
+      
+      // For emissions, use the first target as the main one
       let nameStr = 'unknown';
       if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
       else if (expr.type === 'MemberExpression') nameStr = (expr.property as Identifier).name;
 
       while (this.match('PUNCTUATION', ';')) { }
+      
+      // If there are chained assignments, create nested Assignment nodes
+      if (targets.length > 1) {
+        // x = y = z = 10 becomes: x = (y = (z = 10))
+        let result: any = { id: generateId(), type: 'Assignment', name: 'z', target: targets[targets.length - 1], value };
+        for (let i = targets.length - 2; i >= 0; i--) {
+          const target = targets[i];
+          let targetName = 'unknown';
+          if (target.type === 'Identifier') targetName = (target as Identifier).name;
+          else if (target.type === 'MemberExpression') targetName = (target.property as Identifier).name;
+          result = { id: generateId(), type: 'Assignment', name: targetName, target, value: result };
+        }
+        return result;
+      }
+      
       return { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value };
     }
 
@@ -202,7 +236,43 @@ export class Parser {
     this.consume('KEYWORD', 'while');
     const condition = this.expression();
     const body = this.block();
-    return { id: generateId(), type: 'While', condition, body };
+    
+    let elseBranch: Block | undefined = undefined;
+    while (this.match('PUNCTUATION', ';')) { }
+    if (this.match('KEYWORD', 'else')) {
+      elseBranch = this.block();
+    }
+    
+    return { id: generateId(), type: 'While', condition, body, elseBranch };
+  }
+
+  private tryStatement(): any {
+    this.consume('KEYWORD', 'try');
+    const tryBlock = this.block();
+    
+    const handlers: any[] = [];
+    while (this.match('KEYWORD', 'except')) {
+      let exceptionType: string | undefined = undefined;
+      let varName: string | undefined = undefined;
+      
+      if (!this.check('PUNCTUATION', ':')) {
+        exceptionType = this.consume('IDENTIFIER').value;
+        if (this.match('KEYWORD', 'as')) {
+          varName = this.consume('IDENTIFIER').value;
+        }
+      }
+      
+      const handlerBody = this.block();
+      handlers.push({ type: 'ExceptionHandler', exceptionType, varName, body: handlerBody });
+    }
+    
+    let finallyBlock: Block | undefined = undefined;
+    while (this.match('PUNCTUATION', ';')) { }
+    if (this.match('KEYWORD', 'finally')) {
+      finallyBlock = this.block();
+    }
+    
+    return { id: generateId(), type: 'Try', body: tryBlock, handlers, finallyBlock };
   }
 
   private forStatement(): For {
@@ -241,7 +311,24 @@ export class Parser {
 
   // --- Expressions ---
 
-  private expression(): Expression { return this.logicOr(); }
+  private expression(): Expression {
+    // Handle tuple/sequence (comma-separated expressions)
+    const first = this.logicOr();
+    if (this.check('PUNCTUATION', ',') && !this.checkNext('PUNCTUATION', ';') && !this.checkNext('PUNCTUATION', ')') && !this.checkNext('PUNCTUATION', ']')) {
+      const elements: Expression[] = [first];
+      while (this.match('PUNCTUATION', ',')) {
+        // Stop if we hit end of tuple (semicolon, paren, etc)
+        if (this.check('PUNCTUATION', ';') || this.check('PUNCTUATION', ')') || this.check('PUNCTUATION', ']') || this.isAtEnd()) {
+          break;
+        }
+        elements.push(this.logicOr());
+      }
+      if (elements.length > 1) {
+        return { id: generateId(), type: 'ArrayLiteral', elements } as any;
+      }
+    }
+    return first;
+  }
 
   private logicOr(): Expression {
     let left = this.logicAnd();
@@ -377,9 +464,29 @@ export class Parser {
     if (this.match('IDENTIFIER')) return { id: generateId(), type: 'Identifier', name: this.previous().value };
 
     if (this.match('PUNCTUATION', '[')) {
-      const elements: Expression[] = [];
-      if (!this.check('PUNCTUATION', ']')) {
-        do { elements.push(this.expression()); } while (this.match('PUNCTUATION', ','));
+      // Check for empty list or list comprehension
+      if (this.check('PUNCTUATION', ']')) {
+        this.advance();
+        return { id: generateId(), type: 'ArrayLiteral', elements: [] };
+      }
+      
+      const firstExpr = this.expression();
+      
+      // Check for list comprehension: [expr for var in iterable]
+      if (this.check('KEYWORD', 'for')) {
+        this.advance(); // consume 'for'
+        const varName = this.consume('IDENTIFIER').value;
+        this.consume('KEYWORD', 'in');
+        const iterable = this.expression();
+        this.consume('PUNCTUATION', ']');
+        return { id: generateId(), type: 'ListComprehension', element: firstExpr, variable: varName, iterable } as any;
+      }
+      
+      // Regular list literal
+      const elements: Expression[] = [firstExpr];
+      while (this.match('PUNCTUATION', ',')) {
+        if (this.check('PUNCTUATION', ']')) break;
+        elements.push(this.expression());
       }
       this.consume('PUNCTUATION', ']');
       return { id: generateId(), type: 'ArrayLiteral', elements };

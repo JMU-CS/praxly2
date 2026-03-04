@@ -225,6 +225,26 @@ export class PraxisEmitter extends ASTVisitor {
 
     visitExpressionStatement(stmt: any): void { this.emit(this.generateExpression(stmt.expression, 0)); }
 
+    visitTry(stmt: any): void {
+        this.emit('try');
+        this.indent(); this.visitBlock(stmt.body); this.dedent();
+        
+        stmt.handlers.forEach((handler: any) => {
+            if (handler.exceptionType) {
+                this.emit(`catch ${handler.exceptionType}${handler.varName ? ` as ${handler.varName}` : ''}`);
+            } else {
+                this.emit(`catch`);
+            }
+            this.indent(); this.visitBlock(handler.body); this.dedent();
+        });
+        
+        if (stmt.finallyBlock) {
+            this.emit('finally');
+            this.indent(); this.visitBlock(stmt.finallyBlock); this.dedent();
+        }
+        this.emit('end try');
+    }
+
     generateExpression(expr: Expression, parentPrecedence: number): string {
         let output = '';
         let currentPrecedence = 99;
