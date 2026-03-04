@@ -83,6 +83,14 @@ export class PraxisEmitter extends ASTVisitor {
             initVal = initVal.replace(/^new \w+\[\] /, '');
             if (initVal.startsWith('[') && initVal.endsWith(']')) { initVal = '{' + initVal.slice(1, -1) + '}'; }
         }
+        
+        // Handle member expression assignments
+        if (stmt.isMemberAssignment && stmt.memberExpr) {
+            const targetStr = this.generateExpression(stmt.memberExpr, 0);
+            this.emit(`${targetStr} <- ${rVal}`);
+            return;
+        }
+        
         const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
         if (stmt.varType) {
             this.emit(`${stmt.varType} ${targetStr} <- ${initVal}`);
@@ -135,6 +143,37 @@ export class PraxisEmitter extends ASTVisitor {
         this.emit(`while (${this.generateExpression(stmt.condition, 0)})`);
         this.indent(); this.context.symbolTable.enterScope(); this.visitBlock(stmt.body); this.context.symbolTable.exitScope(); this.dedent();
         this.emit('end while');
+    }
+
+    visitDoWhile(stmt: any): void {
+        this.emit(`do`);
+        this.indent(); this.context.symbolTable.enterScope(); this.visitBlock(stmt.body); this.context.symbolTable.exitScope(); this.dedent();
+        this.emit(`while (${this.generateExpression(stmt.condition, 0)})`);
+    }
+
+    visitSwitch(stmt: any): void {
+        this.emit(`switch (${this.generateExpression(stmt.discriminant, 0)})`);
+        this.indent();
+        stmt.cases.forEach((caseStmt: any) => {
+            if (caseStmt.test) {
+                this.emit(`case ${this.generateExpression(caseStmt.test, 0)}:`);
+            } else {
+                this.emit(`default:`);
+            }
+            this.indent();
+            caseStmt.consequent.forEach((s: any) => this.visitStatement(s));
+            this.dedent();
+        });
+        this.dedent();
+        this.emit('end switch');
+    }
+
+    visitBreak(_stmt: any): void {
+        this.emit('break');
+    }
+
+    visitContinue(_stmt: any): void {
+        this.emit('continue');
     }
 
     visitFor(stmt: any): void {
@@ -235,6 +274,15 @@ export class PraxisEmitter extends ASTVisitor {
                 currentPrecedence = Precedence.Unary;
                 let op = expr.operator === '!' || expr.operator === 'not' ? 'not ' : expr.operator;
                 output = `${op}${this.generateExpression(expr.argument, currentPrecedence)}`;
+                break;
+            case 'UpdateExpression':
+                // Praxis doesn't have ++, convert to += 1
+                const argStr = this.generateExpression((expr as any).argument, Precedence.Unary);
+                if ((expr as any).operator === '++') {
+                    output = `${argStr}++`;
+                } else {
+                    output = `${argStr}--`;
+                }
                 break;
             case 'CallExpression':
                 currentPrecedence = Precedence.Call;

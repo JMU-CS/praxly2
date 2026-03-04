@@ -1,5 +1,5 @@
 import { ASTVisitor, Precedence, SymbolTable } from '../visitor';
-import type { Program, ClassDeclaration, FieldDeclaration, Constructor, MethodDeclaration, Block, For, Expression } from '../ast';
+import type { Program, Statement, ClassDeclaration, FieldDeclaration, Constructor, MethodDeclaration, Block, For, Expression } from '../ast';
 
 export class JavaEmitter extends ASTVisitor {
     visitProgram(program: Program): void {
@@ -115,6 +115,13 @@ export class JavaEmitter extends ASTVisitor {
             initVal = initVal.replace(/^new \w+\[\] /, '');
         }
 
+        // Handle member expression assignments (e.g., this.count = value)
+        if (stmt.isMemberAssignment && stmt.memberExpr) {
+            const targetStr = this.generateExpression(stmt.memberExpr, 0);
+            this.emit(`${targetStr} = ${rVal};`);
+            return;
+        }
+
         const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
 
         if (stmt.varType) {
@@ -175,6 +182,45 @@ export class JavaEmitter extends ASTVisitor {
         this.context.symbolTable.exitScope();
         this.dedent();
         this.emit('}');
+    }
+
+    visitDoWhile(stmt: any): void {
+        this.emit(`do {`);
+        this.indent();
+        this.context.symbolTable.enterScope();
+        this.visitBlock(stmt.body);
+        this.context.symbolTable.exitScope();
+        this.dedent();
+        this.emit(`} while (${this.generateExpression(stmt.condition, 0)});`);
+    }
+
+    visitSwitch(stmt: any): void {
+        this.emit(`switch (${this.generateExpression(stmt.discriminant, 0)}) {`);
+        this.indent();
+        this.context.symbolTable.enterScope();
+        
+        stmt.cases.forEach((caseStmt: any) => {
+            if (caseStmt.test) {
+                this.emit(`case ${this.generateExpression(caseStmt.test, 0)}:`);
+            } else {
+                this.emit(`default:`);
+            }
+            this.indent();
+            caseStmt.consequent.forEach((s: Statement) => this.visitStatement(s));
+            this.dedent();
+        });
+        
+        this.context.symbolTable.exitScope();
+        this.dedent();
+        this.emit('}');
+    }
+
+    visitBreak(_stmt: any): void {
+        this.emit('break;');
+    }
+
+    visitContinue(_stmt: any): void {
+        this.emit('continue;');
     }
 
     visitFor(stmt: For): void {
@@ -322,6 +368,15 @@ export class JavaEmitter extends ASTVisitor {
                 output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
                 break;
             case 'BinaryExpression':
+                // Handle power operator specially
+                if (expr.operator === '**') {
+                    currentPrecedence = Precedence.Exponential;
+                    const base = this.generateExpression(expr.left, currentPrecedence);
+                    const exponent = this.generateExpression(expr.right, currentPrecedence);
+                    output = `Math.pow(${base}, ${exponent})`;
+                    break;
+                }
+                
                 const opMap: Record<string, { op: string, prec: number }> = {
                     'or': { op: '||', prec: Precedence.LogicalOr }, 'and': { op: '&&', prec: Precedence.LogicalAnd },
                     '==': { op: '==', prec: Precedence.Equality }, '!=': { op: '!=', prec: Precedence.Equality },
@@ -339,6 +394,15 @@ export class JavaEmitter extends ASTVisitor {
                 currentPrecedence = Precedence.Unary;
                 let op = expr.operator === 'not' ? '!' : expr.operator;
                 output = `${op}${this.generateExpression(expr.argument, currentPrecedence)}`;
+                break;
+            case 'UpdateExpression':
+                currentPrecedence = Precedence.Unary;
+                const argStr = this.generateExpression((expr as any).argument, currentPrecedence);
+                if ((expr as any).prefix) {
+                    output = `${(expr as any).operator}${argStr}`;
+                } else {
+                    output = `${argStr}${(expr as any).operator}`;
+                }
                 break;
             case 'CallExpression':
                 currentPrecedence = Precedence.Call;

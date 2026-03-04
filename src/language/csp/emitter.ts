@@ -67,7 +67,15 @@ export class CSPEmitter extends ASTVisitor {
     }
 
     visitAssignment(stmt: any): void {
-        const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
+        let targetStr = stmt.name;
+        
+        // Handle member expression assignments
+        if (stmt.isMemberAssignment && stmt.memberExpr) {
+            targetStr = this.generateExpression(stmt.memberExpr, 0);
+        } else if (stmt.target) {
+            targetStr = this.generateExpression(stmt.target, 0);
+        }
+        
         this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`);
     }
 
@@ -93,6 +101,39 @@ export class CSPEmitter extends ASTVisitor {
     visitWhile(stmt: any): void {
         this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`);
         this.emit('{'); this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
+    }
+
+    visitDoWhile(stmt: any): void {
+        this.emit('{'); this.indent();
+        this.visitBlock(stmt.body);
+        this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`);
+        this.emit('{]}');
+        this.dedent(); this.emit('}');
+    }
+
+    visitSwitch(stmt: any): void {
+        // CSP doesn't have switch, implement as nested IF statements
+        let first = true;
+        stmt.cases.forEach((caseStmt: any, _index: number) => {
+            if (caseStmt.test) {
+                const keyword = first ? 'IF' : 'ELSE IF';
+                this.emit(`${keyword} <expr> = ${this.generateExpression(caseStmt.test, 0)}`);
+                first = false;
+            } else {
+                this.emit(`ELSE`);
+            }
+            this.emit('{'); this.indent();
+            caseStmt.consequent.forEach((s: any) => this.visitStatement(s));
+            this.dedent(); this.emit('}');
+        });
+    }
+
+    visitBreak(_stmt: any): void {
+        this.emit('// BREAK');
+    }
+
+    visitContinue(_stmt: any): void {
+        this.emit('// CONTINUE');
     }
 
     visitFor(stmt: any): void {
@@ -174,6 +215,15 @@ export class CSPEmitter extends ASTVisitor {
                 currentPrecedence = Precedence.Unary;
                 let op = expr.operator === '!' || expr.operator === 'not' ? 'NOT ' : expr.operator;
                 output = `${op}${this.generateExpression(expr.argument, currentPrecedence)}`;
+                break;
+            case 'UpdateExpression':
+                // CSP doesn't have ++, convert to += 1
+                const argStr = this.generateExpression((expr as any).argument, Precedence.Unary);
+                if ((expr as any).operator === '++') {
+                    output = `${argStr} <- ${argStr} + 1`;
+                } else {
+                    output = `${argStr} <- ${argStr} - 1`;
+                }
                 break;
             case 'CallExpression':
                 currentPrecedence = Precedence.Call;

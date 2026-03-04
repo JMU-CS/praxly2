@@ -155,16 +155,25 @@ export class JavaParser {
   private statement(): Statement {
     if (this.check('KEYWORD', 'if')) return this.ifStatement();
     if (this.check('KEYWORD', 'while')) return this.whileStatement();
+    if (this.check('KEYWORD', 'do')) return this.doWhileStatement();
+    if (this.check('KEYWORD', 'switch')) return this.switchStatement();
     if (this.check('KEYWORD', 'for')) return this.forStatement();
+    if (this.check('KEYWORD', 'break')) return this.breakStatement();
+    if (this.check('KEYWORD', 'continue')) return this.continueStatement();
     if (this.check('KEYWORD', 'return')) return this.returnStatement();
 
     // Fix: System is now an IDENTIFIER in Lexer
     if (this.check('IDENTIFIER', 'System')) return this.printStatement();
 
     if (this.isTypeStart()) {
+      let typeStr = this.peek().value;
       this.advance();
       // Handle array types (e.g., String[] arr)
-      while (this.check('PUNCTUATION', '[')) { this.advance(); this.consume('PUNCTUATION', ']'); }
+      while (this.check('PUNCTUATION', '[')) { 
+        this.advance(); 
+        this.consume('PUNCTUATION', ']'); 
+        typeStr += '[]';
+      }
 
       const name = this.consume('IDENTIFIER').value;
       let value: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
@@ -172,33 +181,56 @@ export class JavaParser {
       if (this.match('OPERATOR', '=')) {
         value = this.expression();
       }
-      this.consume('PUNCTUATION', ';');
-      return { id: generateId(), type: 'Assignment', name, value };
+      if (!this.isAtEnd() && this.check('PUNCTUATION', ';')) this.advance();
+      return { id: generateId(), type: 'Assignment', name, value, varType: typeStr };
     }
 
     if (this.check('IDENTIFIER')) {
+      // Check for simple assignment: identifier = expression
       if (this.checkNext('OPERATOR', '=')) {
         const name = this.consume('IDENTIFIER').value;
         this.consume('OPERATOR', '=');
         const value = this.expression();
-        this.consume('PUNCTUATION', ';');
+        if (!this.isAtEnd() && this.check('PUNCTUATION', ';')) this.advance();
         return { id: generateId(), type: 'Assignment', name, value };
       }
+      // Check for type declarations: identifier identifier (e.g., "String name", "int x")
+      // NOT for: this.xxx, obj.xxx, or other member accesses
       else if (this.checkNext('IDENTIFIER')) {
-        this.advance();
-        if (this.check('PUNCTUATION', '[')) { this.advance(); this.consume('PUNCTUATION', ']'); }
-        const name = this.consume('IDENTIFIER').value;
-        let value: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
-        if (this.match('OPERATOR', '=')) {
-          value = this.expression();
+        // Peek two positions ahead to check if there's a dot after the next identifier
+        const hasDotAfterNext = this.current + 2 < this.tokens.length && this.tokens[this.current + 2].value === '.';
+        
+        if (!hasDotAfterNext) {
+          const firstId = this.peek().value;
+          // Check if this looks like a type
+          const isTypeKeyword = ['String', 'Object', 'Integer', 'Double', 'Boolean', 'Float', 'Long', 'Char'].includes(firstId);
+          const startsUppercase = firstId[0] === firstId[0].toUpperCase() && firstId !== 'this';
+          
+          if (isTypeKeyword || startsUppercase) {
+            let typeStr = this.consume('IDENTIFIER').value;
+            if (this.check('PUNCTUATION', '[')) { this.advance(); this.consume('PUNCTUATION', ']'); typeStr += '[]'; }
+            const name = this.consume('IDENTIFIER').value;
+            let value: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
+            if (this.match('OPERATOR', '=')) {
+              value = this.expression();
+            }
+            if (!this.isAtEnd() && this.check('PUNCTUATION', ';')) this.advance();
+            return { id: generateId(), type: 'Assignment', name, value, varType: typeStr };
+          }
         }
-        this.consume('PUNCTUATION', ';');
-        return { id: generateId(), type: 'Assignment', name, value };
       }
     }
 
     const expr = this.expression();
-    this.consume('PUNCTUATION', ';');
+    if (!this.isAtEnd()) {
+      this.consume('PUNCTUATION', ';');
+    }
+    
+    // If the expression is an assignment, return it as an Assignment statement
+    if ((expr as any).type === 'Assignment') {
+      return (expr as any) as Statement;
+    }
+    
     return { id: generateId(), type: 'ExpressionStatement', expression: expr };
   }
 
@@ -230,7 +262,14 @@ export class JavaParser {
     const thenBranch = this.block();
     let elseBranch: Block | undefined = undefined;
     if (this.match('KEYWORD', 'else')) {
-      elseBranch = this.block();
+      if (this.check('KEYWORD', 'if')) {
+        // Handle else if as nested If statement wrapped in a block
+        const elifStatement = this.ifStatement();
+        elseBranch = { id: generateId(), type: 'Block', body: [elifStatement] };
+      } else {
+        // Handle regular else block
+        elseBranch = this.block();
+      }
     }
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
   }
@@ -244,16 +283,152 @@ export class JavaParser {
     return { id: generateId(), type: 'While', condition, body };
   }
 
+  private doWhileStatement(): any {
+    this.consume('KEYWORD', 'do');
+    const body = this.block();
+    this.consume('KEYWORD', 'while');
+    this.consume('PUNCTUATION', '(');
+    const condition = this.expression();
+    this.consume('PUNCTUATION', ')');
+    this.consume('PUNCTUATION', ';');
+    return { id: generateId(), type: 'DoWhile', body, condition };
+  }
+
+  private switchStatement(): any {
+    this.consume('KEYWORD', 'switch');
+    this.consume('PUNCTUATION', '(');
+    const discriminant = this.expression();
+    this.consume('PUNCTUATION', ')');
+    this.consume('PUNCTUATION', '{');
+    const cases: any[] = [];
+    
+    while (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) {
+      if (this.match('KEYWORD', 'case')) {
+        const test = this.expression();
+        this.consume('PUNCTUATION', ':');
+        const consequent: Statement[] = [];
+        while (!this.check('KEYWORD', 'case') && !this.check('KEYWORD', 'default') && !this.check('PUNCTUATION', '}')) {
+          consequent.push(this.statement());
+        }
+        cases.push({ id: generateId(), type: 'SwitchCase', test, consequent });
+      } else if (this.match('KEYWORD', 'default')) {
+        this.consume('PUNCTUATION', ':');
+        const consequent: Statement[] = [];
+        while (!this.check('KEYWORD', 'case') && !this.check('KEYWORD', 'default') && !this.check('PUNCTUATION', '}')) {
+          consequent.push(this.statement());
+        }
+        cases.push({ id: generateId(), type: 'SwitchCase', consequent });
+      }
+    }
+    
+    this.consume('PUNCTUATION', '}');
+    return { id: generateId(), type: 'Switch', discriminant, cases };
+  }
+
+  private breakStatement(): any {
+    this.consume('KEYWORD', 'break');
+    this.consume('PUNCTUATION', ';');
+    return { id: generateId(), type: 'Break' };
+  }
+
+  private continueStatement(): any {
+    this.consume('KEYWORD', 'continue');
+    this.consume('PUNCTUATION', ';');
+    return { id: generateId(), type: 'Continue' };
+  }
+
   private forStatement(): For {
     this.consume('KEYWORD', 'for');
     this.consume('PUNCTUATION', '(');
-    this.advance();
-    const variable = this.consume('IDENTIFIER').value;
-    this.consume('PUNCTUATION', ':');
-    const iterable = this.expression();
+    
+    // Try to parse as C-style for loop first
+    let init: Statement | undefined = undefined;
+    let condition: Expression | undefined = undefined;
+    let update: Statement | undefined = undefined;
+    let variable = '';
+    let iterable: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
+    
+    // Check if it's a type declaration or variable
+    if (this.isTypeStart()) {
+      this.advance();
+      const varName = this.consume('IDENTIFIER').value;
+      
+      if (this.check('OPERATOR', '=')) {
+        // C-style: int i = 0;
+        this.consume('OPERATOR', '=');
+        const value = this.expression();
+        init = { id: generateId(), type: 'Assignment', name: varName, value };
+        this.consume('PUNCTUATION', ';');
+        condition = this.expression();
+        this.consume('PUNCTUATION', ';');
+        
+        // Parse update expression (could be i++, i = i + 1, etc.)
+        if (!this.check('PUNCTUATION', ')')) {
+          const updateExpr = this.expression();
+          update = { id: generateId(), type: 'ExpressionStatement', expression: updateExpr };
+        }
+        this.consume('PUNCTUATION', ')');
+        const body = this.block();
+        return { id: generateId(), type: 'For', variable: varName, iterable, body, init, condition, update };
+      } else if (this.check('PUNCTUATION', ':')) {
+        // For-each: int x : array
+        this.advance(); // consume ':'
+        iterable = this.expression();
+        this.consume('PUNCTUATION', ')');
+        const body = this.block();
+        return { id: generateId(), type: 'For', variable: varName, iterable, body };
+      }
+    } else if (this.check('IDENTIFIER')) {
+      // Could be for-each with already-declared type or C-style with expression
+      const varName = this.consume('IDENTIFIER').value;
+      
+      if (this.check('PUNCTUATION', ':')) {
+        // For-each: arr[item]
+        this.advance(); // consume ':'
+        iterable = this.expression();
+        this.consume('PUNCTUATION', ')');
+        const body = this.block();
+        return { id: generateId(), type: 'For', variable: varName, iterable, body };
+      } else if (this.check('OPERATOR', '=')) {
+        // C-style: i = 0;
+        this.consume('OPERATOR', '=');
+        const value = this.expression();
+        init = { id: generateId(), type: 'Assignment', name: varName, value };
+        this.consume('PUNCTUATION', ';');
+        condition = this.expression();
+        this.consume('PUNCTUATION', ';');
+        
+        if (!this.check('PUNCTUATION', ')')) {
+          const updateExpr = this.expression();
+          update = { id: generateId(), type: 'ExpressionStatement', expression: updateExpr };
+        }
+        this.consume('PUNCTUATION', ')');
+        const body = this.block();
+        return { id: generateId(), type: 'For', variable: varName, iterable, body, init, condition, update };
+      }
+    }
+    
+    // Default fallback - parse as expression-based for loop
+    if (!init && !this.check('PUNCTUATION', ';')) {
+      const expr = this.expression();
+      init = { id: generateId(), type: 'ExpressionStatement', expression: expr };
+    }
+    
+    this.consume('PUNCTUATION', ';');
+    
+    if (!this.check('PUNCTUATION', ';')) {
+      condition = this.expression();
+    }
+    this.consume('PUNCTUATION', ';');
+    
+    if (!this.check('PUNCTUATION', ')')) {
+      const updateExpr = this.expression();
+      update = { id: generateId(), type: 'ExpressionStatement', expression: updateExpr };
+    }
     this.consume('PUNCTUATION', ')');
+    
     const body = this.block();
-    return { id: generateId(), type: 'For', variable, iterable, body };
+    return { id: generateId(), type: 'For', variable, iterable, body, init, condition, update };
   }
 
   private returnStatement(): Return {
@@ -264,7 +439,42 @@ export class JavaParser {
     return { id: generateId(), type: 'Return', value };
   }
 
-  private expression(): Expression { return this.logicOr(); }
+  private expression(): Expression { return this.assignment(); }
+
+  private assignment(): Expression {
+    let left = this.logicOr();
+    
+    if (this.check('OPERATOR', '=', '+=', '-=', '*=', '/=', '%=')) {
+      const operator = this.peek().value;
+      this.advance();
+      const right = this.assignment(); // Right-associative
+      
+      // Convert compound assignments to binary expressions
+      if (operator === '+=') {
+        return { id: generateId(), type: 'BinaryExpression', left, operator: '+', right };
+      } else if (operator === '-=') {
+        return { id: generateId(), type: 'BinaryExpression', left, operator: '-', right };
+      } else if (operator === '*=') {
+        return { id: generateId(), type: 'BinaryExpression', left, operator: '*', right };
+      } else if (operator === '/=') {
+        return { id: generateId(), type: 'BinaryExpression', left, operator: '/', right };
+      } else if (operator === '%=') {
+        return { id: generateId(), type: 'BinaryExpression', left, operator: '%', right };
+      } else {
+        // Regular assignment (=) - return as any type since it's actually an Assignment node
+        let name = '';
+        if (left.type === 'Identifier') {
+          name = (left as any).name;
+        } else if (left.type === 'MemberExpression') {
+          // For member expressions like this.count, we need to preserve them
+          return { id: generateId(), type: 'Assignment', name: JSON.stringify(left), value: right, isMemberAssignment: true, memberExpr: left } as any;
+        }
+        return { id: generateId(), type: 'Assignment', name, value: right } as any;
+      }
+    }
+    
+    return left;
+  }
 
   private logicOr(): Expression {
     let left = this.logicAnd();
@@ -315,8 +525,18 @@ export class JavaParser {
   }
 
   private factor(): Expression {
-    let left = this.unary();
+    let left = this.exponent();
     while (this.match('OPERATOR', '*', '/', '%')) {
+      const operator = this.previous().value;
+      const right = this.exponent();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+    }
+    return left;
+  }
+
+  private exponent(): Expression {
+    let left = this.unary();
+    while (this.match('OPERATOR', '**')) {
       const operator = this.previous().value;
       const right = this.unary();
       left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
@@ -325,6 +545,12 @@ export class JavaParser {
   }
 
   private unary(): Expression {
+    // Prefix ++ and --
+    if (this.match('OPERATOR', '++', '--')) {
+      const operator = this.previous().value as '++' | '--';
+      const argument = this.unary();
+      return { id: generateId(), type: 'UpdateExpression', operator, argument, prefix: true };
+    }
     if (this.match('OPERATOR', '!', '-')) {
       let operator = this.previous().value;
       if (operator === '!') operator = 'not';
@@ -350,6 +576,21 @@ export class JavaParser {
 
   private postfix(): Expression {
     let expr = this.call();
+    
+    // Handle postfix ++ and --
+    if (this.match('OPERATOR', '++', '--')) {
+      const operator = this.previous().value as '++' | '--';
+      return { id: generateId(), type: 'UpdateExpression', operator, argument: expr, prefix: false };
+    }
+    
+    // Handle array access: expr[index]
+    while (this.match('PUNCTUATION', '[')) {
+      const index = this.expression();
+      this.consume('PUNCTUATION', ']');
+      expr = { id: generateId(), type: 'IndexExpression', object: expr, index };
+    }
+    
+    // Handle member access: expr.property
     while (this.match('PUNCTUATION', '.')) {
       const property = this.consume('IDENTIFIER').value;
       if (this.check('PUNCTUATION', '(')) {
@@ -397,6 +638,17 @@ export class JavaParser {
     if (this.match('KEYWORD', 'null')) return { id: generateId(), type: 'Literal', value: null, raw: 'null' };
     if (this.match('KEYWORD', 'this')) return { id: generateId(), type: 'Identifier', name: 'this' };
     if (this.match('IDENTIFIER')) return { id: generateId(), type: 'Identifier', name: this.previous().value };
+    if (this.match('PUNCTUATION', '{')) {
+      // Array literal: { ... }
+      const elements: Expression[] = [];
+      if (!this.check('PUNCTUATION', '}')) {
+        do {
+          elements.push(this.expression());
+        } while (this.match('PUNCTUATION', ','));
+      }
+      this.consume('PUNCTUATION', '}');
+      return { id: generateId(), type: 'ArrayLiteral', elements };
+    }
     if (this.match('PUNCTUATION', '(')) {
       const expr = this.expression();
       this.consume('PUNCTUATION', ')');

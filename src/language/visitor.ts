@@ -80,6 +80,10 @@ export abstract class ASTVisitor {
     abstract visitAssignment(stmt: any): void;
     abstract visitIf(stmt: any): void;
     abstract visitWhile(stmt: any): void;
+    abstract visitDoWhile(stmt: any): void;
+    abstract visitSwitch(stmt: any): void;
+    abstract visitBreak(stmt: any): void;
+    abstract visitContinue(stmt: any): void;
     abstract visitFor(stmt: any): void;
     abstract visitFunctionDeclaration(stmt: any): void;
     abstract visitReturn(stmt: any): void;
@@ -92,6 +96,10 @@ export abstract class ASTVisitor {
             case 'Assignment': this.visitAssignment(stmt); break;
             case 'If': this.visitIf(stmt); break;
             case 'While': this.visitWhile(stmt); break;
+            case 'DoWhile': this.visitDoWhile(stmt); break;
+            case 'Switch': this.visitSwitch(stmt); break;
+            case 'Break': this.visitBreak(stmt); break;
+            case 'Continue': this.visitContinue(stmt); break;
             case 'For': this.visitFor(stmt); break;
             case 'FunctionDeclaration': this.visitFunctionDeclaration(stmt); break;
             case 'Return': this.visitReturn(stmt); break;
@@ -100,8 +108,6 @@ export abstract class ASTVisitor {
             case 'FieldDeclaration': this.visitFieldDeclaration(stmt); break;
             case 'Constructor': this.visitConstructor(stmt); break;
             case 'MethodDeclaration': this.visitMethodDeclaration(stmt); break;
-            case 'Break': this.emit(this.breakStr); break;
-            case 'Continue': this.emit(this.continueStr); break;
         }
     }
 

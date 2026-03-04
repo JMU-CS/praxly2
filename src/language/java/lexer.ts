@@ -50,7 +50,7 @@ export class JavaLexer {
           value += this.input[this.pos++];
         }
         // Keywords including OOP-related keywords
-        const keywords = ['public', 'class', 'static', 'void', 'int', 'double', 'boolean', 'if', 'else', 'while', 'for', 'return', 'true', 'false', 'var', 'new', 'private', 'protected', 'extends', 'this', 'null', 'final', 'abstract', 'interface', 'implements', 'package', 'import', 'String', 'char', 'float', 'long'];
+        const keywords = ['public', 'class', 'static', 'void', 'int', 'double', 'boolean', 'if', 'else', 'while', 'for', 'do', 'return', 'true', 'false', 'var', 'new', 'private', 'protected', 'extends', 'this', 'null', 'final', 'abstract', 'interface', 'implements', 'package', 'import', 'String', 'char', 'float', 'long', 'switch', 'case', 'default', 'break'];
         const type = keywords.includes(value) ? 'KEYWORD' : 'IDENTIFIER';
         if (value === 'true' || value === 'false') tokens.push({ type: 'BOOLEAN', value, start });
         else tokens.push({ type, value, start });
@@ -66,6 +66,13 @@ export class JavaLexer {
         if (char === '|' && next === '|') { tokens.push({ type: 'OPERATOR', value: '||', start }); this.pos += 2; continue; }
         if (char === '<' && next === '=') { tokens.push({ type: 'OPERATOR', value: '<=', start }); this.pos += 2; continue; }
         if (char === '>' && next === '=') { tokens.push({ type: 'OPERATOR', value: '>=', start }); this.pos += 2; continue; }
+        if (char === '+' && next === '+') { tokens.push({ type: 'OPERATOR', value: '++', start }); this.pos += 2; continue; }
+        if (char === '-' && next === '-') { tokens.push({ type: 'OPERATOR', value: '--', start }); this.pos += 2; continue; }
+        if (char === '+' && next === '=') { tokens.push({ type: 'OPERATOR', value: '+=', start }); this.pos += 2; continue; }
+        if (char === '-' && next === '=') { tokens.push({ type: 'OPERATOR', value: '-=', start }); this.pos += 2; continue; }
+        if (char === '*' && next === '*') { tokens.push({ type: 'OPERATOR', value: '**', start }); this.pos += 2; continue; }
+        if (char === '*' && next === '=') { tokens.push({ type: 'OPERATOR', value: '*=', start }); this.pos += 2; continue; }
+        if (char === '/' && next === '=') { tokens.push({ type: 'OPERATOR', value: '/=', start }); this.pos += 2; continue; }
 
         tokens.push({ type: 'OPERATOR', value: char, start: this.pos++ });
         continue;

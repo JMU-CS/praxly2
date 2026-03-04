@@ -89,7 +89,11 @@ export class PythonEmitter extends ASTVisitor {
 
     visitAssignment(stmt: any): void {
         let target = stmt.name;
-        if (stmt.target) {
+        
+        // Handle member expression assignments (e.g., self.count = value)
+        if (stmt.isMemberAssignment && stmt.memberExpr) {
+            target = this.generateExpression(stmt.memberExpr, 0);
+        } else if (stmt.target) {
             target = this.generateExpression(stmt.target, 0);
         } else if (this.currentClassFields.has(target)) {
             target = `self.${target}`;
@@ -119,6 +123,41 @@ export class PythonEmitter extends ASTVisitor {
     visitWhile(stmt: any): void {
         this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`);
         this.indent(); this.visitBlock(stmt.body); this.dedent();
+    }
+
+    visitDoWhile(stmt: any): void {
+        // Python doesn't have do-while, implement as while True with break
+        this.emit(`while True:`);
+        this.indent(); 
+        this.visitBlock(stmt.body);
+        this.emit(`if not (${this.generateExpression(stmt.condition, 0)}): break`);
+        this.dedent();
+    }
+
+    visitSwitch(stmt: any): void {
+        // Python doesn't have switch, implement as if-elif-else
+        console.log(stmt);
+        let first = true;
+        stmt.cases.forEach((caseStmt: any, _index: number) => {
+            if (caseStmt.test) {
+                const keyword = first ? 'if' : 'elif';
+                this.emit(`${keyword} ${stmt.discriminant.name} == ${this.generateExpression(caseStmt.test, 0)}:`);
+                first = false;
+            } else {
+                this.emit(`else:`);
+            }
+            this.indent();
+            caseStmt.consequent.forEach((s: any) => this.visitStatement(s));
+            this.dedent();
+        });
+    }
+
+    visitBreak(_stmt: any): void {
+        this.emit('break');
+    }
+
+    visitContinue(_stmt: any): void {
+        this.emit('continue');
     }
 
     visitFor(stmt: For): void {
@@ -224,6 +263,15 @@ export class PythonEmitter extends ASTVisitor {
                 currentPrecedence = Precedence.Unary;
                 let op = (expr.operator === '!' || expr.operator === 'not') ? 'not ' : expr.operator;
                 output = `${op}${this.generateExpression(expr.argument, currentPrecedence)}`;
+                break;
+            case 'UpdateExpression':
+                // Python doesn't have ++ and --, convert to += and -=
+                const argStr = this.generateExpression((expr as any).argument, Precedence.Unary);
+                if ((expr as any).operator === '++') {
+                    output = `${argStr} = ${argStr} + 1`;
+                } else {
+                    output = `${argStr} = ${argStr} - 1`;
+                }
                 break;
             case 'CallExpression':
                 currentPrecedence = Precedence.Call;

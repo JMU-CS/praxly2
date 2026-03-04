@@ -1,6 +1,6 @@
 export type NodeType =
-  | 'Program' | 'Block' | 'Assignment' | 'Print' | 'If' | 'While' | 'For'
-  | 'FunctionDeclaration' | 'Return' | 'BinaryExpression' | 'UnaryExpression'
+  | 'Program' | 'Block' | 'Assignment' | 'Print' | 'If' | 'While' | 'DoWhile' | 'For' | 'Switch' | 'SwitchCase'
+  | 'FunctionDeclaration' | 'Return' | 'BinaryExpression' | 'UnaryExpression' | 'UpdateExpression'
   | 'Identifier' | 'Literal' | 'ArrayLiteral' | 'CallExpression' | 'ExpressionStatement'
   | 'ClassDeclaration' | 'FieldDeclaration' | 'Constructor' | 'MethodDeclaration'
   | 'NewExpression' | 'MemberExpression' | 'ThisExpression' | 'Parameter' | 'IndexExpression'
@@ -23,7 +23,7 @@ export interface Block extends ASTNode {
 }
 
 export type Statement =
-  | Assignment | Print | If | While | For | FunctionDeclaration | Return | ExpressionStatement
+  | Assignment | Print | If | While | DoWhile | For | Switch | FunctionDeclaration | Return | ExpressionStatement
   | ClassDeclaration | FieldDeclaration | Constructor | MethodDeclaration
   | Break | Continue;
 
@@ -46,6 +46,8 @@ export interface Assignment extends ASTNode {
   target?: Expression;
   value: Expression;
   varType?: string;
+  isMemberAssignment?: boolean;
+  memberExpr?: Expression;
 }
 
 export interface Print extends ASTNode {
@@ -64,6 +66,24 @@ export interface While extends ASTNode {
   type: 'While';
   condition: Expression;
   body: Block;
+}
+
+export interface DoWhile extends ASTNode {
+  type: 'DoWhile';
+  body: Block;
+  condition: Expression;
+}
+
+export interface Switch extends ASTNode {
+  type: 'Switch';
+  discriminant: Expression;
+  cases: SwitchCase[];
+}
+
+export interface SwitchCase extends ASTNode {
+  type: 'SwitchCase';
+  test?: Expression;
+  consequent: Statement[];
 }
 
 export interface For extends ASTNode {
@@ -91,7 +111,7 @@ export interface Return extends ASTNode {
 }
 
 export type Expression =
-  | BinaryExpression | UnaryExpression | Identifier | Literal | ArrayLiteral | CallExpression
+  | BinaryExpression | UnaryExpression | UpdateExpression | Identifier | Literal | ArrayLiteral | CallExpression
   | NewExpression | MemberExpression | ThisExpression | IndexExpression;
 
 export interface BinaryExpression extends ASTNode {
@@ -105,6 +125,13 @@ export interface UnaryExpression extends ASTNode {
   type: 'UnaryExpression';
   operator: string;
   argument: Expression;
+}
+
+export interface UpdateExpression extends ASTNode {
+  type: 'UpdateExpression';
+  operator: '++' | '--';
+  argument: Expression;
+  prefix: boolean;
 }
 
 export interface CallExpression extends ASTNode {
