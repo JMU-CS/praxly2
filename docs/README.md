@@ -71,7 +71,7 @@ src/
 4. The Translator (`src/language/translator.ts`)
     - The Translator class converts the universal AST back into source code.
     - ASTVisitor: It uses an abstract ASTVisitor base class.
-    - Emitters: For each supported language, there is a specific Emitter class (e.g., PythonEmitter, JavaEmitter) that extends ASTVisitor.
+    - Emitters: For each supported language, there is a specific Emitter class (e.g., `src/language/python/emitter.ts`, `src/language/java/emitter.ts`) that extends ASTVisitor and handles code generation for that language.
     - Static Analysis: Before translating, the translator runs a lightweight analysis pass (analyze()) to infer types, build a symbol table, and resolve function return types. This is strictly necessary when translating from a dynamically typed language (like Python) to a statically typed language (like Java).
 
 5. The Editor UI (`src/pages/EditorPage.tsx`)
