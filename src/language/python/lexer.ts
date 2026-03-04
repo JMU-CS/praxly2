@@ -99,7 +99,7 @@ export class Lexer {
         continue;
       }
 
-      if (['+', '-', '*', '/', '=', '>', '<', '(', ')', '[', ']', '{', '}', ',', '.', ':', ';', '%'].includes(char)) {
+      if (['+', '-', '*', '/', '=', '>', '<', '!', '(', ')', '[', ']', '{', '}', ',', '.', ':', ';', '%'].includes(char)) {
         let value = char;
         // Dual operators
         if (p + 1 < line.length) {

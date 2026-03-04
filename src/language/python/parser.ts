@@ -86,7 +86,13 @@ export class Parser {
           while (this.match('PUNCTUATION', ';')) { }
           continue;
         }
-        statements.push(this.statement());
+        
+        // Handle function/method declarations inside blocks
+        if (this.check('KEYWORD', 'def')) {
+          statements.push(this.functionDeclaration());
+        } else {
+          statements.push(this.statement());
+        }
       }
       this.consume('PUNCTUATION', '}');
       return { id: generateId(), type: 'Block', body: statements };

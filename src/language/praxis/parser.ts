@@ -69,6 +69,12 @@ export class PraxisParser {
     }
 
     private isFunctionDeclaration(): boolean {
+        // Check for 'procedure' or 'function' keywords
+        if (this.check('KEYWORD', 'procedure') || this.check('KEYWORD', 'function')) {
+            return this.checkPeekAhead('IDENTIFIER', undefined, 1) &&
+                   this.checkPeekAhead('PUNCTUATION', '(', 2);
+        }
+        // Check for return type declarations
         if (!this.isTypeStart() && !this.check('KEYWORD', 'void')) return false;
         let offset = 1;
         while (this.checkPeekAhead('PUNCTUATION', '[', offset)) {
@@ -305,6 +311,11 @@ export class PraxisParser {
         let isCStyle = false;
         for (let i = this.current; i < this.tokens.length; i++) {
             const val = this.tokens[i].value;
+            // Check for 'in' keyword first - if found, it's an iterator loop
+            if (val.toLowerCase() === 'in') {
+                isCStyle = false;
+                break;
+            }
             if (val === ';' || val === 'do' || val === ')' || val === 'end') {
                 if (val === ';') isCStyle = true;
                 break;

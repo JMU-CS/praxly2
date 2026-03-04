@@ -67,8 +67,8 @@ export class PraxisLexer {
 
                 const keywords = [
                     'if', 'else', 'end', 'while', 'do', 'for', 'repeat', 'until',
-                    'return', 'print', 'and', 'or', 'not', 'true', 'false', 'mod',
-                    'class', 'extends', 'new', 'public', 'private', 'null',
+                    'return', 'print', 'and', 'or', 'not', 'true', 'false', 'mod', 'in',
+                    'class', 'extends', 'new', 'public', 'private', 'null', 'procedure', 'function',
                     'boolean', 'char', 'double', 'float', 'int', 'short', 'string', 'void'
                 ];
 

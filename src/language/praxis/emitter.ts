@@ -212,12 +212,10 @@ export class PraxisEmitter extends ASTVisitor {
 
     visitFunctionDeclaration(stmt: any): void {
         this.context.symbolTable.enterScope();
-        let returnType = stmt.returnType && stmt.returnType !== 'auto' ? stmt.returnType : 'procedure';
-        if (returnType === 'void') returnType = 'procedure';
 
         const params = stmt.params.map((p: any) => { const type = p.paramType && p.paramType !== 'auto' ? `${p.paramType} ` : ''; return `${type}${p.name}`; }).join(', ');
 
-        this.emit(`${returnType} ${stmt.name}(${params})`);
+        this.emit(`procedure ${stmt.name}(${params})`);
         this.indent(); this.visitBlock(stmt.body); this.dedent();
         this.emit(`end ${stmt.name}`);
         this.context.symbolTable.exitScope();
