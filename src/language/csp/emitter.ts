@@ -63,7 +63,7 @@ export class CSPEmitter extends ASTVisitor {
 
     visitPrint(stmt: any): void {
         const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
-        this.emit(`DISPLAY(${args.join(' + " " + ')})`);
+        this.emit(`DISPLAY(${args.join(' + " " + ')})`, stmt.id);
     }
 
     visitAssignment(stmt: any): void {
@@ -76,11 +76,11 @@ export class CSPEmitter extends ASTVisitor {
             targetStr = this.generateExpression(stmt.target, 0);
         }
         
-        this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`);
+        this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`, stmt.id);
     }
 
     visitIf(stmt: any): void {
-        this.emit(`IF (${this.generateExpression(stmt.condition, 0)})`);
+        this.emit(`IF (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
         this.emit('{'); this.indent(); this.visitBlock(stmt.thenBranch); this.dedent(); this.emit('}');
 
         let currentElse = stmt.elseBranch;
@@ -99,7 +99,7 @@ export class CSPEmitter extends ASTVisitor {
     }
 
     visitWhile(stmt: any): void {
-        this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`);
+        this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`, stmt.id);
         this.emit('{'); this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
     }
 
@@ -140,7 +140,7 @@ export class CSPEmitter extends ASTVisitor {
         if (stmt.init && stmt.condition && stmt.update) {
             this.context.symbolTable.enterScope();
             this.visitStatement(stmt.init);
-            this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`);
+            this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`, stmt.id);
             this.emit('{');
             this.indent();
             this.visitBlock(stmt.body);
@@ -149,7 +149,7 @@ export class CSPEmitter extends ASTVisitor {
             this.emit('}');
             this.context.symbolTable.exitScope();
         } else {
-            this.emit(`FOR EACH ${stmt.variable} IN ${this.generateExpression(stmt.iterable, 0)}`);
+            this.emit(`FOR EACH ${stmt.variable} IN ${this.generateExpression(stmt.iterable, 0)}`, stmt.id);
             this.emit('{'); this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
         }
     }
@@ -161,11 +161,11 @@ export class CSPEmitter extends ASTVisitor {
     }
 
     visitReturn(stmt: any): void {
-        this.emit(`RETURN ${stmt.value ? this.generateExpression(stmt.value, 0) : ''}`);
+        this.emit(`RETURN ${stmt.value ? this.generateExpression(stmt.value, 0) : ''}`, stmt.id);
     }
 
     visitExpressionStatement(stmt: any): void {
-        this.emit(this.generateExpression(stmt.expression, 0));
+        this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
     }
 
     visitTry(stmt: any): void {

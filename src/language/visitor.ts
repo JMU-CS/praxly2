@@ -53,6 +53,7 @@ export abstract class ASTVisitor {
     protected context: TranslationContext;
     protected breakStr = 'break;';
     protected continueStr = 'continue;';
+    protected sourceMap: SourceMap = new Map();
 
     constructor(context: TranslationContext) {
         this.context = context;
@@ -62,9 +63,18 @@ export abstract class ASTVisitor {
         return this.output.join('\n');
     }
 
-    protected emit(line: string) {
-        this.output.push('  '.repeat(this.indentLevel) + line);
+    getSourceMap(): SourceMap {
+        return this.sourceMap;
     }
+
+    protected emit(line: string, nodeId?: string) {
+        this.output.push('  '.repeat(this.indentLevel) + line);
+        // Map this line (0-based for CodeMirror) to the node ID
+        if (nodeId) {
+            this.sourceMap.set(nodeId, this.output.length - 1);
+        }
+    }
+
     protected indent() { this.indentLevel++; }
     protected dedent() { this.indentLevel--; }
 

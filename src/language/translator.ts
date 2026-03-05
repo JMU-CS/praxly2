@@ -1,13 +1,23 @@
 import type { Program, Statement, Expression, Block } from './ast';
-import { type TargetLanguage, type TranslationContext, SymbolTable, ASTVisitor } from './visitor';
+import { type TargetLanguage, type TranslationContext, type SourceMap, SymbolTable, ASTVisitor } from './visitor';
 
 import { JavaEmitter } from './java/emitter';
 import { CSPEmitter } from './csp/emitter';
 import { PythonEmitter } from './python/emitter';
 import { PraxisEmitter } from './praxis/emitter';
 
+export interface TranslationResult {
+    code: string;
+    sourceMap: SourceMap;
+}
+
 export class Translator {
     translate(program: Program, targetLang: TargetLanguage): string {
+        const result = this.translateWithMap(program, targetLang);
+        return result.code;
+    }
+
+    translateWithMap(program: Program, targetLang: TargetLanguage): TranslationResult {
         const context = this.analyze(program);
 
         let emitter: ASTVisitor;
@@ -20,7 +30,10 @@ export class Translator {
         }
 
         emitter.visitProgram(program);
-        return emitter.getGeneratedCode();
+        return {
+            code: emitter.getGeneratedCode(),
+            sourceMap: emitter.getSourceMap()
+        };
     }
 
     private analyze(program: Program): TranslationContext {

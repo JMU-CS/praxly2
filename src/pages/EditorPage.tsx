@@ -22,10 +22,12 @@ import { Debugger } from '../language/debugger';
 import type { Program } from '../language/ast';
 import { JSONTree } from '../components/JSONTree';
 import { OutputPanel } from '../components/OutputPanel';
+import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
 import { getCodeMirrorExtensions } from '../components/editorUtils';
 import type { SupportedLang } from '../components/LanguageSelector';
 import { encodeEmbed, generateEmbedHTML, copyToClipboard } from '../utils/embedCodec';
-import { getRangeLines } from '../utils/debuggerUtils';
+import { getRangeLines, findNodesAtLocation } from '../utils/debuggerUtils';
+import type { SourceMap } from '../language/visitor';
 
 const SAMPLE_CODE_PYTHON = `x = 10
 y = 5.5
@@ -105,6 +107,7 @@ interface Panel {
     id: string;
     lang: SupportedLang;
     width: number;
+    sourceMap: SourceMap;
 }
 
 export default function EditorPage() {
@@ -128,6 +131,7 @@ export default function EditorPage() {
     const [debuggerInstance, setDebuggerInstance] = useState<Debugger | null>(null);
     const [highlightedLines, setHighlightedLines] = useState<number[]>([]);
     const [currentVariables, setCurrentVariables] = useState<Record<string, any>>({});
+    const [panelHighlightedLines, setPanelHighlightedLines] = useState<Map<string, number[]>>(new Map());
 
     // Resizing State
     const [resizingIdx, setResizingIdx] = useState<number | 'editor' | 'output' | null>(null);
@@ -207,6 +211,18 @@ export default function EditorPage() {
         }
     }, [code, sourceLang, parseCode]);
 
+    // Update panel source maps when AST changes
+    useEffect(() => {
+        if (!ast || panels.length === 0) return;
+
+        setPanels(prev =>
+            prev.map(panel => {
+                const translation = getTranslation(panel.lang);
+                return { ...panel, sourceMap: translation.sourceMap };
+            })
+        );
+    }, [ast]);
+
     const handleRun = () => {
         setError(null);
         setOutput([]);
@@ -267,8 +283,28 @@ export default function EditorPage() {
                     step.sourceLocation.start
                 );
                 setHighlightedLines(linesToHighlight);
+
+                // Find AST nodes at this location and highlight corresponding lines in panels
+                const nodesAtLocation = findNodesAtLocation(ast!, step.sourceLocation.start);
+                const nodeIds = nodesAtLocation.map(n => n.id);
+
+                const newPanelHighlights = new Map<string, number[]>();
+                panels.forEach(panel => {
+                    const highlightedLines = new Set<number>();
+                    for (const nodeId of nodeIds) {
+                        const lineIndex = panel.sourceMap.get(nodeId);
+                        if (lineIndex !== undefined) {
+                            highlightedLines.add(lineIndex);
+                        }
+                    }
+                    if (highlightedLines.size > 0) {
+                        newPanelHighlights.set(panel.id, Array.from(highlightedLines));
+                    }
+                });
+                setPanelHighlightedLines(newPanelHighlights);
             } else {
                 setHighlightedLines([]);
+                setPanelHighlightedLines(new Map());
             }
 
             // Update output with step info
@@ -299,6 +335,7 @@ export default function EditorPage() {
         setIsDebugging(false);
         setDebuggerInstance(null);
         setHighlightedLines([]);
+        setPanelHighlightedLines(new Map());
         setIsDebugComplete(false);
         setCurrentVariables({});
         setOutput((prev) => [...prev, 'Debugger stopped.']);
@@ -324,15 +361,15 @@ export default function EditorPage() {
         }
     };
 
-    const getTranslation = (target: SupportedLang) => {
-        if (!ast) return "// Valid source code required...";
-        if (target === 'ast') return JSON.stringify(ast, null, 2);
+    const getTranslation = (target: SupportedLang): { code: string; sourceMap: SourceMap } => {
+        if (!ast) return { code: "// Valid source code required...", sourceMap: new Map() };
+        if (target === 'ast') return { code: JSON.stringify(ast, null, 2), sourceMap: new Map() };
 
         const translator = new Translator();
         try {
-            return translator.translate(ast, target as any);
+            return translator.translateWithMap(ast, target as any);
         } catch (e) {
-            return `// Translation to ${target} not available.`;
+            return { code: `// Translation to ${target} not available.`, sourceMap: new Map() };
         }
     };
 
@@ -348,7 +385,8 @@ export default function EditorPage() {
     // Panel Management
     const addPanel = (lang: SupportedLang) => {
         const id = window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(7);
-        setPanels([...panels, { id, lang, width: 350 }]);
+        const translation = getTranslation(lang);
+        setPanels([...panels, { id, lang, width: 350, sourceMap: translation.sourceMap }]);
         setShowAddMenu(false);
     };
 
@@ -480,7 +518,10 @@ export default function EditorPage() {
                                     extensions={getExtensions(sourceLang === 'ast' ? 'python' : sourceLang)}
                                     onChange={(val) => {
                                         setCode(val);
-                                        if (isDebugging) setHighlightedLines([]);
+                                        if (isDebugging) {
+                                            setHighlightedLines([]);
+                                            setPanelHighlightedLines(new Map());
+                                        }
                                     }}
                                     onCreateEditor={handleCreateEditor}
                                     className="text-sm h-full font-mono"
@@ -521,14 +562,11 @@ export default function EditorPage() {
                                                 {ast ? <JSONTree data={ast} /> : <div className="text-slate-700 text-center mt-10 italic">Valid code required...</div>}
                                             </div>
                                         ) : (
-                                            <CodeMirror
-                                                value={getTranslation(panel.lang)}
-                                                height="100%"
-                                                theme={vscodeDark}
-                                                extensions={getExtensions(panel.lang === 'python' ? 'python' : panel.lang)}
+                                            <HighlightableCodeMirror
+                                                value={getTranslation(panel.lang).code}
+                                                language={panel.lang}
+                                                highlightedLines={panelHighlightedLines.get(panel.id) || []}
                                                 readOnly={true}
-                                                editable={false}
-                                                className="text-[11px] h-full font-mono"
                                             />
                                         )}
                                     </div>

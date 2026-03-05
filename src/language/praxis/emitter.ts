@@ -73,7 +73,7 @@ export class PraxisEmitter extends ASTVisitor {
 
     visitPrint(stmt: any): void {
         const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
-        this.emit(`print(${args.join(', ')})`);
+        this.emit(`print(${args.join(', ')})`, stmt.id);
     }
 
     visitAssignment(stmt: any): void {
@@ -87,28 +87,28 @@ export class PraxisEmitter extends ASTVisitor {
         // Handle member expression assignments
         if (stmt.isMemberAssignment && stmt.memberExpr) {
             const targetStr = this.generateExpression(stmt.memberExpr, 0);
-            this.emit(`${targetStr} <- ${rVal}`);
+            this.emit(`${targetStr} <- ${rVal}`, stmt.id);
             return;
         }
         
         const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
         if (stmt.varType) {
-            this.emit(`${stmt.varType} ${targetStr} <- ${initVal}`);
+            this.emit(`${stmt.varType} ${targetStr} <- ${initVal}`, stmt.id);
             this.context.symbolTable.set(stmt.name, stmt.varType);
         } else if (stmt.target && stmt.target.type !== 'Identifier') {
-            this.emit(`${targetStr} <- ${rVal}`);
+            this.emit(`${targetStr} <- ${rVal}`, stmt.id);
         } else if (this.context.symbolTable.get(stmt.name) !== undefined) {
-            this.emit(`${targetStr} <- ${rVal}`);
+            this.emit(`${targetStr} <- ${rVal}`, stmt.id);
         } else {
             let type = this.inferType(stmt.value);
             if (type === 'var') type = 'int';
-            this.emit(`${type} ${targetStr} <- ${initVal}`);
+            this.emit(`${type} ${targetStr} <- ${initVal}`, stmt.id);
             this.context.symbolTable.set(stmt.name, type);
         }
     }
 
     visitIf(stmt: any): void {
-        this.emit(`if (${this.generateExpression(stmt.condition, 0)})`);
+        this.emit(`if (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
         this.indent();
         this.context.symbolTable.enterScope();
         this.visitBlock(stmt.thenBranch);
@@ -140,7 +140,7 @@ export class PraxisEmitter extends ASTVisitor {
     }
 
     visitWhile(stmt: any): void {
-        this.emit(`while (${this.generateExpression(stmt.condition, 0)})`);
+        this.emit(`while (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
         this.indent(); this.context.symbolTable.enterScope(); this.visitBlock(stmt.body); this.context.symbolTable.exitScope(); this.dedent();
         this.emit('end while');
     }
@@ -194,12 +194,12 @@ export class PraxisEmitter extends ASTVisitor {
                 updateCode = `${updateTarget} <- ${this.generateExpression(stmt.update.value, 0)}`;
             } else { updateCode = this.generateExpression(stmt.update.expression, 0); }
 
-            this.emit(`for (${initCode}; ${condCode}; ${updateCode})`);
+            this.emit(`for (${initCode}; ${condCode}; ${updateCode})`, stmt.id);
             this.indent(); this.visitBlock(stmt.body); this.dedent();
             this.emit('end for');
             this.context.symbolTable.exitScope();
         } else {
-            this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}`);
+            this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}`, stmt.id);
             this.indent();
             this.context.symbolTable.enterScope();
             this.context.symbolTable.set(stmt.variable, 'var');
@@ -221,9 +221,9 @@ export class PraxisEmitter extends ASTVisitor {
         this.context.symbolTable.exitScope();
     }
 
-    visitReturn(stmt: any): void { this.emit(`return ${stmt.value ? this.generateExpression(stmt.value, 0) : ''}`); }
+    visitReturn(stmt: any): void { this.emit(`return ${stmt.value ? this.generateExpression(stmt.value, 0) : ''}`, stmt.id); }
 
-    visitExpressionStatement(stmt: any): void { this.emit(this.generateExpression(stmt.expression, 0)); }
+    visitExpressionStatement(stmt: any): void { this.emit(this.generateExpression(stmt.expression, 0), stmt.id); }
 
     visitTry(stmt: any): void {
         this.emit('try');

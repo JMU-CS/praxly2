@@ -84,7 +84,7 @@ export class PythonEmitter extends ASTVisitor {
 
     visitPrint(stmt: any): void {
         const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
-        this.emit(`print(${args.join(', ')})`);
+        this.emit(`print(${args.join(', ')})`, stmt.id);
     }
 
     visitAssignment(stmt: any): void {
@@ -104,14 +104,14 @@ export class PythonEmitter extends ASTVisitor {
             // Recursively visit the nested assignment
             this.visitAssignment(stmt.value);
             // Also emit the current assignment
-            this.emit(`${target} = ${this.generateExpression(stmt.value.target, 0)}`);
+            this.emit(`${target} = ${this.generateExpression(stmt.value.target, 0)}`, stmt.id);
         } else {
-            this.emit(`${target} = ${this.generateExpression(stmt.value, 0)}`);
+            this.emit(`${target} = ${this.generateExpression(stmt.value, 0)}`, stmt.id);
         }
     }
 
     visitIf(stmt: any): void {
-        this.emit(`if ${this.generateExpression(stmt.condition, 0)}:`);
+        this.emit(`if ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
         this.indent(); this.visitBlock(stmt.thenBranch); this.dedent();
 
         let currentElse = stmt.elseBranch;
@@ -130,7 +130,7 @@ export class PythonEmitter extends ASTVisitor {
     }
 
     visitWhile(stmt: any): void {
-        this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`);
+        this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
         this.indent(); this.visitBlock(stmt.body); this.dedent();
         if (stmt.elseBranch) {
             this.emit(`else:`);
@@ -177,7 +177,7 @@ export class PythonEmitter extends ASTVisitor {
         if (stmt.init && stmt.condition && stmt.update) {
             this.context.symbolTable.enterScope();
             this.visitStatement(stmt.init);
-            this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`);
+            this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
             this.indent();
             this.visitBlock(stmt.body);
             this.visitStatement(stmt.update);
@@ -185,9 +185,9 @@ export class PythonEmitter extends ASTVisitor {
             this.context.symbolTable.exitScope();
         } else {
             if (stmt.variables && stmt.variables.length > 1) {
-                this.emit(`for ${stmt.variables.join(', ')} in ${this.generateExpression(stmt.iterable, 0)}:`);
+                this.emit(`for ${stmt.variables.join(', ')} in ${this.generateExpression(stmt.iterable, 0)}:`, stmt.id);
             } else {
-                this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}:`);
+                this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}:`, stmt.id);
             }
             this.indent(); this.visitBlock(stmt.body); this.dedent();
         }

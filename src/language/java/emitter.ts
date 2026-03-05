@@ -105,7 +105,7 @@ export class JavaEmitter extends ASTVisitor {
 
     visitPrint(stmt: any): void {
         const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
-        this.emit(`System.out.println(${args.join(' + " " + ')});`);
+        this.emit(`System.out.println(${args.join(' + " " + ')});`, stmt.id);
     }
 
     visitAssignment(stmt: any): void {
@@ -118,29 +118,29 @@ export class JavaEmitter extends ASTVisitor {
         // Handle member expression assignments (e.g., this.count = value)
         if (stmt.isMemberAssignment && stmt.memberExpr) {
             const targetStr = this.generateExpression(stmt.memberExpr, 0);
-            this.emit(`${targetStr} = ${rVal};`);
+            this.emit(`${targetStr} = ${rVal};`, stmt.id);
             return;
         }
 
         const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
 
         if (stmt.varType) {
-            this.emit(`${stmt.varType} ${targetStr} = ${initVal};`);
+            this.emit(`${stmt.varType} ${targetStr} = ${initVal};`, stmt.id);
             this.context.symbolTable.set(stmt.name, stmt.varType);
         } else if (stmt.target && stmt.target.type !== 'Identifier') {
-            this.emit(`${targetStr} = ${rVal};`);
+            this.emit(`${targetStr} = ${rVal};`, stmt.id);
         } else if (this.context.symbolTable.get(stmt.name) !== undefined) {
-            this.emit(`${targetStr} = ${rVal};`);
+            this.emit(`${targetStr} = ${rVal};`, stmt.id);
         } else {
             let type = this.inferType(stmt.value);
             if (type === 'var') type = 'Object';
-            this.emit(`${type} ${targetStr} = ${initVal};`);
+            this.emit(`${type} ${targetStr} = ${initVal};`, stmt.id);
             this.context.symbolTable.set(stmt.name, type);
         }
     }
 
     visitIf(stmt: any): void {
-        this.emit(`if (${this.generateExpression(stmt.condition, 0)}) {`);
+        this.emit(`if (${this.generateExpression(stmt.condition, 0)}) {`, stmt.id);
         this.indent();
         this.context.symbolTable.enterScope();
         this.visitBlock(stmt.thenBranch);
@@ -175,7 +175,7 @@ export class JavaEmitter extends ASTVisitor {
     }
 
     visitWhile(stmt: any): void {
-        this.emit(`while (${this.generateExpression(stmt.condition, 0)}) {`);
+        this.emit(`while (${this.generateExpression(stmt.condition, 0)}) {`, stmt.id);
         this.indent();
         this.context.symbolTable.enterScope();
         this.visitBlock(stmt.body);
@@ -300,7 +300,7 @@ export class JavaEmitter extends ASTVisitor {
                 updateCode = this.generateExpression((stmt.update as any).expression, 0);
             }
 
-            this.emit(`for (${initCode}; ${condCode}; ${updateCode}) {`);
+            this.emit(`for (${initCode}; ${condCode}; ${updateCode}) {`, stmt.id);
             this.indent();
             this.visitBlock(stmt.body);
             this.dedent();
@@ -313,7 +313,7 @@ export class JavaEmitter extends ASTVisitor {
             else if (args.length === 2) { start = this.generateExpression(args[0], 0); end = this.generateExpression(args[1], 0); }
             else if (args.length === 3) { start = this.generateExpression(args[0], 0); end = this.generateExpression(args[1], 0); step = this.generateExpression(args[2], 0); }
 
-            this.emit(`for (int ${stmt.variable} = ${start}; ${stmt.variable} < ${end}; ${stmt.variable} += ${step}) {`);
+            this.emit(`for (int ${stmt.variable} = ${start}; ${stmt.variable} < ${end}; ${stmt.variable} += ${step}) {`, stmt.id);
             this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
         } else if (stmt.variables && stmt.variables.length > 1 && stmt.iterable.type === 'CallExpression' && (stmt.iterable as any).callee.name === 'enumerate') {
             const arr = this.generateExpression((stmt.iterable as any).arguments[0], 0);
