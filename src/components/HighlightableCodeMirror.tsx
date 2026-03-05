@@ -3,7 +3,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { Decoration, EditorView } from '@codemirror/view';
 import { StateField, StateEffect, RangeSetBuilder } from '@codemirror/state';
-import { getCodeMirrorExtensions } from './editorUtils';
+import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import type { SupportedLang } from './LanguageSelector';
 
 interface HighlightableCodeMirrorProps {

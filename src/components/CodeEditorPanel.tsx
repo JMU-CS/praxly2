@@ -3,7 +3,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { ResizeHandle } from './ResizeHandle';
 import { LanguageSelector, type SupportedLang } from './LanguageSelector';
-import { getCodeMirrorExtensions } from './editorUtils';
+import { getCodeMirrorExtensions } from '../utils/editorUtils';
 
 interface CodeEditorPanelProps {
     value: string;

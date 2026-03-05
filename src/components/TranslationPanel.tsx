@@ -4,7 +4,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { ResizeHandle } from './ResizeHandle';
 import { type SupportedLang } from './LanguageSelector';
-import { getCodeMirrorExtensions, translateCode } from './editorUtils';
+import { getCodeMirrorExtensions, translateCode } from '../utils/editorUtils';
 import { JSONTree } from './JSONTree';
 import type { Program } from '../language/ast';
 

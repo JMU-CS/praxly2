@@ -23,52 +23,12 @@ import type { Program } from '../language/ast';
 import { JSONTree } from '../components/JSONTree';
 import { OutputPanel } from '../components/OutputPanel';
 import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
-import { getCodeMirrorExtensions } from '../components/editorUtils';
+import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import type { SupportedLang } from '../components/LanguageSelector';
 import { encodeEmbed, generateEmbedHTML, copyToClipboard } from '../utils/embedCodec';
 import { getRangeLines, findNodesAtLocation } from '../utils/debuggerUtils';
+import { SAMPLE_CODE_PYTHON, SAMPLE_CODE_JAVA, SAMPLE_CODE_CSP, SAMPLE_CODE_PRAXIS } from '../utils/sampleCodes';
 import type { SourceMap } from '../language/visitor';
-
-const SAMPLE_CODE_PYTHON = `x = 10
-y = 5.5
-name = "Praxly"
-
-def check(val):
-  if val > 8:
-    return True
-  else:
-    return False
-
-result = check(x)
-print(result)
-`;
-
-const SAMPLE_CODE_JAVA = `public class Main {
-  public static void main(String[] args) {
-    int x = 10;
-    System.out.println(x);
-  }
-}
-`;
-
-const SAMPLE_CODE_CSP = `x <- 10
-DISPLAY(x)
-IF (x > 5) {
-  DISPLAY("Big")
-}
-`;
-
-const SAMPLE_CODE_PRAXIS = `int newScore ( int diceOne, int diceTwo, int oldScore )
-  if ( diceOne == diceTwo )
-    return 0
-  else
-    if ( ( diceOne == 6 ) or ( diceTwo == 6 ) )
-      return oldScore
-    else
-      return oldScore + diceOne + diceTwo
-    end if
-  end if
-end newScore`
 
 // CodeMirror decoration helper
 const highlightLineDecoration = Decoration.line({
@@ -117,6 +77,7 @@ export default function EditorPage() {
     const [sourceLang, setSourceLang] = useState<SupportedLang>('praxis');
     const [error, setError] = useState<string | null>(null);
     const [showAddMenu, setShowAddMenu] = useState(false);
+    const [showSourceLangDropdown, setShowSourceLangDropdown] = useState(false);
     const [embedCopied, setEmbedCopied] = useState(false);
 
     // Width for the left-most source editor
@@ -440,6 +401,23 @@ export default function EditorPage() {
         };
     }, [resizingIdx]);
 
+    // Close source language dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest('.source-lang-dropdown')) {
+                setShowSourceLangDropdown(false);
+            }
+        };
+
+        if (showSourceLangDropdown) {
+            document.addEventListener('click', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [showSourceLangDropdown]);
+
     return (
         <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
             {/* Header */}
@@ -501,17 +479,22 @@ export default function EditorPage() {
                     >
                         <div className="flex-1 flex flex-col border-r border-slate-800 overflow-hidden">
                             <div className="h-10 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
-                                <div className="flex items-center relative group h-full">
-                                    <button className="flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors uppercase">
+                                <div className="flex items-center relative h-full source-lang-dropdown">
+                                    <button 
+                                        onClick={() => setShowSourceLangDropdown(!showSourceLangDropdown)}
+                                        className="flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors uppercase"
+                                    >
                                         {sourceLang === 'ast' ? 'AST VIEW' : sourceLang}
                                         <ChevronDown size={12} />
                                     </button>
-                                    <div className="absolute top-full left-0 w-40 bg-slate-800 border border-slate-700 hidden group-hover:block rounded-md shadow-xl overflow-hidden mt-1 z-[110]">
-                                        <button onClick={() => { setSourceLang('csp'); setCode(SAMPLE_CODE_CSP); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">CSP</button>
-                                        <button onClick={() => { setSourceLang('java'); setCode(SAMPLE_CODE_JAVA); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Java</button>
-                                        <button onClick={() => { setSourceLang('praxis'); setCode(SAMPLE_CODE_PRAXIS); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Praxis</button>
-                                        <button onClick={() => { setSourceLang('python'); setCode(SAMPLE_CODE_PYTHON); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Python</button>
-                                    </div>
+                                    {showSourceLangDropdown && (
+                                        <div className="absolute top-full left-0 w-40 bg-slate-800 border border-slate-700 rounded-md shadow-xl overflow-hidden mt-1 z-[110]">
+                                            <button onClick={() => { setSourceLang('csp'); setCode(SAMPLE_CODE_CSP); setShowSourceLangDropdown(false); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">CSP</button>
+                                            <button onClick={() => { setSourceLang('java'); setCode(SAMPLE_CODE_JAVA); setShowSourceLangDropdown(false); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Java</button>
+                                            <button onClick={() => { setSourceLang('praxis'); setCode(SAMPLE_CODE_PRAXIS); setShowSourceLangDropdown(false); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Praxis</button>
+                                            <button onClick={() => { setSourceLang('python'); setCode(SAMPLE_CODE_PYTHON); setShowSourceLangDropdown(false); }} className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors">Python</button>
+                                        </div>
+                                    )}
                                 </div>
                                 <span>SOURCE</span>
                             </div>
@@ -602,24 +585,32 @@ export default function EditorPage() {
                                         Open View
                                     </div>
                                     <div className="p-1">
-                                        {(['python', 'java', 'csp', 'ast', 'praxis'] as SupportedLang[]).map(l => (
-                                            <button
-                                                key={l}
-                                                onClick={() => addPanel(l)}
-                                                className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-xs text-slate-300 hover:bg-indigo-600 hover:text-white rounded-md transition-colors capitalize group"
-                                            >
-                                                {l === 'ast' ? <FileJson size={14} className="opacity-50 group-hover:opacity-100" /> : <Code size={14} className="opacity-50 group-hover:opacity-100" />}
-                                                {
+                                        {(['python', 'java', 'csp', 'ast', 'praxis'] as SupportedLang[]).map(l => {
+                                            const isSelected = panels.some(p => p.lang === l);
+                                            return (
+                                                <button
+                                                    key={l}
+                                                    onClick={() => !isSelected && addPanel(l)}
+                                                    disabled={isSelected}
+                                                    className={`flex items-center gap-3 w-full text-left px-3 py-2.5 text-xs rounded-md transition-colors capitalize group ${
+                                                        isSelected
+                                                            ? 'text-slate-600 cursor-not-allowed opacity-50'
+                                                            : 'text-slate-300 hover:bg-indigo-600 hover:text-white'
+                                                    }`}
+                                                >
+                                                    {l === 'ast' ? <FileJson size={14} className="opacity-50 group-hover:opacity-100" /> : <Code size={14} className="opacity-50 group-hover:opacity-100" />}
                                                     {
-                                                        'ast': 'AST',
-                                                        'csp': 'CSP',
-                                                        'java': 'Java',
-                                                        'praxis': 'Paxis',
-                                                        'python': 'Python',
-                                                    }[l] || l
-                                                }
-                                            </button>
-                                        ))}
+                                                        {
+                                                            'ast': 'AST',
+                                                            'csp': 'CSP',
+                                                            'java': 'Java',
+                                                            'praxis': 'Paxis',
+                                                            'python': 'Python',
+                                                        }[l] || l
+                                                    }
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
