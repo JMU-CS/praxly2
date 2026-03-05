@@ -487,14 +487,14 @@ export class Parser {
         return { id: generateId(), type: 'ArrayLiteral', elements: [] };
       }
       
-      const firstExpr = this.expression();
+      const firstExpr = this.logicOr();
       
       // Check for list comprehension: [expr for var in iterable]
       if (this.check('KEYWORD', 'for')) {
         this.advance(); // consume 'for'
         const varName = this.consume('IDENTIFIER').value;
         this.consume('KEYWORD', 'in');
-        const iterable = this.expression();
+        const iterable = this.logicOr();
         this.consume('PUNCTUATION', ']');
         return { id: generateId(), type: 'ListComprehension', element: firstExpr, variable: varName, iterable } as any;
       }
@@ -503,7 +503,7 @@ export class Parser {
       const elements: Expression[] = [firstExpr];
       while (this.match('PUNCTUATION', ',')) {
         if (this.check('PUNCTUATION', ']')) break;
-        elements.push(this.expression());
+        elements.push(this.logicOr());
       }
       this.consume('PUNCTUATION', ']');
       return { id: generateId(), type: 'ArrayLiteral', elements };

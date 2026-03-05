@@ -67,6 +67,28 @@ export class CSPEmitter extends ASTVisitor {
     }
 
     visitAssignment(stmt: any): void {
+        // Handle tuple unpacking: y, z = 4, 5
+        if (stmt.target && stmt.target.type === 'ArrayLiteral') {
+            const targets = stmt.target.elements;
+            const valueExpr = stmt.value;
+            
+            if (valueExpr.type === 'ArrayLiteral') {
+                // Both sides are arrays, unpack them
+                const values = valueExpr.elements;
+                for (let i = 0; i < targets.length; i++) {
+                    const target = targets[i];
+                    const value = values[i];
+                    
+                    if (target.type === 'Identifier') {
+                        const varName = target.name;
+                        const valStr = this.generateExpression(value, 0);
+                        this.emit(`${varName} <- ${valStr}`, stmt.id);
+                    }
+                }
+            }
+            return;
+        }
+
         let targetStr = stmt.name;
         
         // Handle member expression assignments
