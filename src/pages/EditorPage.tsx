@@ -604,7 +604,7 @@ export default function EditorPage() {
                                                             'ast': 'AST',
                                                             'csp': 'CSP',
                                                             'java': 'Java',
-                                                            'praxis': 'Paxis',
+                                                            'praxis': 'Praxis',
                                                             'python': 'Python',
                                                         }[l] || l
                                                     }
