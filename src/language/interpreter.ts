@@ -165,7 +165,8 @@ export class Interpreter {
                 const mainClass = this.classes.get('Main')!;
                 const mainMethod = mainClass.getMethod('main');
                 if (mainMethod) {
-                    yield* this.executeBlockGeneratorWithState([{ type: 'ExpressionStatement', expression: { type: 'CallExpression', callee: { type: 'Identifier', name: 'main' }, arguments: [] } } as any], this.globalEnv);
+                    // Execute the main method's body directly instead of synthesizing a call
+                    yield* this.executeBlockGeneratorWithState(mainMethod.body.body, this.globalEnv);
                 }
             }
         } catch (e: any) {
@@ -178,22 +179,113 @@ export class Interpreter {
         for (const stmt of statements) {
             this.currentEnv = env;
 
-            // Only yield steps for statements that have source location information
-            // This filters out synthetic statements like function parameters
-            if (stmt.loc) {
-                yield {
-                    nodeId: stmt.id,
-                    nodeType: stmt.type,
-                    loc: stmt.loc,
-                    variables: env.getAllVariables(),
-                };
-            }
+            // Handle control flow statements specially to yield steps for nested statements
+            if (stmt.type === 'If') {
+                const ifStmt = stmt as any;
+                // Yield the If statement itself
+                if (ifStmt.loc) {
+                    yield {
+                        nodeId: ifStmt.id,
+                        nodeType: ifStmt.type,
+                        loc: ifStmt.loc,
+                        variables: env.getAllVariables(),
+                    };
+                }
+                // Evaluate condition and execute appropriate branch
+                try {
+                    const truthy = this.evaluate(ifStmt.condition, env);
+                    if (truthy) {
+                        yield* this.executeBlockGeneratorWithState(ifStmt.thenBranch.body, env);
+                    } else if (ifStmt.elseBranch) {
+                        yield* this.executeBlockGeneratorWithState(ifStmt.elseBranch.body, env);
+                    }
+                } catch (e) {
+                    if (e instanceof ReturnException) throw e;
+                    throw e;
+                }
+            } else if (stmt.type === 'While') {
+                const whileStmt = stmt as any;
+                while (true) {
+                    // Yield the While statement itself for each iteration
+                    if (whileStmt.loc) {
+                        yield {
+                            nodeId: whileStmt.id,
+                            nodeType: whileStmt.type,
+                            loc: whileStmt.loc,
+                            variables: env.getAllVariables(),
+                        };
+                    }
+                    try {
+                        const condition = this.evaluate(whileStmt.condition, env);
+                        if (!condition) break;
+                        yield* this.executeBlockGeneratorWithState(whileStmt.body.body, env);
+                    } catch (e) {
+                        if (e instanceof ReturnException) throw e;
+                        throw e;
+                    }
+                }
+            } else if (stmt.type === 'For') {
+                const forStmt = stmt as any;
+                try {
+                    if (forStmt.init && forStmt.condition && forStmt.update) {
+                        // C-Style for loop
+                        this.execute(forStmt.init, env);
+                        while (true) {
+                            // Yield the For statement itself for each iteration
+                            if (forStmt.loc) {
+                                yield {
+                                    nodeId: forStmt.id,
+                                    nodeType: forStmt.type,
+                                    loc: forStmt.loc,
+                                    variables: env.getAllVariables(),
+                                };
+                            }
+                            const condition = this.evaluate(forStmt.condition, env);
+                            if (!condition) break;
+                            yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
+                            this.execute(forStmt.update, env);
+                        }
+                    } else {
+                        // For-each loop
+                        const iterable = this.evaluate(forStmt.iterable, env);
+                        if (!Array.isArray(iterable) && typeof iterable !== 'string') {
+                            throw new Error("For loop requires array or string");
+                        }
+                        for (const item of iterable) {
+                            env.define(forStmt.variable, item);
+                            // Yield the For statement itself for each iteration
+                            if (forStmt.loc) {
+                                yield {
+                                    nodeId: forStmt.id,
+                                    nodeType: forStmt.type,
+                                    loc: forStmt.loc,
+                                    variables: env.getAllVariables(),
+                                };
+                            }
+                            yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
+                        }
+                    }
+                } catch (e) {
+                    if (e instanceof ReturnException) throw e;
+                    throw e;
+                }
+            } else {
+                // For all other statements, yield them before executing
+                if (stmt.loc) {
+                    yield {
+                        nodeId: stmt.id,
+                        nodeType: stmt.type,
+                        loc: stmt.loc,
+                        variables: env.getAllVariables(),
+                    };
+                }
 
-            try {
-                this.execute(stmt, env);
-            } catch (e) {
-                if (e instanceof ReturnException) throw e;
-                throw e;
+                try {
+                    this.execute(stmt, env);
+                } catch (e) {
+                    if (e instanceof ReturnException) throw e;
+                    throw e;
+                }
             }
         }
     }

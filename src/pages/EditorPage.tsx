@@ -278,16 +278,21 @@ export default function EditorPage() {
 
             // Calculate which lines to highlight in source code
             if (step.sourceLocation) {
-                const linesToHighlight = getRangeLines(
-                    code,
-                    step.sourceLocation.start
-                );
-                setHighlightedLines(linesToHighlight);
-
-                // Find AST nodes at this location and highlight corresponding lines in panels
+                // Find all AST nodes at this location, including parent nodes
                 const nodesAtLocation = findNodesAtLocation(ast!, step.sourceLocation.start);
-                const nodeIds = nodesAtLocation.map(n => n.id);
+                
+                // For the source code pane, highlight lines for all nodes at this location
+                const sourceHighlightedLines = new Set<number>();
+                for (const node of nodesAtLocation) {
+                    if (node.loc) {
+                        const nodeLines = getRangeLines(code, node.loc.start);
+                        nodeLines.forEach(line => sourceHighlightedLines.add(line));
+                    }
+                }
+                setHighlightedLines(Array.from(sourceHighlightedLines));
 
+                // For translation panels, highlight corresponding lines using their source maps
+                const nodeIds = nodesAtLocation.map(n => n.id);
                 const newPanelHighlights = new Map<string, number[]>();
                 panels.forEach(panel => {
                     const highlightedLines = new Set<number>();

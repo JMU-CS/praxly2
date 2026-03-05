@@ -375,11 +375,11 @@ export class JavaEmitter extends ASTVisitor {
     }
 
     visitReturn(stmt: any): void {
-        this.emit(`return ${stmt.value ? this.generateExpression(stmt.value, 0) : ''};`);
+        this.emit(`return ${stmt.value ? this.generateExpression(stmt.value, 0) : ''};`, stmt.id);
     }
 
     visitExpressionStatement(stmt: any): void {
-        this.emit(`${this.generateExpression(stmt.expression, 0)};`);
+        this.emit(`${this.generateExpression(stmt.expression, 0)};`, stmt.id);
     }
 
     visitTry(stmt: any): void {
