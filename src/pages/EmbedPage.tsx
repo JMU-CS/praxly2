@@ -1,21 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Play, AlertCircle, FastForward, Square, ChevronDown } from 'lucide-react';
-import { Decoration, EditorView } from '@codemirror/view';
-import { StateField, StateEffect, RangeSetBuilder } from '@codemirror/state';
 
 import { decodeEmbed, encodeEmbed, type EmbedData } from '../utils/embedCodec';
-import { Lexer as PythonLexer } from '../language/python/lexer';
-import { Parser as PythonParser } from '../language/python/parser';
-import { JavaLexer } from '../language/java/lexer';
-import { JavaParser } from '../language/java/parser';
-import { CSPLexer } from '../language/csp/lexer';
-import { CSPParser } from '../language/csp/parser';
-import { PraxisLexer } from '../language/praxis/lexer';
-import { PraxisParser } from '../language/praxis/parser';
 import { Interpreter } from '../language/interpreter';
-import { Debugger } from '../language/debugger';
-import { Translator } from '../language/translator';
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';
 import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
@@ -23,40 +11,9 @@ import { JSONTree } from '../components/JSONTree';
 import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { getCodeMirrorExtensions } from '../utils/editorUtils';
-import { getRangeLines, findNodesAtLocation } from '../utils/debuggerUtils';
-
-// CodeMirror decoration helper
-const highlightLineDecoration = Decoration.line({
-    attributes: {
-        style: 'background-color: rgba(99, 102, 241, 0.25); border-left: 3px solid rgb(99, 102, 241);'
-    }
-});
-
-const highlightLinesEffect = StateEffect.define<number[]>();
-
-const highlightedLinesField = StateField.define({
-    create() {
-        return Decoration.none;
-    },
-    update(decorations: any, tr: any) {
-        for (const effect of tr.effects) {
-            if (effect.is(highlightLinesEffect)) {
-                const ranges = effect.value;
-                const builder = new RangeSetBuilder<Decoration>();
-                
-                for (const lineNum of ranges) {
-                    const line = tr.state.doc.line(lineNum + 1);
-                    if (line) {
-                        builder.add(line.from, line.from, highlightLineDecoration);
-                    }
-                }
-                return builder.finish();
-            }
-        }
-        return decorations.map(tr.changes);
-    },
-    provide: (f: any) => EditorView.decorations.from(f)
-});
+import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
+import { useCodeParsing } from '../hooks/useCodeParsing';
+import { useCodeDebugger } from '../hooks/useCodeDebugger';
 
 export default function EmbedPage() {
     const [searchParams] = useSearchParams();
@@ -75,13 +32,22 @@ export default function EmbedPage() {
     const [showTranslationMenu, setShowTranslationMenu] = useState(false);
     const [showAst, setShowAst] = useState(false);
     
-    // Debugging state
-    const [isDebugging, setIsDebugging] = useState(false);
-    const [isDebugComplete, setIsDebugComplete] = useState(false);
-    const [debuggerInstance, setDebuggerInstance] = useState<Debugger | null>(null);
-    const [highlightedSourceLines, setHighlightedSourceLines] = useState<number[]>([]);
-    const [highlightedTranslationLines, setHighlightedTranslationLines] = useState<number[]>([]);
-    const [currentVariables, setCurrentVariables] = useState<Record<string, any>>({});
+    // Get hooks for parsing and debugging
+    const { parseCode, getTranslation } = useCodeParsing();
+    const {
+        isDebugging,
+        setIsDebugging,
+        isDebugComplete,
+        setIsDebugComplete,
+        highlightedSourceLines,
+        setHighlightedSourceLines,
+        highlightedTranslationLines,
+        setHighlightedTranslationLines,
+        currentVariables,
+        initDebugger,
+        stepDebugger,
+        stopDebugger
+    } = useCodeDebugger(getTranslation);
     
     const editorViewRef = useRef<any>(null);
 
@@ -107,64 +73,23 @@ export default function EmbedPage() {
         if (!embedData) return;
 
         try {
-            let tokens;
-            let parser;
-            const input = embedData.code;
-
-            switch (embedData.lang) {
-                case 'java':
-                    tokens = new JavaLexer(input).tokenize();
-                    parser = new JavaParser(tokens);
-                    setAst(parser.parse());
-                    break;
-                case 'csp':
-                    tokens = new CSPLexer(input).tokenize();
-                    parser = new CSPParser(tokens);
-                    setAst(parser.parse());
-                    break;
-                case 'praxis':
-                    tokens = new PraxisLexer(input).tokenize();
-                    parser = new PraxisParser(tokens);
-                    setAst(parser.parse());
-                    break;
-                case 'python':
-                default:
-                    tokens = new PythonLexer(input).tokenize();
-                    parser = new PythonParser(tokens);
-                    setAst(parser.parse());
-                    break;
-            }
+            const program = parseCode(embedData.lang as SupportedLang, embedData.code);
+            setAst(program);
             setError(null);
         } catch (e: any) {
             setError(e.message);
             setAst(null);
         }
-    }, [embedData]);
+    }, [embedData, parseCode]);
 
     // Handle line highlighting using CodeMirror decorations
     useEffect(() => {
-        if (!editorViewRef.current) return;
-
-        editorViewRef.current.dispatch({
-            effects: highlightLinesEffect.of(highlightedSourceLines)
-        });
+        dispatchLineHighlighting(editorViewRef, highlightedSourceLines);
     }, [highlightedSourceLines]);
 
     const handleCreateEditor = useCallback((view: any) => {
         editorViewRef.current = view;
     }, []);
-
-    const getTranslation = (target: SupportedLang): { code: string; sourceMap: any } => {
-        if (!ast) return { code: "// Valid source code required...", sourceMap: new Map() };
-        if (target === 'ast') return { code: JSON.stringify(ast, null, 2), sourceMap: new Map() };
-
-        const translator = new Translator();
-        try {
-            return translator.translateWithMap(ast, target as any);
-        } catch (e) {
-            return { code: `// Translation to ${target} not available.`, sourceMap: new Map() };
-        }
-    };
 
     const getExtensions = (lang: SupportedLang) => {
         const baseExtensions = getCodeMirrorExtensions(lang);
@@ -196,15 +121,8 @@ export default function EmbedPage() {
             const program = ast;
             if (!program) return;
 
-            const debugInstance = new Debugger();
-            debugInstance.init(program, (embedData?.lang || 'python') as SupportedLang);
-            setDebuggerInstance(debugInstance);
-            setIsDebugging(true);
-            setIsDebugComplete(false);
-            setCurrentVariables({});
+            initDebugger(program, (embedData?.lang || 'python') as SupportedLang);
             setOutput(['Debugger initialized. Click Step to begin.']);
-            setHighlightedSourceLines([]);
-            setHighlightedTranslationLines([]);
         } catch (e: any) {
             console.error(e);
             setError(e.message);
@@ -212,61 +130,18 @@ export default function EmbedPage() {
     };
 
     const handleDebugStep = () => {
-        if (!debuggerInstance || !ast || !embedData?.code) return;
+        if (!embedData?.code) return;
 
         try {
-            const step = debuggerInstance.step();
-            if (!step) return;
+            const result = stepDebugger(ast, embedData.code, currentTargetLang);
+            if (!result) return;
 
-            setCurrentVariables(step.variables);
+            setHighlightedSourceLines(result.sourceHighlightedLines);
+            setHighlightedTranslationLines(result.translationHighlightedLines);
+            setOutput(result.outputLines);
 
-            if (step.sourceLocation) {
-                const nodesAtLocation = findNodesAtLocation(ast, step.sourceLocation.start);
-                
-                // Highlight source lines
-                const sourceHighlightedLines = new Set<number>();
-                for (const node of nodesAtLocation) {
-                    if (node.loc) {
-                        const nodeLines = getRangeLines(embedData.code, node.loc.start);
-                        nodeLines.forEach(line => sourceHighlightedLines.add(line));
-                    }
-                }
-                setHighlightedSourceLines(Array.from(sourceHighlightedLines));
-
-                // Highlight translation lines
-                const translation = getTranslation(currentTargetLang);
-                const translationSourceMap = translation.sourceMap;
-                const nodeIds = nodesAtLocation.map(n => n.id);
-                const translationHighlightedLines: number[] = [];
-                for (const nodeId of nodeIds) {
-                    const mapEntry = translationSourceMap.get ? translationSourceMap.get(nodeId) : translationSourceMap[nodeId];
-                    if (mapEntry !== undefined) {
-                        if (typeof mapEntry === 'object' && 'lineStart' in mapEntry) {
-                            translationHighlightedLines.push(mapEntry.lineStart - 1);
-                        } else if (typeof mapEntry === 'number') {
-                            translationHighlightedLines.push(mapEntry);
-                        }
-                    }
-                }
-                setHighlightedTranslationLines(translationHighlightedLines);
-            } else {
-                setHighlightedSourceLines([]);
-                setHighlightedTranslationLines([]);
-            }
-
-            const outputLines: string[] = [];
-            outputLines.push(`--- Step ${step.stepNumber} ---`);
-            outputLines.push(`Node: ${step.nodeType}`);
-            if (step.sourceLocation) {
-                outputLines.push(`Location: ${step.sourceLocation.start} - ${step.sourceLocation.end}`);
-            }
-            outputLines.push('');
-
-            setOutput(outputLines);
-
-            if (step.isComplete) {
+            if (result.isComplete) {
                 setIsDebugComplete(true);
-                setOutput((prev) => [...prev, 'Execution complete.']);
             }
         } catch (e: any) {
             console.error(e);
@@ -277,12 +152,8 @@ export default function EmbedPage() {
     };
 
     const handleDebugStop = () => {
+        stopDebugger();
         setIsDebugging(false);
-        setDebuggerInstance(null);
-        setHighlightedSourceLines([]);
-        setHighlightedTranslationLines([]);
-        setIsDebugComplete(false);
-        setCurrentVariables({});
         setOutput((prev) => [...prev, 'Debugger stopped.']);
     };
 
@@ -339,7 +210,7 @@ export default function EmbedPage() {
         );
     }
 
-    const translation = getTranslation(currentTargetLang);
+    const translation = getTranslation(ast, currentTargetLang);
 
     return (
         <div className="flex h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">

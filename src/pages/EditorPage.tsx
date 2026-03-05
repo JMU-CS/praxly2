@@ -4,21 +4,8 @@ import { Play, Trash2, Home, Bug, FastForward, Square, Plus, Share2, Check, Chev
 
 import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
-import { Decoration, EditorView } from '@codemirror/view';
-import { StateField, StateEffect, RangeSetBuilder } from '@codemirror/state';
-
-import { Lexer as PythonLexer } from '../language/python/lexer';
-import { Parser as PythonParser } from '../language/python/parser';
-import { JavaLexer } from '../language/java/lexer';
-import { JavaParser } from '../language/java/parser';
-import { CSPLexer } from '../language/csp/lexer';
-import { CSPParser } from '../language/csp/parser';
-import { PraxisLexer } from '../language/praxis/lexer';
-import { PraxisParser } from '../language/praxis/parser';
 
 import { Interpreter } from '../language/interpreter';
-import { Translator } from '../language/translator';
-import { Debugger } from '../language/debugger';
 import type { Program } from '../language/ast';
 import { JSONTree } from '../components/JSONTree';
 import { OutputPanel } from '../components/OutputPanel';
@@ -29,39 +16,9 @@ import { encodeEmbed, generateEmbedHTML, copyToClipboard, decodeEmbed } from '..
 import { getRangeLines, findNodesAtLocation } from '../utils/debuggerUtils';
 import { SAMPLE_CODE_PYTHON, SAMPLE_CODE_JAVA, SAMPLE_CODE_CSP, SAMPLE_CODE_PRAXIS } from '../utils/sampleCodes';
 import type { SourceMap } from '../language/visitor';
-
-// CodeMirror decoration helper
-const highlightLineDecoration = Decoration.line({
-    attributes: {
-        style: 'background-color: rgba(99, 102, 241, 0.25); border-left: 3px solid rgb(99, 102, 241);'
-    }
-});
-
-const highlightLinesEffect = StateEffect.define<number[]>();
-
-const highlightedLinesField = StateField.define({
-    create() {
-        return Decoration.none;
-    },
-    update(decorations, tr) {
-        for (const effect of tr.effects) {
-            if (effect.is(highlightLinesEffect)) {
-                const ranges = effect.value;
-                const builder = new RangeSetBuilder<Decoration>();
-                
-                for (const lineNum of ranges) {
-                    const line = tr.state.doc.line(lineNum + 1);
-                    if (line) {
-                        builder.add(line.from, line.from, highlightLineDecoration);
-                    }
-                }
-                return builder.finish();
-            }
-        }
-        return decorations.map(tr.changes);
-    },
-    provide: f => EditorView.decorations.from(f)
-});
+import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
+import { useCodeParsing } from '../hooks/useCodeParsing';
+import { useCodeDebugger } from '../hooks/useCodeDebugger';
 
 interface Panel {
     id: string;
@@ -87,17 +44,25 @@ export default function EditorPage() {
     // Manage dynamic panels
     const [panels, setPanels] = useState<Panel[]>([]);
 
-    // Debugger State
-    const [isDebugging, setIsDebugging] = useState(false);
-    const [isDebugComplete, setIsDebugComplete] = useState(false);
-    const [debuggerInstance, setDebuggerInstance] = useState<Debugger | null>(null);
-    const [highlightedLines, setHighlightedLines] = useState<number[]>([]);
-    const [currentVariables, setCurrentVariables] = useState<Record<string, any>>({});
-    const [panelHighlightedLines, setPanelHighlightedLines] = useState<Map<string, number[]>>(new Map());
+    // Get hooks for parsing and debugging
+    const { parseCode, getTranslation } = useCodeParsing();
+    const {
+        isDebugging,
+        setIsDebugging,
+        isDebugComplete,
+        setIsDebugComplete,
+        debuggerInstance,
+        highlightedSourceLines,
+        setHighlightedSourceLines,
+        currentVariables,
+        initDebugger,
+        stopDebugger
+    } = useCodeDebugger(getTranslation);
 
     // Resizing State
     const [resizingIdx, setResizingIdx] = useState<number | 'editor' | 'output' | null>(null);
     const [outputHeight, setOutputHeight] = useState(176); // Initial height (h-44 = 176px)
+    const [panelHighlightedLines, setPanelHighlightedLines] = useState<Map<string, number[]>>(new Map());
     const containerRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<HTMLDivElement>(null);
     const editorViewRef = useRef<any>(null);
@@ -154,44 +119,10 @@ export default function EditorPage() {
 
     // Handle line highlighting using CodeMirror decorations
     useEffect(() => {
-        if (!editorViewRef.current) return;
+        dispatchLineHighlighting(editorViewRef, highlightedSourceLines);
+    }, [highlightedSourceLines]);
 
-        // Dispatch the state effect to update highlighted lines
-        editorViewRef.current.dispatch({
-            effects: highlightLinesEffect.of(highlightedLines)
-        });
-    }, [highlightedLines]);
-
-    // --- Logic ---
-    const parseCode = useCallback((lang: SupportedLang, input: string): Program | null => {
-        if (lang === 'ast') return null;
-        try {
-            let tokens;
-            let parser;
-            switch (lang) {
-                case 'java':
-                    tokens = new JavaLexer(input).tokenize();
-                    parser = new JavaParser(tokens);
-                    return parser.parse();
-                case 'csp':
-                    tokens = new CSPLexer(input).tokenize();
-                    parser = new CSPParser(tokens);
-                    return parser.parse();
-                case 'praxis':
-                    tokens = new PraxisLexer(input).tokenize();
-                    parser = new PraxisParser(tokens);
-                    return parser.parse();
-                case 'python':
-                default:
-                    tokens = new PythonLexer(input).tokenize();
-                    parser = new PythonParser(tokens);
-                    return parser.parse();
-            }
-        } catch (e: any) {
-            throw new Error(e.message);
-        }
-    }, []);
-
+    // Parse code when it changes
     useEffect(() => {
         if (sourceLang !== 'ast') {
             try {
@@ -211,11 +142,11 @@ export default function EditorPage() {
 
         setPanels(prev =>
             prev.map(panel => {
-                const translation = getTranslation(panel.lang);
-                return { ...panel, sourceMap: translation.sourceMap };
+                const { sourceMap } = getTranslation(ast, panel.lang);
+                return { ...panel, sourceMap };
             })
         );
-    }, [ast, code]);
+    }, [ast, code, getTranslation]);
 
     const handleRun = () => {
         setError(null);
@@ -245,15 +176,10 @@ export default function EditorPage() {
             if (!program) return;
             setAst(program);
 
-            // Initialize debugger
-            const debugInstance = new Debugger();
-            debugInstance.init(program, runLang as SupportedLang);
-            setDebuggerInstance(debugInstance);
-            setIsDebugging(true);
-            setIsDebugComplete(false);
-            setCurrentVariables({});
+            initDebugger(program, runLang as SupportedLang);
             setOutput(['Debugger initialized. Click Step to begin.']);
-            setHighlightedLines([]);
+            setHighlightedSourceLines([]);
+            setPanelHighlightedLines(new Map());
         } catch (e: any) {
             console.error(e);
             setError(e.message);
@@ -261,29 +187,25 @@ export default function EditorPage() {
     };
 
     const handleDebugStep = () => {
-        if (!debuggerInstance) return;
+        if (!debuggerInstance || !ast) return;
 
         try {
             const step = debuggerInstance.step();
             if (!step) return;
 
-            // Update current variables pane
-            setCurrentVariables(step.variables);
-
             // Calculate which lines to highlight in source code
             if (step.sourceLocation) {
-                // Find all AST nodes at this location, including parent nodes
-                const nodesAtLocation = findNodesAtLocation(ast!, step.sourceLocation.start);
+                const nodesAtLocation = findNodesAtLocation(ast, step.sourceLocation.start);
                 
                 // For the source code pane, highlight lines for all nodes at this location
-                const sourceHighlightedLines = new Set<number>();
+                const sourceHighlightedLinesSet = new Set<number>();
                 for (const node of nodesAtLocation) {
                     if (node.loc) {
                         const nodeLines = getRangeLines(code, node.loc.start);
-                        nodeLines.forEach(line => sourceHighlightedLines.add(line));
+                        nodeLines.forEach(line => sourceHighlightedLinesSet.add(line));
                     }
                 }
-                setHighlightedLines(Array.from(sourceHighlightedLines));
+                setHighlightedSourceLines(Array.from(sourceHighlightedLinesSet));
 
                 // For translation panels, highlight corresponding lines using their source maps
                 const nodeIds = nodesAtLocation.map(n => n.id);
@@ -302,7 +224,7 @@ export default function EditorPage() {
                 });
                 setPanelHighlightedLines(newPanelHighlights);
             } else {
-                setHighlightedLines([]);
+                setHighlightedSourceLines([]);
                 setPanelHighlightedLines(new Map());
             }
 
@@ -331,12 +253,10 @@ export default function EditorPage() {
     };
 
     const handleDebugStop = () => {
+        stopDebugger();
         setIsDebugging(false);
-        setDebuggerInstance(null);
-        setHighlightedLines([]);
+        setHighlightedSourceLines([]);
         setPanelHighlightedLines(new Map());
-        setIsDebugComplete(false);
-        setCurrentVariables({});
         setOutput((prev) => [...prev, 'Debugger stopped.']);
     };
 
@@ -360,31 +280,16 @@ export default function EditorPage() {
         }
     };
 
-    const getTranslation = (target: SupportedLang): { code: string; sourceMap: SourceMap } => {
-        if (!ast) return { code: "// Valid source code required...", sourceMap: new Map() };
-        if (target === 'ast') return { code: JSON.stringify(ast, null, 2), sourceMap: new Map() };
-
-        const translator = new Translator();
-        try {
-            return translator.translateWithMap(ast, target as any);
-        } catch (e) {
-            return { code: `// Translation to ${target} not available.`, sourceMap: new Map() };
-        }
-    };
-
     const getExtensions = (lang: SupportedLang) => {
         const baseExtensions = getCodeMirrorExtensions(lang);
-        
-        // Add highlighting field extension for debugging
         baseExtensions.push(highlightedLinesField);
-        
         return baseExtensions;
     };
 
     // Panel Management
     const addPanel = (lang: SupportedLang) => {
         const id = window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(7);
-        const translation = getTranslation(lang);
+        const translation = getTranslation(ast, lang);
         setPanels([...panels, { id, lang, width: 350, sourceMap: translation.sourceMap }]);
         setShowAddMenu(false);
     };
@@ -540,7 +445,7 @@ export default function EditorPage() {
                                     onChange={(val) => {
                                         setCode(val);
                                         if (isDebugging) {
-                                            setHighlightedLines([]);
+                                            setHighlightedSourceLines([]);
                                             setPanelHighlightedLines(new Map());
                                         }
                                     }}
@@ -584,7 +489,7 @@ export default function EditorPage() {
                                             </div>
                                         ) : (
                                             <HighlightableCodeMirror
-                                                value={getTranslation(panel.lang).code}
+                                                value={getTranslation(ast, panel.lang).code}
                                                 language={panel.lang}
                                                 highlightedLines={panelHighlightedLines.get(panel.id) || []}
                                                 readOnly={true}
