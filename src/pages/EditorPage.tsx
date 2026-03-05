@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Play, Trash2, Home, Bug, FastForward, Square, Plus, Share2, Check, ChevronDown, FileJson, ArrowRightLeft, Code, X } from 'lucide-react';
 
 import CodeMirror from '@uiw/react-codemirror';
@@ -25,7 +25,7 @@ import { OutputPanel } from '../components/OutputPanel';
 import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
 import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import type { SupportedLang } from '../components/LanguageSelector';
-import { encodeEmbed, generateEmbedHTML, copyToClipboard } from '../utils/embedCodec';
+import { encodeEmbed, generateEmbedHTML, copyToClipboard, decodeEmbed } from '../utils/embedCodec';
 import { getRangeLines, findNodesAtLocation } from '../utils/debuggerUtils';
 import { SAMPLE_CODE_PYTHON, SAMPLE_CODE_JAVA, SAMPLE_CODE_CSP, SAMPLE_CODE_PRAXIS } from '../utils/sampleCodes';
 import type { SourceMap } from '../language/visitor';
@@ -71,6 +71,7 @@ interface Panel {
 }
 
 export default function EditorPage() {
+    const [searchParams] = useSearchParams();
     const [code, setCode] = useState(SAMPLE_CODE_PRAXIS);
     const [output, setOutput] = useState<string[]>([]);
     const [ast, setAst] = useState<Program | null>(null);
@@ -100,6 +101,38 @@ export default function EditorPage() {
     const containerRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<HTMLDivElement>(null);
     const editorViewRef = useRef<any>(null);
+
+    // Load from embed URL parameter on mount
+    useEffect(() => {
+        const codeParam = searchParams.get('code');
+        const targetLangParam = searchParams.get('targetLang');
+        if (codeParam) {
+            try {
+                const decoded = decodeEmbed(codeParam);
+                if (decoded) {
+                    setCode(decoded.code);
+                    setSourceLang(decoded.lang as SupportedLang);
+                    
+                    // Auto-open translation panel if targetLang is specified
+                    if (targetLangParam && targetLangParam !== 'ast') {
+                        // Defer panel creation to next render to ensure AST is parsed first
+                        setTimeout(() => {
+                            setPanels(prev => {
+                                // Only add if not already present
+                                if (!prev.some(p => p.lang === targetLangParam)) {
+                                    const id = window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(7);
+                                    return [...prev, { id, lang: targetLangParam as SupportedLang, width: 350, sourceMap: new Map() }];
+                                }
+                                return prev;
+                            });
+                        }, 0);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to decode embed:', e);
+            }
+        }
+    }, [searchParams]);
 
     // Adaptive layout: Split space equally among editor + all open panels
     useEffect(() => {
@@ -182,7 +215,7 @@ export default function EditorPage() {
                 return { ...panel, sourceMap: translation.sourceMap };
             })
         );
-    }, [ast]);
+    }, [ast, code]);
 
     const handleRun = () => {
         setError(null);

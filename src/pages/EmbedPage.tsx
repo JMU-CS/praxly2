@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Play, AlertCircle, FastForward, Square, ChevronDown } from 'lucide-react';
 import { Decoration, EditorView } from '@codemirror/view';
 import { StateField, StateEffect, RangeSetBuilder } from '@codemirror/state';
@@ -60,7 +60,6 @@ const highlightedLinesField = StateField.define({
 
 export default function EmbedPage() {
     const [searchParams] = useSearchParams();
-    const navigate = useNavigate();
     const [embedData, setEmbedData] = useState<EmbedData | null>(null);
     const [output, setOutput] = useState<string[]>([]);
     const [ast, setAst] = useState<Program | null>(null);
@@ -293,7 +292,8 @@ export default function EmbedPage() {
             code: embedData.code,
             lang: embedData.lang as any,
         });
-        navigate(`/v2/editor?code=${encoded}`);
+        const targetLang = showAst ? 'ast' : currentTargetLang;
+        window.open(`/v2/editor?code=${encoded}&targetLang=${targetLang}`, '_blank');
     };
 
     // Resize handler
@@ -358,7 +358,10 @@ export default function EmbedPage() {
                             height="100%"
                             theme={vscodeDark}
                             extensions={getExtensions(embedData.lang as SupportedLang)}
-                            editable={false}
+                            editable={true}
+                            onChange={(val) => {
+                                setEmbedData(prev => prev ? { ...prev, code: val } : null);
+                            }}
                             onCreateEditor={handleCreateEditor}
                             className="text-sm h-full font-mono"
                         />
