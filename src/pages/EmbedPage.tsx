@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Play, AlertCircle, FastForward, Square, ChevronDown } from 'lucide-react';
 
 import { decodeEmbed, encodeEmbed, type EmbedData } from '../utils/embedCodec';
-import { Interpreter } from '../language/interpreter';
+import { computeRunOutput } from '../utils/debugHandlers';
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';
 import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
@@ -104,8 +104,7 @@ export default function EmbedPage() {
             const program = ast;
             if (!program) return;
 
-            const interpreter = new Interpreter();
-            const results = interpreter.interpret(program);
+            const results = computeRunOutput(program);
             setOutput(results);
         } catch (e: any) {
             console.error(e);

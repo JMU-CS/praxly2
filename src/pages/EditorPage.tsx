@@ -5,9 +5,8 @@ import { Play, Trash2, Home, Bug, FastForward, Square, Plus, Share2, Check, Chev
 import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 
-import { Interpreter } from '../language/interpreter';
 import type { Program } from '../language/ast';
-import { findNodesAtLocation } from '../utils/debuggerUtils';
+import { computeRunOutput, computeMultiplePanelHighlighting } from '../utils/debugHandlers';
 import { JSONTree } from '../components/JSONTree';
 import { OutputPanel } from '../components/OutputPanel';
 import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
@@ -157,8 +156,7 @@ export default function EditorPage() {
             if (!program) return;
             setAst(program);
 
-            const interpreter = new Interpreter();
-            const results = interpreter.interpret(program);
+            const results = computeRunOutput(program);
             setOutput(results);
         } catch (e: any) {
             console.error(e);
@@ -197,31 +195,12 @@ export default function EditorPage() {
             setHighlightedSourceLines(result.sourceHighlightedLines);
 
             // Compute highlighted lines for each open panel using the step's location info
-            const panelHighlights = new Map<string, number[]>();
-            if (result.step?.sourceLocation) {
-                const nodesAtLocation = findNodesAtLocation(ast, result.step.sourceLocation.start);
-                const nodeIds = nodesAtLocation.map(n => n.id);
-
-                for (const panel of panels) {
-                    const translation = getTranslation(ast, panel.lang);
-                    const panelHighlightSet = new Set<number>();
-
-                    for (const nodeId of nodeIds) {
-                        const mapEntry = translation.sourceMap.get
-                            ? translation.sourceMap.get(nodeId)
-                            : (translation.sourceMap as any)[nodeId];
-
-                        if (mapEntry !== undefined) {
-                            if (typeof mapEntry === 'object' && 'lineStart' in mapEntry) {
-                                panelHighlightSet.add(mapEntry.lineStart - 1);
-                            } else if (typeof mapEntry === 'number') {
-                                panelHighlightSet.add(mapEntry);
-                            }
-                        }
-                    }
-                    panelHighlights.set(panel.id, Array.from(panelHighlightSet));
-                }
-            }
+            const panelHighlights = computeMultiplePanelHighlighting(
+                ast,
+                panels,
+                getTranslation,
+                result.step?.sourceLocation || null
+            );
             setPanelHighlightedLines(panelHighlights);
 
             setOutput(result.outputLines);
