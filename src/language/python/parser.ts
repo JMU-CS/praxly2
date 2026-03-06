@@ -29,7 +29,13 @@ export class Parser {
     while (!this.isAtEnd()) {
       while (this.match('PUNCTUATION', ';')) { } // Clear leading empty lines
       if (this.isAtEnd()) break;
-      body.push(this.topLevelDeclaration());
+      try {
+        body.push(this.topLevelDeclaration());
+      } catch (e) {
+        // Error recovery: skip to next valid statement and continue
+        this.synchronize();
+        continue;
+      }
     }
     return { id: generateId(), type: 'Program', body };
   }
@@ -38,6 +44,27 @@ export class Parser {
     if (this.check('KEYWORD', 'class')) return this.classDeclaration();
     if (this.check('KEYWORD', 'def')) return this.functionDeclaration();
     return this.statement();
+  }
+
+  /**
+   * Synchronize to the next statement by skipping tokens until we find
+   * a keyword that likely starts a new statement
+   */
+  private synchronize(): void {
+    this.advance();
+
+    while (!this.isAtEnd()) {
+      // Skip to next statement-starting keyword
+      if (this.check('KEYWORD', 'if', 'elif', 'else', 'while', 'for', 'def', 'class', 'return', 'try', 'except', 'finally', 'pass', 'break', 'continue')) {
+        return;
+      }
+      // Also sync on semicolons or closing braces
+      if (this.check('PUNCTUATION', ';', '}')) {
+        this.advance();
+        return;
+      }
+      this.advance();
+    }
   }
 
   private classDeclaration(): ClassDeclaration {
@@ -103,13 +130,22 @@ export class Parser {
         }
         
         // Handle function/method declarations inside blocks
-        if (this.check('KEYWORD', 'def')) {
-          statements.push(this.functionDeclaration());
-        } else {
-          statements.push(this.statement());
+        try {
+          if (this.check('KEYWORD', 'def')) {
+            statements.push(this.functionDeclaration());
+          } else {
+            statements.push(this.statement());
+          }
+        } catch (e) {
+          // Error recovery: skip to next statement
+          while (!this.check('PUNCTUATION', '}') && !this.isAtEnd() && !this.check('KEYWORD', 'if', 'elif', 'else', 'while', 'for', 'def', 'class', 'return', 'try', 'except', 'finally', 'pass', 'break', 'continue')) {
+            this.advance();
+          }
+          if (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) continue;
+          break;
         }
       }
-      this.consume('PUNCTUATION', '}');
+      if (this.check('PUNCTUATION', '}')) this.consume('PUNCTUATION', '}');
       return { id: generateId(), type: 'Block', body: statements };
     } else {
       // Single statement block e.g., if x: return true
@@ -117,8 +153,13 @@ export class Parser {
         while (this.match('PUNCTUATION', ';')) { }
         return { id: generateId(), type: 'Block', body: [] };
       }
-      const stmt = this.statement();
-      return { id: generateId(), type: 'Block', body: [stmt] };
+      try {
+        const stmt = this.statement();
+        return { id: generateId(), type: 'Block', body: [stmt] };
+      } catch (e) {
+        // Return empty block on error
+        return { id: generateId(), type: 'Block', body: [] };
+      }
     }
   }
 

@@ -826,4 +826,46 @@ total += 5;`;
       }
     });
   });
-});
+
+  describe('Error Recovery with Incomplete Code', () => {
+    it('should parse incomplete Python code with missing condition closing brace', () => {
+      const incompletePython = `
+def foo():
+    x = 5
+    if x > 0
+        print("hello")
+`;
+      const lexer = new PythonLexer(incompletePython);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      
+      // Should still get an AST even with incomplete code
+      expect(program).toBeDefined();
+      expect(program.type).toBe('Program');
+      // Should have at least parsed the function declaration
+      expect(program.body.length).toBeGreaterThan(0);
+    });
+
+    it('should translate incomplete code to valid output', () => {
+      const incompletePython = `
+x = 5
+if x > 0
+    print("hello")
+print("world")
+`;
+      const lexer = new PythonLexer(incompletePython);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      
+      // Should be able to translate partial AST
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      
+      expect(result).toBeDefined();
+      expect(result.length).toBeGreaterThan(0);
+      // Should not contain error message
+      expect(result).not.toContain('Valid source code required');
+    });
+  });});

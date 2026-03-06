@@ -31,7 +31,13 @@ export class PraxisParser {
     parse(): Program {
         const body: Statement[] = [];
         while (!this.isAtEnd()) {
-            body.push(this.topLevelDeclaration());
+            try {
+                body.push(this.topLevelDeclaration());
+            } catch (e) {
+                // Error recovery: skip to next valid statement
+                this.synchronize();
+                continue;
+            }
         }
         return { id: generateId(), type: 'Program', body };
     }
@@ -44,6 +50,27 @@ export class PraxisParser {
             return this.functionDeclaration();
         }
         return this.statement();
+    }
+
+    /**
+     * Synchronize to the next statement by skipping tokens until we find
+     * a keyword that likely starts a new statement or class
+     */
+    private synchronize(): void {
+        this.advance();
+
+        while (!this.isAtEnd()) {
+            // Skip to next statement-starting keyword
+            if (this.check('KEYWORD', 'class', 'function', 'if', 'else', 'while', 'for', 'return', 'try', 'catch', 'finally')) {
+                return;
+            }
+            // Also sync on closing braces or semicolons
+            if (this.check('PUNCTUATION', '}', ';')) {
+                if (this.check('PUNCTUATION', '}')) this.advance();
+                return;
+            }
+            this.advance();
+        }
     }
 
     private classDeclaration(): ClassDeclaration {
@@ -256,7 +283,23 @@ export class PraxisParser {
             if (token.type === 'KEYWORD' && breakTokens.includes(token.value.toLowerCase())) {
                 break;
             }
-            statements.push(this.statement());
+            try {
+                statements.push(this.statement());
+            } catch (e) {
+                // Error recovery: skip to next statement
+                while (!this.isAtEnd()) {
+                    const t = this.peek();
+                    if (t.type === 'KEYWORD' && (breakTokens.includes(t.value.toLowerCase()) || ['if', 'while', 'for', 'function', 'class', 'return'].includes(t.value.toLowerCase()))) {
+                        break;
+                    }
+                    if (t.type === 'PUNCTUATION' && ['}', ';'].includes(t.value)) {
+                        this.advance();
+                        break;
+                    }
+                    this.advance();
+                }
+                if (this.isAtEnd()) break;
+            }
         }
         return { id: generateId(), type: 'Block', body: statements };
     }

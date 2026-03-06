@@ -27,7 +27,13 @@ export class JavaParser {
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
-      body.push(this.topLevelDeclaration());
+      try {
+        body.push(this.topLevelDeclaration());
+      } catch (e) {
+        // Error recovery: skip to next valid statement
+        this.synchronize();
+        continue;
+      }
     }
     return { id: generateId(), type: 'Program', body };
   }
@@ -39,6 +45,27 @@ export class JavaParser {
     }
     // Handle regular statements for non-class programs
     return this.statement();
+  }
+
+  /**
+   * Synchronize to the next statement by skipping tokens until we find
+   * a keyword that likely starts a new statement or class
+   */
+  private synchronize(): void {
+    this.advance();
+
+    while (!this.isAtEnd()) {
+      // Skip to next statement-starting keyword
+      if (this.check('KEYWORD', 'class', 'public', 'private', 'protected', 'static', 'if', 'else', 'while', 'for', 'do', 'return', 'try', 'catch', 'finally')) {
+        return;
+      }
+      // Also sync on closing braces
+      if (this.check('PUNCTUATION', '}', ';')) {
+        if (this.check('PUNCTUATION', '}')) this.advance();
+        return;
+      }
+      this.advance();
+    }
   }
 
   private classDeclaration(): ClassDeclaration {
@@ -158,12 +185,21 @@ export class JavaParser {
   }
 
   private block(): Block {
-    this.consume('PUNCTUATION', '{');
+    if (this.check('PUNCTUATION', '{')) this.consume('PUNCTUATION', '{');
     const statements: Statement[] = [];
     while (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) {
-      statements.push(this.statement());
+      try {
+        statements.push(this.statement());
+      } catch (e) {
+        // Error recovery: skip to next statement
+        while (!this.check('PUNCTUATION', '}') && !this.isAtEnd() && !this.check('KEYWORD', 'if', 'else', 'while', 'do', 'for', 'switch', 'break', 'continue', 'return', 'try', 'catch', 'finally')) {
+          this.advance();
+        }
+        if (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) continue;
+        break;
+      }
     }
-    this.consume('PUNCTUATION', '}');
+    if (this.check('PUNCTUATION', '}')) this.consume('PUNCTUATION', '}');
     return { id: generateId(), type: 'Block', body: statements };
   }
 
