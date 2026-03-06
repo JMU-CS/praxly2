@@ -1,3 +1,8 @@
+/**
+ * JSONTree component that recursively renders JSON data as a formatted tree.
+ * Handles null, undefined, arrays, and nested objects with proper indentation and styling.
+ */
+
 export const JSONTree = ({ data, level = 0 }: { data: any, level?: number }) => {
     if (data === null) return <span className="text-slate-500">null</span>;
     if (data === undefined) return <span className="text-slate-500">undefined</span>;

@@ -1,3 +1,8 @@
+/**
+ * Praxis parser that converts Praxis tokens into an Abstract Syntax Tree (AST).
+ * Implements Praxis-specific grammar including type declarations and procedural function syntax.
+ */
+
 import type { Token, TokenType } from '../lexer';
 import {
     type Program, type Statement, type Block, type Expression, type If, type While,

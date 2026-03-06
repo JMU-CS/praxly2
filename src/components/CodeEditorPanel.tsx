@@ -1,3 +1,9 @@
+/**
+ * CodeEditorPanel component that displays a code editor with syntax highlighting,
+ * language selection, and resizable layout support.
+ * Wraps CodeMirror editor with custom configuration and decorations.
+ */
+
 import React, { type ReactNode } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';

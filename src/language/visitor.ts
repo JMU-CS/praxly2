@@ -1,3 +1,8 @@
+/**
+ * Abstract visitor pattern base class and scope management for AST traversal.
+ * Includes SymbolTable for tracking variable scopes and operator precedence definitions.
+ */
+
 import type { Program, Statement, Expression, Block, ClassDeclaration, MethodDeclaration, FieldDeclaration, Constructor } from './ast';
 
 export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis';

@@ -1,3 +1,8 @@
+/**
+ * Python lexer that tokenizes Python source code.
+ * Handles indentation-based scoping with INDENT/DEDENT tokens.
+ */
+
 import type { Token } from '../lexer';
 
 export class Lexer {

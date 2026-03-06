@@ -1,3 +1,8 @@
+/**
+ * EditorPage component that provides the main multi-panel code editing interface.
+ * Features code input, AST/translation output, and integrated debugging with step-through execution.
+ */
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Play, Trash2, Home, Bug, FastForward, Square, Plus, Share2, Check, ChevronDown, FileJson, ArrowRightLeft, Code, X } from 'lucide-react';

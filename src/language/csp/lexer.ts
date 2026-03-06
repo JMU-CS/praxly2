@@ -1,3 +1,8 @@
+/**
+ * CSP (Communicating Sequential Processes) lexer that tokenizes CSP pseudocode source.
+ * Handles CSP-specific keywords like PROCEDURE, REPEAT UNTIL, and FROM...TO syntax.
+ */
+
 import type { Token } from '../lexer';
 
 export class CSPLexer {

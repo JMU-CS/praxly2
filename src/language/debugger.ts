@@ -1,3 +1,8 @@
+/**
+ * Debugger implementation that provides step-by-step code execution with variable inspection.
+ * Tracks execution state and maps debug information back to source code locations.
+ */
+
 import type { Program, ASTNode } from './ast';
 import { Interpreter } from './interpreter';
 import { Translator } from './translator';

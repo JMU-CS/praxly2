@@ -1,3 +1,8 @@
+/**
+ * Sample code snippets for each supported programming language.
+ * Used as default/example code in the editor interface.
+ */
+
 export const SAMPLE_CODE_PYTHON = `x = 10
 y = 5.5
 name = "Praxly"

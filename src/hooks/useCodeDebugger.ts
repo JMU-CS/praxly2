@@ -1,3 +1,8 @@
+/**
+ * useCodeDebugger hook that manages debugging state and logic for stepping through code execution.
+ * Tracks highlighted lines, variables, and debug step information for both source and translated code.
+ */
+
 import { useState, useCallback } from 'react';
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';

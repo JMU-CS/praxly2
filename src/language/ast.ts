@@ -1,3 +1,8 @@
+/**
+ * Abstract Syntax Tree (AST) type definitions.
+ * Defines all node types used throughout the language pipeline including programs, statements, expressions, and declarations.
+ */
+
 export type NodeType =
   | 'Program' | 'Block' | 'Assignment' | 'Print' | 'If' | 'While' | 'DoWhile' | 'For' | 'Switch' | 'SwitchCase'
   | 'FunctionDeclaration' | 'Return' | 'BinaryExpression' | 'UnaryExpression' | 'UpdateExpression'

@@ -1,3 +1,8 @@
+/**
+ * Lezer-based grammar definition and syntax highlighting configuration for Praxis language.
+ * Provides CodeMirror language support with keyword highlighting and syntax rules.
+ */
+
 import { styleTags, tags as t } from "@lezer/highlight";
 import { parser } from "./praxis.grammar.js"; // Compiled via lezer-generator
 import { LRLanguage, LanguageSupport } from "@codemirror/language";

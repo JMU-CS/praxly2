@@ -1,3 +1,8 @@
+/**
+ * Debug step computation functions that execute code and compute debug information.
+ * Handles both simple execution and step-by-step debugging with output and variable tracking.
+ */
+
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';
 import { Interpreter } from '../language/interpreter';

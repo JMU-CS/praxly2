@@ -1,3 +1,8 @@
+/**
+ * Java lexer that tokenizes Java source code.
+ * Handles Java-specific keywords, operators, and syntax elements.
+ */
+
 import type { Token } from '../lexer';
 
 export class JavaLexer {

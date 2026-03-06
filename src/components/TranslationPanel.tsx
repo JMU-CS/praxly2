@@ -1,3 +1,8 @@
+/**
+ * TranslationPanel component that displays the AST or translated code output.
+ * Allows toggling between AST view and source-to-target language translation views.
+ */
+
 import React, { useMemo } from 'react';
 import { ArrowRightLeft, FileJson, X } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';

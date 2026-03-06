@@ -1,3 +1,8 @@
+/**
+ * Debugging utility functions for mapping source code locations to AST nodes.
+ * Provides line number calculation and node finding for debug highlighting.
+ */
+
 import type { Program, ASTNode } from '../language/ast';
 import type { SourceMap } from '../language/visitor';
 

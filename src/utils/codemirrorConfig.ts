@@ -1,3 +1,8 @@
+/**
+ * CodeMirror configuration and decorations for line highlighting.
+ * Provides StateField and Effects for managing highlighted lines in the editor.
+ */
+
 import { Decoration, EditorView } from '@codemirror/view';
 import { StateField, StateEffect, RangeSetBuilder } from '@codemirror/state';
 

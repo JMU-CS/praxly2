@@ -1,3 +1,8 @@
+/**
+ * OutputPanel component that displays program output, errors, and variable state.
+ * Shows runtime results with formatted value display and variable inspection.
+ */
+
 import React from 'react';
 import { Terminal, AlertCircle, X } from 'lucide-react';
 import { ResizeHandle } from './ResizeHandle';

@@ -1,3 +1,8 @@
+/**
+ * AST interpreter that executes programs directly without compilation.
+ * Implements environment-based variable scoping and object-oriented programming features.
+ */
+
 import type { Program, Statement, Expression, FunctionDeclaration, ClassDeclaration, MethodDeclaration, Constructor } from './ast';
 
 export class Environment {

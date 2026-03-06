@@ -1,7 +1,19 @@
+/**
+ * Python Language Emitter
+ * Converts AST nodes into Python source code.
+ * Handles Python-specific syntax including classes with self parameter,
+ * indentation-based blocks, tuple unpacking, and Python method/function syntax.
+ */
+
 import { ASTVisitor, Precedence } from '../visitor';
 import type { Program, ClassDeclaration, FieldDeclaration, Constructor, MethodDeclaration, Block, For, Expression } from '../ast';
 
+/**
+ * Emitter for converting AST to Python source code.
+ * Tracks class fields to properly prefix them with self.
+ */
 export class PythonEmitter extends ASTVisitor {
+    // Tracks field names in current class scope for self. prefixing
     private currentClassFields = new Set<string>();
 
     /**
@@ -18,6 +30,11 @@ export class PythonEmitter extends ASTVisitor {
         return hasStaticMainMethod;
     }
 
+    /**
+     * Main entry point for translating a complete program.
+     * Separates classes from functions and main body.
+     * Handles Java Main class wrapper pattern by extracting its main method body.
+     */
     visitProgram(program: Program): void {
         const classes = program.body.filter(s => s.type === 'ClassDeclaration');
         const nonClasses = program.body.filter(s => s.type !== 'ClassDeclaration');
@@ -57,6 +74,10 @@ export class PythonEmitter extends ASTVisitor {
         }
     }
 
+    /**
+     * Translates a class declaration with inheritance and Python syntax.
+     * Tracks field names for self. prefixing in methods.
+     */
     visitClassDeclaration(classDecl: ClassDeclaration): void {
         const baseClass = classDecl.superClass ? `(${classDecl.superClass.name})` : '';
         this.emit(`class ${classDecl.name}${baseClass}:`);
@@ -78,6 +99,10 @@ export class PythonEmitter extends ASTVisitor {
         this.dedent();
     }
 
+    /**
+     * Translates a field declaration (class variable).
+     * Initializes with None if no initializer provided.
+     */
     visitFieldDeclaration(field: FieldDeclaration): void {
         let line = `${field.name}`;
         if (field.initializer) {
@@ -88,6 +113,10 @@ export class PythonEmitter extends ASTVisitor {
         this.emit(line);
     }
 
+    /**
+     * Translates a constructor to Python __init__ method.
+     * Parameters exclude self which is implicit.
+     */
     visitConstructor(ctor: Constructor): void {
         const params = ctor.params.map(p => p.name).join(', ');
         const paramStr = params ? `, ${params}` : '';
@@ -100,6 +129,10 @@ export class PythonEmitter extends ASTVisitor {
         this.dedent();
     }
 
+    /**
+     * Translates a method declaration to Python def syntax.
+     * Parameters exclude self which is implicit.
+     */
     visitMethodDeclaration(method: MethodDeclaration): void {
         const params = method.params.map(p => p.name).join(', ');
         const paramStr = params ? `, ${params}` : '';
@@ -112,15 +145,27 @@ export class PythonEmitter extends ASTVisitor {
         this.dedent();
     }
 
+    /**
+     * Translates a block of statements.
+     * Only responsible for visiting statements; indentation handled by parent.
+     */
     visitBlock(block: Block): void {
         block.body.forEach(stmt => this.visitStatement(stmt));
     }
 
+    /**
+     * Translates a print statement to Python print function.
+     * Combines multiple expressions as separate arguments.
+     */
     visitPrint(stmt: any): void {
         const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
         this.emit(`print(${args.join(', ')})`, stmt.id);
     }
 
+    /**
+     * Translates variable assignments with tuple unpacking support.
+     * Handles chained assignments, member assignments, and field prefixing.
+     */
     visitAssignment(stmt: any): void {
         let target = stmt.name;
         
@@ -158,6 +203,10 @@ export class PythonEmitter extends ASTVisitor {
         }
     }
 
+    /**
+     * Translates if-else statements with elif chains.
+     * Python colon-based syntax with indentation.
+     */
     visitIf(stmt: any): void {
         this.emit(`if ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
         this.indent(); this.visitBlock(stmt.thenBranch); this.dedent();
@@ -177,6 +226,10 @@ export class PythonEmitter extends ASTVisitor {
         }
     }
 
+    /**
+     * Translates while loop with optional else clause.
+     * Python supports while-else executed when condition becomes false.
+     */
     visitWhile(stmt: any): void {
         this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
         this.indent(); this.visitBlock(stmt.body); this.dedent();
@@ -186,6 +239,10 @@ export class PythonEmitter extends ASTVisitor {
         }
     }
 
+    /**
+     * Translates do-while loop to Python equivalent.
+     * Python lacks do-while, so implements as while True with break condition.
+     */
     visitDoWhile(stmt: any): void {
         // Python doesn't have do-while, implement as while True with break
         this.emit(`while True:`);
@@ -195,6 +252,10 @@ export class PythonEmitter extends ASTVisitor {
         this.dedent();
     }
 
+    /**
+     * Translates switch statement to Python if-elif-else.
+     * Python lacks switch/case, so uses sequential equality checks.
+     */
     visitSwitch(stmt: any): void {
         // Python doesn't have switch, implement as if-elif-else
         console.log(stmt);
@@ -221,6 +282,12 @@ export class PythonEmitter extends ASTVisitor {
         this.emit('continue');
     }
 
+    /**
+     * Translates for loops in multiple formats:
+     * 1. C-style: converts to while loop
+     * 2. Iterator-based: for var in iterable with optional tuple unpacking
+     * Supports optional else clause executed if loop completes without break.
+     */
     visitFor(stmt: For): void {
         if (stmt.init && stmt.condition && stmt.update) {
             this.context.symbolTable.enterScope();
@@ -246,6 +313,9 @@ export class PythonEmitter extends ASTVisitor {
         }
     }
 
+    /**
+     * Translates function declaration with optional default parameters.
+     */
     visitFunctionDeclaration(stmt: any): void {
         const params = stmt.params.map((p: any) => {
             if (p.defaultValue) return `${p.name}=${this.generateExpression(p.defaultValue, 0)}`;
@@ -255,14 +325,24 @@ export class PythonEmitter extends ASTVisitor {
         this.indent(); this.visitBlock(stmt.body); this.dedent();
     }
 
+    /**
+     * Emits return statement with optional return value.
+     */
     visitReturn(stmt: any): void {
         this.emit(`return ${stmt.value ? this.generateExpression(stmt.value, 0) : ''}`, stmt.id);
     }
 
+    /**
+     * Emits a standalone expression statement.
+     */
     visitExpressionStatement(stmt: any): void {
         this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
     }
 
+    /**
+     * Translates try-except-finally statement with exception type binding.
+     * Supports multiple except blocks and optional finally cleanup block.
+     */
     visitTry(stmt: any): void {
         this.emit('try:');
         this.indent(); this.visitBlock(stmt.body); this.dedent();
@@ -286,6 +366,11 @@ export class PythonEmitter extends ASTVisitor {
         }
     }
 
+    /**
+     * Converts AST expression nodes to Python code with proper operator precedence.
+     * Handles literals, identifiers, operators, function calls, and Python-specific syntax.
+     * Tracks class fields to properly prefix with self.
+     */
     generateExpression(expr: Expression, parentPrecedence: number): string {
         let output = '';
         let currentPrecedence = 99;

@@ -1,3 +1,8 @@
+/**
+ * Main application component that sets up routing for the Praxly interface.
+ * Handles navigation between landing page, editor page, and embedded editor page.
+ */
+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import EditorPage from './pages/EditorPage';

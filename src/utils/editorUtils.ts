@@ -1,3 +1,8 @@
+/**
+ * Editor utility functions for CodeMirror configuration and code translation.
+ * Provides language-specific syntax highlighting and high-level translation interface.
+ */
+
 import { python } from '@codemirror/lang-python';
 import { java } from '@codemirror/lang-java';
 import { praxis } from '../language/praxis/lezer';

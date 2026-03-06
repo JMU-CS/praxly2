@@ -1,3 +1,8 @@
+/**
+ * useCodeParsing hook that provides code parsing and translation functionality.
+ * Parses source code into AST and translates the AST to target languages.
+ */
+
 import { useCallback } from 'react';
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';

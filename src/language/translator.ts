@@ -1,3 +1,8 @@
+/**
+ * High-level translation orchestrator that converts AST to target programming languages.
+ * Analyzes the program for type and scope information, then dispatches to language-specific emitters.
+ */
+
 import type { Program, Statement, Expression, Block } from './ast';
 import { type TargetLanguage, type TranslationContext, type SourceMap, SymbolTable, ASTVisitor } from './visitor';
 

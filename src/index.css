@@ -1,3 +1,8 @@
+/**
+ * Global styles for the Praxly application
+ * Imports Tailwind CSS and defines custom scrollbar styling
+ */
+
 @import "tailwindcss";
 
 /* Custom Scrollbar */

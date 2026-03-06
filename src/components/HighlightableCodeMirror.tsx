@@ -1,3 +1,8 @@
+/**
+ * HighlightableCodeMirror component that displays code with line highlighting.
+ * Uses CodeMirror's StateField system to manage highlighted line decorations.
+ */
+
 import React, { useEffect, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';

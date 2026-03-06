@@ -1,3 +1,8 @@
+/**
+ * Java parser that converts Java tokens into an Abstract Syntax Tree (AST).
+ * Implements Java-specific grammar including class declarations, access modifiers, and method overloading.
+ */
+
 import type { Token, TokenType } from '../lexer';
 import { type Program, type Statement, type Block, type Expression, type If, type While, type For, type Return, type CallExpression, type Identifier, type ClassDeclaration, type FieldDeclaration, type Constructor, type MethodDeclaration, type Parameter, type AccessModifier, generateId } from '../ast';
 

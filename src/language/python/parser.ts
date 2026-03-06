@@ -1,3 +1,8 @@
+/**
+ * Python parser that converts Python tokens into an Abstract Syntax Tree (AST).
+ * Implements Python-specific grammar including indentation-based blocks and tuple unpacking.
+ */
+
 import type { Token, TokenType } from '../lexer';
 import { type Program, type Statement, type Block, type Expression, type If, type While, type For, type Return, type CallExpression, type Identifier, type FunctionDeclaration, type ClassDeclaration, type FieldDeclaration, type Constructor, type MethodDeclaration, type Parameter, generateId } from '../ast';
 

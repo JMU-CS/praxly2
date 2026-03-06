@@ -1,3 +1,9 @@
+/**
+ * CSP Language Emitter
+ * Converts AST nodes into CSP (Communicating Sequential Processes) pseudocode.
+ * Handles CSP-specific syntax including PROCEDURE, DISPLAY, FOR FROM TO, and REPEAT UNTIL constructs.
+ */
+
 import { ASTVisitor, Precedence } from '../visitor';
 import type { Program, ClassDeclaration, FieldDeclaration, Constructor, MethodDeclaration, Block, Expression } from '../ast';
 

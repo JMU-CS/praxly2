@@ -1,3 +1,8 @@
+/**
+ * EmbedPage component that provides an embeddable code editor interface.
+ * Similar to EditorPage but optimized for sharing and embedding in external websites.
+ */
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Play, AlertCircle, FastForward, Square, ChevronDown } from 'lucide-react';

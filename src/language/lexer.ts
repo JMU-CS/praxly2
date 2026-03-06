@@ -1,3 +1,8 @@
+/**
+ * Base lexer types and interfaces.
+ * Defines token types and structure used by language-specific lexers.
+ */
+
 // Handles tokenization and indentation
 export type TokenType =
   | 'KEYWORD' | 'IDENTIFIER' | 'NUMBER' | 'STRING' | 'BOOLEAN'

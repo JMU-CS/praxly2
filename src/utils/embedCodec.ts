@@ -1,3 +1,8 @@
+/**
+ * Encoding and decoding utilities for shareable URL-embedded code.
+ * Uses LZ-string compression to minimize URL length for shareable editor links.
+ */
+
 import LZ from 'lz-string';
 
 export interface EmbedData {

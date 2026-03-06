@@ -1,3 +1,8 @@
+/**
+ * Praxis lexer that tokenizes Praxis pseudo-code source.
+ * Handles Praxis-specific syntax including type keywords and procedural declarations.
+ */
+
 import type { Token } from '../lexer';
 
 export class PraxisLexer {

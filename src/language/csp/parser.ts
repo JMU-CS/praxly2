@@ -1,3 +1,8 @@
+/**
+ * CSP (Communicating Sequential Processes) parser that converts CSP tokens into an Abstract Syntax Tree (AST).
+ * Implements CSP-specific grammar including REPEAT UNTIL, FOR FROM TO, and PROCEDURE declarations.
+ */
+
 import type { Token, TokenType } from '../lexer';
 import { type Program, type Statement, type Block, type Expression, type If, type For, type Return, type CallExpression, type Identifier, type UnaryExpression, type FunctionDeclaration, type ClassDeclaration, type FieldDeclaration, type Constructor, type MethodDeclaration, type Parameter, type AccessModifier, generateId } from '../ast';
 

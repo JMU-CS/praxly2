@@ -1,3 +1,8 @@
+/**
+ * ResizeHandle component that provides a draggable resize handle for adjusting panel widths.
+ * Supports both horizontal and vertical resize directions.
+ */
+
 import React from 'react';
 
 interface ResizeHandleProps {

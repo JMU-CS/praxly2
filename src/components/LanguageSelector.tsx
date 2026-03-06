@@ -1,3 +1,8 @@
+/**
+ * LanguageSelector component that provides a dropdown menu for selecting
+ * the target programming language (Python, Java, CSP, Praxis, or AST).
+ */
+
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 

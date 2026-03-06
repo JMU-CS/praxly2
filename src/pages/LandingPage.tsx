@@ -1,3 +1,8 @@
+/**
+ * LandingPage component that displays the main landing/home page.
+ * Provides navigation to the editor with project information and feature highlights.
+ */
+
 import { Link } from 'react-router-dom';
 import { Code, ArrowRight, CheckCircle } from 'lucide-react';
 
