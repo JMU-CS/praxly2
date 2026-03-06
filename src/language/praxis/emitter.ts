@@ -264,6 +264,30 @@ export class PraxisEmitter extends ASTVisitor {
             this.indent(); this.visitBlock(stmt.body); this.dedent();
             this.emit('end for');
             this.context.symbolTable.exitScope();
+        } else if (stmt.iterable.type === 'CallExpression' && (stmt.iterable as any).callee.name === 'range') {
+            // Handle range() calls
+            const args = (stmt.iterable as any).arguments;
+            let start = '0', end = '0', step = '1';
+            if (args.length === 1) { end = this.generateExpression(args[0], 0); }
+            else if (args.length === 2) { start = this.generateExpression(args[0], 0); end = this.generateExpression(args[1], 0); }
+            else if (args.length === 3) { start = this.generateExpression(args[0], 0); end = this.generateExpression(args[1], 0); step = this.generateExpression(args[2], 0); }
+            
+            // Generate for loop for range
+            this.emit(`for (int ${stmt.variable} <- ${start}; ${stmt.variable} < ${end}; ${stmt.variable} <- ${stmt.variable} + ${step})`, stmt.id);
+            this.indent(); this.visitBlock(stmt.body); this.dedent();
+            this.emit('end for');
+        } else if (stmt.variables && stmt.variables.length > 1 && stmt.iterable.type === 'CallExpression' && (stmt.iterable as any).callee.name === 'enumerate') {
+            // Handle enumerate: for idx, val in enumerate(arr)
+            const arr = this.generateExpression((stmt.iterable as any).arguments[0], 0);
+            const idx = stmt.variables[0];
+            const val = stmt.variables[1];
+            
+            this.emit(`for (int ${idx} <- 0; ${idx} < ${arr}.length; ${idx} <- ${idx} + 1)`, stmt.id);
+            this.indent();
+            this.emit(`var ${val} <- ${arr}[${idx}]`);
+            this.visitBlock(stmt.body);
+            this.dedent();
+            this.emit('end for');
         } else {
             this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}`, stmt.id);
             this.indent();
@@ -334,18 +358,43 @@ export class PraxisEmitter extends ASTVisitor {
                 break;
             case 'IndexExpression':
                 currentPrecedence = Precedence.Member;
-                // Praxis emitter needs to convert 0-based indices back to 1-based
-                // If the index is a BinaryExpression with operator '-' and right === 1,
-                // it was converted from 1-based to 0-based during parsing, so unwrap it
-                let indexExpr = expr.index;
-                if (indexExpr.type === 'BinaryExpression' && 
-                    indexExpr.operator === '-' && 
-                    indexExpr.right.type === 'Literal' && 
-                    indexExpr.right.value === 1) {
-                    // This is a 0-based index converted from 1-based, use the original
-                    indexExpr = indexExpr.left;
+                const objExpr = this.generateExpression(expr.object, currentPrecedence);
+                
+                // Helper function to convert index expression to Praxis, handling negative indices
+                const convertIndexPraxis = (idx: any): string => {
+                    if (!idx) return '0';
+                    if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0) {
+                        // Negative index: arr[-1] becomes arr[arr.length - 1]
+                        const absIdx = Math.abs(idx.value);
+                        return `${objExpr}.length - ${absIdx}`;
+                    } else if (idx.type === 'UnaryExpression' && idx.operator === '-' && idx.argument.type === 'Literal') {
+                        // Handle unary minus
+                        const val = idx.argument.value as number;
+                        return `${objExpr}.length - ${val}`;
+                    } else {
+                        // Also handle the 0-based to 1-based conversion for Praxis if needed
+                        let indexExpr = idx;
+                        if (indexExpr.type === 'BinaryExpression' && 
+                            indexExpr.operator === '-' && 
+                            indexExpr.right.type === 'Literal' && 
+                            indexExpr.right.value === 1) {
+                            // This is a 0-based index converted from 1-based, use the original
+                            indexExpr = indexExpr.left;
+                        }
+                        return this.generateExpression(indexExpr, 0);
+                    }
+                };
+                
+                if (expr.indexEnd) {
+                    // Array slicing: arr[start:end]
+                    const startE = convertIndexPraxis(expr.index);
+                    const endE = convertIndexPraxis(expr.indexEnd);
+                    output = `${objExpr}.SLICE(${startE}, ${endE})`;
+                } else {
+                    // Single index access
+                    const idxStr = convertIndexPraxis(expr.index);
+                    output = `${objExpr}[${idxStr}]`;
                 }
-                output = `${this.generateExpression(expr.object, currentPrecedence)}[${this.generateExpression(indexExpr, 0)}]`;
                 break;
             case 'MemberExpression':
                 currentPrecedence = Precedence.Member;
@@ -360,6 +409,7 @@ export class PraxisEmitter extends ASTVisitor {
                     '+': { op: '+', prec: Precedence.Additive }, '-': { op: '-', prec: Precedence.Additive },
                     '*': { op: '*', prec: Precedence.Multiplicative }, '/': { op: '/', prec: Precedence.Multiplicative },
                     '%': { op: 'mod', prec: Precedence.Multiplicative },
+                    '**': { op: '^', prec: Precedence.Multiplicative },
                     '..': { op: '..', prec: Precedence.Relational }
                 };
                 const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
@@ -382,10 +432,17 @@ export class PraxisEmitter extends ASTVisitor {
                 break;
             case 'CallExpression':
                 currentPrecedence = Precedence.Call;
-                const args2 = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
                 const calleeStr = (expr.callee as any).type === 'MemberExpression'
                     ? this.generateExpression(expr.callee as any, 0)
                     : (expr.callee as any).name;
+                
+                // Handle len() builtin
+                if ((calleeStr === 'len' || calleeStr === 'LENGTH') && expr.arguments.length === 1) {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.length`;
+                    break;
+                }
+                
+                const args2 = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
                 output = `${calleeStr}(${args2})`;
                 break;
             case 'ArrayLiteral':

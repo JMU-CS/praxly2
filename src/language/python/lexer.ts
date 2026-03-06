@@ -101,22 +101,26 @@ export class Lexer {
 
       if (['+', '-', '*', '/', '=', '>', '<', '!', '(', ')', '[', ']', '{', '}', ',', '.', ':', ';', '%'].includes(char)) {
         let value = char;
-        // Dual operators
+        // Dual operators and ** operator
         if (p + 1 < line.length) {
           const next = line[p + 1];
-          if (['==', '!=', '>=', '<=', '+=', '-=', '*=', '/='].includes(char + next)) {
+          if (['==', '!=', '>=', '<=', '+=', '-=', '*=', '/=', '**'].includes(char + next)) {
             value = char + next;
             p++;
           }
         }
-        if (['+', '-', '*', '/', '%', '==', '!=', '>', '<', '>=', '<='].includes(value)) {
+        if (['+', '-', '*', '/', '%', '==', '!=', '>', '<', '>=', '<=', '**'].includes(value)) {
           this.tokens.push({ type: 'OPERATOR', value, start: offset + p });
         } else if (['+=', '-=', '*=', '/='].includes(value)) {
           this.tokens.push({ type: 'OPERATOR', value, start: offset + p });
         } else if (value === '=') {
           this.tokens.push({ type: 'OPERATOR', value, start: offset + p });
         } else {
-          if (value !== ':') { // Ignore python colons, parsing relies on structural { } hooks
+          // Emit punctuation including colons, but skip colons at end of line
+          // (those are block markers, not slicing operators)
+          if (value === ':' && p === line.length - 1) {
+            // Skip end-of-line colon
+          } else {
             this.tokens.push({ type: 'PUNCTUATION', value, start: offset + p });
           }
         }

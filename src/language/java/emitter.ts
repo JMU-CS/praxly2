@@ -474,12 +474,32 @@ export class JavaEmitter extends ASTVisitor {
             case 'IndexExpression':
                 currentPrecedence = Precedence.Member;
                 const objE = this.generateExpression(expr.object, currentPrecedence);
-                const idxE = this.generateExpression(expr.index, 0);
+                
+                // Helper function to convert index expression to Java, handling negative indices
+                const convertIndex = (idx: any): string => {
+                    if (!idx) return '0';
+                    if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0) {
+                        // Negative index: nums[-1] becomes nums[nums.length - 1]
+                        const absIdx = Math.abs(idx.value);
+                        return `${objE}.length - ${absIdx}`;
+                    } else if (idx.type === 'UnaryExpression' && idx.operator === '-' && idx.argument.type === 'Literal') {
+                        // Handle unary minus: -1 becomes length - 1
+                        const val = idx.argument.value as number;
+                        return `${objE}.length - ${val}`;
+                    } else {
+                        return this.generateExpression(idx, 0);
+                    }
+                };
+                
                 if (expr.indexEnd) {
-                    const endE = this.generateExpression(expr.indexEnd, 0);
-                    output = `Arrays.copyOfRange(${objE}, ${idxE}, ${endE})`;
+                    // Array slicing: nums[start:end] or nums[start:end:step]
+                    const startE = convertIndex(expr.index);
+                    const endE = convertIndex(expr.indexEnd);
+                    output = `Arrays.copyOfRange(${objE}, ${startE}, ${endE})`;
                 } else {
-                    output = `${objE}[${idxE}]`;
+                    // Single index access
+                    const indexExpr = convertIndex(expr.index);
+                    output = `${objE}[${indexExpr}]`;
                 }
                 break;
             case 'MemberExpression':

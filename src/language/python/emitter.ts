@@ -337,7 +337,7 @@ export class PythonEmitter extends ASTVisitor {
                     '<=': { op: '<=', prec: Precedence.Relational }, '>=': { op: '>=', prec: Precedence.Relational },
                     '+': { op: '+', prec: Precedence.Additive }, '-': { op: '-', prec: Precedence.Additive },
                     '*': { op: '*', prec: Precedence.Multiplicative }, '/': { op: '/', prec: Precedence.Multiplicative },
-                    '%': { op: '%', prec: Precedence.Multiplicative },
+                    '%': { op: '%', prec: Precedence.Multiplicative }, '**': { op: '**', prec: Precedence.Multiplicative },
                     // '..': { op: '..', prec: Precedence.Relational }
                 };
                 const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
@@ -367,6 +367,11 @@ export class PythonEmitter extends ASTVisitor {
                     calleeStrPy = (expr.callee as any).name;
                 }
 
+                // Handle builtins
+                if ((calleeStrPy === 'len' || calleeStrPy === 'LENGTH') && expr.arguments.length === 1) {
+                    output = `len(${this.generateExpression(expr.arguments[0], 0)})`;
+                    break;
+                }
                 if (calleeStrPy === 'LENGTH' && expr.arguments.length === 1) {
                     output = `len(${this.generateExpression(expr.arguments[0], 0)})`;
                     break;

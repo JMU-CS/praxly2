@@ -424,6 +424,7 @@ export class Interpreter {
                     case '*': return l * r;
                     case '/': return l / r;
                     case '%': return l % r;
+                    case '**': return Math.pow(l, r);
                     case '>': return l > r;
                     case '<': return l < r;
                     case '>=': return l >= r;
@@ -486,10 +487,32 @@ export class Interpreter {
 
                 const calleeName = (expr.callee as any).name;
 
-                // Built-in CSP intercepts
-                if (calleeName === 'LENGTH') {
+                // Built-in functions
+                if (calleeName === 'len' || calleeName === 'LENGTH') {
                     const arg = this.evaluate(expr.arguments[0], env);
                     return arg ? arg.length : 0;
+                }
+                if (calleeName === 'range') {
+                    const args = expr.arguments.map(a => this.evaluate(a, env));
+                    let start = 0, end = 0, step = 1;
+                    if (args.length === 1) { end = args[0]; }
+                    else if (args.length === 2) { start = args[0]; end = args[1]; }
+                    else if (args.length === 3) { start = args[0]; end = args[1]; step = args[2]; }
+                    
+                    const result: number[] = [];
+                    if (step > 0) {
+                        for (let i = start; i < end; i += step) result.push(i);
+                    } else {
+                        for (let i = start; i > end; i += step) result.push(i);
+                    }
+                    return result;
+                }
+                if (calleeName === 'enumerate') {
+                    const iterable = this.evaluate(expr.arguments[0], env);
+                    if (Array.isArray(iterable)) {
+                        return iterable.map((val, idx) => [idx, val]);
+                    }
+                    return [];
                 }
                 if (calleeName === 'APPEND') {
                     const list = this.evaluate(expr.arguments[0], env);

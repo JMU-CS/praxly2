@@ -204,6 +204,30 @@ export class CSPEmitter extends ASTVisitor {
             this.dedent();
             this.emit('}');
             this.context.symbolTable.exitScope();
+        } else if (stmt.iterable.type === 'CallExpression' && (stmt.iterable as any).callee.name === 'range') {
+            // Handle range() calls with proper iteration
+            const args = (stmt.iterable as any).arguments;
+            let start = '0', end = '0', step = '1';
+            if (args.length === 1) { end = this.generateExpression(args[0], 0); }
+            else if (args.length === 2) { start = this.generateExpression(args[0], 0); end = this.generateExpression(args[1], 0); }
+            else if (args.length === 3) { start = this.generateExpression(args[0], 0); end = this.generateExpression(args[1], 0); step = this.generateExpression(args[2], 0); }
+            
+            // Generate for loop: FOR ${var} FROM ${start} TO ${end} STEP ${step}
+            this.emit(`FOR  ${stmt.variable} FROM ${start} TO ${end} STEP ${step}`, stmt.id);
+            this.emit('{'); this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
+        } else if (stmt.variables && stmt.variables.length > 1 && stmt.iterable.type === 'CallExpression' && (stmt.iterable as any).callee.name === 'enumerate') {
+            // Handle enumerate: for i, v in enumerate(arr)
+            const arr = this.generateExpression((stmt.iterable as any).arguments[0], 0);
+            const idx = stmt.variables[0];
+            const val = stmt.variables[1];
+            
+            this.emit(`FOR  ${idx} FROM 0 TO ${arr}.length STEP 1`, stmt.id);
+            this.emit('{');
+            this.indent();
+            this.emit(`${val} <- ${arr}[${idx}]`);
+            this.visitBlock(stmt.body);
+            this.dedent();
+            this.emit('}');
         } else {
             this.emit(`FOR EACH ${stmt.variable} IN ${this.generateExpression(stmt.iterable, 0)}`, stmt.id);
             this.emit('{'); this.indent(); this.visitBlock(stmt.body); this.dedent(); this.emit('}');
@@ -266,7 +290,35 @@ export class CSPEmitter extends ASTVisitor {
                 break;
             case 'IndexExpression':
                 currentPrecedence = Precedence.Member;
-                output = `${this.generateExpression(expr.object, currentPrecedence)}[${this.generateExpression(expr.index, 0)}]`;
+                const objStr = this.generateExpression(expr.object, currentPrecedence);
+                
+                // Helper function to convert index expression to CSP, handling negative indices
+                const convertIndexCSP = (idx: any): string => {
+                    if (!idx) return '0';
+                    if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0) {
+                        // Negative index: arr[-1] becomes arr[arr.LENGTH() - 1]
+                        const absIdx = Math.abs(idx.value);
+                        return `${objStr}.LENGTH() - ${absIdx}`;
+                    } else if (idx.type === 'UnaryExpression' && idx.operator === '-' && idx.argument.type === 'Literal') {
+                        // Handle unary minus
+                        const val = idx.argument.value as number;
+                        return `${objStr}.LENGTH() - ${val}`;
+                    } else {
+                        return this.generateExpression(idx, 0);
+                    }
+                };
+                
+                if (expr.indexEnd) {
+                    // Array slicing: arr[start:end]
+                    const startE = convertIndexCSP(expr.index);
+                    const endE = convertIndexCSP(expr.indexEnd);
+                    // CSP doesn't have native slicing, generate a range expression
+                    output = `${objStr}.SLICE(${startE}, ${endE})`;
+                } else {
+                    // Single index access
+                    const indexStr = convertIndexCSP(expr.index);
+                    output = `${objStr}[${indexStr}]`;
+                }
                 break;
             case 'MemberExpression':
                 currentPrecedence = Precedence.Member;
@@ -281,6 +333,7 @@ export class CSPEmitter extends ASTVisitor {
                     '+': { op: '+', prec: Precedence.Additive }, '-': { op: '-', prec: Precedence.Additive },
                     '*': { op: '*', prec: Precedence.Multiplicative }, '/': { op: '/', prec: Precedence.Multiplicative },
                     '%': { op: 'MOD', prec: Precedence.Multiplicative },
+                    '**': { op: 'POW', prec: Precedence.Multiplicative },
                     '..': { op: '..', prec: Precedence.Relational }
                 };
                 const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
@@ -303,10 +356,17 @@ export class CSPEmitter extends ASTVisitor {
                 break;
             case 'CallExpression':
                 currentPrecedence = Precedence.Call;
-                const args2 = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
                 const calleeStr = (expr.callee as any).type === 'MemberExpression'
                     ? this.generateExpression(expr.callee as any, 0)
                     : (expr.callee as any).name;
+                
+                // Handle len() builtin
+                if ((calleeStr === 'len' || calleeStr === 'LENGTH') && expr.arguments.length === 1) {
+                    output = `${this.generateExpression(expr.arguments[0], 0)}.LENGTH()`;
+                    break;
+                }
+                
+                const args2 = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
                 output = `${calleeStr}(${args2})`;
                 break;
             case 'ArrayLiteral':

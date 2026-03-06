@@ -187,7 +187,7 @@ export class Parser {
       this.consume('PUNCTUATION', '(');
       const expressions: Expression[] = [];
       if (!this.check('PUNCTUATION', ')')) {
-        do { expressions.push(this.expression()); } while (this.match('PUNCTUATION', ','));
+        do { expressions.push(this.logicOr()); } while (this.match('PUNCTUATION', ','));
       }
       this.consume('PUNCTUATION', ')');
       while (this.match('PUNCTUATION', ';')) { }
@@ -437,8 +437,18 @@ export class Parser {
   }
 
   private factor(): Expression {
-    let left = this.unary();
+    let left = this.exponent();
     while (this.match('OPERATOR', '*', '/', '%')) {
+      const operator = this.previous().value;
+      const right = this.exponent();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+    }
+    return left;
+  }
+
+  private exponent(): Expression {
+    let left = this.unary();
+    while (this.match('OPERATOR', '**')) {
       const operator = this.previous().value;
       const right = this.unary();
       left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
@@ -452,8 +462,9 @@ export class Parser {
       return { id: generateId(), type: 'UnaryExpression', operator: 'not', argument: right };
     }
     if (this.match('OPERATOR', '-', '+')) {
+      const operator = this.previous().value; // Capture the operator before recursive call
       const right = this.unary();
-      return { id: generateId(), type: 'UnaryExpression', operator: this.previous().value, argument: right };
+      return { id: generateId(), type: 'UnaryExpression', operator, argument: right };
     }
     return this.call();
   }
@@ -503,7 +514,7 @@ export class Parser {
   private finishCall(callee: Expression): CallExpression {
     const args: Expression[] = [];
     if (!this.check('PUNCTUATION', ')')) {
-      do { args.push(this.expression()); } while (this.match('PUNCTUATION', ','));
+      do { args.push(this.logicOr()); } while (this.match('PUNCTUATION', ','));
     }
     this.consume('PUNCTUATION', ')');
 
