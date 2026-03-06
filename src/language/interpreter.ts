@@ -182,15 +182,13 @@ export class Interpreter {
             // Handle control flow statements specially to yield steps for nested statements
             if (stmt.type === 'If') {
                 const ifStmt = stmt as any;
-                // Yield the If statement itself
-                if (ifStmt.loc) {
-                    yield {
-                        nodeId: ifStmt.id,
-                        nodeType: ifStmt.type,
-                        loc: ifStmt.loc,
-                        variables: env.getAllVariables(),
-                    };
-                }
+                // Yield the If statement itself (always, for debugging)
+                yield {
+                    nodeId: ifStmt.id,
+                    nodeType: ifStmt.type,
+                    loc: ifStmt.loc || null,
+                    variables: env.getAllVariables(),
+                };
                 // Evaluate condition and execute appropriate branch
                 try {
                     const truthy = this.evaluate(ifStmt.condition, env);
@@ -206,15 +204,13 @@ export class Interpreter {
             } else if (stmt.type === 'While') {
                 const whileStmt = stmt as any;
                 while (true) {
-                    // Yield the While statement itself for each iteration
-                    if (whileStmt.loc) {
-                        yield {
-                            nodeId: whileStmt.id,
-                            nodeType: whileStmt.type,
-                            loc: whileStmt.loc,
-                            variables: env.getAllVariables(),
-                        };
-                    }
+                    // Yield the While statement itself for each iteration (always, for debugging)
+                    yield {
+                        nodeId: whileStmt.id,
+                        nodeType: whileStmt.type,
+                        loc: whileStmt.loc || null,
+                        variables: env.getAllVariables(),
+                    };
                     try {
                         const condition = this.evaluate(whileStmt.condition, env);
                         if (!condition) break;
@@ -231,15 +227,13 @@ export class Interpreter {
                         // C-Style for loop
                         this.execute(forStmt.init, env);
                         while (true) {
-                            // Yield the For statement itself for each iteration
-                            if (forStmt.loc) {
-                                yield {
-                                    nodeId: forStmt.id,
-                                    nodeType: forStmt.type,
-                                    loc: forStmt.loc,
-                                    variables: env.getAllVariables(),
-                                };
-                            }
+                            // Yield the For statement itself for each iteration (always, for debugging)
+                            yield {
+                                nodeId: forStmt.id,
+                                nodeType: forStmt.type,
+                                loc: forStmt.loc || null,
+                                variables: env.getAllVariables(),
+                            };
                             const condition = this.evaluate(forStmt.condition, env);
                             if (!condition) break;
                             yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
@@ -253,15 +247,13 @@ export class Interpreter {
                         }
                         for (const item of iterable) {
                             env.define(forStmt.variable, item);
-                            // Yield the For statement itself for each iteration
-                            if (forStmt.loc) {
-                                yield {
-                                    nodeId: forStmt.id,
-                                    nodeType: forStmt.type,
-                                    loc: forStmt.loc,
-                                    variables: env.getAllVariables(),
-                                };
-                            }
+                            // Yield the For statement itself for each iteration (always, for debugging)
+                            yield {
+                                nodeId: forStmt.id,
+                                nodeType: forStmt.type,
+                                loc: forStmt.loc || null,
+                                variables: env.getAllVariables(),
+                            };
                             yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
                         }
                     }
@@ -270,22 +262,22 @@ export class Interpreter {
                     throw e;
                 }
             } else {
-                // For all other statements, yield them before executing
-                if (stmt.loc) {
-                    yield {
-                        nodeId: stmt.id,
-                        nodeType: stmt.type,
-                        loc: stmt.loc,
-                        variables: env.getAllVariables(),
-                    };
-                }
-
+                // For all other statements, execute first then yield with updated state (always yield for debugging)
                 try {
                     this.execute(stmt, env);
                 } catch (e) {
                     if (e instanceof ReturnException) throw e;
                     throw e;
                 }
+
+                // Yield after execution so variables reflect the state after the statement
+                // Always yield for debugging, even if loc is not available
+                yield {
+                    nodeId: stmt.id,
+                    nodeType: stmt.type,
+                    loc: stmt.loc || null,
+                    variables: env.getAllVariables(),
+                };
             }
         }
     }
@@ -323,6 +315,13 @@ export class Interpreter {
                 break;
             case 'Assignment':
                 const value = this.evaluate(stmt.value, env);
+                let varName = stmt.name;
+                
+                // Extract variable name from target if it's an Identifier
+                if (stmt.target && stmt.target.type === 'Identifier') {
+                    varName = (stmt.target as any).name;
+                }
+                
                 if (stmt.target) {
                     if (stmt.target.type === 'MemberExpression') {
                         const obj = this.evaluate((stmt.target as any).object, env);
@@ -336,8 +335,14 @@ export class Interpreter {
                         const obj = this.evaluate((stmt.target as any).object, env);
                         const idx = this.evaluate((stmt.target as any).index, env);
                         obj[idx] = value;
+                    } else if (stmt.target.type === 'Identifier') {
+                        // Identifier target - define the variable
+                        env.define(varName, value);
                     } else {
-                        env.define(stmt.name, value);
+                        // For other target types, try to use stmt.name as fallback
+                        if (varName) {
+                            env.define(varName, value);
+                        }
                     }
                 } else if (stmt.name.includes('.')) {
                     const parts = stmt.name.split('.');
@@ -349,8 +354,9 @@ export class Interpreter {
                     } else {
                         throw new Error(`Cannot assign to field on non-object`);
                     }
-                } else {
-                    env.define(stmt.name, value);
+                } else if (varName) {
+                    // Standard case: define the variable
+                    env.define(varName, value);
                 }
                 break;
             case 'If':

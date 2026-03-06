@@ -130,7 +130,7 @@ export default function EmbedPage() {
     };
 
     const handleDebugStep = () => {
-        if (!embedData?.code) return;
+        if (!ast || !embedData?.code) return;
 
         try {
             const result = stepDebugger(ast, embedData.code, currentTargetLang);
@@ -142,6 +142,7 @@ export default function EmbedPage() {
 
             if (result.isComplete) {
                 setIsDebugComplete(true);
+                setOutput((prev) => [...prev, 'Execution complete.']);
             }
         } catch (e: any) {
             console.error(e);

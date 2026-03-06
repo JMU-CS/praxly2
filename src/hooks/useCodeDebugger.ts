@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';
-import { Debugger } from '../language/debugger';
+import { Debugger, type DebugStep } from '../language/debugger';
 import { getRangeLines, findNodesAtLocation } from '../utils/debuggerUtils';
 import type { SourceMap } from './useCodeParsing';
 
@@ -10,6 +10,7 @@ interface DebugStepResult {
     translationHighlightedLines: number[];
     outputLines: string[];
     isComplete: boolean;
+    step: DebugStep | null;
 }
 
 /**
@@ -117,7 +118,8 @@ export const useCodeDebugger = (
                     sourceHighlightedLines,
                     translationHighlightedLines,
                     outputLines,
-                    isComplete: step.isComplete
+                    isComplete: step.isComplete,
+                    step
                 };
             } catch (e) {
                 throw e;

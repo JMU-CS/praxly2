@@ -372,16 +372,22 @@ export class JavaParser {
       
       if (this.check('OPERATOR', '=')) {
         // C-style: int i = 0; or int i = 0, j = 10;
+        const assignIdx = this.current;
         this.consume('OPERATOR', '=');
         const value = this.expression();
-        const inits: Statement[] = [{ id: generateId(), type: 'Assignment', name: varName, value }];
+        const initAssignment = { id: generateId(), type: 'Assignment', name: varName, value } as Statement;
+        this.withLocation(initAssignment, assignIdx);
+        const inits: Statement[] = [initAssignment];
         
         // Handle multiple variable declarations with commas
         while (this.match('PUNCTUATION', ',')) {
+          const nextAssignIdx = this.current;
           const nextVarName = this.consume('IDENTIFIER').value;
           this.consume('OPERATOR', '=');
           const nextValue = this.expression();
-          inits.push({ id: generateId(), type: 'Assignment', name: nextVarName, value: nextValue });
+          const nextAssignment = { id: generateId(), type: 'Assignment', name: nextVarName, value: nextValue } as Statement;
+          this.withLocation(nextAssignment, nextAssignIdx);
+          inits.push(nextAssignment);
         }
         
         init = inits.length === 1 ? inits[0] : (inits as any);
@@ -426,9 +432,12 @@ export class JavaParser {
         return { id: generateId(), type: 'For', variable: varName, iterable, body };
       } else if (this.check('OPERATOR', '=')) {
         // C-style: i = 0;
+        const assignIdx = this.current;
         this.consume('OPERATOR', '=');
         const value = this.expression();
-        init = { id: generateId(), type: 'Assignment', name: varName, value };
+        const assignment = { id: generateId(), type: 'Assignment', name: varName, value } as Statement;
+        this.withLocation(assignment, assignIdx);
+        init = assignment;
         this.consume('PUNCTUATION', ';');
         condition = this.expression();
         this.consume('PUNCTUATION', ';');
@@ -486,14 +495,19 @@ export class JavaParser {
       
       // Regular assignment (=)
       if (operator === '=') {
+        const assignIdx = this.current - 1; // Index of the = operator
         let name = '';
         if (left.type === 'Identifier') {
           name = (left as any).name;
         } else if (left.type === 'MemberExpression' || left.type === 'IndexExpression') {
           // For member expressions like this.count or array[i], we need to preserve them
-          return { id: generateId(), type: 'Assignment', name: JSON.stringify(left), value: right, isMemberAssignment: true, memberExpr: left } as any;
+          const memberAssignment = { id: generateId(), type: 'Assignment', name: JSON.stringify(left), value: right, isMemberAssignment: true, memberExpr: left } as any;
+          this.withLocation(memberAssignment, assignIdx);
+          return memberAssignment;
         }
-        return { id: generateId(), type: 'Assignment', name, value: right } as any;
+        const assignment = { id: generateId(), type: 'Assignment', name, value: right } as any;
+        this.withLocation(assignment, assignIdx);
+        return assignment;
       }
       
       // Compound assignments - return as CompoundAssignment or convert to binary

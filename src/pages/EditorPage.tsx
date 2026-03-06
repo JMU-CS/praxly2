@@ -7,13 +7,13 @@ import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 
 import { Interpreter } from '../language/interpreter';
 import type { Program } from '../language/ast';
+import { findNodesAtLocation } from '../utils/debuggerUtils';
 import { JSONTree } from '../components/JSONTree';
 import { OutputPanel } from '../components/OutputPanel';
 import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
 import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import type { SupportedLang } from '../components/LanguageSelector';
 import { encodeEmbed, generateEmbedHTML, copyToClipboard, decodeEmbed } from '../utils/embedCodec';
-import { getRangeLines, findNodesAtLocation } from '../utils/debuggerUtils';
 import { SAMPLE_CODE_PYTHON, SAMPLE_CODE_JAVA, SAMPLE_CODE_CSP, SAMPLE_CODE_PRAXIS } from '../utils/sampleCodes';
 import type { SourceMap } from '../language/visitor';
 import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
@@ -51,11 +51,11 @@ export default function EditorPage() {
         setIsDebugging,
         isDebugComplete,
         setIsDebugComplete,
-        debuggerInstance,
         highlightedSourceLines,
         setHighlightedSourceLines,
         currentVariables,
         initDebugger,
+        stepDebugger,
         stopDebugger
     } = useCodeDebugger(getTranslation);
 
@@ -187,60 +187,47 @@ export default function EditorPage() {
     };
 
     const handleDebugStep = () => {
-        if (!debuggerInstance || !ast) return;
+        if (!ast) return;
 
         try {
-            const step = debuggerInstance.step();
-            if (!step) return;
+            // Use the hook's stepDebugger function which properly updates currentVariables state
+            const result = stepDebugger(ast, code, sourceLang === 'ast' ? 'python' : sourceLang);
+            if (!result) return;
 
-            // Calculate which lines to highlight in source code
-            if (step.sourceLocation) {
-                const nodesAtLocation = findNodesAtLocation(ast, step.sourceLocation.start);
-                
-                // For the source code pane, highlight lines for all nodes at this location
-                const sourceHighlightedLinesSet = new Set<number>();
-                for (const node of nodesAtLocation) {
-                    if (node.loc) {
-                        const nodeLines = getRangeLines(code, node.loc.start);
-                        nodeLines.forEach(line => sourceHighlightedLinesSet.add(line));
-                    }
-                }
-                setHighlightedSourceLines(Array.from(sourceHighlightedLinesSet));
+            setHighlightedSourceLines(result.sourceHighlightedLines);
 
-                // For translation panels, highlight corresponding lines using their source maps
+            // Compute highlighted lines for each open panel using the step's location info
+            const panelHighlights = new Map<string, number[]>();
+            if (result.step?.sourceLocation) {
+                const nodesAtLocation = findNodesAtLocation(ast, result.step.sourceLocation.start);
                 const nodeIds = nodesAtLocation.map(n => n.id);
-                const newPanelHighlights = new Map<string, number[]>();
-                panels.forEach(panel => {
-                    const highlightedLines = new Set<number>();
+
+                for (const panel of panels) {
+                    const translation = getTranslation(ast, panel.lang);
+                    const panelHighlightSet = new Set<number>();
+
                     for (const nodeId of nodeIds) {
-                        const lineIndex = panel.sourceMap.get(nodeId);
-                        if (lineIndex !== undefined) {
-                            highlightedLines.add(lineIndex);
+                        const mapEntry = translation.sourceMap.get
+                            ? translation.sourceMap.get(nodeId)
+                            : (translation.sourceMap as any)[nodeId];
+
+                        if (mapEntry !== undefined) {
+                            if (typeof mapEntry === 'object' && 'lineStart' in mapEntry) {
+                                panelHighlightSet.add(mapEntry.lineStart - 1);
+                            } else if (typeof mapEntry === 'number') {
+                                panelHighlightSet.add(mapEntry);
+                            }
                         }
                     }
-                    if (highlightedLines.size > 0) {
-                        newPanelHighlights.set(panel.id, Array.from(highlightedLines));
-                    }
-                });
-                setPanelHighlightedLines(newPanelHighlights);
-            } else {
-                setHighlightedSourceLines([]);
-                setPanelHighlightedLines(new Map());
+                    panelHighlights.set(panel.id, Array.from(panelHighlightSet));
+                }
             }
+            setPanelHighlightedLines(panelHighlights);
 
-            // Update output with step info
-            const outputLines: string[] = [];
-            outputLines.push(`--- Step ${step.stepNumber} ---`);
-            outputLines.push(`Node: ${step.nodeType}`);
-            if (step.sourceLocation) {
-                outputLines.push(`Location: ${step.sourceLocation.start} - ${step.sourceLocation.end}`);
-            }
-            outputLines.push('');
-
-            setOutput(outputLines);
+            setOutput(result.outputLines);
 
             // Check if execution is complete
-            if (step.isComplete) {
+            if (result.isComplete) {
                 setIsDebugComplete(true);
                 setOutput((prev) => [...prev, 'Execution complete.']);
             }

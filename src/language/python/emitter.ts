@@ -4,11 +4,30 @@ import type { Program, ClassDeclaration, FieldDeclaration, Constructor, MethodDe
 export class PythonEmitter extends ASTVisitor {
     private currentClassFields = new Set<string>();
 
+    /**
+     * Check if a ClassDeclaration is Java's special Main class wrapper
+     * (contains only a static main method)
+     */
+    private isJavaMainClass(classDecl: ClassDeclaration): boolean {
+        if (classDecl.name !== 'Main') return false;
+        const hasStaticMainMethod = classDecl.body.some(member => 
+            member.type === 'MethodDeclaration' && 
+            (member as MethodDeclaration).name === 'main' && 
+            (member as MethodDeclaration).isStatic
+        );
+        return hasStaticMainMethod;
+    }
+
     visitProgram(program: Program): void {
         const classes = program.body.filter(s => s.type === 'ClassDeclaration');
         const nonClasses = program.body.filter(s => s.type !== 'ClassDeclaration');
 
-        classes.forEach(classDecl => {
+        // Split Main class from other classes
+        const mainClass = classes.find(c => this.isJavaMainClass(c as ClassDeclaration));
+        const otherClasses = classes.filter(c => !this.isJavaMainClass(c as ClassDeclaration));
+
+        // Emit non-Main classes
+        otherClasses.forEach(classDecl => {
             this.visitClassDeclaration(classDecl as ClassDeclaration);
             this.emit('');
         });
@@ -20,7 +39,22 @@ export class PythonEmitter extends ASTVisitor {
             this.visitStatement(func);
             this.emit('');
         });
+        
+        // Emit main body from non-class statements
         mainBody.forEach(stmt => this.visitStatement(stmt));
+        
+        // If there's a Java Main class, emit its main method body directly
+        if (mainClass) {
+            const mainClassDecl = mainClass as ClassDeclaration;
+            const mainMethod = mainClassDecl.body.find(m => 
+                m.type === 'MethodDeclaration' && (m as MethodDeclaration).name === 'main'
+            ) as MethodDeclaration | undefined;
+            
+            if (mainMethod) {
+                // Emit the main method's body directly without class wrapper
+                this.visitBlock(mainMethod.body);
+            }
+        }
     }
 
     visitClassDeclaration(classDecl: ClassDeclaration): void {
