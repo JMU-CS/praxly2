@@ -454,5 +454,135 @@ total += k;`;
       expect(result).toContain('!');
       expect(result).toContain('equals');
     });
+
+    it('should use .equals() for String equality comparison', () => {
+      const source = `String name = "John";
+if (name == "John") {
+  System.out.println("Match");
+}`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaResult = translator.translate(program, 'java');
+      expect(javaResult).toContain('.equals(');
+    });
+
+    it('should handle String inequality with .equals()', () => {
+      const source = `String a = "test";
+String b = "other";
+if (a != b) {
+  System.out.println("Different");
+}`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaResult = translator.translate(program, 'java');
+      expect(javaResult).toContain('!');
+      expect(javaResult).toContain('.equals(');
+    });
+
+    it('should handle bitwise XOR operator', () => {
+      const source = `int result = a ^ b;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('^');
+    });
+
+    it('should support ternary operators', () => {
+      const source = `int max = a > b ? a : b;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('?');
+      expect(result).toContain(':');
+    });
+
+    it('should handle multiple statements in c-style for loop', () => {
+      const source = `for (int i = 0, j = 10; i < j; i++, j--) {
+  System.out.println(i);
+}`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('for');
+      expect(result).toContain('i');
+      expect(result).toContain('j');
+    });
+
+    it('should add break statements in switch cases', () => {
+      const source = `switch (x) {
+  case 1:
+    System.out.println("one");
+  case 2:
+    System.out.println("two");
+  default:
+    System.out.println("other");
+}`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('break');
+    });
+
+    it('should translate array element mutation', () => {
+      const source = `int[] nums = {1, 2, 3};
+nums[0] = 5;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('nums[0]');
+      expect(result).toContain('5');
+    });
+
+    it('should translate compound assignment operators', () => {
+      const source = `int x = 10;
+x += 5;
+x -= 3;
+x *= 2;
+x /= 4;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('+=');
+      expect(result).toContain('-=');
+      expect(result).toContain('*=');
+      expect(result).toContain('/=');
+    });
+
+    it('should translate XOR assignment operator', () => {
+      const source = `int flags = 15;
+flags ^= 7;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('flags');
+      expect(result).toContain('^=');
+    });
   });
 });

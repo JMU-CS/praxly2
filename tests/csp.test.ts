@@ -479,4 +479,63 @@ describe('CSP Translation', () => {
       expect(result).toContain('PRIVATE');
     });
   });
+
+  describe('Advanced Features', () => {
+    it('should support REPEAT n TIMES', () => {
+      const source = `REPEAT 5 TIMES
+{
+  DISPLAY "hello"
+}`;
+      const lexer = new CSPLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new CSPParser(tokens);
+      const program = parser.parse();
+      expect(program.body.length).toBeGreaterThan(0);
+    });
+
+    it('should support FOR EACH item IN collection', () => {
+      const source = `FOR EACH item IN items
+{
+  DISPLAY item
+}`;
+      const lexer = new CSPLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new CSPParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'csp');
+      expect(result).toContain('FOR EACH');
+      expect(result).toContain('IN');
+    });
+
+    it('should handle REPEAT n TIMES with variable', () => {
+      const source = `n <- 10
+REPEAT n TIMES
+{
+  x <- x + 1
+}`;
+      const lexer = new CSPLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new CSPParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'csp');
+      expect(result).toContain('n');
+    });
+
+    it('should translate REPEAT n TIMES to while loop in other languages', () => {
+      const source = `REPEAT 3 TIMES
+{
+  DISPLAY "x"
+}`;
+      const lexer = new CSPLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new CSPParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'python');
+      // REPEAT n TIMES becomes a while loop (we have a counter loop internally)
+      expect(result).toContain('while');
+    });
+  });
 });

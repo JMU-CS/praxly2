@@ -229,7 +229,7 @@ export class JavaEmitter extends ASTVisitor {
         this.indent();
         this.context.symbolTable.enterScope();
         
-        stmt.cases.forEach((caseStmt: any) => {
+        stmt.cases.forEach((caseStmt: any, index: number) => {
             if (caseStmt.test) {
                 this.emit(`case ${this.generateExpression(caseStmt.test, 0)}:`);
             } else {
@@ -237,6 +237,18 @@ export class JavaEmitter extends ASTVisitor {
             }
             this.indent();
             caseStmt.consequent.forEach((s: Statement) => this.visitStatement(s));
+            
+            // Add break unless the last statement is already a break and not the default case
+            if (caseStmt.consequent.length > 0 && caseStmt.consequent[caseStmt.consequent.length - 1].type === 'Break') {
+                // Already has break, no need to add
+            } else if (index < stmt.cases.length - 1) {
+                // Not the last case, add break to prevent fallthrough
+                this.emit('break;');
+            } else if (caseStmt.test) {
+                // Last case but not default, add break anyway for consistency
+                this.emit('break;');
+            }
+            
             this.dedent();
         });
         
@@ -494,8 +506,29 @@ export class JavaEmitter extends ASTVisitor {
                     '%': { op: '%', prec: Precedence.Multiplicative },
                     '&': { op: '&', prec: Precedence.BitwiseAnd }, '|': { op: '|', prec: Precedence.BitwiseOr },
                     '^': { op: '^', prec: Precedence.Xor }, '<<': { op: '<<', prec: Precedence.Shift },
-                    '>>': { op: '>>', prec: Precedence.Shift }, '>>>': { op: '>>>', prec: Precedence.Shift }
+                    '>>': { op: '>>', prec: Precedence.Shift }, '>>>': { op: '>>>', prec: Precedence.Shift },
+                    '..': { op: '..', prec: Precedence.Relational }
                 };
+                
+                // Special handling for String equality
+                if ((expr.operator === '==' || expr.operator === '!=')) {
+                    const leftType = this.inferType(expr.left);
+                    const rightType = this.inferType(expr.right);
+                    
+                    if (leftType === 'String' || rightType === 'String') {
+                        const leftStr = this.generateExpression(expr.left, Precedence.Call);
+                        const rightStr = this.generateExpression(expr.right, Precedence.Call);
+                        
+                        if (expr.operator === '==') {
+                            output = `${leftStr}.equals(${rightStr})`;
+                        } else {
+                            output = `!${leftStr}.equals(${rightStr})`;
+                        }
+                        currentPrecedence = Precedence.Equality;
+                        break;
+                    }
+                }
+                
                 const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
                 currentPrecedence = opData.prec;
                 output = `${this.generateExpression(expr.left, currentPrecedence)} ${opData.op} ${this.generateExpression(expr.right, currentPrecedence)}`;

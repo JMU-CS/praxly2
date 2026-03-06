@@ -334,7 +334,18 @@ export class PraxisEmitter extends ASTVisitor {
                 break;
             case 'IndexExpression':
                 currentPrecedence = Precedence.Member;
-                output = `${this.generateExpression(expr.object, currentPrecedence)}[${this.generateExpression(expr.index, 0)}]`;
+                // Praxis emitter needs to convert 0-based indices back to 1-based
+                // If the index is a BinaryExpression with operator '-' and right === 1,
+                // it was converted from 1-based to 0-based during parsing, so unwrap it
+                let indexExpr = expr.index;
+                if (indexExpr.type === 'BinaryExpression' && 
+                    indexExpr.operator === '-' && 
+                    indexExpr.right.type === 'Literal' && 
+                    indexExpr.right.value === 1) {
+                    // This is a 0-based index converted from 1-based, use the original
+                    indexExpr = indexExpr.left;
+                }
+                output = `${this.generateExpression(expr.object, currentPrecedence)}[${this.generateExpression(indexExpr, 0)}]`;
                 break;
             case 'MemberExpression':
                 currentPrecedence = Precedence.Member;
@@ -348,7 +359,8 @@ export class PraxisEmitter extends ASTVisitor {
                     '<=': { op: '<=', prec: Precedence.Relational }, '>=': { op: '>=', prec: Precedence.Relational },
                     '+': { op: '+', prec: Precedence.Additive }, '-': { op: '-', prec: Precedence.Additive },
                     '*': { op: '*', prec: Precedence.Multiplicative }, '/': { op: '/', prec: Precedence.Multiplicative },
-                    '%': { op: 'mod', prec: Precedence.Multiplicative }
+                    '%': { op: 'mod', prec: Precedence.Multiplicative },
+                    '..': { op: '..', prec: Precedence.Relational }
                 };
                 const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
                 currentPrecedence = opData.prec;

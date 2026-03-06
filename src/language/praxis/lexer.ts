@@ -36,8 +36,15 @@ export class PraxisLexer {
             if (/\d/.test(char)) {
                 let value = '';
                 const start = this.pos;
-                while (this.pos < this.input.length && (/\d/.test(this.input[this.pos]) || this.input[this.pos] === '.')) {
+                while (this.pos < this.input.length && /\d/.test(this.input[this.pos])) {
                     value += this.input[this.pos++];
+                }
+                // Check for decimal point, but not ".." range operator
+                if (this.input[this.pos] === '.' && this.input[this.pos + 1] !== '.' && /\d/.test(this.input[this.pos + 1])) {
+                    value += this.input[this.pos++]; // consume the .
+                    while (this.pos < this.input.length && /\d/.test(this.input[this.pos])) {
+                        value += this.input[this.pos++];
+                    }
                 }
                 tokens.push({ type: 'NUMBER', value, start });
                 continue;
@@ -87,6 +94,13 @@ export class PraxisLexer {
             const operators = ['+', '-', '*', '/', '=', '>', '<', '!', '(', ')', '[', ']', '{', '}', ',', '.', ';', ':'];
             if (operators.includes(char) || ['←', '≠', '≥', '≤'].includes(char)) {
                 const start = this.pos;
+
+                // Range operator (..)
+                if (char === '.' && this.input[this.pos + 1] === '.') {
+                    tokens.push({ type: 'OPERATOR', value: '..', start });
+                    this.pos += 2;
+                    continue;
+                }
 
                 // Multi-character Assignments and Comparisons
                 if (char === '<' && this.input[this.pos + 1] === '-') {

@@ -280,7 +280,8 @@ export class CSPEmitter extends ASTVisitor {
                     '<=': { op: '<=', prec: Precedence.Relational }, '>=': { op: '>=', prec: Precedence.Relational },
                     '+': { op: '+', prec: Precedence.Additive }, '-': { op: '-', prec: Precedence.Additive },
                     '*': { op: '*', prec: Precedence.Multiplicative }, '/': { op: '/', prec: Precedence.Multiplicative },
-                    '%': { op: 'MOD', prec: Precedence.Multiplicative }
+                    '%': { op: 'MOD', prec: Precedence.Multiplicative },
+                    '..': { op: '..', prec: Precedence.Relational }
                 };
                 const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
                 currentPrecedence = opData.prec;

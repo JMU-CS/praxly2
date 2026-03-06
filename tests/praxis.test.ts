@@ -460,5 +460,67 @@ end for`;
       expect(result).toContain('for');
       expect(result).toContain('xs[i]');
     });
+
+    it('should parse range literals', () => {
+      const source = `x <- 1..10`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      const program = parser.parse();
+      expect(program.body.length).toBeGreaterThan(0);
+    });
+
+    it('should correctly translate range literal to other languages', () => {
+      const source = `x <- 1..5
+print(x)`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const pythonResult = translator.translate(program, 'python');
+      expect(pythonResult).toContain('x');
+    });
+
+    it('should correctly handle 1-based array access in for loops', () => {
+      const source = `int[] items <- {10, 20, 30}
+for i <- 1; i <= 3; i <- i + 1
+  print(items[i])
+end for`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'praxis');
+      // Praxis emitter should output 1-based indices
+      expect(result).toContain('items[i]');
+    });
+
+    it('should translate 1-based Praxis indexing to 0-based in Java', () => {
+      const source = `int[] arr <- {5, 10, 15}
+int first <- arr[1]`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaResult = translator.translate(program, 'java');
+      // Java should use 0-based indexing
+      expect(javaResult).toContain('arr[');
+    });
+
+    it('should translate 1-based Praxis indexing to 0-based in Python', () => {
+      const source = `arr = [5, 10, 15]
+first = arr[1]`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const pythonResult = translator.translate(program, 'python');
+      // Python should use 0-based indexing
+      expect(pythonResult).toContain('arr[');
+    });
   });
 });

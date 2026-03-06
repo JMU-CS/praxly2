@@ -337,7 +337,8 @@ export class PythonEmitter extends ASTVisitor {
                     '<=': { op: '<=', prec: Precedence.Relational }, '>=': { op: '>=', prec: Precedence.Relational },
                     '+': { op: '+', prec: Precedence.Additive }, '-': { op: '-', prec: Precedence.Additive },
                     '*': { op: '*', prec: Precedence.Multiplicative }, '/': { op: '/', prec: Precedence.Multiplicative },
-                    '%': { op: '%', prec: Precedence.Multiplicative }
+                    '%': { op: '%', prec: Precedence.Multiplicative },
+                    // '..': { op: '..', prec: Precedence.Relational }
                 };
                 const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
                 currentPrecedence = opData.prec;
@@ -395,6 +396,12 @@ export class PythonEmitter extends ASTVisitor {
                 const compVar = (expr as any).variable;
                 const iterExpr = this.generateExpression((expr as any).iterable, 0);
                 output = `[${elemExpr} for ${compVar} in ${iterExpr}]`;
+                break;
+            case 'CompoundAssignment':
+                const target = (expr as any).name;
+                const value = this.generateExpression((expr as any).value, 0);
+                const operator = (expr as any).operator;
+                output = `${target} ${operator}= ${value}`;
                 break;
         }
         return (currentPrecedence < parentPrecedence) ? `(${output})` : output;

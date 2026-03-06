@@ -220,13 +220,16 @@ export class PraxisParser {
 
                 if (expr.type === 'Identifier') {
                     stmt = { id: generateId(), type: 'Assignment', name: (expr as Identifier).name, value };
-                } else if (expr.type === 'MemberExpression') {
+                } else if (expr.type === 'MemberExpression' || expr.type === 'IndexExpression') {
+                    // Handle member and index expressions with target field
                     stmt = {
                         id: generateId(),
                         type: 'Assignment',
-                        name: this.generateMemberPath(expr),
-                        value
-                    };
+                        name: expr.type === 'IndexExpression' ? this.generateMemberPath(expr) : this.generateMemberPath(expr),
+                        value,
+                        isMemberAssignment: true,
+                        memberExpr: expr
+                    } as any;
                 } else {
                     stmt = { id: generateId(), type: 'ExpressionStatement', expression: expr };
                 }
@@ -448,13 +451,22 @@ export class PraxisParser {
     }
 
     private equality(): Expression {
-        let left = this.comparison();
+        let left = this.range();
         while (this.match('OPERATOR', '==', '!=', '=', '<>')) {
             let operator = this.previous().value;
             if (operator === '=') operator = '==';
             if (operator === '<>') operator = '!=';
-            const right = this.comparison();
+            const right = this.range();
             left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+        }
+        return left;
+    }
+
+    private range(): Expression {
+        let left = this.comparison();
+        while (this.match('OPERATOR', '..')) {
+            const right = this.comparison();
+            left = { id: generateId(), type: 'BinaryExpression', left, operator: '..', right };
         }
         return left;
     }
@@ -519,11 +531,19 @@ export class PraxisParser {
                 try {
                     const index = this.expression();
                     this.consume('PUNCTUATION', ']');
+                    // Praxis uses 1-based indexing, convert to 0-based
+                    const zeroBasedIndex: Expression = {
+                        id: generateId(),
+                        type: 'BinaryExpression',
+                        left: index,
+                        operator: '-',
+                        right: { id: generateId(), type: 'Literal', value: 1, raw: '1' }
+                    };
                     expr = {
                         id: generateId(),
                         type: 'IndexExpression',
                         object: expr,
-                        index: index
+                        index: zeroBasedIndex
                     };
                 } catch (e) {
                     this.current = savedPos;
