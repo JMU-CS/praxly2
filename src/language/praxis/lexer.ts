@@ -96,7 +96,7 @@ export class PraxisLexer {
             }
 
             // Operators and Punctuation
-            const operators = ['+', '-', '*', '/', '=', '>', '<', '!', '(', ')', '[', ']', '{', '}', ',', '.', ';', ':'];
+            const operators = ['+', '-', '*', '/', '%', '^', '=', '>', '<', '!', '(', ')', '[', ']', '{', '}', ',', '.', ';', ':'];
             if (operators.includes(char) || ['←', '≠', '≥', '≤'].includes(char)) {
                 const start = this.pos;
 
@@ -131,7 +131,7 @@ export class PraxisLexer {
                 if (char === '≤') { tokens.push({ type: 'OPERATOR', value: '<=', start: this.pos++ }); continue; }
 
                 // Map symbols accurately to Operator vs Punctuation buckets
-                if (['+', '-', '*', '/', '%', '>', '<', '='].includes(char)) {
+                if (['+', '-', '*', '/', '%', '^', '>', '<', '='].includes(char)) {
                     tokens.push({ type: 'OPERATOR', value: char, start: this.pos++ });
                 } else {
                     tokens.push({ type: 'PUNCTUATION', value: char, start: this.pos++ });

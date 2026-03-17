@@ -109,7 +109,7 @@ export default function EmbedPage() {
             const program = ast;
             if (!program) return;
 
-            const results = computeRunOutput(program);
+            const results = computeRunOutput(program, embedData?.code || '');
             setOutput(results);
         } catch (e: any) {
             console.error(e);
@@ -125,7 +125,7 @@ export default function EmbedPage() {
             const program = ast;
             if (!program) return;
 
-            initDebugger(program, (embedData?.lang || 'python') as SupportedLang);
+            initDebugger(program, (embedData?.lang || 'python') as SupportedLang, embedData?.code || '');
             setOutput(['Debugger initialized. Click Step to begin.']);
         } catch (e: any) {
             console.error(e);

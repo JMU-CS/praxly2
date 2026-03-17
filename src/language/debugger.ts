@@ -48,6 +48,7 @@ export interface DebugContext {
   currentStep: number;
   isRunning: boolean;
   sourceMaps: Map<SupportedLang, SourceMap>;
+  sourceCode: string;
 }
 
 /**
@@ -61,7 +62,7 @@ export class Debugger {
   /**
    * Initialize debugger with a program and source language
    */
-  init(program: Program, sourceLang: SupportedLang): DebugContext {
+  init(program: Program, sourceLang: SupportedLang, sourceCode: string = ''): DebugContext {
     const interpreter = new Interpreter();
     const translator = new Translator();
 
@@ -74,6 +75,7 @@ export class Debugger {
       currentStep: 0,
       isRunning: false,
       sourceMaps: new Map(),
+      sourceCode,
     };
 
     // Generate source maps for all target languages
@@ -86,7 +88,7 @@ export class Debugger {
     }
 
     // Initialize execution generator
-    this.executionGenerator = (interpreter as any).stepThroughWithState(program);
+    this.executionGenerator = (interpreter as any).stepThroughWithState(program, sourceCode);
 
     return this.context;
   }

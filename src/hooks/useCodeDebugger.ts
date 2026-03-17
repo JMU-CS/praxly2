@@ -32,11 +32,11 @@ export const useCodeDebugger = (
     const [currentVariables, setCurrentVariables] = useState<Record<string, any>>({});
 
     const initDebugger = useCallback(
-        (ast: Program | null, lang: SupportedLang) => {
+        (ast: Program | null, lang: SupportedLang, sourceCode: string = '') => {
             if (!ast) return;
             try {
                 const debugInstance = new Debugger();
-                debugInstance.init(ast, lang);
+                debugInstance.init(ast, lang, sourceCode);
                 setDebuggerInstance(debugInstance);
                 setIsDebugging(true);
                 setIsDebugComplete(false);

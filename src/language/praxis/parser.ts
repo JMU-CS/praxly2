@@ -221,9 +221,21 @@ export class PraxisParser {
             typeName += '[]';
         }
 
-        let value: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
+        // Provide type-appropriate defaults for uninitialized variables
+        let value: Expression;
         if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
             value = this.expression();
+        } else {
+            // Default initialization based on type
+            const baseType = typeName.replace(/\[\]/g, ''); // Remove array brackets to get base type
+            if (['int', 'byte', 'short', 'long', 'float', 'double'].includes(baseType)) {
+                value = { id: generateId(), type: 'Literal', value: 0, raw: '0' };
+            } else if (baseType === 'boolean') {
+                value = { id: generateId(), type: 'Literal', value: false, raw: 'false' };
+            } else {
+                // String, custom classes, and other types default to null
+                value = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
+            }
         }
 
         // Include varType to lock down specific custom class typings into translator
@@ -540,12 +552,22 @@ export class PraxisParser {
     }
 
     private factor(): Expression {
-        let left = this.unary();
+        let left = this.exponent();
         while (this.match('OPERATOR', '*', '/', '%') || this.match('KEYWORD', 'mod')) {
             let operator = this.previous().value.toLowerCase();
             if (operator === 'mod') operator = '%';
-            const right = this.unary();
+            const right = this.exponent();
             left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+        }
+        return left;
+    }
+
+    private exponent(): Expression {
+        let left = this.unary();
+        // Right-associative: handle ^ operator from right to left
+        if (this.match('OPERATOR', '^')) {
+            const right = this.exponent(); // Right-associative recursion
+            left = { id: generateId(), type: 'BinaryExpression', left, operator: '^', right };
         }
         return left;
     }

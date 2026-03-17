@@ -7,9 +7,13 @@ import type { Program, Statement, Expression, FunctionDeclaration, ClassDeclarat
 
 export class Environment {
     public values: Record<string, any> = {};
+    public types: Record<string, string> = {};  // Track declared types
     public parent?: Environment;
     constructor(parent?: Environment) { this.parent = parent; }
-    define(name: string, value: any) { this.values[name] = value; }
+    define(name: string, value: any, type?: string) { 
+        this.values[name] = value; 
+        if (type) this.types[name] = type;
+    }
     assign(name: string, value: any) {
         if (name in this.values) { this.values[name] = value; return; }
         if (this.parent) { this.parent.assign(name, value); return; }
@@ -19,6 +23,11 @@ export class Environment {
         if (name in this.values) return this.values[name];
         if (this.parent) return this.parent.get(name);
         throw new Error(`Undefined variable '${name}'`);
+    }
+    getType(name: string): string | undefined {
+        if (name in this.types) return this.types[name];
+        if (this.parent) return this.parent.getType(name);
+        return undefined;
     }
     getAllVariables(): Record<string, any> {
         const vars: Record<string, any> = { ...this.values };
@@ -109,8 +118,10 @@ export class Interpreter {
     private output: string[] = [];
     private classes: Map<string, JavaClass> = new Map();
     private currentEnv: Environment = this.globalEnv;
+    private sourceCode: string = '';  // Store source code for line number extraction
 
-    interpret(program: Program): string[] {
+    interpret(program: Program, sourceCode: string = ''): string[] {
+        this.sourceCode = sourceCode;
         this.output = [];
         this.globalEnv = new Environment();
         this.classes = new Map();
@@ -139,14 +150,21 @@ export class Interpreter {
                 }
             }
         } catch (e: any) {
-            this.output.push(`Runtime Error: ${e.message}`);
+            const message = e.message || String(e);
+            // If the error message already starts with "runtime error occurred", don't add prefix
+            if (message.startsWith('runtime error occurred')) {
+                this.output.push(message);
+            } else {
+                this.output.push(`Runtime Error: ${message}`);
+            }
         }
         return this.output;
     }
 
 
 
-    *stepThroughWithState(program: Program): Generator<{ nodeId: string; nodeType: string; loc: any; variables: Record<string, any> }, string[], void> {
+    *stepThroughWithState(program: Program, sourceCode: string = ''): Generator<{ nodeId: string; nodeType: string; loc: any; variables: Record<string, any> }, string[], void> {
+        this.sourceCode = sourceCode;
         this.output = [];
         this.globalEnv = new Environment();
         this.currentEnv = this.globalEnv;
@@ -175,7 +193,13 @@ export class Interpreter {
                 }
             }
         } catch (e: any) {
-            this.output.push(`Runtime Error: ${e.message}`);
+            const message = e.message || String(e);
+            // If the error message already starts with "runtime error occurred", don't add prefix
+            if (message.startsWith('runtime error occurred')) {
+                this.output.push(message);
+            } else {
+                this.output.push(`Runtime Error: ${message}`);
+            }
         }
         return this.output;
     }
@@ -304,6 +328,96 @@ export class Interpreter {
         this.globalEnv.define(classDecl.name, javaClass);
     }
 
+    /**
+     * Get line number from location info (character position in source code)
+     */
+    private getLineFromLocation(loc: any): number {
+        if (!loc || !loc.start || !this.sourceCode) return 1;
+        const precedingCode = this.sourceCode.substring(0, loc.start);
+        return precedingCode.split('\n').length;
+    }
+
+    /**
+     * Check if a value can be assigned to a declared type
+     * Returns error message if incompatible, or null if compatible
+     */
+    private checkTypeCompatibility(value: any, declaredType: string): string | null {
+        // Handle array types
+        if (declaredType.includes('[]')) {
+            // Check if value is an array
+            if (!Array.isArray(value)) {
+                return `incompatible types: ${typeof value} cannot be converted to ${declaredType}`;
+            }
+            
+            // Get element type by removing []
+            const elementType = declaredType.replace(/\[\]/g, '');
+            
+            // Check compatibility of array elements
+            for (let i = 0; i < value.length; i++) {
+                const elementError = this.checkTypeCompatibility(value[i], elementType);
+                if (elementError) {
+                    return `incompatible types in array: element at index ${i} - ${elementError}`;
+                }
+            }
+            
+            return null; // All elements are compatible
+        }
+        
+        const baseType = declaredType;
+        
+        // Numeric types
+        const numericTypes = ['int', 'byte', 'short', 'long', 'float', 'double'];
+        const lossyNumericTypes = ['int', 'byte', 'short', 'long']; // Types that lose precision with float/double
+        
+        if (numericTypes.includes(baseType)) {
+            // Assigning to numeric type
+            if (typeof value === 'number') {
+                // Check for lossy conversion
+                if (lossyNumericTypes.includes(baseType) && !Number.isInteger(value)) {
+                    // Assigning float/double to lossy type
+                    const valueType = value % 1 !== 0 ? 'double' : 'int';
+                    return `incompatible types: possible lossy conversion from ${valueType} to ${baseType}`;
+                }
+                return null; // Compatible
+            } else if (value === null) {
+                return `incompatible types: cannot assign null to primitive type ${baseType}`;
+            } else {
+                // Non-numeric value to numeric type
+                const valueType = typeof value === 'string' ? 'String' : typeof value;
+                return `incompatible types: ${valueType} cannot be converted to ${baseType}`;
+            }
+        }
+        
+        // String type
+        if (baseType === 'String') {
+            if (typeof value === 'string') {
+                return null; // Compatible
+            } else if (value === null) {
+                return null; // null can be assigned to String
+            } else if (typeof value === 'number') {
+                return `incompatible types: int cannot be converted to String`;
+            } else {
+                const valueType = typeof value;
+                return `incompatible types: ${valueType} cannot be converted to String`;
+            }
+        }
+        
+        // Other types (custom classes)
+        if (baseType && baseType[0] === baseType[0].toUpperCase()) {
+            // Custom class type
+            if (value === null) {
+                return null; // null can be assigned to object types
+            }
+            if (value instanceof JavaInstance && value.klass.name === baseType) {
+                return null; // Compatible
+            }
+            const valueType = value instanceof JavaInstance ? value.klass.name : typeof value;
+            return `incompatible types: ${valueType} cannot be converted to ${baseType}`;
+        }
+        
+        return null; // Default compatible
+    }
+
     executeBlock(statements: Statement[], env: Environment) {
         for (const stmt of statements) {
             this.execute(stmt, env);
@@ -327,6 +441,15 @@ export class Interpreter {
                     varName = (stmt.target as any).name;
                 }
                 
+                // Type checking for typed assignments
+                if ((stmt as any).varType) {
+                    const typeError = this.checkTypeCompatibility(value, (stmt as any).varType);
+                    if (typeError) {
+                        const line = this.getLineFromLocation(stmt.loc);
+                        throw new Error(`runtime error occurred on line ${line}:\n${typeError}`);
+                    }
+                }
+                
                 if (stmt.target) {
                     if (stmt.target.type === 'MemberExpression') {
                         const obj = this.evaluate((stmt.target as any).object, env);
@@ -341,12 +464,12 @@ export class Interpreter {
                         const idx = this.evaluate((stmt.target as any).index, env);
                         obj[idx] = value;
                     } else if (stmt.target.type === 'Identifier') {
-                        // Identifier target - define the variable
-                        env.define(varName, value);
+                        // Identifier target - define the variable with type info
+                        env.define(varName, value, (stmt as any).varType);
                     } else {
                         // For other target types, try to use stmt.name as fallback
                         if (varName) {
-                            env.define(varName, value);
+                            env.define(varName, value, (stmt as any).varType);
                         }
                     }
                 } else if (stmt.name.includes('.')) {
@@ -360,8 +483,8 @@ export class Interpreter {
                         throw new Error(`Cannot assign to field on non-object`);
                     }
                 } else if (varName) {
-                    // Standard case: define the variable
-                    env.define(varName, value);
+                    // Standard case: define the variable with type info
+                    env.define(varName, value, (stmt as any).varType);
                 }
                 break;
             case 'If':
@@ -423,13 +546,34 @@ export class Interpreter {
             case 'BinaryExpression':
                 const l = this.evaluate(expr.left, env);
                 const r = this.evaluate(expr.right, env);
+                
+                // Helper to get declared type of an expression
+                const getDeclaredType = (exprNode: Expression): string => {
+                    if (exprNode.type === 'Identifier') {
+                        return env.getType((exprNode as any).name) || '';
+                    }
+                    return '';
+                };
+                
+                const integerTypes = ['int', 'byte', 'short', 'long'];
+                const leftType = getDeclaredType(expr.left);
+                const rightType = getDeclaredType(expr.right);
+                
                 switch (expr.operator) {
                     case '+': return l + r;
                     case '-': return l - r;
                     case '*': return l * r;
-                    case '/': return l / r;
+                    case '/': 
+                        // Integer division: if both operands are integer types, truncate result
+                        const leftIsInt = integerTypes.some(t => leftType.replace(/\[\]/g, '') === t);
+                        const rightIsInt = integerTypes.some(t => rightType.replace(/\[\]/g, '') === t);
+                        if (leftIsInt && rightIsInt && r !== 0) {
+                            return Math.trunc(l / r);
+                        }
+                        return l / r;
                     case '%': return l % r;
                     case '**': return Math.pow(l, r);
+                    case '^': return Math.pow(l, r);  // Exponentiation (same as **)
                     case '>': return l > r;
                     case '<': return l < r;
                     case '>=': return l >= r;

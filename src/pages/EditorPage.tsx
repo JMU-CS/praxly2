@@ -161,7 +161,7 @@ export default function EditorPage() {
             if (!program) return;
             setAst(program);
 
-            const results = computeRunOutput(program);
+            const results = computeRunOutput(program, code);
             setOutput(results);
         } catch (e: any) {
             console.error(e);
@@ -179,7 +179,7 @@ export default function EditorPage() {
             if (!program) return;
             setAst(program);
 
-            initDebugger(program, runLang as SupportedLang);
+            initDebugger(program, runLang as SupportedLang, code);
             setOutput(['Debugger initialized. Click Step to begin.']);
             setHighlightedSourceLines([]);
             setPanelHighlightedLines(new Map());

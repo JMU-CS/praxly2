@@ -29,6 +29,20 @@ export class JavaParser {
     return stmt;
   }
 
+  /**
+   * Get default value for a type when variable is uninitialized
+   */
+  private getDefaultValueForType(typeStr: string): Expression {
+    const baseType = typeStr.replace(/\[\]/g, ''); // Remove array brackets
+    if (['int', 'byte', 'short', 'long', 'float', 'double'].includes(baseType)) {
+      return { id: generateId(), type: 'Literal', value: 0, raw: '0' };
+    } else if (baseType === 'boolean') {
+      return { id: generateId(), type: 'Literal', value: false, raw: 'false' };
+    } else {
+      return { id: generateId(), type: 'Literal', value: null, raw: 'null' };
+    }
+  }
+
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
@@ -234,7 +248,7 @@ export class JavaParser {
       }
 
       const name = this.consume('IDENTIFIER').value;
-      let value: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
+      let value: Expression = this.getDefaultValueForType(typeStr);
 
       if (this.match('OPERATOR', '=')) {
         value = this.expression();
@@ -268,7 +282,7 @@ export class JavaParser {
             let typeStr = this.consume('IDENTIFIER').value;
             if (this.check('PUNCTUATION', '[')) { this.advance(); this.consume('PUNCTUATION', ']'); typeStr += '[]'; }
             const name = this.consume('IDENTIFIER').value;
-            let value: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
+            let value: Expression = this.getDefaultValueForType(typeStr);
             if (this.match('OPERATOR', '=')) {
               value = this.expression();
             }

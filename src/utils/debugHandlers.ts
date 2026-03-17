@@ -22,13 +22,13 @@ export interface DebugStepData {
 /**
  * Execute code and return output (shared between both pages)
  */
-export function computeRunOutput(ast: Program | null): string[] {
+export function computeRunOutput(ast: Program | null, sourceCode: string = ''): string[] {
     const output: string[] = [];
     if (!ast) return output;
 
     try {
         const interpreter = new Interpreter();
-        const results = interpreter.interpret(ast);
+        const results = interpreter.interpret(ast, sourceCode);
         output.push(...results);
     } catch (e: any) {
         output.push(`Error: ${e.message}`);
