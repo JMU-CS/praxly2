@@ -52,6 +52,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
         <div
             className="border-t border-slate-800 flex gap-0 bg-slate-900 shrink-0 z-[60] relative"
             style={containerStyle}
+            data-testid="output-panel"
         >
             {/* Resize Handle */}
             {onResize && <ResizeHandle direction="vertical" isActive={resizeActive} onMouseDown={onResize} />}

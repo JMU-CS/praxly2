@@ -15,14 +15,19 @@
     "@lezer/generator": "^1.8.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/vite": "^4.1.18",
+    "@types/selenium-webdriver": "^4.35.5",
     "@uiw/codemirror-theme-vscode": "^4.25.4",
     "@uiw/react-codemirror": "^4.25.4",
     "autoprefixer": "^10.4.23",
+    "chromedriver": "^146.0.4",
+    "csv-parse": "^6.2.0",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
+    "selenium-webdriver": "^4.41.0",
     "tailwindcss": "^4.1.18",
+    "ts-node": "^10.9.2",
     "typescript": "~5.7.2",
     "vite": "^6.1.0",
     "vitest": "^4.0.18"
@@ -48,7 +53,6 @@
     "mocha": "^11.1.0",
     "pure-rand": "^7.0.1",
     "tailwindcss": "^4.1.18",
-    "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite-plugin-checker": "^0.8.0"
   }
