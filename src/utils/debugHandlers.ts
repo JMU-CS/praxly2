@@ -31,6 +31,10 @@ export function computeRunOutput(ast: Program | null, sourceCode: string = ''): 
         const results = interpreter.interpret(ast, sourceCode);
         output.push(...results);
     } catch (e: any) {
+        // Re-throw InputPrompt errors so UI can handle input
+        if (e.name === 'InputPrompt') {
+            throw e;
+        }
         output.push(`Error: ${e.message}`);
     }
 

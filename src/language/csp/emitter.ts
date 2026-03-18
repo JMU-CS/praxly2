@@ -372,6 +372,13 @@ export class CSPEmitter extends ASTVisitor {
                     break;
                 }
                 
+                // Handle input() from Python/Praxis - map to CSP INPUT()
+                if (calleeStr === 'input') {
+                    const argsCsp = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
+                    output = `INPUT(${argsCsp})`;
+                    break;
+                }
+                
                 const args2 = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
                 output = `${calleeStr}(${args2})`;
                 break;

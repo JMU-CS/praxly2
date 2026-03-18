@@ -8,7 +8,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Play, AlertCircle, FastForward, Square, ChevronDown } from 'lucide-react';
 
 import { decodeEmbed, encodeEmbed, type EmbedData } from '../utils/embedCodec';
-import { computeRunOutput } from '../utils/debugHandlers';
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';
 import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
@@ -19,6 +18,8 @@ import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
 import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
+import { Interpreter } from '../language/interpreter';
+import { Debugger } from '../language/debugger';
 
 export default function EmbedPage() {
     const [searchParams] = useSearchParams();
@@ -49,10 +50,18 @@ export default function EmbedPage() {
         highlightedTranslationLines,
         setHighlightedTranslationLines,
         currentVariables,
+        waitingForInput,
+        inputPrompt,
         initDebugger,
         stepDebugger,
-        stopDebugger
+        stopDebugger,
+        provideInput
     } = useCodeDebugger(getTranslation);
+
+    // Normal mode input handling
+    const [waitingForNormalInput, setWaitingForNormalInput] = useState(false);
+    const [normalModeInputPrompt, setNormalModeInputPrompt] = useState<string>('');
+    const [currentInterpreter, setCurrentInterpreter] = useState<any>(null);
     
     const editorViewRef = useRef<any>(null);
 
@@ -105,12 +114,41 @@ export default function EmbedPage() {
     const handleRun = () => {
         setError(null);
         setOutput([]);
+        setWaitingForNormalInput(false);
         try {
             const program = ast;
             if (!program) return;
 
-            const results = computeRunOutput(program, embedData?.code || '');
-            setOutput(results);
+            // Create interpreter and try to run
+            const interpreter = new Interpreter();
+            
+            try {
+                const results = interpreter.interpret(program, embedData?.code || '');
+                setOutput(results);
+            } catch (e: any) {
+                // Check if this is an InputPrompt exception
+                if (e.name === 'InputPrompt' || (e.constructor && e.constructor.name === 'InputPrompt')) {
+                    // For normal mode with input, we'll use the debugger approach
+                    // Initialize the debugger
+                    const debugger_ = new Debugger();
+                    debugger_.init(program, (embedData?.lang || 'python') as SupportedLang, embedData?.code || '');
+                    
+                    // Store debugger and prompt for continuation
+                    setCurrentInterpreter(debugger_);
+                    setWaitingForNormalInput(true);
+                    setNormalModeInputPrompt(e.prompt);
+                    
+                    // Show what was printed so far including the prompt line
+                    const currentOutput = interpreter.getOutput();
+                    if (currentOutput && currentOutput.length > 0) {
+                        setOutput(currentOutput);
+                    } else {
+                        setOutput([e.prompt]);
+                    }
+                    return;
+                }
+                throw e;
+            }
         } catch (e: any) {
             console.error(e);
             setError(e.message);
@@ -160,6 +198,77 @@ export default function EmbedPage() {
         stopDebugger();
         setIsDebugging(false);
         setOutput((prev) => [...prev, 'Debugger stopped.']);
+    };
+
+    const handleSubmitInput = (input: string) => {
+        provideInput(input);
+        setOutput((prev) => [...prev, `> ${input}`]);
+        
+        // Automatically continue execution after input is provided
+        if (ast && embedData?.code) {
+            setTimeout(() => {
+                const result = stepDebugger(ast, embedData.code, currentTargetLang);
+                if (!result) return;
+
+                setHighlightedSourceLines(result.sourceHighlightedLines);
+                setHighlightedTranslationLines(result.translationHighlightedLines);
+                setOutput((prev) => [...prev, ...result.outputLines]);
+
+                if (result.isComplete) {
+                    setIsDebugComplete(true);
+                    setOutput((prev) => [...prev, 'Execution complete.']);
+                }
+            }, 0);
+        }
+    };
+
+    const handleNormalModeInputSubmit = (input: string) => {
+        if (!currentInterpreter || !ast) return;
+
+        // Show user's input in output
+        setOutput((prev) => [...prev, `> ${input}`]);
+
+        try {
+            // Provide input to the debugger
+            if (currentInterpreter.provideInput) {
+                currentInterpreter.provideInput(input);
+            }
+
+            // Continue stepping until completion or next input
+            let steps = (currentInterpreter as any).step?.();
+            let allOutput = [...output];
+            
+            while (steps && !steps.isComplete) {
+                allOutput.push(...steps.output);
+                setOutput(allOutput);
+                steps = (currentInterpreter as any).step?.();
+            }
+            
+            // Final step output
+            if (steps) {
+                allOutput.push(...steps.output);
+                setOutput(allOutput);
+            }
+            
+            setWaitingForNormalInput(false);
+            setNormalModeInputPrompt('');
+            setCurrentInterpreter(null);
+        } catch (e: any) {
+            // Check if we hit another input prompt
+            if (e.name === 'InputPrompt' || (e.constructor && e.constructor.name === 'InputPrompt')) {
+                // Another input is needed
+                setNormalModeInputPrompt(e.prompt);
+                setOutput((prev) => [...prev, e.prompt]);
+                return;
+            }
+            
+            // Actual error
+            console.error(e);
+            setError(e.message);
+            setOutput((prev) => [...prev, `Error: ${e.message}`]);
+            setWaitingForNormalInput(false);
+            setCurrentInterpreter(null);
+        }
     };
 
     const handleOpenInEditor = () => {
@@ -368,33 +477,76 @@ export default function EmbedPage() {
                 <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 shrink-0">
                     <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Output</span>
                 </div>
-                <div className="flex-1 overflow-auto p-4 font-mono text-xs bg-slate-950 leading-6">
-                    {error && (
-                        <div className="text-red-400 mb-3 p-3 bg-red-950/30 rounded border border-red-900/50">
-                            <span className="font-bold">Error:</span> {error}
-                        </div>
-                    )}
-                    {isDebugging && Object.keys(currentVariables).length > 0 && (
-                        <div className="mb-3 p-3 bg-slate-800/50 rounded border border-slate-700">
-                            <div className="font-bold text-indigo-400 mb-2">Variables:</div>
-                            {Object.entries(currentVariables).map(([key, value]) => (
-                                <div key={key} className="text-slate-300 ml-2">
-                                    <span className="text-indigo-300">{key}</span>: {JSON.stringify(value)}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    {output.length === 0 && !error ? (
-                        <div className="text-slate-700 italic opacity-40">Run code to see output...</div>
-                    ) : (
-                        output.map((line, idx) => (
-                            <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5">
-                                <span className="text-slate-700 select-none w-6 text-right flex-shrink-0">
-                                    {idx + 1}
-                                </span>
-                                <span className="text-slate-300 break-all">{line}</span>
+                <div className="flex-1 overflow-auto p-4 font-mono text-xs bg-slate-950 leading-6 flex flex-col">
+                    <div className="flex-1 overflow-auto">
+                        {error && (
+                            <div className="text-red-400 mb-3 p-3 bg-red-950/30 rounded border border-red-900/50">
+                                <span className="font-bold">Error:</span> {error}
                             </div>
-                        ))
+                        )}
+                        {isDebugging && Object.keys(currentVariables).length > 0 && (
+                            <div className="mb-3 p-3 bg-slate-800/50 rounded border border-slate-700">
+                                <div className="font-bold text-indigo-400 mb-2">Variables:</div>
+                                {Object.entries(currentVariables).map(([key, value]) => (
+                                    <div key={key} className="text-slate-300 ml-2">
+                                        <span className="text-indigo-300">{key}</span>: {JSON.stringify(value)}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {output.length === 0 && !error ? (
+                            <div className="text-slate-700 italic opacity-40">Run code to see output...</div>
+                        ) : (
+                            output.map((line, idx) => (
+                                <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5">
+                                    <span className="text-slate-700 select-none w-6 text-right flex-shrink-0">
+                                        {idx + 1}
+                                    </span>
+                                    <span className="text-slate-300 break-all">{line}</span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    {(waitingForInput || waitingForNormalInput) && (
+                        <div className="border-t border-slate-800 bg-slate-950 mt-4 pt-4 flex flex-col gap-2 shrink-0">
+                            {(inputPrompt || normalModeInputPrompt) && (
+                                <div className="text-slate-400 text-xs font-mono">{inputPrompt || normalModeInputPrompt}</div>
+                            )}
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Enter input..."
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            const input = (e.target as HTMLInputElement).value;
+                                            if (waitingForNormalInput) {
+                                                handleNormalModeInputSubmit(input);
+                                            } else {
+                                                handleSubmitInput(input);
+                                            }
+                                            (e.target as HTMLInputElement).value = '';
+                                        }
+                                    }}
+                                    className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+                                    data-testid="stdin-input"
+                                    autoFocus={waitingForInput || waitingForNormalInput}
+                                />
+                                <button
+                                    onClick={(e) => {
+                                        const input = (e.currentTarget.previousElementSibling as HTMLInputElement).value;
+                                        if (waitingForNormalInput) {
+                                            handleNormalModeInputSubmit(input);
+                                        } else {
+                                            handleSubmitInput(input);
+                                        }
+                                        (e.currentTarget.previousElementSibling as HTMLInputElement).value = '';
+                                    }}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded transition-colors shrink-0"
+                                >
+                                    Submit
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>

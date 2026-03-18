@@ -13,6 +13,27 @@ import type { Program, Statement, ClassDeclaration, FieldDeclaration, Constructo
  * Implements the ASTVisitor pattern to traverse and translate program structures.
  */
 export class JavaEmitter extends ASTVisitor {
+    private usesInput: boolean = false;
+
+    /**
+     * Check if program uses input() calls
+     */
+    private checkForInput(node: any): void {
+        if (!node) return;
+        if (node.type === 'CallExpression' && (node.callee as any).name === 'input') {
+            this.usesInput = true;
+        }
+        if (node.type === 'CallExpression' && (node.callee as any).name === 'INPUT') {
+            this.usesInput = true;
+        }
+        for (const key in node) {
+            if (typeof node[key] === 'object' && node[key] !== null) {
+                if (Array.isArray(node[key])) node[key].forEach((n: any) => this.checkForInput(n));
+                else this.checkForInput(node[key]);
+            }
+        }
+    }
+
     /**
      * Main entry point for translating a complete program.
      * Separates classes from functions and main body statements.
@@ -23,12 +44,21 @@ export class JavaEmitter extends ASTVisitor {
         const functions = program.body.filter(s => s.type === 'FunctionDeclaration');
         const mainBody = program.body.filter(s => s.type !== 'ClassDeclaration' && s.type !== 'FunctionDeclaration');
 
+        // Check if program uses input()
+        this.checkForInput(program);
+
         classes.forEach(classDecl => {
             this.visitClassDeclaration(classDecl as ClassDeclaration);
             this.emit('');
         });
 
         if (functions.length > 0 || mainBody.length > 0) {
+            // Add imports if input is used
+            if (this.usesInput) {
+                this.emit('import java.util.Scanner;');
+                this.emit('');
+            }
+
             this.context.symbolTable = new SymbolTable();
             this.emit('public class Main {');
             this.indent();
@@ -41,6 +71,12 @@ export class JavaEmitter extends ASTVisitor {
             if (mainBody.length > 0) {
                 this.emit('public static void main(String[] args) {');
                 this.indent();
+                
+                // Initialize Scanner if input is used
+                if (this.usesInput) {
+                    this.emit('Scanner scanner = new Scanner(System.in);');
+                }
+                
                 mainBody.forEach(stmt => this.visitStatement(stmt));
                 this.dedent();
                 this.emit('}');
@@ -757,6 +793,16 @@ export class JavaEmitter extends ASTVisitor {
                 if (calleeStr === 'LENGTH' || calleeStr === 'len') {
                     // length() becomes .length property access
                     output = `${this.generateExpression(expr.arguments[0], 0)}.length`;
+                    break;
+                }
+                // Handle input() function - map to Scanner.nextLine()
+                if (calleeStr === 'input' || calleeStr === 'INPUT') {
+                    // Print prompt if provided
+                    if (argsF.length > 0) {
+                        output = `(System.out.print(${argsF[0]}), scanner.nextLine()).substring(0)`;
+                    } else {
+                        output = `scanner.nextLine()`;
+                    }
                     break;
                 }
                 // Map uppercase method names (from other languages) to Java equivalents

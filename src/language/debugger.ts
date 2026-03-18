@@ -4,7 +4,7 @@
  */
 
 import type { Program, ASTNode } from './ast';
-import { Interpreter } from './interpreter';
+import { Interpreter, InputPrompt } from './interpreter';
 import { Translator } from './translator';
 
 export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'ast';
@@ -21,6 +21,8 @@ export interface DebugStep {
   output: string[];
   isComplete: boolean;
   error?: string;
+  waitingForInput?: boolean;
+  inputPrompt?: string;
 }
 
 /**
@@ -49,6 +51,8 @@ export interface DebugContext {
   isRunning: boolean;
   sourceMaps: Map<SupportedLang, SourceMap>;
   sourceCode: string;
+  waitingForInput?: boolean;
+  inputPrompt?: string;
 }
 
 /**
@@ -76,6 +80,7 @@ export class Debugger {
       isRunning: false,
       sourceMaps: new Map(),
       sourceCode,
+      waitingForInput: false,
     };
 
     // Generate source maps for all target languages
@@ -103,6 +108,7 @@ export class Debugger {
       const result = this.executionGenerator.next();
 
       if (result.done) {
+        this.context.waitingForInput = false;
         return {
           stepNumber: this.context.steps.length,
           nodeId: '',
@@ -130,6 +136,25 @@ export class Debugger {
 
       return step;
     } catch (error: any) {
+      // Handle InputPrompt specially
+      if (error instanceof InputPrompt) {
+        this.context.waitingForInput = true;
+        this.context.inputPrompt = error.prompt;
+        const step: DebugStep = {
+          stepNumber: this.context.steps.length,
+          nodeId: '',
+          nodeType: 'InputPrompt',
+          sourceLocation: null,
+          variables: this.extractVariables(),
+          output: (this.context.interpreter as any).getOutput?.() || [],
+          isComplete: false,
+          waitingForInput: true,
+          inputPrompt: error.prompt,
+        };
+        this.context.steps.push(step);
+        return step;
+      }
+
       const errorStep: DebugStep = {
         stepNumber: this.context.steps.length,
         nodeId: '',
@@ -307,5 +332,28 @@ export class Debugger {
    */
   getSteps(): DebugStep[] {
     return this.context?.steps || [];
+  }
+
+  /**
+   * Provide input to the debugger and resume execution
+   */
+  provideInput(input: string): void {
+    if (!this.context) return;
+    this.context.interpreter.addInput(input);
+    this.context.waitingForInput = false;
+  }
+
+  /**
+   * Check if debugger is waiting for input
+   */
+  isWaitingForInput(): boolean {
+    return this.context?.waitingForInput || false;
+  }
+
+  /**
+   * Get the current input prompt
+   */
+  getInputPrompt(): string {
+    return this.context?.inputPrompt || '';
   }
 }

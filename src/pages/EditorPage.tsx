@@ -1,8 +1,3 @@
-/**
- * EditorPage component that provides the main multi-panel code editing interface.
- * Features code input, AST/translation output, and integrated debugging with step-through execution.
- */
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Play, Trash2, Home, Bug, FastForward, Square, Plus, Share2, Check, ChevronDown, FileJson, ArrowRightLeft, Code, X } from 'lucide-react';
@@ -11,7 +6,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 
 import type { Program } from '../language/ast';
-import { computeRunOutput, computeMultiplePanelHighlighting } from '../utils/debugHandlers';
+import { computeMultiplePanelHighlighting } from '../utils/debugHandlers';
 import { JSONTree } from '../components/JSONTree';
 import { OutputPanel } from '../components/OutputPanel';
 import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
@@ -23,6 +18,8 @@ import type { SourceMap } from '../language/visitor';
 import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
 import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
+import { Interpreter } from '../language/interpreter';
+import { Debugger } from '../language/debugger';
 
 interface Panel {
     id: string;
@@ -48,6 +45,11 @@ export default function EditorPage() {
     // Manage dynamic panels
     const [panels, setPanels] = useState<Panel[]>([]);
 
+    // Normal mode input handling
+    const [waitingForNormalInput, setWaitingForNormalInput] = useState(false);
+    const [normalModeInputPrompt, setNormalModeInputPrompt] = useState<string>('');
+    const [currentInterpreter, setCurrentInterpreter] = useState<any>(null);
+
     // Get hooks for parsing and debugging
     const { parseCode, getTranslation } = useCodeParsing();
     const {
@@ -58,9 +60,12 @@ export default function EditorPage() {
         highlightedSourceLines,
         setHighlightedSourceLines,
         currentVariables,
+        waitingForInput,
+        inputPrompt,
         initDebugger,
         stepDebugger,
-        stopDebugger
+        stopDebugger,
+        provideInput
     } = useCodeDebugger(getTranslation);
 
     // Resizing State
@@ -155,14 +160,43 @@ export default function EditorPage() {
     const handleRun = () => {
         setError(null);
         setOutput([]);
+        setWaitingForNormalInput(false);
         try {
             const runLang = sourceLang === 'ast' ? 'python' : sourceLang;
             const program = parseCode(runLang as SupportedLang, code);
             if (!program) return;
             setAst(program);
 
-            const results = computeRunOutput(program, code);
-            setOutput(results);
+            // Create interpreter and try to run
+            const interpreter = new Interpreter();
+            
+            try {
+                const results = interpreter.interpret(program, code);
+                setOutput(results);
+            } catch (e: any) {
+                // Check if this is an InputPrompt exception
+                if (e.name === 'InputPrompt' || (e.constructor && e.constructor.name === 'InputPrompt')) {
+                    // For normal mode with input, we'll use the debugger approach
+                    // Initialize the debugger
+                    const debugger_ = new Debugger();
+                    debugger_.init(program, runLang as SupportedLang, code);
+                    
+                    // Store debugger and prompt for continuation
+                    setCurrentInterpreter(debugger_);
+                    setWaitingForNormalInput(true);
+                    setNormalModeInputPrompt(e.prompt);
+                    
+                    // Show what was printed so far including the prompt line
+                    const currentOutput = interpreter.getOutput();
+                    if (currentOutput && currentOutput.length > 0) {
+                        setOutput(currentOutput);
+                    } else {
+                        setOutput([e.prompt]);
+                    }
+                    return;
+                }
+                throw e;
+            }
         } catch (e: any) {
             console.error(e);
             setError(e.message);
@@ -229,6 +263,85 @@ export default function EditorPage() {
         setHighlightedSourceLines([]);
         setPanelHighlightedLines(new Map());
         setOutput((prev) => [...prev, 'Debugger stopped.']);
+    };
+
+    const handleSubmitInput = (input: string) => {
+        provideInput(input);
+        setOutput((prev) => [...prev, `> ${input}`]);
+        
+        // Automatically continue execution after input is provided
+        if (ast) {
+            setTimeout(() => {
+                const result = stepDebugger(ast, code, sourceLang === 'ast' ? 'python' : sourceLang);
+                if (!result) return;
+
+                setHighlightedSourceLines(result.sourceHighlightedLines);
+
+                const panelHighlights = computeMultiplePanelHighlighting(
+                    ast,
+                    panels,
+                    getTranslation,
+                    result.step?.sourceLocation || null
+                );
+                setPanelHighlightedLines(panelHighlights);
+
+                setOutput((prev) => [...prev, ...result.outputLines]);
+
+                if (result.isComplete) {
+                    setIsDebugComplete(true);
+                    setOutput((prev) => [...prev, 'Execution complete.']);
+                }
+            }, 0);
+        }
+    };
+
+    const handleNormalModeInputSubmit = (input: string) => {
+        if (!currentInterpreter || !ast) return;
+
+        // Show user's input in output
+        setOutput((prev) => [...prev, `> ${input}`]);
+
+        try {
+            // Provide input to the debugger
+            if (currentInterpreter.provideInput) {
+                currentInterpreter.provideInput(input);
+            }
+
+            // Continue stepping until completion or next input
+            let steps = (currentInterpreter as any).step?.();
+            let allOutput = [...output];
+            
+            while (steps && !steps.isComplete) {
+                allOutput.push(...steps.output);
+                setOutput(allOutput);
+                steps = (currentInterpreter as any).step?.();
+            }
+            
+            // Final step output
+            if (steps) {
+                allOutput.push(...steps.output);
+                setOutput(allOutput);
+            }
+            
+            setWaitingForNormalInput(false);
+            setNormalModeInputPrompt('');
+            setCurrentInterpreter(null);
+        } catch (e: any) {
+            // Check if we hit another input prompt
+            if (e.name === 'InputPrompt' || (e.constructor && e.constructor.name === 'InputPrompt')) {
+                // Another input is needed
+                setNormalModeInputPrompt(e.prompt);
+                setOutput((prev) => [...prev, e.prompt]);
+                return;
+            }
+            
+            // Actual error
+            console.error(e);
+            setError(e.message);
+            setOutput((prev) => [...prev, `Error: ${e.message}`]);
+            setWaitingForNormalInput(false);
+            setCurrentInterpreter(null);
+        }
     };
 
     const handleClear = () => {
@@ -536,6 +649,15 @@ export default function EditorPage() {
                     height={outputHeight}
                     resizeActive={resizingIdx === 'output'}
                     onResize={(e) => onMouseDown(e, 'output')}
+                    waitingForInput={waitingForInput || waitingForNormalInput}
+                    inputPrompt={inputPrompt || normalModeInputPrompt}
+                    onSubmitInput={(input) => {
+                        if (waitingForNormalInput) {
+                            handleNormalModeInputSubmit(input);
+                        } else {
+                            handleSubmitInput(input);
+                        }
+                    }}
                 />
             </main>
         </div>

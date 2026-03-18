@@ -43,6 +43,14 @@ class ReturnException extends Error {
     constructor(value: any) { super("Return"); this.value = value; }
 }
 
+export class InputPrompt extends Error {
+    prompt: string;
+    constructor(prompt: string = '') { 
+        super("InputPrompt"); 
+        this.prompt = prompt;
+    }
+}
+
 // OOP Classes
 class JavaClass {
     name: string;
@@ -119,12 +127,40 @@ export class Interpreter {
     private classes: Map<string, JavaClass> = new Map();
     private currentEnv: Environment = this.globalEnv;
     private sourceCode: string = '';  // Store source code for line number extraction
+    private inputQueue: string[] = [];  // Queue of pending inputs
+    private isDebugging: boolean = false;  // Flag to track if we're in debug mode
+    private inputHandler?: (prompt: string) => string;  // Callback for collecting input in normal mode
+
+    setInputQueue(inputs: string[]) {
+        this.inputQueue = [...inputs];
+    }
+
+    addInput(input: string) {
+        this.inputQueue.push(input);
+    }
+
+    hasInput(): boolean {
+        return this.inputQueue.length > 0;
+    }
+
+    getNextInput(): string | null {
+        return this.inputQueue.length > 0 ? this.inputQueue.shift()! : null;
+    }
+
+    setDebugging(isDebugging: boolean) {
+        this.isDebugging = isDebugging;
+    }
+
+    setInputHandler(handler: (prompt: string) => string) {
+        this.inputHandler = handler;
+    }
 
     interpret(program: Program, sourceCode: string = ''): string[] {
         this.sourceCode = sourceCode;
         this.output = [];
         this.globalEnv = new Environment();
         this.classes = new Map();
+        this.isDebugging = false;  // Not in debug mode for normal execution
 
         try {
             // First pass: register all classes and procedures
@@ -150,6 +186,10 @@ export class Interpreter {
                 }
             }
         } catch (e: any) {
+            // InputPrompt in normal run mode should propagate to UI  for console handling
+            if (e instanceof InputPrompt) {
+                throw e;
+            }
             const message = e.message || String(e);
             // If the error message already starts with "runtime error occurred", don't add prefix
             if (message.startsWith('runtime error occurred')) {
@@ -168,6 +208,7 @@ export class Interpreter {
         this.output = [];
         this.globalEnv = new Environment();
         this.currentEnv = this.globalEnv;
+        this.isDebugging = true;  // We're in debug mode for step-through execution
 
         try {
             // First pass: register all classes and procedures
@@ -193,6 +234,10 @@ export class Interpreter {
                 }
             }
         } catch (e: any) {
+            // InputPrompt should propagate to debugger, not be caught here
+            if (e instanceof InputPrompt) {
+                throw e;
+            }
             const message = e.message || String(e);
             // If the error message already starts with "runtime error occurred", don't add prefix
             if (message.startsWith('runtime error occurred')) {
@@ -294,19 +339,37 @@ export class Interpreter {
                 // For all other statements, execute first then yield with updated state (always yield for debugging)
                 try {
                     this.execute(stmt, env);
+                    // Yield after successful execution
+                    yield {
+                        nodeId: stmt.id,
+                        nodeType: stmt.type,
+                        loc: stmt.loc || null,
+                        variables: env.getAllVariables(),
+                    };
                 } catch (e) {
-                    if (e instanceof ReturnException) throw e;
-                    throw e;
+                    if (e instanceof InputPrompt) {
+                        // Yield waiting step for input
+                        yield {
+                            nodeId: stmt.id,
+                            nodeType: 'InputPrompt',
+                            loc: stmt.loc || null,
+                            variables: env.getAllVariables(),
+                        };
+                        // After yielding and resuming with input in queue, retry the statement
+                        this.execute(stmt, env);
+                        // Yield after successful retry
+                        yield {
+                            nodeId: stmt.id,
+                            nodeType: stmt.type,
+                            loc: stmt.loc || null,
+                            variables: env.getAllVariables(),
+                        };
+                    } else if (e instanceof ReturnException) {
+                        throw e;
+                    } else {
+                        throw e;
+                    }
                 }
-
-                // Yield after execution so variables reflect the state after the statement
-                // Always yield for debugging, even if loc is not available
-                yield {
-                    nodeId: stmt.id,
-                    nodeType: stmt.type,
-                    loc: stmt.loc || null,
-                    variables: env.getAllVariables(),
-                };
             }
         }
     }
@@ -635,6 +698,26 @@ export class Interpreter {
                 }
 
                 const calleeName = (expr.callee as any).name;
+
+                // Handle input() function - get prompt from arguments (CSP style)
+                if (calleeName === 'input' || calleeName === 'INPUT') {
+                    const promptStr = expr.arguments.length > 0 ? this.stringify(this.evaluate(expr.arguments[0], env)) : '';
+                    const nextInput = this.getNextInput();
+                    if (nextInput !== null) {
+                        return nextInput;
+                    }
+                    // No input available
+                    if (this.isDebugging) {
+                        // In debug mode, throw InputPrompt so debugger can handle it
+                        throw new InputPrompt(promptStr);
+                    } else if (this.inputHandler) {
+                        // In normal run mode with a handler, use it to prompt user
+                        return this.inputHandler(promptStr);
+                    } else {
+                        // Both debug and normal mode: throw InputPrompt to let UI handle it
+                        throw new InputPrompt(promptStr);
+                    }
+                }
 
                 // Built-in functions
                 if (calleeName === 'len' || calleeName === 'LENGTH') {

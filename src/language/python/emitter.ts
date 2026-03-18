@@ -461,6 +461,12 @@ export class PythonEmitter extends ASTVisitor {
                     output = `len(${this.generateExpression(expr.arguments[0], 0)})`;
                     break;
                 }
+                // Handle INPUT() from CSP - map to Python input()
+                if (calleeStrPy === 'INPUT') {
+                    const argsPy = expr.arguments.map(a => this.generateExpression(a, 0)).join(', ');
+                    output = `input(${argsPy})`;
+                    break;
+                }
                 if (calleeStrPy === 'APPEND' && expr.arguments.length === 2) {
                     output = `${this.generateExpression(expr.arguments[0], 0)}.append(${this.generateExpression(expr.arguments[1], 0)})`;
                     break;

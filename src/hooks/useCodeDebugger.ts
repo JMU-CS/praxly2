@@ -30,6 +30,8 @@ export const useCodeDebugger = (
     const [highlightedSourceLines, setHighlightedSourceLines] = useState<number[]>([]);
     const [highlightedTranslationLines, setHighlightedTranslationLines] = useState<number[]>([]);
     const [currentVariables, setCurrentVariables] = useState<Record<string, any>>({});
+    const [waitingForInput, setWaitingForInput] = useState(false);
+    const [inputPrompt, setInputPrompt] = useState('');
 
     const initDebugger = useCallback(
         (ast: Program | null, lang: SupportedLang, sourceCode: string = '') => {
@@ -64,6 +66,22 @@ export const useCodeDebugger = (
                 if (!step) return null;
 
                 setCurrentVariables(step.variables);
+
+                // Handle input prompt
+                if (step.waitingForInput) {
+                    setWaitingForInput(true);
+                    setInputPrompt(step.inputPrompt || '');
+                    return {
+                        sourceHighlightedLines: [],
+                        translationHighlightedLines: [],
+                        outputLines: [step.inputPrompt || 'Waiting for input...'],
+                        isComplete: false,
+                        step
+                    };
+                }
+
+                setWaitingForInput(false);
+                setInputPrompt('');
 
                 let sourceHighlightedLines: number[] = [];
                 let translationHighlightedLines: number[] = [];
@@ -140,7 +158,16 @@ export const useCodeDebugger = (
         setHighlightedTranslationLines([]);
         setIsDebugComplete(false);
         setCurrentVariables({});
+        setWaitingForInput(false);
+        setInputPrompt('');
     }, []);
+
+    const provideInput = useCallback((input: string) => {
+        if (!debuggerInstance) return;
+        debuggerInstance.provideInput(input);
+        setWaitingForInput(false);
+        setInputPrompt('');
+    }, [debuggerInstance]);
 
     return {
         isDebugging,
@@ -154,8 +181,11 @@ export const useCodeDebugger = (
         setHighlightedTranslationLines,
         currentVariables,
         setCurrentVariables,
+        waitingForInput,
+        inputPrompt,
         initDebugger,
         stepDebugger,
-        stopDebugger
+        stopDebugger,
+        provideInput
     };
 };
