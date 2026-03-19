@@ -252,6 +252,7 @@ conditionals/5.4 if-statements.md secret eq guess,"int secret_number <- 13
 int guess <- int(input())
 
 print secret_number == guess",13,"
+> 13
 true",
 conditionals/5.4 if-statements.md if secret guess,"print ""Guess a number!"" // output a message
 
@@ -265,7 +266,7 @@ end if
 if( secret_number != guess )
     print ""You did not get it...""
 end if",14,"Guess a number!
-
+> 14
 You did not get it...",
 conditionals/5.4 if-statements.md random guess,"// get a random integer between 0 and 99
 int n <- randomInt(100)
@@ -284,6 +285,7 @@ end if
 if (n != guess)
     print 'n'
 end if",123,"
+> 123
 n",
 conditionals/5.5 more-ifs.md if guess 5,"print ""Guess a number between 1 and 10""
 int n <- int(input())
@@ -293,7 +295,7 @@ if(n == 5)
 else
     print ""You didn't get it.""
 end if",5,"Guess a number between 1 and 10
-
+> 5
 You got it!",
 conditionals/5.5 more-ifs.md if else-if else,"print ""Guess a number between 1 and 10""
 int n <- int(input())
@@ -307,7 +309,7 @@ else
         print ""Incorrect!""
     end if
 end if",4,"Guess a number between 1 and 10
-
+> 4
 You're close!",
 conditionals/5.5 more-ifs.md nested if-else,"print ""Guess a number between 1 and 10""
 int n <- int(input())
@@ -327,7 +329,7 @@ else
         print ""You got it!""
     end if
 end if",6,"Guess a number between 1 and 10
-
+> 6
 Too high!
 Pretty close, though.",
 conditionals/5.6 loops.md infinite loop,"int count <- 0

@@ -647,6 +647,14 @@ export class PraxisParser {
         if (this.match('KEYWORD', 'null')) return { id: generateId(), type: 'Literal', value: null, raw: 'null' };
         if (this.match('IDENTIFIER')) return { id: generateId(), type: 'Identifier', name: this.previous().value };
 
+        // Allow type keywords to be used as function names (e.g., int(), float(), str())
+        const typeKeywords = ['boolean', 'char', 'double', 'float', 'int', 'short', 'string', 'void'];
+        if (this.check('KEYWORD') && typeKeywords.includes(this.peek().value.toLowerCase())) {
+            const name = this.peek().value;
+            this.advance();
+            return { id: generateId(), type: 'Identifier', name };
+        }
+
         // Handle Object Instantiation
         if (this.match('KEYWORD', 'new')) {
             const className = this.consume('IDENTIFIER').value;

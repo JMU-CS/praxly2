@@ -788,6 +788,44 @@ export class Interpreter {
                     return null;
                 }
 
+                // Type conversion functions
+                if (calleeName === 'int' || calleeName === 'INT') {
+                    const val = this.evaluate(expr.arguments[0], env);
+                    if (typeof val === 'number') return Math.floor(val);
+                    if (typeof val === 'string') return parseInt(val, 10);
+                    if (typeof val === 'boolean') return val ? 1 : 0;
+                    return 0;
+                }
+                if (calleeName === 'float' || calleeName === 'FLOAT') {
+                    const val = this.evaluate(expr.arguments[0], env);
+                    if (typeof val === 'number') return val;
+                    if (typeof val === 'string') return parseFloat(val);
+                    if (typeof val === 'boolean') return val ? 1.0 : 0.0;
+                    return 0.0;
+                }
+                if (calleeName === 'str' || calleeName === 'String' || calleeName === 'STRING') {
+                    const val = this.evaluate(expr.arguments[0], env);
+                    return this.stringify(val, false);
+                }
+                if (calleeName === 'bool' || calleeName === 'BOOL' || calleeName === 'boolean') {
+                    const val = this.evaluate(expr.arguments[0], env);
+                    return Boolean(val);
+                }
+
+                // Random functions
+                if (calleeName === 'random' || calleeName === 'RANDOM') {
+                    return Math.random();
+                }
+                if (calleeName === 'randomInt' || calleeName === 'RANDOMINT') {
+                    const max = this.evaluate(expr.arguments[0], env);
+                    return Math.floor(Math.random() * max);
+                }
+                if (calleeName === 'randomSeed' || calleeName === 'RANDOMSEED') {
+                    // JavaScript doesn't have built-in seeded random, so we'd need a PRNG library
+                    // For now, just acknowledge the function exists (this is a limitation)
+                    return null;
+                }
+
                 const callee = env.get(calleeName);
                 if (callee && callee.type === 'FunctionDeclaration') {
                     const func = callee as FunctionDeclaration;
