@@ -287,7 +287,18 @@ export class Interpreter {
                 i++;
             } else if (stmt.type === 'While') {
                 const whileStmt = stmt as any;
+                let isFirstIteration = true;
+                let iterationCount = 0;
+                const MAX_ITERATIONS = 10000; // Safety limit to prevent truly infinite loops during testing
+                
                 while (true) {
+                    // Check iteration count to prevent actual infinite loops during execution
+                    iterationCount++;
+                    if (iterationCount > MAX_ITERATIONS) {
+                        const lineNum = this.getLineFromLocation(whileStmt.loc);
+                        throw new Error(`runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`);
+                    }
+                    
                     // Yield the While statement itself for each iteration (always, for debugging)
                     yield {
                         nodeId: whileStmt.id,
@@ -298,7 +309,42 @@ export class Interpreter {
                     try {
                         const condition = this.evaluate(whileStmt.condition, env);
                         if (!condition) break;
+                        
+                        // On first iteration, prepare for infinite loop detection
+                        let conditionVars: Set<string> | null = null;
+                        let oldValues: Record<string, any> | null = null;
+                        if (isFirstIteration) {
+                            conditionVars = this.extractVariablesFromExpression(whileStmt.condition);
+                            oldValues = {};
+                            for (const varName of conditionVars) {
+                                try {
+                                    oldValues[varName] = env.get(varName);
+                                } catch {
+                                    // Variable doesn't exist
+                                }
+                            }
+                        }
+                        
+                        // Execute one iteration
                         yield* this.executeBlockGeneratorWithState(whileStmt.body.body, env);
+                        
+                        // After first iteration, check if this might be an infinite loop
+                        if (isFirstIteration && conditionVars !== null && oldValues !== null) {
+                            isFirstIteration = false;
+                            
+                            // Check if condition is still true and no variables changed
+                            const conditionStillTrue = this.evaluate(whileStmt.condition, env);
+                            const varsChanged = this.hasVariablesChanged(conditionVars, oldValues, env);
+                            
+                            // If condition is still true, variables haven't changed, and the body doesn't modify condition vars
+                            if (conditionStillTrue && !varsChanged && conditionVars.size > 0) {
+                                // Additional check: does the loop body modify any of these variables?
+                                if (!this.blockModifiesVariables(whileStmt.body.body, conditionVars, env)) {
+                                    const lineNum = this.getLineFromLocation(whileStmt.loc);
+                                    throw new Error(`runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`);
+                                }
+                            }
+                        }
                     } catch (e) {
                         if (e instanceof ReturnException) throw e;
                         throw e;
@@ -346,6 +392,33 @@ export class Interpreter {
                     if (e instanceof ReturnException) throw e;
                     throw e;
                 }
+                i++;
+            } else if (stmt.type === 'DoWhile') {
+                const doWhileStmt = stmt as any;
+                let iterationCount = 0;
+                const MAX_ITERATIONS = 10000;
+                
+                do {
+                    iterationCount++;
+                    if (iterationCount > MAX_ITERATIONS) {
+                        const lineNum = this.getLineFromLocation(doWhileStmt.loc);
+                        throw new Error(`runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`);
+                    }
+                    
+                    yield {
+                        nodeId: doWhileStmt.id,
+                        nodeType: doWhileStmt.type,
+                        loc: doWhileStmt.loc || null,
+                        variables: env.getAllVariables(),
+                    };
+                    try {
+                        yield* this.executeBlockGeneratorWithState(doWhileStmt.body.body, env);
+                    } catch (e) {
+                        if (e instanceof ReturnException) throw e;
+                        throw e;
+                    }
+                } while (this.evaluate(doWhileStmt.condition, env));
+                
                 i++;
             } else {
                 // For all other statements, execute and yield
@@ -407,6 +480,152 @@ export class Interpreter {
         if (!loc || !loc.start || !this.sourceCode) return 1;
         const precedingCode = this.sourceCode.substring(0, loc.start);
         return precedingCode.split('\n').length;
+    }
+
+    /**
+     * Extract all variable names referenced in an expression
+     */
+    private extractVariablesFromExpression(expr: Expression): Set<string> {
+        const vars = new Set<string>();
+        
+        if (!expr) return vars;
+        
+        const traverse = (node: any) => {
+            if (!node) return;
+            
+            if (node.type === 'Identifier') {
+                vars.add(node.name);
+            } else if (node.type === 'BinaryExpression' || node.type === 'LogicalExpression') {
+                traverse(node.left);
+                traverse(node.right);
+            } else if (node.type === 'UnaryExpression' || node.type === 'UpdateExpression') {
+                traverse(node.argument);
+            } else if (node.type === 'CallExpression') {
+                traverse(node.callee);
+                if (node.arguments) {
+                    node.arguments.forEach((arg: any) => traverse(arg));
+                }
+            } else if (node.type === 'MemberExpression') {
+                traverse(node.object);
+            } else if (node.type === 'ArrayLiteral') {
+                if (node.elements) {
+                    node.elements.forEach((elem: any) => traverse(elem));
+                }
+            } else if (node.type === 'ConditionalExpression') {
+                traverse(node.test);
+                traverse(node.consequent);
+                traverse(node.alternate);
+            }
+        };
+        
+        traverse(expr);
+        return vars;
+    }
+
+    /**
+     * Check if a statement modifies any of the given variables
+     */
+    private statementModifiesVariables(stmt: Statement, targetVars: Set<string>, env: Environment): boolean {
+        if (!stmt) return false;
+        
+        const check = (node: any): boolean => {
+            if (!node) return false;
+            
+            if (node.type === 'Assignment') {
+                return targetVars.has(node.name);
+            } else if (node.type === 'VariableDeclaration') {
+                return targetVars.has(node.name);
+            } else if (node.type === 'UpdateExpression') {
+                if (node.argument?.type === 'Identifier') {
+                    return targetVars.has(node.argument.name);
+                }
+            } else if (node.type === 'ExpressionStatement') {
+                return check(node.expression);
+            } else if (node.type === 'If') {
+                // Check both branches
+                if (node.thenBranch) {
+                    if (node.thenBranch.type === 'Block') {
+                        for (const stmt of node.thenBranch.body) {
+                            if (this.statementModifiesVariables(stmt, targetVars, env)) return true;
+                        }
+                    } else if (this.statementModifiesVariables(node.thenBranch, targetVars, env)) {
+                        return true;
+                    }
+                }
+                if (node.elseBranch) {
+                    if (node.elseBranch.type === 'Block') {
+                        for (const stmt of node.elseBranch.body) {
+                            if (this.statementModifiesVariables(stmt, targetVars, env)) return true;
+                        }
+                    } else if (this.statementModifiesVariables(node.elseBranch, targetVars, env)) {
+                        return true;
+                    }
+                }
+                return false;
+            } else if (node.type === 'Block') {
+                for (const stmt of (node.body || [])) {
+                    if (this.statementModifiesVariables(stmt, targetVars, env)) return true;
+                }
+                return false;
+            } else if (node.type === 'While' || node.type === 'For' || node.type === 'DoWhile') {
+                // Nested loops might modify variables
+                // For safety, we could assume they might modify condition variables
+                // But for now, we'll check the body just to be thorough
+                if (node.body?.body) {
+                    for (const stmt of node.body.body) {
+                        if (this.statementModifiesVariables(stmt, targetVars, env)) return true;
+                    }
+                }
+                return false;
+            }
+            
+            return false;
+        };
+        
+        return check(stmt);
+    }
+
+    /**
+     * Check if a block of statements might modify any of the given variables
+     */
+    private blockModifiesVariables(statements: Statement[], targetVars: Set<string>, env: Environment): boolean {
+        for (const stmt of statements) {
+            if (this.statementModifiesVariables(stmt, targetVars, env)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if a value equals another value deeply
+     */
+    private deepEquals(a: any, b: any): boolean {
+        if (a === b) return true;
+        if (typeof a !== typeof b) return false;
+        if (Array.isArray(a) && Array.isArray(b)) {
+            if (a.length !== b.length) return false;
+            return a.every((v, i) => this.deepEquals(v, b[i]));
+        }
+        return false;
+    }
+
+    /**
+     * Check if a value has changed in the environment
+     */
+    private hasVariablesChanged(variables: Set<string>, oldValues: Record<string, any>, env: Environment): boolean {
+        for (const varName of variables) {
+            try {
+                const oldVal = oldValues[varName];
+                const newVal = env.get(varName);
+                if (!this.deepEquals(oldVal, newVal)) {
+                    return true;
+                }
+            } catch {
+                // Variable doesn't exist, skip
+            }
+        }
+        return false;
     }
 
     /**
@@ -572,14 +791,69 @@ export class Interpreter {
                 if (truthy) { this.executeBlock(stmt.thenBranch.body, env); }
                 else if (stmt.elseBranch) { this.executeBlock(stmt.elseBranch.body, env); }
                 break;
-            case 'While':
-                while (this.evaluate(stmt.condition, env)) { this.executeBlock(stmt.body.body, env); }
+            case 'While': {
+                let isFirstIteration = true;
+                let iterationCount = 0;
+                const MAX_ITERATIONS = 10000; // Safety limit to prevent truly infinite loops
+                
+                while (this.evaluate(stmt.condition, env)) {
+                    // Check iteration count to prevent actual infinite loops
+                    iterationCount++;
+                    if (iterationCount > MAX_ITERATIONS) {
+                        const lineNum = this.getLineFromLocation(stmt.loc);
+                        throw new Error(`runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`);
+                    }
+                    
+                    // After first iteration, check if this might be an infinite loop
+                    if (isFirstIteration) {
+                        isFirstIteration = false;
+                        
+                        // Extract variables from the condition
+                        const conditionVars = this.extractVariablesFromExpression(stmt.condition);
+                        
+                        // Save current variable values
+                        const oldValues: Record<string, any> = {};
+                        for (const varName of conditionVars) {
+                            try {
+                                oldValues[varName] = env.get(varName);
+                            } catch {
+                                // Variable doesn't exist
+                            }
+                        }
+                        
+                        // Execute one iteration
+                        this.executeBlock(stmt.body.body, env);
+                        
+                        // Check if condition is still true and no variables changed
+                        const conditionStillTrue = this.evaluate(stmt.condition, env);
+                        const varsChanged = this.hasVariablesChanged(conditionVars, oldValues, env);
+                        
+                        // If condition is still true, variables haven't changed, and the body doesn't modify condition vars
+                        if (conditionStillTrue && !varsChanged && conditionVars.size > 0) {
+                            // Additional check: does the loop body modify any of these variables?
+                            if (!this.blockModifiesVariables(stmt.body.body, conditionVars, env)) {
+                                const lineNum = this.getLineFromLocation(stmt.loc);
+                                throw new Error(`runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`);
+                            }
+                        }
+                    } else {
+                        this.executeBlock(stmt.body.body, env);
+                    }
+                }
                 break;
+            }
             case 'For':
                 if (stmt.init && stmt.condition && stmt.update) {
                     // C-Style evaluation mappings
                     this.execute(stmt.init, env);
+                    let iterationCount = 0;
+                    const MAX_ITERATIONS = 10000;
                     while (this.evaluate(stmt.condition, env)) {
+                        iterationCount++;
+                        if (iterationCount > MAX_ITERATIONS) {
+                            const lineNum = this.getLineFromLocation(stmt.loc);
+                            throw new Error(`runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`);
+                        }
                         this.executeBlock(stmt.body.body, env);
                         this.execute(stmt.update, env);
                     }
@@ -592,6 +866,19 @@ export class Interpreter {
                     }
                 }
                 break;
+            case 'DoWhile': {
+                let iterationCount = 0;
+                const MAX_ITERATIONS = 10000;
+                do {
+                    iterationCount++;
+                    if (iterationCount > MAX_ITERATIONS) {
+                        const lineNum = this.getLineFromLocation(stmt.loc);
+                        throw new Error(`runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`);
+                    }
+                    this.executeBlock(stmt.body.body, env);
+                } while (this.evaluate(stmt.condition, env));
+                break;
+            }
             case 'FunctionDeclaration':
                 env.define(stmt.name, stmt);
                 break;

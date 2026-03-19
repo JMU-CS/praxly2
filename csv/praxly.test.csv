@@ -336,8 +336,7 @@ conditionals/5.6 loops.md infinite loop,"int count <- 0
 
 while ( count < 5)
     // print ""Looping!""
-end while",,,"runtime error occurred on line 3:
-This is probably an infinite loop."
+end while",,,"runtime error occurred on line 3: This is probably an infinite loop."
 conditionals/5.6 loops.md while loop 5,"int count <- 0
 
 while (count < 5 )
@@ -532,7 +531,7 @@ correct_ans <- 3
 askQ()","2
 2","What is the capital of Virginia?
 1: Washington 2: Richmond 3: Norfolk
-
+> 2
 Correct!
 What is the capital of Maryland?
 1: Baltimore 2: D.C. 3: Annapolis

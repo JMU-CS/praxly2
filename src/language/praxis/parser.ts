@@ -5,7 +5,7 @@
 
 import type { Token, TokenType } from '../lexer';
 import {
-    type Program, type Statement, type Block, type Expression, type If, type While,
+    type Program, type Statement, type Block, type Expression, type If, type While, type DoWhile,
     type Return, type CallExpression, type Identifier, type FunctionDeclaration,
     type ClassDeclaration, generateId
 } from '../ast';
@@ -365,7 +365,7 @@ export class PraxisParser {
         return { id: generateId(), type: 'While', condition, body };
     }
 
-    private doWhileStatement(): While {
+    private doWhileStatement(): DoWhile {
         this.consume('KEYWORD', 'do');
         const body = this.block(['end', 'else', 'until', 'while']);
         this.consume('KEYWORD', 'while');
@@ -373,7 +373,7 @@ export class PraxisParser {
         const condition = this.expression();
         this.match('PUNCTUATION', ')');
 
-        return { id: generateId(), type: 'While', condition, body };
+        return { id: generateId(), type: 'DoWhile', body, condition };
     }
 
     private repeatUntilStatement(): While {
