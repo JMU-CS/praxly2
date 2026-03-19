@@ -501,7 +501,15 @@ export class Interpreter {
             case 'ClassDeclaration':
                 break;
             case 'Print':
-                const vals = stmt.expressions.map(e => this.stringify(this.evaluate(e, env)));
+                const vals = stmt.expressions.map(e => {
+                    const val = this.evaluate(e, env);
+                    let type: string | undefined = undefined;
+                    // Try to infer type from Identifier
+                    if (e.type === 'Identifier') {
+                        type = env.getType((e as any).name);
+                    }
+                    return this.stringify(val, false, type);
+                });
                 this.output.push(vals.join(' '));
                 break;
             case 'Assignment':
@@ -795,12 +803,36 @@ export class Interpreter {
         }
     }
 
-    private stringify(val: any): string {
+    private stringify(val: any, inArray: boolean = false, type?: string): string {
         if (val === null) return 'None';
         if (val === true) return 'true';
         if (val === false) return 'false';
         if (val instanceof JavaInstance) return `${val.klass.name} instance`;
-        if (Array.isArray(val)) return `[${val.map(v => this.stringify(v)).join(', ')}]`;
+        
+        if (typeof val === 'number') {
+            const isFloatType = type === 'double' || type === 'float';
+            if (isFloatType && Number.isInteger(val)) {
+                return `${val}.0`;
+            }
+        }
+        
+        if (Array.isArray(val)) {
+            // Arrays use braces and comma separation
+            const elemType = type ? type.replace('[]', '') : undefined;
+            return `{${val.map(v => this.stringify(v, true, elemType)).join(', ')}}`;
+        }
+
+        if (inArray && typeof val === 'string') {
+            // Apply quotes for strings inside arrays
+            // Check specific types first
+            if (type === 'char') return `'${val}'`;
+            if (type === 'String') return `"${val}"`;
+            
+            // Heuristic fallback: length 1 -> single quotes (char), otherwise double quotes (String)
+            if (val.length === 1) return `'${val}'`;
+            return `"${val}"`;
+        }
+        
         return String(val);
     }
 
