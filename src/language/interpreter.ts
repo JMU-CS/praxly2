@@ -136,7 +136,9 @@ export class Interpreter {
     }
 
     addInput(input: string) {
+        console.log('addInput called with:', input, 'Queue length before:', this.inputQueue.length);
         this.inputQueue.push(input);
+        console.log('Queue length after:', this.inputQueue.length);
     }
 
     hasInput(): boolean {
@@ -144,7 +146,10 @@ export class Interpreter {
     }
 
     getNextInput(): string | null {
-        return this.inputQueue.length > 0 ? this.inputQueue.shift()! : null;
+        console.log('getNextInput called, queue length:', this.inputQueue.length);
+        const result = this.inputQueue.length > 0 ? this.inputQueue.shift()! : null;
+        console.log('getNextInput returning:', result);
+        return result;
     }
 
     setDebugging(isDebugging: boolean) {
@@ -203,7 +208,7 @@ export class Interpreter {
 
 
 
-    *stepThroughWithState(program: Program, sourceCode: string = ''): Generator<{ nodeId: string; nodeType: string; loc: any; variables: Record<string, any> }, string[], void> {
+    *stepThroughWithState(program: Program, sourceCode: string = ''): Generator<{ nodeId: string; nodeType: string; loc: any; variables: Record<string, any>; prompt?: string }, string[], void> {
         this.sourceCode = sourceCode;
         this.output = [];
         this.globalEnv = new Environment();
@@ -249,8 +254,12 @@ export class Interpreter {
         return this.output;
     }
 
-    private *executeBlockGeneratorWithState(statements: Statement[], env: Environment): Generator<{ nodeId: string; nodeType: string; loc: any; variables: Record<string, any> }, void, void> {
-        for (const stmt of statements) {
+    private *executeBlockGeneratorWithState(statements: Statement[], env: Environment): Generator<{ nodeId: string; nodeType: string; loc: any; variables: Record<string, any>; prompt?: string }, void, void> {
+        console.log('executeBlockGeneratorWithState: Processing', statements.length, 'statements');
+        let i = 0;
+        while (i < statements.length) {
+            const stmt = statements[i];
+            console.log('Processing statement type:', stmt.type, 'index:', i);
             this.currentEnv = env;
 
             // Handle control flow statements specially to yield steps for nested statements
@@ -275,6 +284,7 @@ export class Interpreter {
                     if (e instanceof ReturnException) throw e;
                     throw e;
                 }
+                i++;
             } else if (stmt.type === 'While') {
                 const whileStmt = stmt as any;
                 while (true) {
@@ -294,6 +304,7 @@ export class Interpreter {
                         throw e;
                     }
                 }
+                i++;
             } else if (stmt.type === 'For') {
                 const forStmt = stmt as any;
                 try {
@@ -335,41 +346,39 @@ export class Interpreter {
                     if (e instanceof ReturnException) throw e;
                     throw e;
                 }
+                i++;
             } else {
-                // For all other statements, execute first then yield with updated state (always yield for debugging)
+                // For all other statements, execute and yield
+                let needsRetry = false;
+                let lastError: any = null;
+                
                 try {
                     this.execute(stmt, env);
-                    // Yield after successful execution
-                    yield {
-                        nodeId: stmt.id,
-                        nodeType: stmt.type,
-                        loc: stmt.loc || null,
-                        variables: env.getAllVariables(),
-                    };
                 } catch (e) {
                     if (e instanceof InputPrompt) {
-                        // Yield waiting step for input
-                        yield {
-                            nodeId: stmt.id,
-                            nodeType: 'InputPrompt',
-                            loc: stmt.loc || null,
-                            variables: env.getAllVariables(),
-                        };
-                        // After yielding and resuming with input in queue, retry the statement
-                        this.execute(stmt, env);
-                        // Yield after successful retry
-                        yield {
-                            nodeId: stmt.id,
-                            nodeType: stmt.type,
-                            loc: stmt.loc || null,
-                            variables: env.getAllVariables(),
-                        };
+                        needsRetry = true;
+                        lastError = e;
                     } else if (e instanceof ReturnException) {
                         throw e;
                     } else {
                         throw e;
                     }
                 }
+                
+                // Yield the result (either success or InputPrompt)
+                yield {
+                    nodeId: stmt.id,
+                    nodeType: needsRetry ? 'InputPrompt' : stmt.type,
+                    loc: stmt.loc || null,
+                    variables: env.getAllVariables(),
+                    prompt: needsRetry ? (lastError?.prompt || '') : undefined,
+                };
+                
+                // If we need input, don't increment - next iteration will retry
+                if (!needsRetry) {
+                    i++;
+                }
+                // If InputPrompt, DON'T increment i - next call to generator.next() will re-enter this try block
             }
         }
     }
@@ -702,11 +711,16 @@ export class Interpreter {
                 // Handle input() function - get prompt from arguments (CSP style)
                 if (calleeName === 'input' || calleeName === 'INPUT') {
                     const promptStr = expr.arguments.length > 0 ? this.stringify(this.evaluate(expr.arguments[0], env)) : '';
+                    console.log('input() called, checking for queued input...');
                     const nextInput = this.getNextInput();
                     if (nextInput !== null) {
+                        console.log('Found input in queue, returning:', nextInput);
+                        // Add echo to output to ensure correct order
+                        this.output.push(`> ${nextInput}`);
                         return nextInput;
                     }
                     // No input available
+                    console.log('No input in queue, throwing InputPrompt with prompt:', promptStr);
                     if (this.isDebugging) {
                         // In debug mode, throw InputPrompt so debugger can handle it
                         throw new InputPrompt(promptStr);

@@ -18,7 +18,6 @@ import type { SourceMap } from '../language/visitor';
 import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
 import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
-import { Interpreter } from '../language/interpreter';
 import { Debugger } from '../language/debugger';
 
 interface Panel {
@@ -167,36 +166,34 @@ export default function EditorPage() {
             if (!program) return;
             setAst(program);
 
-            // Create interpreter and try to run
-            const interpreter = new Interpreter();
+            // Use debugger-based approach from the start so we don't re-execute on input
+            const debugger_ = new Debugger();
+            debugger_.init(program, runLang as SupportedLang, code);
             
-            try {
-                const results = interpreter.interpret(program, code);
-                setOutput(results);
-            } catch (e: any) {
-                // Check if this is an InputPrompt exception
-                if (e.name === 'InputPrompt' || (e.constructor && e.constructor.name === 'InputPrompt')) {
-                    // For normal mode with input, we'll use the debugger approach
-                    // Initialize the debugger
-                    const debugger_ = new Debugger();
-                    debugger_.init(program, runLang as SupportedLang, code);
-                    
-                    // Store debugger and prompt for continuation
+            // Run all steps until completion or input needed
+            let result = debugger_.step();
+            
+            while (result && !result.isComplete) {
+                // result.output is already cumulative, so just set it directly
+                setOutput(result.output);
+                
+                // Check if waiting for input
+                if (result.waitingForInput) {
                     setCurrentInterpreter(debugger_);
                     setWaitingForNormalInput(true);
-                    setNormalModeInputPrompt(e.prompt);
-                    
-                    // Show what was printed so far including the prompt line
-                    const currentOutput = interpreter.getOutput();
-                    if (currentOutput && currentOutput.length > 0) {
-                        setOutput(currentOutput);
-                    } else {
-                        setOutput([e.prompt]);
-                    }
+                    setNormalModeInputPrompt(result.inputPrompt || '');
                     return;
                 }
-                throw e;
+                
+                result = debugger_.step();
             }
+            
+            // Final step output
+            if (result) {
+                setOutput(result.output);
+            }
+            
+            setCurrentInterpreter(null);
         } catch (e: any) {
             console.error(e);
             setError(e.message);
@@ -267,7 +264,7 @@ export default function EditorPage() {
 
     const handleSubmitInput = (input: string) => {
         provideInput(input);
-        setOutput((prev) => [...prev, `> ${input}`]);
+        // Input echo is now handled by the interpreter
         
         // Automatically continue execution after input is provided
         if (ast) {
@@ -285,6 +282,9 @@ export default function EditorPage() {
                 );
                 setPanelHighlightedLines(panelHighlights);
 
+                // For debug mode, outputLines is just the new output lines for this step
+                // But since interpreter output is cumulative, stepDebugger might return cumulative or diff?
+                // Let's check useCodeDebugger
                 setOutput((prev) => [...prev, ...result.outputLines]);
 
                 if (result.isComplete) {
@@ -296,47 +296,47 @@ export default function EditorPage() {
     };
 
     const handleNormalModeInputSubmit = (input: string) => {
-        if (!currentInterpreter || !ast) return;
-
-        // Show user's input in output
-        setOutput((prev) => [...prev, `> ${input}`]);
+        if (!currentInterpreter) return;
 
         try {
-            // Provide input to the debugger
+            // Provide input to the debugger FIRST, before stepping
             if (currentInterpreter.provideInput) {
                 currentInterpreter.provideInput(input);
             }
 
-            // Continue stepping until completion or next input
+            // Continue stepping until all remaining statements are executed
             let steps = (currentInterpreter as any).step?.();
-            let allOutput = [...output];
+            let cumulativeOutput: string[] = steps?.output || [];
             
             while (steps && !steps.isComplete) {
-                allOutput.push(...steps.output);
-                setOutput(allOutput);
+                // Check if waiting for input
+                if (steps.waitingForInput) {
+                    setWaitingForNormalInput(true);
+                    setNormalModeInputPrompt(steps.inputPrompt || '');
+                    setOutput(cumulativeOutput);
+                    return;
+                }
+                
+                // Update cumulative output from this step
+                cumulativeOutput = [...(steps?.output || [])];
+                setOutput(cumulativeOutput);
+                
+                // Step to next
                 steps = (currentInterpreter as any).step?.();
             }
             
-            // Final step output
+            // Final output when complete
             if (steps) {
-                allOutput.push(...steps.output);
-                setOutput(allOutput);
+                // Input echo is now handled by the interpreter to ensure correct ordering
+                cumulativeOutput = [...(steps?.output || [])];
+                setOutput(cumulativeOutput);
             }
             
             setWaitingForNormalInput(false);
             setNormalModeInputPrompt('');
             setCurrentInterpreter(null);
         } catch (e: any) {
-            // Check if we hit another input prompt
-            if (e.name === 'InputPrompt' || (e.constructor && e.constructor.name === 'InputPrompt')) {
-                // Another input is needed
-                setNormalModeInputPrompt(e.prompt);
-                setOutput((prev) => [...prev, e.prompt]);
-                return;
-            }
-            
-            // Actual error
-            console.error(e);
+            console.error('Error in input submit:', e);
             setError(e.message);
             setOutput((prev) => [...prev, `Error: ${e.message}`]);
             setWaitingForNormalInput(false);
