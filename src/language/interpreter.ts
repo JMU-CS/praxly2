@@ -776,14 +776,14 @@ export class Interpreter {
                 }
                 if (calleeName === 'INSERT') {
                     const list = this.evaluate(expr.arguments[0], env);
-                    const idx = this.evaluate(expr.arguments[1], env) - 1; // 1-based mapped to JS native index
+                    const idx = this.evaluate(expr.arguments[1], env); // 0-based indexing
                     const val = this.evaluate(expr.arguments[2], env);
                     if (Array.isArray(list)) list.splice(idx, 0, val);
                     return null;
                 }
                 if (calleeName === 'REMOVE') {
                     const list = this.evaluate(expr.arguments[0], env);
-                    const idx = this.evaluate(expr.arguments[1], env) - 1;
+                    const idx = this.evaluate(expr.arguments[1], env); // 0-based indexing
                     if (Array.isArray(list)) list.splice(idx, 1);
                     return null;
                 }

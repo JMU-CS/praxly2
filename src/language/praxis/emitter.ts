@@ -447,16 +447,8 @@ export class PraxisEmitter extends ASTVisitor {
                         const val = idx.argument.value as number;
                         return `${objExpr}.length - ${val}`;
                     } else {
-                        // Handle mixed expressions and base conversion
-                        let indexExpr = idx;
-                        if (indexExpr.type === 'BinaryExpression' && 
-                            indexExpr.operator === '-' && 
-                            indexExpr.right.type === 'Literal' && 
-                            indexExpr.right.value === 1) {
-                            // This is a 0-based index converted from 1-based, use the original
-                            indexExpr = indexExpr.left;
-                        }
-                        return this.generateExpression(indexExpr, 0);
+                        // Handle expressions with 0-based indexing
+                        return this.generateExpression(idx, 0);
                     }
                 };
                 

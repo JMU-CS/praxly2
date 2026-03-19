@@ -401,10 +401,10 @@ end class`;
   });
 
   describe('Advanced Features', () => {
-    it('should handle 1-based array indexing', () => {
+    it('should handle 0-based array indexing', () => {
       const source = `int[] xs <- {10, 20, 30}
-int first <- xs[1]
-int last <- xs[3]
+int first <- xs[0]
+int last <- xs[2]
 print(last)`;
       const lexer = new PraxisLexer(source);
       const tokens = lexer.tokenize();
@@ -413,13 +413,13 @@ print(last)`;
       const translator = new Translator();
       const result = translator.translate(program, 'praxis');
       expect(result).toContain('xs');
-      expect(result).toContain('[1]');
-      expect(result).toContain('[3]');
+      expect(result).toContain('[0]');
+      expect(result).toContain('[2]');
     });
 
-    it('should access last element with 1-based indexing', () => {
+    it('should access last element with 0-based indexing', () => {
       const source = `int[] data <- {5, 10, 15}
-int lastValue <- data[3]
+int lastValue <- data[2]
 print(lastValue)`;
       const lexer = new PraxisLexer(source);
       const tokens = lexer.tokenize();
@@ -427,14 +427,14 @@ print(lastValue)`;
       const program = parser.parse();
       const translator = new Translator();
       const result = translator.translate(program, 'praxis');
-      // Should be able to access the last element at index 3
+      // Should be able to access the last element at index 2
       expect(result).toContain('data');
-      expect(result).toContain('[3]');
+      expect(result).toContain('[2]');
     });
 
-    it('should print array element correctly with 1-based indexing', () => {
+    it('should print array element correctly with 0-based indexing', () => {
       const source = `int[] numbers <- {100, 200, 300}
-print(numbers[3])`;
+print(numbers[2])`;
       const lexer = new PraxisLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PraxisParser(tokens);
@@ -443,12 +443,12 @@ print(numbers[3])`;
       const result = translator.translate(program, 'praxis');
       expect(result).toContain('print');
       expect(result).toContain('numbers');
-      expect(result).toContain('[3]');
+      expect(result).toContain('[2]');
     });
 
-    it('should handle array iteration with 1-based indexing', () => {
+    it('should handle array iteration with 0-based indexing', () => {
       const source = `int[] xs <- {1, 2, 3}
-for i <- 1; i <= 3; i <- i + 1
+for i <- 0; i < 3; i <- i + 1
   print(xs[i])
 end for`;
       const lexer = new PraxisLexer(source);
@@ -482,9 +482,9 @@ print(x)`;
       expect(pythonResult).toContain('x');
     });
 
-    it('should correctly handle 1-based array access in for loops', () => {
+    it('should correctly handle 0-based array access in for loops', () => {
       const source = `int[] items <- {10, 20, 30}
-for i <- 1; i <= 3; i <- i + 1
+for i <- 0; i < 3; i <- i + 1
   print(items[i])
 end for`;
       const lexer = new PraxisLexer(source);
@@ -493,13 +493,13 @@ end for`;
       const program = parser.parse();
       const translator = new Translator();
       const result = translator.translate(program, 'praxis');
-      // Praxis emitter should output 1-based indices
+      // Praxis emitter should output 0-based indices
       expect(result).toContain('items[i]');
     });
 
-    it('should translate 1-based Praxis indexing to 0-based in Java', () => {
+    it('should translate 0-based Praxis indexing to Java', () => {
       const source = `int[] arr <- {5, 10, 15}
-int first <- arr[1]`;
+int first <- arr[0]`;
       const lexer = new PraxisLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PraxisParser(tokens);
@@ -510,9 +510,9 @@ int first <- arr[1]`;
       expect(javaResult).toContain('arr[');
     });
 
-    it('should translate 1-based Praxis indexing to 0-based in Python', () => {
+    it('should translate 0-based Praxis indexing to Python', () => {
       const source = `arr = [5, 10, 15]
-first = arr[1]`;
+first = arr[0]`;
       const lexer = new PraxisLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PraxisParser(tokens);

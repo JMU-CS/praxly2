@@ -134,8 +134,8 @@ async function supplyInputs(driver: WebDriver, lines: string[]): Promise<void> {
 
     for (const line of lines) {
         try {
-            // Wait for the stdin prompt to appear - but with a shorter timeout since this feature
-            // might not be implemented yet
+            // Wait for the stdin prompt to appear
+            // Increased timeout to account for slower interpreters or network
             const inputEl = await driver.wait(
                 until.elementLocated(
                     By.css(
@@ -146,11 +146,34 @@ async function supplyInputs(driver: WebDriver, lines: string[]): Promise<void> {
                         'input[type="text"]'
                     )
                 ),
-                2000  // Short timeout - if feature doesn't exist, fail fast
+                5000 
             );
             await driver.wait(until.elementIsVisible(inputEl), TIMEOUT_MS);
+            
+            // Clear can trigger onChange, but sometimes React needs a discrete event
             await inputEl.clear();
-            await inputEl.sendKeys(line, Key.RETURN);
+            await inputEl.sendKeys(line);
+            
+            // Click the Submit button to ensure the input is processed
+            // The button is a sibling or near the input in the DOM
+            try {
+                const submitBtn = await driver.findElement(
+                    By.xpath("//button[contains(., 'Submit')]")
+                );
+                await submitBtn.click();
+            } catch (e) {
+                // If submit button not found, try Enter key (fallback)
+                await inputEl.sendKeys(Key.RETURN);
+            }
+
+            // Important: Wait for the input element to disappear or be replaced
+            // This ensures we don't try to enter the next input into the OLD field
+            try {
+                await driver.wait(until.stalenessOf(inputEl), 5000);
+            } catch (e) {
+                // Ignore if it doesn't disappear (maybe it persists? likely not in Praxly)
+            }
+            
             await driver.sleep(INPUT_DELAY_MS);
         } catch (e: any) {
             // If no more input prompts appear the program has finished - that's fine

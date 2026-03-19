@@ -271,6 +271,7 @@ export class PraxisParser {
                         type: 'Assignment',
                         name: expr.type === 'IndexExpression' ? this.generateMemberPath(expr) : this.generateMemberPath(expr),
                         value,
+                        target: expr,
                         isMemberAssignment: true,
                         memberExpr: expr
                     } as any;
@@ -601,19 +602,12 @@ export class PraxisParser {
                 try {
                     const index = this.expression();
                     this.consume('PUNCTUATION', ']');
-                    // Praxis uses 1-based indexing, convert to 0-based
-                    const zeroBasedIndex: Expression = {
-                        id: generateId(),
-                        type: 'BinaryExpression',
-                        left: index,
-                        operator: '-',
-                        right: { id: generateId(), type: 'Literal', value: 1, raw: '1' }
-                    };
+                    // Use 0-based indexing (JavaScript standard)
                     expr = {
                         id: generateId(),
                         type: 'IndexExpression',
                         object: expr,
-                        index: zeroBasedIndex
+                        index: index
                     };
                 } catch (e) {
                     this.current = savedPos;
