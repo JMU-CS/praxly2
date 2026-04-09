@@ -38,7 +38,7 @@ export const useCodeParsing = () => {
                     return parser.parse();
                 case 'praxis':
                     tokens = new PraxisLexer(input).tokenize();
-                    parser = new PraxisParser(tokens);
+                    parser = new PraxisParser(tokens, input);
                     return parser.parse();
                 case 'python':
                 default:

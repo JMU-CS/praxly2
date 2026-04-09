@@ -139,14 +139,20 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     {output.length === 0 && !error ? (
                         <div className="text-slate-700 italic opacity-40">Run code to see execution results...</div>
                     ) : (
-                        output.map((line, idx) => (
+                        output.map((line, idx) => {
+                            const isEchoedInput = line.startsWith('> ');
+                            const displayLine = isEchoedInput ? line.slice(2) : line;
+
+                            return (
                             <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5">
                                 <span className="text-slate-700 select-none w-6 text-right text-xs pt-1">
                                     {idx + 1}
                                 </span>
-                                <span className="text-slate-300 break-all">{line}</span>
+                                <span className={`${isEchoedInput ? 'text-cyan-400' : 'text-slate-300'} break-all`}>
+                                    {displayLine}
+                                </span>
                             </div>
-                        ))
+                        )})
                     )}
                 </div>
                 {waitingForInput && (

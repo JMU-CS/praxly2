@@ -13,9 +13,11 @@ import {
 export class PraxisParser {
     private tokens: Token[];
     private current = 0;
+    private sourceCode: string;
 
-    constructor(tokens: Token[]) {
+    constructor(tokens: Token[], sourceCode: string = '') {
         this.tokens = tokens;
+        this.sourceCode = sourceCode;
     }
 
     /**
@@ -102,7 +104,8 @@ export class PraxisParser {
                     classBody.push({
                         id: generateId(), type: 'FieldDeclaration',
                         name: (stmt as any).name, fieldType: (stmt as any).varType || 'auto', isStatic: false,
-                        access: 'public', initializer: (stmt as any).value
+                        access: 'public', initializer: (stmt as any).value,
+                        declaredWithoutInitializer: (stmt as any).declaredWithoutInitializer
                     });
                 }
             }
@@ -221,9 +224,11 @@ export class PraxisParser {
             typeName += '[]';
         }
 
+        const hasInitializer = this.match('OPERATOR', '<-') || this.match('OPERATOR', '=');
+
         // Provide type-appropriate defaults for uninitialized variables
         let value: Expression;
-        if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
+        if (hasInitializer) {
             value = this.expression();
         } else {
             // Default initialization based on type
@@ -239,7 +244,14 @@ export class PraxisParser {
         }
 
         // Include varType to lock down specific custom class typings into translator
-        return { id: generateId(), type: 'Assignment', name, value, varType: typeName } as any;
+        return {
+            id: generateId(),
+            type: 'Assignment',
+            name,
+            value,
+            varType: typeName,
+            declaredWithoutInitializer: !hasInitializer
+        } as any;
     }
 
     private statement(): Statement {
@@ -323,13 +335,89 @@ export class PraxisParser {
     }
 
     private printStatement(): Statement {
-        this.consume('KEYWORD', 'print');
+        const printToken = this.consume('KEYWORD', 'print');
         const hasParen = this.match('PUNCTUATION', '(');
         const expr = this.expression();
         if (hasParen) {
             this.consume('PUNCTUATION', ')');
         }
-        return { id: generateId(), type: 'Print', expressions: [expr] };
+
+        const stmt: any = { id: generateId(), type: 'Print', expressions: [expr] };
+        const trailingComment = this.extractTrailingLineComment(printToken.start);
+        if (trailingComment) {
+            const metadata = this.parsePrintCommentMetadata(trailingComment);
+            if (metadata.separator !== undefined) stmt.separator = metadata.separator;
+            if (metadata.appendLineFeed !== undefined) stmt.appendLineFeed = metadata.appendLineFeed;
+        }
+
+        return stmt;
+    }
+
+    private extractTrailingLineComment(lineStartPos: number): string | undefined {
+        if (!this.sourceCode) return undefined;
+
+        const lineEndPos = this.sourceCode.indexOf('\n', lineStartPos);
+        const safeLineEnd = lineEndPos === -1 ? this.sourceCode.length : lineEndPos;
+        const lineText = this.sourceCode.slice(lineStartPos, safeLineEnd);
+        const commentStart = this.findSingleLineCommentStart(lineText);
+
+        if (commentStart === -1) return undefined;
+        return lineText.slice(commentStart + 2).trim();
+    }
+
+    private findSingleLineCommentStart(lineText: string): number {
+        let inSingleQuote = false;
+        let inDoubleQuote = false;
+        let escaped = false;
+
+        for (let i = 0; i < lineText.length - 1; i++) {
+            const ch = lineText[i];
+
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+
+            if (ch === '\\') {
+                escaped = true;
+                continue;
+            }
+
+            if (ch === '\'' && !inDoubleQuote) {
+                inSingleQuote = !inSingleQuote;
+                continue;
+            }
+
+            if (ch === '"' && !inSingleQuote) {
+                inDoubleQuote = !inDoubleQuote;
+                continue;
+            }
+
+            if (!inSingleQuote && !inDoubleQuote && ch === '/' && lineText[i + 1] === '/') {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private parsePrintCommentMetadata(comment: string): { separator?: string; appendLineFeed?: boolean } {
+        const normalized = comment.toLowerCase();
+        const metadata: { separator?: string; appendLineFeed?: boolean } = {};
+
+        const mentionsBlank = /\b(space|blank)\b/.test(normalized);
+        const indicatesAppend = /\b(append|appended|after|trailing)\b/.test(normalized);
+        if (mentionsBlank && indicatesAppend) {
+            metadata.separator = ' ';
+        }
+
+        if (/(\bno\b|\bwithout\b)\s+(line\s*feed|new\s*line|newline)/.test(normalized)) {
+            metadata.appendLineFeed = false;
+        } else if (/(line\s*feed|new\s*line|newline)/.test(normalized)) {
+            metadata.appendLineFeed = true;
+        }
+
+        return metadata;
     }
 
     private ifStatement(): If {

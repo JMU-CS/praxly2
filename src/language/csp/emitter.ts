@@ -137,6 +137,11 @@ export class CSPEmitter extends ASTVisitor {
         } else if (stmt.target) {
             targetStr = this.generateExpression(stmt.target, 0);
         }
+
+        if (stmt.declaredWithoutInitializer) {
+            this.emit(`// ${targetStr} declared without initializer`, stmt.id);
+            return;
+        }
         
         this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`, stmt.id);
     }

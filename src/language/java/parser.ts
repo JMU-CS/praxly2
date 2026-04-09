@@ -143,7 +143,16 @@ export class JavaParser {
         initializer = this.expression();
       }
       this.consume('PUNCTUATION', ';');
-      return { id: generateId(), type: 'FieldDeclaration', name, fieldType: typeString, isStatic, access, initializer };
+      return {
+        id: generateId(),
+        type: 'FieldDeclaration',
+        name,
+        fieldType: typeString,
+        isStatic,
+        access,
+        initializer,
+        declaredWithoutInitializer: initializer === undefined
+      };
     }
 
     throw new Error("Expected class member declaration");
@@ -248,13 +257,21 @@ export class JavaParser {
       }
 
       const name = this.consume('IDENTIFIER').value;
+      const hasInitializer = this.match('OPERATOR', '=');
       let value: Expression = this.getDefaultValueForType(typeStr);
 
-      if (this.match('OPERATOR', '=')) {
+      if (hasInitializer) {
         value = this.expression();
       }
       if (!this.isAtEnd() && this.check('PUNCTUATION', ';')) this.advance();
-      return this.withLocation({ id: generateId(), type: 'Assignment', name, value, varType: typeStr }, startIdx);
+      return this.withLocation({
+        id: generateId(),
+        type: 'Assignment',
+        name,
+        value,
+        varType: typeStr,
+        declaredWithoutInitializer: !hasInitializer
+      }, startIdx);
     }
 
     if (this.check('IDENTIFIER')) {
@@ -282,12 +299,20 @@ export class JavaParser {
             let typeStr = this.consume('IDENTIFIER').value;
             if (this.check('PUNCTUATION', '[')) { this.advance(); this.consume('PUNCTUATION', ']'); typeStr += '[]'; }
             const name = this.consume('IDENTIFIER').value;
+            const hasInitializer = this.match('OPERATOR', '=');
             let value: Expression = this.getDefaultValueForType(typeStr);
-            if (this.match('OPERATOR', '=')) {
+            if (hasInitializer) {
               value = this.expression();
             }
             if (!this.isAtEnd() && this.check('PUNCTUATION', ';')) this.advance();
-            return this.withLocation({ id: generateId(), type: 'Assignment', name, value, varType: typeStr }, startIdx);
+            return this.withLocation({
+              id: generateId(),
+              type: 'Assignment',
+              name,
+              value,
+              varType: typeStr,
+              declaredWithoutInitializer: !hasInitializer
+            }, startIdx);
           }
         }
       }

@@ -224,6 +224,14 @@ export class JavaEmitter extends ASTVisitor {
             return;
         }
 
+        const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
+
+        if (stmt.varType && stmt.declaredWithoutInitializer) {
+            this.emit(`${stmt.varType} ${targetStr};`, stmt.id);
+            this.context.symbolTable.set(stmt.name, stmt.varType);
+            return;
+        }
+
         const rVal = this.generateExpression(stmt.value, 0);
         let initVal = rVal;
         if (stmt.value.type === 'ArrayLiteral') {
@@ -232,12 +240,10 @@ export class JavaEmitter extends ASTVisitor {
 
         // Handle member/field assignments (e.g., this.count = value or obj.field = value)
         if (stmt.isMemberAssignment && stmt.memberExpr) {
-            const targetStr = this.generateExpression(stmt.memberExpr, 0);
-            this.emit(`${targetStr} = ${rVal};`, stmt.id);
+            const memberTargetStr = this.generateExpression(stmt.memberExpr, 0);
+            this.emit(`${memberTargetStr} = ${rVal};`, stmt.id);
             return;
         }
-
-        const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
 
         if (stmt.varType) {
             this.emit(`${stmt.varType} ${targetStr} = ${initVal};`, stmt.id);

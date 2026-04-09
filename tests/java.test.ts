@@ -259,6 +259,33 @@ describe('Java Translation', () => {
       const result = translator.translate(program, 'java');
       expect(result).toContain('println');
     });
+
+    it('should not add implicit defaults for uninitialized Java declarations', () => {
+      const source = `int x;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+
+      expect(result).toContain('int x;');
+      expect(result).not.toContain('int x = 0;');
+    });
+
+    it('should emit Python type hint only for uninitialized Java declarations', () => {
+      const source = `int x;\nint y = 3;`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'python');
+
+      expect(result).toContain('x: int');
+      expect(result).toContain('y = 3');
+      expect(result).not.toContain('y: int = 3');
+    });
   });
 
   describe('Control Flow', () => {

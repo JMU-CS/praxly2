@@ -75,6 +75,7 @@ export class Translator {
                 case 'CallExpression':
                     const calleeNameForAnalysis = (expr.callee as any).name;
                     if (calleeNameForAnalysis === 'range') return 'int[]';
+                    if (calleeNameForAnalysis === 'input' || calleeNameForAnalysis === 'INPUT') return 'String';
                     if (calleeNameForAnalysis && context.functionReturnTypes.has(calleeNameForAnalysis)) return context.functionReturnTypes.get(calleeNameForAnalysis)!;
                     return 'var';
                 case 'ArrayLiteral':
@@ -89,7 +90,8 @@ export class Translator {
         const analyzeBlock = (statements: Statement[]) => {
             statements.forEach(stmt => {
                 if (stmt.type === 'Assignment') {
-                    const type = inferType(stmt.value);
+                    const explicitType = (stmt as any).varType;
+                    const type = explicitType && explicitType !== 'auto' ? explicitType : inferType(stmt.value);
                     if (type !== 'var') context.symbolTable.set(stmt.name, type);
                 }
                 if (stmt.type === 'If') {

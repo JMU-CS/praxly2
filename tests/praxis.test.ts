@@ -522,5 +522,58 @@ first = arr[0]`;
       // Python should use 0-based indexing
       expect(pythonResult).toContain('arr[');
     });
+
+    it('should translate print comments for trailing blank output', () => {
+      const source = `int n <- 7
+print(n) // print a space after the number`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens, source);
+      const program = parser.parse();
+      const translator = new Translator();
+      const pythonResult = translator.translate(program, 'python');
+
+      expect(pythonResult).toContain('print(n, sep=" ")');
+    });
+
+    it('should translate uninitialized typed declarations to Python annotations', () => {
+      const source = `int x`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const pythonResult = translator.translate(program, 'python');
+
+      expect(pythonResult).toContain('x: int');
+      expect(pythonResult).not.toContain('x = None');
+    });
+
+    it('should not emit Python variable type hints when a value is assigned', () => {
+      const source = `int x <- 5`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const pythonResult = translator.translate(program, 'python');
+
+      expect(pythonResult).toContain('x = 5');
+      expect(pythonResult).not.toContain('x: int = 5');
+    });
+
+    it('should translate typed parameters to Python parameter annotations', () => {
+      const source = `procedure show(int n)
+  print(n)
+end show`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const pythonResult = translator.translate(program, 'python');
+
+      expect(pythonResult).toContain('def show(n: int):');
+    });
   });
 });

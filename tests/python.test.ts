@@ -547,6 +547,19 @@ describe('Python Translation', () => {
       expect(result).toContain('[');
       expect(result).toContain(']');
     });
+
+    it('should translate input assignment as String in Java', () => {
+      const source = `x = input()
+print(x)`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const result = translator.translate(program, 'java');
+      expect(result).toContain('String x = scanner.nextLine();');
+      expect(result).not.toContain('Object x = scanner.nextLine();');
+    });
   });
 
   describe('Control Flow', () => {

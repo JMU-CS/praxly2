@@ -51,6 +51,7 @@ export interface Assignment extends ASTNode {
   target?: Expression;
   value: Expression;
   varType?: string;
+  declaredWithoutInitializer?: boolean;
   isMemberAssignment?: boolean;
   memberExpr?: Expression;
 }
@@ -58,6 +59,8 @@ export interface Assignment extends ASTNode {
 export interface Print extends ASTNode {
   type: 'Print';
   expressions: Expression[];
+  separator?: string;
+  appendLineFeed?: boolean;
 }
 
 export interface If extends ASTNode {
@@ -201,6 +204,7 @@ export interface FieldDeclaration extends ASTNode {
   isStatic: boolean;
   access: AccessModifier;
   initializer?: Expression;
+  declaredWithoutInitializer?: boolean;
 }
 
 export interface Constructor extends ASTNode {

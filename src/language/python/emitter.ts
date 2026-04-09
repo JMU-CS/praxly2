@@ -16,6 +16,68 @@ export class PythonEmitter extends ASTVisitor {
     // Tracks field names in current class scope for self. prefixing
     private currentClassFields = new Set<string>();
 
+    private toPythonType(typeName?: string): string | undefined {
+        if (!typeName) return undefined;
+
+        const trimmed = typeName.trim();
+        if (!trimmed || trimmed === 'auto' || trimmed === 'var') return undefined;
+
+        let baseType = trimmed;
+        let arrayDepth = 0;
+        while (baseType.endsWith('[]')) {
+            baseType = baseType.slice(0, -2);
+            arrayDepth++;
+        }
+
+        const normalized = baseType.toLowerCase();
+        let mappedType: string;
+
+        switch (normalized) {
+            case 'int':
+            case 'byte':
+            case 'short':
+            case 'long':
+                mappedType = 'int';
+                break;
+            case 'float':
+            case 'double':
+                mappedType = 'float';
+                break;
+            case 'boolean':
+            case 'bool':
+                mappedType = 'bool';
+                break;
+            case 'char':
+            case 'string':
+            case 'str':
+                mappedType = 'str';
+                break;
+            case 'void':
+                mappedType = 'None';
+                break;
+            default:
+                mappedType = baseType;
+                break;
+        }
+
+        for (let i = 0; i < arrayDepth; i++) {
+            mappedType = `list[${mappedType}]`;
+        }
+
+        return mappedType;
+    }
+
+    private formatParameter(param: any): string {
+        const annotatedType = this.toPythonType(param.paramType);
+        let output = annotatedType ? `${param.name}: ${annotatedType}` : param.name;
+
+        if (param.defaultValue) {
+            output += ` = ${this.generateExpression(param.defaultValue, 0)}`;
+        }
+
+        return output;
+    }
+
     /**
      * Check if a ClassDeclaration is Java's special Main class wrapper
      * (contains only a static main method)
@@ -101,15 +163,27 @@ export class PythonEmitter extends ASTVisitor {
 
     /**
      * Translates a field declaration (class variable).
-     * Initializes with None if no initializer provided.
+     * Emits Python type annotations for declarations when possible.
      */
     visitFieldDeclaration(field: FieldDeclaration): void {
+        const annotatedType = this.toPythonType(field.fieldType);
+
+        if ((field as any).declaredWithoutInitializer) {
+            if (annotatedType) {
+                this.emit(`${field.name}: ${annotatedType}`);
+            } else {
+                this.emit(`${field.name} = None`);
+            }
+            return;
+        }
+
         let line = `${field.name}`;
         if (field.initializer) {
             line += ` = ${this.generateExpression(field.initializer, 0)}`;
         } else {
             line += ` = None`;
         }
+
         this.emit(line);
     }
 
@@ -118,7 +192,7 @@ export class PythonEmitter extends ASTVisitor {
      * Parameters exclude self which is implicit.
      */
     visitConstructor(ctor: Constructor): void {
-        const params = ctor.params.map(p => p.name).join(', ');
+        const params = ctor.params.map(p => this.formatParameter(p)).join(', ');
         const paramStr = params ? `, ${params}` : '';
         this.emit(`def __init__(self${paramStr}):`);
         this.indent();
@@ -134,7 +208,7 @@ export class PythonEmitter extends ASTVisitor {
      * Parameters exclude self which is implicit.
      */
     visitMethodDeclaration(method: MethodDeclaration): void {
-        const params = method.params.map(p => p.name).join(', ');
+        const params = method.params.map(p => this.formatParameter(p)).join(', ');
         const paramStr = params ? `, ${params}` : '';
         this.emit(`def ${method.name}(self${paramStr}):`);
         this.indent();
@@ -159,7 +233,19 @@ export class PythonEmitter extends ASTVisitor {
      */
     visitPrint(stmt: any): void {
         const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
-        this.emit(`print(${args.join(', ')})`, stmt.id);
+        const options: string[] = [];
+
+        if (typeof stmt.separator === 'string') {
+            options.push(`sep=${JSON.stringify(stmt.separator)}`);
+        }
+
+        if (stmt.appendLineFeed === false) {
+            options.push('end=""');
+        } else if (stmt.appendLineFeed === true) {
+            options.push('end="\\n"');
+        }
+
+        this.emit(`print(${[...args, ...options].join(', ')})`, stmt.id);
     }
 
     /**
@@ -199,6 +285,21 @@ export class PythonEmitter extends ASTVisitor {
             } else {
                 value = this.generateExpression(stmt.value, 0);
             }
+
+            if (stmt.varType) {
+                const annotatedType = this.toPythonType(stmt.varType);
+                if (stmt.declaredWithoutInitializer) {
+                    if (annotatedType) {
+                        this.emit(`${target}: ${annotatedType}`, stmt.id);
+                    } else {
+                        this.emit(`${target} = None`, stmt.id);
+                    }
+                } else {
+                    this.emit(`${target} = ${value}`, stmt.id);
+                }
+                return;
+            }
+
             this.emit(`${target} = ${value}`, stmt.id);
         }
     }
@@ -317,10 +418,7 @@ export class PythonEmitter extends ASTVisitor {
      * Translates function declaration with optional default parameters.
      */
     visitFunctionDeclaration(stmt: any): void {
-        const params = stmt.params.map((p: any) => {
-            if (p.defaultValue) return `${p.name}=${this.generateExpression(p.defaultValue, 0)}`;
-            return p.name;
-        }).join(', ');
+        const params = stmt.params.map((p: any) => this.formatParameter(p)).join(', ');
         this.emit(`def ${stmt.name}(${params}):`);
         this.indent(); this.visitBlock(stmt.body); this.dedent();
     }

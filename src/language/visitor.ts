@@ -157,6 +157,7 @@ export abstract class ASTVisitor {
             case 'CallExpression':
                 const calleeName = (expr.callee as any).name;
                 if (calleeName === 'range') return 'int[]';
+                if (calleeName === 'input' || calleeName === 'INPUT') return 'String';
                 if (calleeName && this.context.functionReturnTypes.has(calleeName)) return this.context.functionReturnTypes.get(calleeName)!;
                 return 'var';
             case 'ArrayLiteral':
