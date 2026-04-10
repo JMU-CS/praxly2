@@ -51,7 +51,7 @@ print x % y",,"5
 Relational ops,"print 1 == 1
 print 1 != 1
 print 6 < 6
-print 6 ≤ 6
+print 6 <= 6
 print 7 > 7
 print 7 >= 7",,"true
 false
@@ -252,7 +252,7 @@ conditionals/5.4 if-statements.md secret eq guess,"int secret_number <- 13
 int guess <- int(input())
 
 print secret_number == guess",13,"
-> 13
+13
 true",
 conditionals/5.4 if-statements.md if secret guess,"print ""Guess a number!"" // output a message
 
@@ -266,7 +266,7 @@ end if
 if( secret_number != guess )
     print ""You did not get it...""
 end if",14,"Guess a number!
-> 14
+14
 You did not get it...",
 conditionals/5.4 if-statements.md random guess,"// get a random integer between 0 and 99
 int n <- randomInt(100)
@@ -285,7 +285,7 @@ end if
 if (n != guess)
     print 'n'
 end if",123,"
-> 123
+123
 n",
 conditionals/5.5 more-ifs.md if guess 5,"print ""Guess a number between 1 and 10""
 int n <- int(input())
@@ -295,7 +295,7 @@ if(n == 5)
 else
     print ""You didn't get it.""
 end if",5,"Guess a number between 1 and 10
-> 5
+5
 You got it!",
 conditionals/5.5 more-ifs.md if else-if else,"print ""Guess a number between 1 and 10""
 int n <- int(input())
@@ -309,7 +309,7 @@ else
         print ""Incorrect!""
     end if
 end if",4,"Guess a number between 1 and 10
-> 4
+4
 You're close!",
 conditionals/5.5 more-ifs.md nested if-else,"print ""Guess a number between 1 and 10""
 int n <- int(input())
@@ -329,7 +329,7 @@ else
         print ""You got it!""
     end if
 end if",6,"Guess a number between 1 and 10
-> 6
+6
 Too high!
 Pretty close, though.",
 conditionals/5.6 loops.md infinite loop,"int count <- 0
@@ -396,10 +396,10 @@ else
 end if","1
 2","Welcome to the game!
 Guess a number between 1 and 6
-
+1
 That's not it!
 Guess a number between 1 and 6
-
+2
 You got it!
 You won!",
 conditionals/5.7 compound-boolean.md license,"print ""How old are you?""
@@ -418,11 +418,11 @@ else
 end if","17
 2
 5","How old are you?
-
+17
 Have you completed driver's ed? Type 1 for Yes, 2 for No.
-
+2
 How is your vision (rate from 1 to 5, with 5 being the best)
-
+5
 You are not eligible.",
 conditionals/5.7 compound-boolean.md DeMorgan,"boolean A <- false
 boolean B <- false
@@ -472,8 +472,7 @@ end printSum
 
 // main program
 printSum()
-print a * b // ERROR!",,25,"runtime error occurred on line 10:
-Variable a does not exist in this scope."
+print a * b // ERROR!",,25,"Runtime Error: Undefined variable 'a'"
 procedures/3-params-and-return.md capital of VA,"print ""What is the capital of Virginia?""
 print ""1: Washington 2: Richmond 3: Norfolk""
 int ans <- int(input())
@@ -484,7 +483,7 @@ else
     print ""Incorrect""
 end if",2,"What is the capital of Virginia?
 1: Washington 2: Richmond 3: Norfolk
-
+2
 Correct!",
 procedures/3-params-and-return.md ques choices,"// These things change for each question
 String ques <- ""What is the capital of Virginia?""
@@ -502,7 +501,7 @@ else
     print ""Incorrect""
 end if",3,"What is the capital of Virginia?
 1: Washington 2: Richmond 3: Norfolk
-
+3
 Incorrect",
 procedures/3-params-and-return.md use globals,"// procedure definition
 void askQ()
@@ -531,11 +530,15 @@ correct_ans <- 3
 askQ()","2
 2","What is the capital of Virginia?
 1: Washington 2: Richmond 3: Norfolk
-> 2
+What is the capital of Virginia?
+1: Washington 2: Richmond 3: Norfolk
+2
 Correct!
 What is the capital of Maryland?
 1: Baltimore 2: D.C. 3: Annapolis
-
+What is the capital of Maryland?
+1: Baltimore 2: D.C. 3: Annapolis
+2
 Incorrect",
 procedures/3-params-and-return.md use params,"void askQ(String ques, String choices, int correct_ans)
     print ques
@@ -553,11 +556,15 @@ askQ(""What is the capital of Virginia?"", ""1: Washington 2: Richmond 3: Norfol
 askQ(""What is the capital of Maryland?"", ""1: Baltimore 2: D.C. 3: Annapolis"", 3)","3
 3","What is the capital of Virginia?
 1: Washington 2: Richmond 3: Norfolk
-
+What is the capital of Virginia?
+1: Washington 2: Richmond 3: Norfolk
+3
 Incorrect
 What is the capital of Maryland?
 1: Baltimore 2: D.C. 3: Annapolis
-
+What is the capital of Maryland?
+1: Baltimore 2: D.C. 3: Annapolis
+3
 Correct!",
 procedures/3-params-and-return.md return score,"int askQ(String ques, String choices, int correct_ans)
     print ques
@@ -579,11 +586,15 @@ score <- score + askQ(""What is the capital of Maryland?"", ""1: Baltimore 2: D.
 print score","2
 3","What is the capital of Virginia?
 1: Washington 2: Richmond 3: Norfolk
-
+What is the capital of Virginia?
+1: Washington 2: Richmond 3: Norfolk
+2
 Correct!
 What is the capital of Maryland?
 1: Baltimore 2: D.C. 3: Annapolis
-
+What is the capital of Maryland?
+1: Baltimore 2: D.C. 3: Annapolis
+3
 Correct!
 2",
 procedures/5-recursion.md iterative 5+5,"void askQ()
@@ -602,10 +613,12 @@ end askQ
 
 askQ()","9
 10","What is 5 + 5?
-
+What is 5 + 5?
+9
 Incorrect
 What is 5 + 5?
-
+What is 5 + 5?
+10
 Correct!",
 procedures/5-recursion.md recursive 5+5,"void askQ()
     print ""What is 5 + 5?""
@@ -620,10 +633,12 @@ end askQ
 
 askQ()","9
 10","What is 5 + 5?
-
+What is 5 + 5?
+9
 Incorrect
 What is 5 + 5?
-
+What is 5 + 5?
+10
 Correct!",
 procedures/5-recursion.md factorial,"int factorial(int n)
     if (n == 1)
@@ -663,7 +678,7 @@ search-sort/4-search-algorithms.md binary search,"int binarySearch( String [] ar
     int lower <- 0  // lower and upper indices define range
     int upper <- arrLength - 1
     while ( lower <= upper )
-        int middle <- (lower+upper) / 2  // middle index in range
+            int middle <- (lower + upper) / 2  // middle index in range
         String current <- arr[middle]
         if ( target > current )  // adjust range for next iteration
             lower <- middle + 1
@@ -727,7 +742,7 @@ int answer <- int(input())
 print ""You said you were "" // no line feed
 print answer // no line feed
 print "" years old. Thanks!"" // line feed after",20,"How old are you?
-
+20
 You said you were 20 years old. Thanks!",
 variables-and-operators/2.5 expressions.md print counter,"int counter <- 0
 print counter
@@ -752,7 +767,7 @@ float f_age = float(age) // cast age as a float
 
 // finally, cast the result as an int
 int age_in_days = int(f_age * 365.25)
-print age_in_days",18,"
+print age_in_days",18,"18
 6574",
 variables-and-operators/2.5 expressions.md age in days float,"print ""How old are you?""
 
@@ -761,5 +776,220 @@ int age <- int(input())
 print ""You are approximately ""  // no line feed
 print float(age) * 365.25       // no line feed
 print "" days old!""",18,"How old are you?
-
+18
 You are approximately 6574.5 days old!",
+Q5,"int newScore ( int diceOne, int diceTwo, int oldScore )
+    if ( ( diceOne != 6 ) and ( diceTwo != 6 ) )
+        return oldScore + diceOne + diceTwo
+    else
+        if ( ( diceOne == 6 ) and ( diceTwo == 6 ) )
+            return 0
+        else
+            return oldScore
+        end if
+    end if
+end newScore
+
+int[] dieOneArray = {3, 1, 6, 1, 6, 2}
+int[] dieTwoArray = {4, 5, 2, 6, 6, 2}
+
+int score <- 0
+int dieOne <- 0
+int dieTwo <- 0
+for ( int i <- 0; i < 6; i <- i + 1 )
+    // returns the value of the first die
+    dieOne <- dieOneArray[i]
+    // returns the value of the second die
+    dieTwo <- dieTwoArray[i]
+    score <- newScore ( dieOne, dieTwo, score )
+    print score
+end for",,"7
+13
+13
+13
+0
+4",
+Q8,"void swap ( int[] arr, int i, int j )
+    int temp = arr[i]
+    arr[i] = arr[j]
+    arr[j] = temp
+end swap
+
+void sort ( int[] arr, int len )
+    int pos <- 0
+    while ( pos < len )
+        if ( pos == 0 )
+            pos <- pos + 1
+        else
+            if ( arr[pos] > arr[pos - 1] )
+                pos <- pos + 1
+            else
+                swap ( arr, pos, pos - 1 )
+                pos <- pos - 1
+            end if
+        end if
+        print arr
+    end while
+end sort
+
+int[] start = {2, 1, 5, 3, 4}
+sort(start, 5)",,"{2, 1, 5, 3, 4}
+{1, 2, 5, 3, 4}
+{1, 2, 5, 3, 4}
+{1, 2, 5, 3, 4}
+{1, 2, 5, 3, 4}
+{1, 2, 3, 5, 4}
+{1, 2, 3, 5, 4}
+{1, 2, 3, 5, 4}
+{1, 2, 3, 4, 5}
+{1, 2, 3, 4, 5}
+{1, 2, 3, 4, 5}",
+Q9,"int f ( int n )
+    if ( n < 5 )
+        return 0
+    else
+        if ( n == 5 )
+            return 5
+        else
+            return n * f ( n - 1 )
+        end if
+    end if
+end f
+
+print f ( 7 )",,210,
+Q10,"int findMax ( int[] numList, int n )
+    int max <- numList[0]
+    int i <- 1
+    while ( i < n )
+        if ( numList[i] > max )
+            max <- numList[i]
+        end if
+        i <- i + 1
+    end while
+    return max
+end findMax
+
+int[] arr = {4, 5, 2, 10, 7, 2}
+print findMax(arr, 6)",,10,
+Q11,"// precondition: n is a positive integer
+void f ( int n )
+    for ( int c <- 1; c <= n; c <- c + 1 )
+        if ( ( c % 2 ) != 0 )
+            print c
+        end if
+    end for
+end f
+
+f(10)",,"1
+3
+5
+7
+9",
+Q12,"void mystery ( int n )
+    while ( n != 1 )
+        if ( ( n % 2 ) == 1 )
+            n <- 3 * n + 1
+        else
+            n <- n / 2
+        end if
+        print ( n )  // print a space after the number
+    end while
+end mystery
+
+mystery ( 6 )",,3 10 5 16 8 4 2 1,
+Q13,"int age = 18
+int height = 72
+
+print ( age > 10 ) and ( height > 36 )
+print not ( ( age <= 10 ) or ( height <= 36 ) )",,"true
+true",
+Q14,"String value <- ""Applesauce""
+value <- value.substring ( 0, 1 ).toLowerCase () + value.substring ( 1, value.length () ).toUpperCase ()
+print value",,aPPLESAUCE,
+Q15,"int mystery ( int n )
+    int temp <- 0
+    for ( int c <- 1; c <= n; c <- c + 1 )
+        if ( ( c % 3 ) == 0 )
+            temp <- temp + c
+        end if
+    end for
+    return temp
+end mystery
+
+print mystery(10)",,18,
+Q17,"int a <- 20
+int b <- 15
+int c <- 25
+
+int max <- -1
+if ( a > b )
+    if ( a > c )
+        max <- a
+    end if
+else
+    if ( b > c )
+        max <- b
+    else
+        max <- c
+    end if
+end if
+
+print max",,-1,
+Wrong type,"int n <- 12
+double u <- 6
+short t <- 12.2
+float f <- 3.75
+boolean b <- true
+char c <- a",,,"runtime error occurred on line 3: incompatible types: possible lossy conversion from double to short"
+Missing quotes,"int n <- 12
+double u <- 6
+//short t <- 12.2
+float f <- 3.75
+boolean b <- true
+char c <- a",,,"Runtime Error: Undefined variable 'a'"
+Correct vars,"int n <- 12
+double u <- 6
+//short t <- 12.2
+float f <- 3.75
+boolean b <- true
+//char c <- a
+print n
+print u
+print f
+print b",,"12
+6.0
+3.75
+true",
+Divide vars,"int i1 = 1
+int i2 = 2
+float f1 = 1
+float f2 = 2
+print i1 / i2
+print i1 / f1
+print i1 / f2
+print f1 / i2
+print f1 / f1
+print f1 / f2",,"0
+1.0
+0.5
+0.5
+1.0
+0.5",
+Redeclare,"double a = 3.5 * 2.1
+double a = 3.5 * 2.1
+print a",,,"runtime error occurred on line 2: variable a has already been declared in this scope."
+Number arrays,"int[] a <- {5, 9, 2, 10, 15};
+print a
+double[] b <- {5, 9, 2, 10, 15};
+print b",,"{5, 9, 2, 10, 15}
+{5.0, 9.0, 2.0, 10.0, 15.0}",
+Local vars,"// procedure definition
+void printSum()
+    int a <- 10;
+    int b <- 15;
+    print a + b;
+end printSum
+
+// main program
+printSum();
+print a * b; // ERROR!",,25,"Runtime Error: Undefined variable 'a'"

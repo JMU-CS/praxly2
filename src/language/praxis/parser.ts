@@ -295,6 +295,9 @@ export class PraxisParser {
             }
         }
 
+        // Optional semicolons are accepted as statement terminators.
+        this.match('PUNCTUATION', ';');
+
         return this.withLocation(stmt, startIdx);
     }
 
@@ -336,11 +339,7 @@ export class PraxisParser {
 
     private printStatement(): Statement {
         const printToken = this.consume('KEYWORD', 'print');
-        const hasParen = this.match('PUNCTUATION', '(');
         const expr = this.expression();
-        if (hasParen) {
-            this.consume('PUNCTUATION', ')');
-        }
 
         const stmt: any = { id: generateId(), type: 'Print', expressions: [expr] };
         const trailingComment = this.extractTrailingLineComment(printToken.start);
@@ -405,9 +404,13 @@ export class PraxisParser {
         const normalized = comment.toLowerCase();
         const metadata: { separator?: string; appendLineFeed?: boolean } = {};
 
+        if (/(\bno\b|\bwithout\b)\s+(separator|space|blank)/.test(normalized)) {
+            metadata.separator = '';
+        }
+
         const mentionsBlank = /\b(space|blank)\b/.test(normalized);
         const indicatesAppend = /\b(append|appended|after|trailing)\b/.test(normalized);
-        if (mentionsBlank && indicatesAppend) {
+        if (mentionsBlank && indicatesAppend && metadata.separator === undefined) {
             metadata.separator = ' ';
         }
 
@@ -415,6 +418,9 @@ export class PraxisParser {
             metadata.appendLineFeed = false;
         } else if (/(line\s*feed|new\s*line|newline)/.test(normalized)) {
             metadata.appendLineFeed = true;
+        } else if (mentionsBlank && indicatesAppend) {
+            // "print a space after ..." means keep output on the same line.
+            metadata.appendLineFeed = false;
         }
 
         return metadata;
@@ -601,9 +607,8 @@ export class PraxisParser {
 
     private equality(): Expression {
         let left = this.range();
-        while (this.match('OPERATOR', '==', '!=', '=', '<>')) {
+        while (this.match('OPERATOR', '==', '!=', '<>')) {
             let operator = this.previous().value;
-            if (operator === '=') operator = '==';
             if (operator === '<>') operator = '!=';
             const right = this.range();
             left = { id: generateId(), type: 'BinaryExpression', left, operator, right };

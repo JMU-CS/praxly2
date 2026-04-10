@@ -8,11 +8,17 @@ import type { Program, Statement, Expression, FunctionDeclaration, ClassDeclarat
 export class Environment {
     public values: Record<string, any> = {};
     public types: Record<string, string> = {};  // Track declared types
+    public declarationOrigins: Record<string, number> = {};  // Track declaration token positions
     public parent?: Environment;
     constructor(parent?: Environment) { this.parent = parent; }
-    define(name: string, value: any, type?: string) { 
+    define(name: string, value: any, type?: string, declarationOrigin?: number) {
         this.values[name] = value; 
-        if (type) this.types[name] = type;
+        if (type) {
+            this.types[name] = type;
+            if (declarationOrigin !== undefined) {
+                this.declarationOrigins[name] = declarationOrigin;
+            }
+        }
     }
     assign(name: string, value: any) {
         if (name in this.values) { this.values[name] = value; return; }
@@ -124,12 +130,14 @@ class JavaInstance {
 export class Interpreter {
     private globalEnv = new Environment();
     private output: string[] = [];
+    private outputLineBuffer: string = '';
     private classes: Map<string, JavaClass> = new Map();
     private currentEnv: Environment = this.globalEnv;
     private sourceCode: string = '';  // Store source code for line number extraction
     private inputQueue: string[] = [];  // Queue of pending inputs
     private isDebugging: boolean = false;  // Flag to track if we're in debug mode
     private inputHandler?: (prompt: string) => string;  // Callback for collecting input in normal mode
+    private seededRandom: (() => number) | null = null;
 
     setInputQueue(inputs: string[]) {
         this.inputQueue = [...inputs];
@@ -160,12 +168,134 @@ export class Interpreter {
         this.inputHandler = handler;
     }
 
+    // Mulberry32 PRNG provides deterministic pseudo-random values for randomSeed().
+    private createSeededRandom(seed: number): () => number {
+        let state = seed >>> 0;
+        return () => {
+            state = (state + 0x6D2B79F5) >>> 0;
+            let t = Math.imul(state ^ (state >>> 15), 1 | state);
+            t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    private normalizeSeed(seedValue: any): number {
+        const seed = Number(seedValue);
+        if (!Number.isFinite(seed)) return 0;
+        return Math.trunc(seed) >>> 0;
+    }
+
+    private getRandomValue(): number {
+        return this.seededRandom ? this.seededRandom() : Math.random();
+    }
+
+    private isIntegerType(typeName?: string): boolean {
+        if (!typeName) return false;
+        const baseType = typeName.replace(/\[\]/g, '');
+        return ['int', 'byte', 'short', 'long'].includes(baseType);
+    }
+
+    private isFloatType(typeName?: string): boolean {
+        if (!typeName) return false;
+        const baseType = typeName.replace(/\[\]/g, '');
+        return baseType === 'float' || baseType === 'double';
+    }
+
+    private inferExpressionType(expr: Expression, env: Environment): string | undefined {
+        switch (expr.type) {
+            case 'Identifier':
+                return env.getType((expr as any).name);
+            case 'Literal': {
+                const literal = expr as any;
+                if (typeof literal.value === 'number') {
+                    return String(literal.raw ?? '').includes('.') ? 'double' : 'int';
+                }
+                if (typeof literal.value === 'boolean') return 'boolean';
+                if (typeof literal.value === 'string') return literal.value.length === 1 ? 'char' : 'String';
+                return undefined;
+            }
+            case 'MemberExpression':
+                if ((expr as any).property?.name === 'length') return 'int';
+                return undefined;
+            case 'IndexExpression': {
+                const objExpr = (expr as any).object;
+                const objType = this.inferExpressionType(objExpr, env);
+                if (objType?.endsWith('[]')) return objType.slice(0, -2);
+                return undefined;
+            }
+            case 'CallExpression': {
+                const call = expr as any;
+                if (call.callee?.type === 'Identifier') {
+                    const callee = String(call.callee.name || '').toLowerCase();
+                    if (callee === 'int') return 'int';
+                    if (callee === 'float') return 'float';
+                    if (callee === 'bool' || callee === 'boolean') return 'boolean';
+                    if (callee === 'str' || callee === 'string') return 'String';
+                    if (callee === 'random') return 'double';
+                    if (callee === 'randomint') return 'int';
+                }
+                if (call.callee?.type === 'MemberExpression') {
+                    const method = call.callee.property?.name;
+                    if (method === 'length') return 'int';
+                    if (method === 'substring' || method === 'toLowerCase' || method === 'toUpperCase') return 'String';
+                    if (method === 'charAt') return 'char';
+                }
+                return undefined;
+            }
+            case 'UnaryExpression': {
+                const op = (expr as any).operator;
+                if (op === 'not' || op === '!') return 'boolean';
+                return this.inferExpressionType((expr as any).argument, env);
+            }
+            case 'BinaryExpression': {
+                const binary = expr as any;
+                const operator = binary.operator;
+                if (['==', '!=', '>', '<', '>=', '<=', 'and', 'or'].includes(operator)) {
+                    return 'boolean';
+                }
+                const leftType = this.inferExpressionType(binary.left, env);
+                const rightType = this.inferExpressionType(binary.right, env);
+
+                if (operator === '/') {
+                    if (this.isIntegerType(leftType) && this.isIntegerType(rightType)) return 'int';
+                    if (this.isFloatType(leftType) || this.isFloatType(rightType)) return 'double';
+                    return undefined;
+                }
+
+                if (this.isFloatType(leftType) || this.isFloatType(rightType)) return 'double';
+                if (this.isIntegerType(leftType) && this.isIntegerType(rightType)) return 'int';
+                if (operator === '+' && (leftType === 'String' || rightType === 'String')) return 'String';
+                return undefined;
+            }
+            default:
+                return undefined;
+        }
+    }
+
+    private appendOutputText(text: string, appendLineFeed: boolean) {
+        if (appendLineFeed) {
+            this.output.push(this.outputLineBuffer + text);
+            this.outputLineBuffer = '';
+            return;
+        }
+        this.outputLineBuffer += text;
+    }
+
+    private flushOutputBuffer() {
+        if (this.outputLineBuffer.length > 0) {
+            this.output.push(this.outputLineBuffer);
+            this.outputLineBuffer = '';
+        }
+    }
+
     interpret(program: Program, sourceCode: string = ''): string[] {
         this.sourceCode = sourceCode;
         this.output = [];
+        this.outputLineBuffer = '';
         this.globalEnv = new Environment();
         this.classes = new Map();
         this.isDebugging = false;  // Not in debug mode for normal execution
+        this.seededRandom = null;
 
         try {
             // First pass: register all classes and procedures
@@ -193,9 +323,11 @@ export class Interpreter {
         } catch (e: any) {
             // InputPrompt in normal run mode should propagate to UI  for console handling
             if (e instanceof InputPrompt) {
+                this.flushOutputBuffer();
                 throw e;
             }
             const message = e.message || String(e);
+            this.flushOutputBuffer();
             // If the error message already starts with "runtime error occurred", don't add prefix
             if (message.startsWith('runtime error occurred')) {
                 this.output.push(message);
@@ -203,6 +335,7 @@ export class Interpreter {
                 this.output.push(`Runtime Error: ${message}`);
             }
         }
+        this.flushOutputBuffer();
         return this.output;
     }
 
@@ -211,9 +344,11 @@ export class Interpreter {
     *stepThroughWithState(program: Program, sourceCode: string = ''): Generator<{ nodeId: string; nodeType: string; loc: any; variables: Record<string, any>; prompt?: string }, string[], void> {
         this.sourceCode = sourceCode;
         this.output = [];
+        this.outputLineBuffer = '';
         this.globalEnv = new Environment();
         this.currentEnv = this.globalEnv;
         this.isDebugging = true;  // We're in debug mode for step-through execution
+        this.seededRandom = null;
 
         try {
             // First pass: register all classes and procedures
@@ -241,9 +376,11 @@ export class Interpreter {
         } catch (e: any) {
             // InputPrompt should propagate to debugger, not be caught here
             if (e instanceof InputPrompt) {
+                this.flushOutputBuffer();
                 throw e;
             }
             const message = e.message || String(e);
+            this.flushOutputBuffer();
             // If the error message already starts with "runtime error occurred", don't add prefix
             if (message.startsWith('runtime error occurred')) {
                 this.output.push(message);
@@ -251,6 +388,7 @@ export class Interpreter {
                 this.output.push(`Runtime Error: ${message}`);
             }
         }
+        this.flushOutputBuffer();
         return this.output;
     }
 
@@ -722,22 +860,42 @@ export class Interpreter {
             case 'Print':
                 const vals = stmt.expressions.map(e => {
                     const val = this.evaluate(e, env);
-                    let type: string | undefined = undefined;
-                    // Try to infer type from Identifier
-                    if (e.type === 'Identifier') {
-                        type = env.getType((e as any).name);
-                    }
+                    const type = this.inferExpressionType(e, env);
                     return this.stringify(val, false, type);
                 });
-                this.output.push(vals.join(' '));
+                const separator = typeof (stmt as any).separator === 'string' ? (stmt as any).separator : ' ';
+                const appendLineFeed = (stmt as any).appendLineFeed !== false;
+                const rendered = vals.join(separator);
+
+                if (appendLineFeed) {
+                    this.appendOutputText(rendered, true);
+                } else {
+                    const trailingText = typeof (stmt as any).separator === 'string' && vals.length === 1
+                        ? (stmt as any).separator
+                        : '';
+                    this.appendOutputText(rendered + trailingText, false);
+                }
                 break;
             case 'Assignment':
-                const value = this.evaluate(stmt.value, env);
                 let varName = stmt.name;
                 
                 // Extract variable name from target if it's an Identifier
                 if (stmt.target && stmt.target.type === 'Identifier') {
                     varName = (stmt.target as any).name;
+                }
+
+                // Prefer explicit declaration type, otherwise use existing variable type when reassigning.
+                const assignmentType = (stmt as any).varType || (varName ? env.getType(varName) : undefined);
+                const value = this.evaluate(stmt.value, env, assignmentType);
+                const declarationOrigin = stmt.loc?.start;
+
+                // Typed assignments act as declarations and cannot redeclare in the same scope.
+                if ((stmt as any).varType && Object.prototype.hasOwnProperty.call(env.values, varName)) {
+                    const existingOrigin = env.declarationOrigins[varName];
+                    if (existingOrigin !== declarationOrigin) {
+                        const line = this.getLineFromLocation(stmt.loc);
+                        throw new Error(`runtime error occurred on line ${line}: variable ${varName} has already been declared in this scope.`);
+                    }
                 }
                 
                 // Type checking for typed assignments
@@ -764,11 +922,11 @@ export class Interpreter {
                         obj[idx] = value;
                     } else if (stmt.target.type === 'Identifier') {
                         // Identifier target - define the variable with type info
-                        env.define(varName, value, (stmt as any).varType);
+                        env.define(varName, value, (stmt as any).varType, declarationOrigin);
                     } else {
                         // For other target types, try to use stmt.name as fallback
                         if (varName) {
-                            env.define(varName, value, (stmt as any).varType);
+                            env.define(varName, value, (stmt as any).varType, declarationOrigin);
                         }
                     }
                 } else if (stmt.name.includes('.')) {
@@ -783,7 +941,7 @@ export class Interpreter {
                     }
                 } else if (varName) {
                     // Standard case: define the variable with type info
-                    env.define(varName, value, (stmt as any).varType);
+                    env.define(varName, value, (stmt as any).varType, declarationOrigin);
                 }
                 break;
             case 'If':
@@ -891,7 +1049,7 @@ export class Interpreter {
         }
     }
 
-    evaluate(expr: Expression, env: Environment): any {
+    evaluate(expr: Expression, env: Environment, expectedType?: string): any {
         switch (expr.type) {
             case 'Literal':
                 return expr.value;
@@ -906,13 +1064,13 @@ export class Interpreter {
                     return env.get('self');
                 }
             case 'UnaryExpression':
-                const right = this.evaluate(expr.argument, env);
+                const right = this.evaluate(expr.argument, env, expectedType);
                 if (expr.operator === '-') return -right;
                 if (expr.operator === '!' || expr.operator === 'not') return !right;
                 break;
             case 'BinaryExpression':
-                const l = this.evaluate(expr.left, env);
-                const r = this.evaluate(expr.right, env);
+                const l = this.evaluate(expr.left, env, expectedType);
+                const r = this.evaluate(expr.right, env, expectedType);
                 
                 // Helper to get declared type of an expression
                 const getDeclaredType = (exprNode: Expression): string => {
@@ -931,6 +1089,10 @@ export class Interpreter {
                     case '-': return l - r;
                     case '*': return l * r;
                     case '/': 
+                        // Assignment to an integer variable uses integer division by default.
+                        if (this.isIntegerType(expectedType) && r !== 0) {
+                            return Math.trunc(l / r);
+                        }
                         // Integer division: if both operands are integer types, truncate result
                         const leftIsInt = integerTypes.some(t => leftType.replace(/\[\]/g, '') === t);
                         const rightIsInt = integerTypes.some(t => rightType.replace(/\[\]/g, '') === t);
@@ -986,6 +1148,9 @@ export class Interpreter {
                 if (obj instanceof JavaInstance) {
                     return obj.getField(expr.property.name);
                 }
+                if ((typeof obj === 'string' || Array.isArray(obj)) && expr.property.name === 'length') {
+                    return obj.length;
+                }
                 throw new Error(`Cannot access member on non-object`);
 
             case 'CallExpression':
@@ -998,6 +1163,28 @@ export class Interpreter {
                     if (obj instanceof JavaInstance) {
                         return obj.callMethod(methodName, args, this, env);
                     }
+
+                    if (typeof obj === 'string') {
+                        switch (methodName) {
+                            case 'substring':
+                                if (args.length >= 2) return obj.substring(Number(args[0]), Number(args[1]));
+                                if (args.length === 1) return obj.substring(Number(args[0]));
+                                return obj;
+                            case 'toLowerCase':
+                                return obj.toLowerCase();
+                            case 'toUpperCase':
+                                return obj.toUpperCase();
+                            case 'charAt':
+                                return obj.charAt(Number(args[0] ?? 0));
+                            case 'length':
+                                return obj.length;
+                        }
+                    }
+
+                    if (Array.isArray(obj) && methodName === 'length') {
+                        return obj.length;
+                    }
+
                     throw new Error(`Cannot call method on non-object`);
                 }
 
@@ -1011,6 +1198,7 @@ export class Interpreter {
                     if (nextInput !== null) {
                         console.log('Found input in queue, returning:', nextInput);
                         // Add echo to output to ensure correct order
+                        this.flushOutputBuffer();
                         this.output.push(`> ${nextInput}`);
                         return nextInput;
                     }
@@ -1101,15 +1289,15 @@ export class Interpreter {
 
                 // Random functions
                 if (calleeName === 'random' || calleeName === 'RANDOM') {
-                    return Math.random();
+                    return this.getRandomValue();
                 }
                 if (calleeName === 'randomInt' || calleeName === 'RANDOMINT') {
                     const max = this.evaluate(expr.arguments[0], env);
-                    return Math.floor(Math.random() * max);
+                    return Math.floor(this.getRandomValue() * max);
                 }
                 if (calleeName === 'randomSeed' || calleeName === 'RANDOMSEED') {
-                    // JavaScript doesn't have built-in seeded random, so we'd need a PRNG library
-                    // For now, just acknowledge the function exists (this is a limitation)
+                    const seedValue = expr.arguments.length > 0 ? this.evaluate(expr.arguments[0], env) : 0;
+                    this.seededRandom = this.createSeededRandom(this.normalizeSeed(seedValue));
                     return null;
                 }
 

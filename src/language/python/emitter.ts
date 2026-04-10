@@ -234,13 +234,19 @@ export class PythonEmitter extends ASTVisitor {
     visitPrint(stmt: any): void {
         const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
         const options: string[] = [];
+        const hasSeparator = typeof stmt.separator === 'string';
+        const suppressLineFeed = stmt.appendLineFeed === false;
 
-        if (typeof stmt.separator === 'string') {
+        if (hasSeparator && !(suppressLineFeed && args.length === 1)) {
             options.push(`sep=${JSON.stringify(stmt.separator)}`);
         }
 
-        if (stmt.appendLineFeed === false) {
-            options.push('end=""');
+        if (suppressLineFeed) {
+            if (hasSeparator && args.length === 1) {
+                options.push(`end=${JSON.stringify(stmt.separator)}`);
+            } else {
+                options.push('end=""');
+            }
         } else if (stmt.appendLineFeed === true) {
             options.push('end="\\n"');
         }

@@ -185,7 +185,21 @@ export class JavaEmitter extends ASTVisitor {
      */
     visitPrint(stmt: any): void {
         const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
-        this.emit(`System.out.println(${args.join(' + " " + ')});`, stmt.id);
+        const separator = typeof stmt.separator === 'string' ? stmt.separator : ' ';
+        const joiner = ` + ${JSON.stringify(separator)} + `;
+        const rendered = args.length === 0 ? '""' : args.join(joiner);
+        const suppressLineFeed = stmt.appendLineFeed === false;
+
+        if (suppressLineFeed) {
+            if (typeof stmt.separator === 'string' && args.length === 1) {
+                this.emit(`System.out.print(${args[0]} + ${JSON.stringify(stmt.separator)});`, stmt.id);
+            } else {
+                this.emit(`System.out.print(${rendered});`, stmt.id);
+            }
+            return;
+        }
+
+        this.emit(`System.out.println(${rendered});`, stmt.id);
     }
 
     /**
