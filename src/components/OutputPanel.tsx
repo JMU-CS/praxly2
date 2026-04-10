@@ -135,7 +135,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                         </button>
                     )}
                 </div>
-                <div className="flex-1 overflow-auto p-4 font-mono text-sm leading-6 bg-slate-950">
+                <div className="flex-1 overflow-auto p-4 font-mono text-sm leading-4 bg-slate-950">
                     {output.length === 0 && !error ? (
                         <div className="text-slate-700 italic opacity-40">Run code to see execution results...</div>
                     ) : (
@@ -144,8 +144,8 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                             const displayLine = isEchoedInput ? line.slice(2) : line;
 
                             return (
-                            <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5">
-                                <span className="text-slate-700 select-none w-6 text-right text-xs pt-1">
+                            <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0">
+                                <span className="text-slate-700 select-none w-6 text-right text-xs">
                                     {idx + 1}
                                 </span>
                                 <span className={`${isEchoedInput ? 'text-cyan-400' : 'text-slate-300'} break-all`}>
