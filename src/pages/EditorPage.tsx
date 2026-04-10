@@ -37,6 +37,8 @@ export default function EditorPage() {
     const [showAddMenu, setShowAddMenu] = useState(false);
     const [showSourceLangDropdown, setShowSourceLangDropdown] = useState(false);
     const [embedCopied, setEmbedCopied] = useState(false);
+    const [draggedPanelId, setDraggedPanelId] = useState<string | null>(null);
+    const [dragOverPanelId, setDragOverPanelId] = useState<string | null>(null);
 
     // Width for the left-most source editor
     const [editorWidth, setEditorWidth] = useState(window.innerWidth / 2);
@@ -382,6 +384,55 @@ export default function EditorPage() {
         setPanels(panels.filter(p => p.id !== id));
     };
 
+    const reorderPanels = (sourceId: string, targetId: string) => {
+        if (sourceId === targetId) return;
+
+        setPanels(prev => {
+            const sourceIndex = prev.findIndex(panel => panel.id === sourceId);
+            const targetIndex = prev.findIndex(panel => panel.id === targetId);
+            if (sourceIndex === -1 || targetIndex === -1) return prev;
+
+            const reordered = [...prev];
+            const [moved] = reordered.splice(sourceIndex, 1);
+            reordered.splice(targetIndex, 0, moved);
+            return reordered;
+        });
+    };
+
+    const handlePanelDragStart = (e: React.DragEvent<HTMLDivElement>, panelId: string) => {
+        setDraggedPanelId(panelId);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', panelId);
+    };
+
+    const handlePanelDragOver = (e: React.DragEvent<HTMLDivElement>, panelId: string) => {
+        if (!draggedPanelId || draggedPanelId === panelId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverPanelId !== panelId) {
+            setDragOverPanelId(panelId);
+        }
+    };
+
+    const handlePanelDrop = (e: React.DragEvent<HTMLDivElement>, panelId: string) => {
+        e.preventDefault();
+        const sourceId = draggedPanelId || e.dataTransfer.getData('text/plain');
+        if (!sourceId || sourceId === panelId) {
+            setDragOverPanelId(null);
+            setDraggedPanelId(null);
+            return;
+        }
+
+        reorderPanels(sourceId, panelId);
+        setDragOverPanelId(null);
+        setDraggedPanelId(null);
+    };
+
+    const handlePanelDragEnd = () => {
+        setDraggedPanelId(null);
+        setDragOverPanelId(null);
+    };
+
     // Resize Handler
     const onMouseDown = (e: React.MouseEvent, index: number | 'editor' | 'output') => {
         setResizingIdx(index);
@@ -550,11 +601,20 @@ export default function EditorPage() {
                         {panels.map((panel, idx) => (
                             <div
                                 key={panel.id}
-                                className="flex shrink-0 border-r border-slate-800 last:border-0 relative"
+                                className={`flex shrink-0 border-r border-slate-800 last:border-0 relative transition-opacity ${
+                                    draggedPanelId === panel.id ? 'opacity-60' : 'opacity-100'
+                                } ${dragOverPanelId === panel.id ? 'outline outline-2 outline-indigo-500 outline-offset-[-2px]' : ''}`}
                                 style={{ width: panel.width }}
+                                onDragOver={(e) => handlePanelDragOver(e, panel.id)}
+                                onDrop={(e) => handlePanelDrop(e, panel.id)}
                             >
                                 <div className="flex-1 flex flex-col overflow-hidden">
-                                    <div className="h-10 bg-slate-900/50 flex items-center justify-between px-4 border-b border-slate-800 shrink-0">
+                                    <div
+                                        className="h-10 bg-slate-900/50 flex items-center justify-between px-4 border-b border-slate-800 shrink-0 cursor-grab active:cursor-grabbing"
+                                        draggable
+                                        onDragStart={(e) => handlePanelDragStart(e, panel.id)}
+                                        onDragEnd={handlePanelDragEnd}
+                                    >
                                         <div className="flex items-center gap-2">
                                             {panel.lang === 'ast' ? <FileJson size={14} className="text-indigo-400" /> : <ArrowRightLeft size={14} className="text-indigo-400" />}
                                             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{panel.lang} View</span>
