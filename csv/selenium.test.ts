@@ -13,7 +13,7 @@ const CSV_PATH = path.join(__dirname, 'praxly.test.csv');
 const TEST_FILTER = process.env.TEST_FILTER ?? '';
 
 const TIMEOUT_MS = 15_000;   // max wait for any element
-const RUN_SETTLE_MS = 2_500;    // pause after Run before reading output
+const RUN_SETTLE_MS = 500;    // pause after Run before reading output
 const INPUT_DELAY_MS = 250;      // pause between stdin lines
 
 // ─── ANSI colour helpers ─────────────────────────────────────────────────────
@@ -146,14 +146,14 @@ async function supplyInputs(driver: WebDriver, lines: string[]): Promise<void> {
                         'input[type="text"]'
                     )
                 ),
-                5000 
+                5000
             );
             await driver.wait(until.elementIsVisible(inputEl), TIMEOUT_MS);
-            
+
             // Clear can trigger onChange, but sometimes React needs a discrete event
             await inputEl.clear();
             await inputEl.sendKeys(line);
-            
+
             // Click the Submit button to ensure the input is processed
             // The button is a sibling or near the input in the DOM
             try {
@@ -173,7 +173,7 @@ async function supplyInputs(driver: WebDriver, lines: string[]): Promise<void> {
             } catch (e) {
                 // Ignore if it doesn't disappear (maybe it persists? likely not in Praxly)
             }
-            
+
             await driver.sleep(INPUT_DELAY_MS);
         } catch (e: any) {
             // If no more input prompts appear the program has finished - that's fine
@@ -190,23 +190,23 @@ async function readOutputPanel(driver: WebDriver): Promise<string> {
     try {
         // Find the output panel by testid
         const panel = await driver.findElement(By.css('[data-testid="output-panel"]'));
-        
+
         // Find all output line divs within the panel
         const outputContainer = await panel.findElement(
             By.css('div.flex-1.overflow-auto.bg-slate-950')
         );
-        
+
         // Get all the line divs (each output line is in a separate div)
         const lineDivs = await outputContainer.findElements(
             By.css('div.flex.gap-4')
         );
-        
+
         if (lineDivs.length === 0) {
             // No output yet - check if there's the "Run code to see..." placeholder
             const text = await outputContainer.getText();
             return '';
         }
-        
+
         // Extract just the output text (skip the line numbers)
         const lines: string[] = [];
         for (const lineDiv of lineDivs) {
@@ -217,7 +217,7 @@ async function readOutputPanel(driver: WebDriver): Promise<string> {
                 lines.push(outputText);
             }
         }
-        
+
         return lines.join('\n');
     } catch (e) {
         console.error('Error reading output panel:', e);
@@ -232,16 +232,16 @@ async function readErrorText(driver: WebDriver): Promise<string> {
     try {
         // Find the output panel which contains error info in the header
         const panel = await driver.findElement(By.css('[data-testid="output-panel"]'));
-        
+
         // Look for error message in the header (where AlertCircle icon appears)
         const header = await panel.findElement(By.css('div.h-8'));
         const headerText = await header.getText();
-        
+
         // The error text appears after the "CONSOLE OUTPUT" label
         if (headerText.includes('Error') || headerText.includes('error')) {
             return headerText;
         }
-        
+
         return '';
     } catch (_) {
         // If we can't find an error element, there's probably no error

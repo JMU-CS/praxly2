@@ -225,10 +225,10 @@ end add`;
       const tokens = lexer.tokenize();
       const parser = new PraxisParser(tokens);
       const program = parser.parse();
-      const emitter = new PraxisEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PraxisEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map()
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -242,10 +242,10 @@ end add`;
       const tokens = lexer.tokenize();
       const parser = new PraxisParser(tokens);
       const program = parser.parse();
-      const emitter = new PraxisEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PraxisEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map()
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -262,10 +262,10 @@ end if`;
       const tokens = lexer.tokenize();
       const parser = new PraxisParser(tokens);
       const program = parser.parse();
-      const emitter = new PraxisEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PraxisEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map()
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -282,10 +282,10 @@ end if`;
       const tokens = lexer.tokenize();
       const parser = new PraxisParser(tokens);
       const program = parser.parse();
-      const emitter = new PraxisEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PraxisEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map()
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -533,7 +533,7 @@ print(n) // print a space after the number`;
       const translator = new Translator();
       const pythonResult = translator.translate(program, 'python');
 
-      expect(pythonResult).toContain('print(n, sep=" ")');
+      expect(pythonResult).toContain('print(n, end=" ")');
     });
 
     it('should translate uninitialized typed declarations to Python annotations', () => {
