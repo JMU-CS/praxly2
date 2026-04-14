@@ -33,8 +33,14 @@ Then open your browser to the URL provided (typically `http://localhost:5173/v2/
 
 ## Running Tests
 
-```
+Unit tests primarily for compiler and AST:
+```sh
 npm run test
+```
+
+Integration tests using headless selenium:
+```sh
+npx tsx csv/selenium.test.ts
 ```
 
 ## Documentation
