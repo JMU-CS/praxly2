@@ -1,84 +1,171 @@
-import * as ast from './ast.js';
+/**
+ * Abstract visitor pattern base class and scope management for AST traversal.
+ * Includes SymbolTable for tracking variable scopes and operator precedence definitions.
+ */
 
-export abstract class Visitor<P, R> {
-  // Primitives
-  abstract visitNull(node: ast.Null, payload: P): R;
-  abstract visitInteger(node: ast.Integer, payload: P): R;
-  abstract visitFloat(node: ast.Float, payload: P): R;
-  abstract visitDouble(node: ast.Double, payload: P): R;
-  abstract visitBoolean(node: ast.Boolean, payload: P): R;
-  abstract visitString(node: ast.String, payload: P): R;
-  abstract visitCharacter(node: ast.Character, payload: P): R;
+import type { Program, Statement, Expression, Block, ClassDeclaration, MethodDeclaration, FieldDeclaration, Constructor } from './ast';
 
-  // Unary operators
-  abstract visitAssociation(node: ast.Association, payload: P): R;
-  abstract visitLogicalNegate(node: ast.LogicalNegate, payload: P): R;
-  abstract visitArithmeticNegate(node: ast.ArithmeticNegate, payload: P): R;
-  abstract visitBitwiseNegate(node: ast.BitwiseNegate, payload: P): R;
-  abstract visitPostIncrement(node: ast.PostIncrement, payload: P): R;
-  abstract visitPostDecrement(node: ast.PostDecrement, payload: P): R;
+export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis';
 
-  // Binary operators
-  abstract visitAdd(node: ast.Add, payload: P): R;
-  abstract visitSubtract(node: ast.Subtract, payload: P): R;
-  abstract visitMultiply(node: ast.Multiply, payload: P): R;
-  abstract visitDivide(node: ast.Divide, payload: P): R;
-  abstract visitRemainder(node: ast.Remainder, payload: P): R;
-  abstract visitPower(node: ast.Power, payload: P): R;
-  abstract visitLessThan(node: ast.LessThan, payload: P): R;
-  abstract visitGreaterThan(node: ast.GreaterThan, payload: P): R;
-  abstract visitLessThanOrEqual(node: ast.LessThanOrEqual, payload: P): R;
-  abstract visitGreaterThanOrEqual(node: ast.GreaterThanOrEqual, payload: P): R;
-  abstract visitEqual(node: ast.Equal, payload: P): R;
-  abstract visitNotEqual(node: ast.NotEqual, payload: P): R;
-  abstract visitLogicalAnd(node: ast.LogicalAnd, payload: P): R;
-  abstract visitLogicalOr(node: ast.LogicalOr, payload: P): R;
-  abstract visitBitwiseAnd(node: ast.BitwiseAnd, payload: P): R;
-  abstract visitBitwiseOr(node: ast.BitwiseOr, payload: P): R;
-  abstract visitXor(node: ast.Xor, payload: P): R;
-  abstract visitLeftShift(node: ast.LeftShift, payload: P): R;
-  abstract visitRightShift(node: ast.RightShift, payload: P): R;
+export interface TranslationContext {
+    symbolTable: SymbolTable;
+    functionReturnTypes: Map<string, string>;
+    functionParamTypes: Map<string, string[]>;
+}
 
-  // Statements
-  abstract visitExpressionStatement(node: ast.ExpressionStatement, payload: P): R;
-  abstract visitProgram(node: ast.Program, payload: P): R;
-  abstract visitBlock(node: ast.Block, payload: P): R;
-  abstract visitPrint(node: ast.Print, payload: P): R;
-  abstract visitIf(node: ast.If, payload: P): R;
-  abstract visitWhile(node: ast.While, payload: P): R;
-  abstract visitDoWhile(node: ast.DoWhile, payload: P): R;
-  abstract visitRepeatUntil(node: ast.RepeatUntil, payload: P): R;
-  abstract visitFor(node: ast.For, payload: P): R;
-  abstract visitForEach(node: ast.ForEach, payload: P): R;
+export type SourceMap = Map<string, number>; // AST Node ID -> Line Number
 
-  // Variables
-  abstract visitAssignment(node: ast.Assignment, payload: P): R;
-  abstract visitDeclaration(node: ast.Declaration, payload: P): R;
-  abstract visitVariable(node: ast.Variable, payload: P): R;
+export class SymbolTable {
+    private scopes: Map<string, string>[] = [new Map()];
 
-  // Range
-  abstract visitRangeLiteral(node: ast.RangeLiteral, payload: P): R;
+    enterScope() {
+        this.scopes.push(new Map());
+    }
 
-  // Arrays
-  abstract visitArrayLiteral(node: ast.ArrayLiteral, payload: P): R;
-  abstract visitArrayDeclaration(node: ast.ArrayDeclaration, payload: P): R;
-  abstract visitArraySubscript(node: ast.ArraySubscript, payload: P): R;
+    exitScope() {
+        this.scopes.pop();
+    }
 
-  // Functions
-  abstract visitFunctionDefinition(node: ast.FunctionDefinition, payload: P): R;
-  abstract visitFunctionCall(node: ast.FunctionCall, payload: P): R;
-  abstract visitReturn(node: ast.Return, payload: P): R;
+    set(name: string, type: string) {
+        this.scopes[this.scopes.length - 1].set(name, type);
+    }
 
-  // Classes
-  abstract visitClassDefinition(node: ast.ClassDefinition, payload: P): R;
-  abstract visitConstructorDefinition(node: ast.ConstructorDefinition, payload: P): R;
-  abstract visitMethodDefinition(node: ast.MethodDefinition, payload: P): R;
-  abstract visitMethodCall(node: ast.MethodCall, payload: P): R;
-  abstract visitInstanceVariableDeclaration(node: ast.InstanceVariableDeclaration, payload: P): R;
-  abstract visitInstantiation(node: ast.Instantiation, payload: P): R;
-  abstract visitMember(node: ast.Member, payload: P): R;
+    get(name: string): string | undefined {
+        for (let i = this.scopes.length - 1; i >= 0; i--) {
+            if (this.scopes[i].has(name)) {
+                return this.scopes[i].get(name);
+            }
+        }
+        return undefined;
+    }
 
-  // Weirdos
-  abstract visitBlank(node: ast.Blank, payload: P): R;
-  abstract visitLineComment(node: ast.LineComment, payload: P): R;
+    hasInCurrentScope(name: string): boolean {
+        return this.scopes[this.scopes.length - 1].has(name);
+    }
+}
+
+export const Precedence = {
+    Member: 18, Call: 17, Instantiation: 16, Postfix: 15, Unary: 14,
+    Exponential: 13, Multiplicative: 12, Additive: 11, Shift: 10,
+    Relational: 9, Equality: 8, BitwiseAnd: 7, Xor: 6, BitwiseOr: 5,
+    LogicalAnd: 4, LogicalOr: 3, Conditional: 2.5, Assignment: 2, Sequence: 1
+};
+
+
+export abstract class ASTVisitor {
+    protected output: string[] = [];
+    protected indentLevel = 0;
+    protected context: TranslationContext;
+    protected breakStr = 'break;';
+    protected continueStr = 'continue;';
+    protected sourceMap: SourceMap = new Map();
+
+    constructor(context: TranslationContext) {
+        this.context = context;
+    }
+
+    getGeneratedCode(): string {
+        return this.output.join('\n');
+    }
+
+    getSourceMap(): SourceMap {
+        return this.sourceMap;
+    }
+
+    protected emit(line: string, nodeId?: string) {
+        this.output.push('  '.repeat(this.indentLevel) + line);
+        // Map this line (0-based for CodeMirror) to the node ID
+        if (nodeId) {
+            this.sourceMap.set(nodeId, this.output.length - 1);
+        }
+    }
+
+    protected indent() { this.indentLevel++; }
+    protected dedent() { this.indentLevel--; }
+
+    // -- Visit Methods (To be implemented by concrete emitters) --
+    abstract visitProgram(program: Program): void;
+    abstract visitBlock(block: Block): void;
+    abstract visitClassDeclaration(classDecl: ClassDeclaration): void;
+    abstract visitMethodDeclaration(method: MethodDeclaration): void;
+    abstract visitFieldDeclaration(field: FieldDeclaration): void;
+    abstract visitConstructor(ctor: Constructor): void;
+
+    abstract visitPrint(stmt: any): void;
+    abstract visitAssignment(stmt: any): void;
+    abstract visitIf(stmt: any): void;
+    abstract visitWhile(stmt: any): void;
+    abstract visitDoWhile(stmt: any): void;
+    abstract visitSwitch(stmt: any): void;
+    abstract visitBreak(stmt: any): void;
+    abstract visitContinue(stmt: any): void;
+    abstract visitFor(stmt: any): void;
+    abstract visitFunctionDeclaration(stmt: any): void;
+    abstract visitReturn(stmt: any): void;
+    abstract visitExpressionStatement(stmt: any): void;
+    abstract visitTry(stmt: any): void;
+
+    // Dispatcher
+    visitStatement(stmt: Statement) {
+        switch (stmt.type) {
+            case 'Print': this.visitPrint(stmt); break;
+            case 'Assignment': this.visitAssignment(stmt); break;
+            case 'If': this.visitIf(stmt); break;
+            case 'While': this.visitWhile(stmt); break;
+            case 'DoWhile': this.visitDoWhile(stmt); break;
+            case 'Switch': this.visitSwitch(stmt); break;
+            case 'Break': this.visitBreak(stmt); break;
+            case 'Continue': this.visitContinue(stmt); break;
+            case 'For': this.visitFor(stmt); break;
+            case 'Try': this.visitTry(stmt); break;
+            case 'FunctionDeclaration': this.visitFunctionDeclaration(stmt); break;
+            case 'Return': this.visitReturn(stmt); break;
+            case 'ExpressionStatement': this.visitExpressionStatement(stmt); break;
+            case 'ClassDeclaration': this.visitClassDeclaration(stmt); break;
+            case 'FieldDeclaration': this.visitFieldDeclaration(stmt); break;
+            case 'Constructor': this.visitConstructor(stmt); break;
+            case 'MethodDeclaration': this.visitMethodDeclaration(stmt); break;
+        }
+    }
+
+    abstract generateExpression(expr: Expression, parentPrecedence: number): string;
+
+    protected inferType(expr: Expression): string {
+        switch (expr.type) {
+            case 'Literal':
+                if (typeof expr.value === 'boolean') return 'boolean';
+                if (typeof expr.value === 'string') return 'String';
+                if (typeof expr.value === 'number') {
+                    if (expr.raw && (expr.raw.includes('.') || expr.raw.toLowerCase().includes('e'))) return 'double';
+                    return 'int';
+                }
+                return 'Object';
+            case 'Identifier': return this.context.symbolTable.get(expr.name) || 'var';
+            case 'BinaryExpression':
+                if (['>', '<', '>=', '<=', '==', '!=', 'and', 'or'].includes(expr.operator)) return 'boolean';
+                const left = this.inferType(expr.left);
+                if (left === 'double') return 'double';
+                return 'int';
+            case 'UnaryExpression':
+                if (expr.operator === 'not' || expr.operator === '!') return 'boolean';
+                return this.inferType(expr.argument);
+            case 'NewExpression': return (expr as any).className || 'Object';
+            case 'IndexExpression':
+                const objType = this.inferType(expr.object);
+                if (objType.endsWith('[]')) return objType.slice(0, -2);
+                return 'var';
+            case 'CallExpression':
+                const calleeName = (expr.callee as any).name;
+                if (calleeName === 'range') return 'int[]';
+                if (calleeName === 'input' || calleeName === 'INPUT') return 'String';
+                if (calleeName && this.context.functionReturnTypes.has(calleeName)) return this.context.functionReturnTypes.get(calleeName)!;
+                return 'var';
+            case 'ArrayLiteral':
+                if (expr.elements && expr.elements.length > 0) {
+                    return this.inferType(expr.elements[0]) + '[]';
+                }
+                return 'Object[]';
+            default: return 'var';
+        }
+    }
 }

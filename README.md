@@ -1,36 +1,45 @@
 # Praxly2
 
-Praxly2 is a rewrite of [Praxly](https://github.com/JMU-CS/praxly) in TypeScript.
-The main goals of this project are:
+**Praxly** is an educational programming environment designed to bridge the gap between pseudocode and standard programming languages. It allows users to write code in one language (Python, Java, Praxis, or CSP) and instantly:
 
-* Implement a more robust architecture that uses the visitor pattern for code generation and program execution.
-* Add language features that were not implemented in Praxly, such as multidimensional arrays, classes, and inheritance.
-* Replace the [Ace](https://ace.c9.io/) editor with [CodeMirror](https://codemirror.net/) to improve accessibility and allow Praxly2 to run on mobile devices.
-* Support additional programming languages, including [TExES][TEX] pseudocode, [CSP][CSP] pseudocode, Java, and Python.
-* Provide new learning tools for program comprehension, such as code explanations and memory diagrams.
+- **Translate** it into another supported language
+- **Visualize** the Abstract Syntax Tree (AST)
+- **Execute** the code entirely within the browser
 
-[TEX]: https://www.tx.nesinc.com/Content/StudyGuide/TX_SG_strategies_241.asp#stimulusQ
-[CSP]: https://apcentral.collegeboard.org/media/pdf/ap-computer-science-principles-exam-reference-sheet.pdf#page=3
+Praxly2 is a modern TypeScript rewrite featuring a robust compiler architecture with lexical analysis, parsing, interpretation, and code generation—all running securely in the browser with no backend required.
 
-## Development
+### Features
+
+- **Universal AST**: All languages parse to the same intermediate representation
+- **Multi-language support**: Python, Java, CSP (pseudocode), and Praxis
+- **Real-time translation**: See code translated live as you type
+- **Code execution**: Run programs directly in the browser
+- **AST visualization**: Explore how your code is structured
+- **Modern editor**: Built with CodeMirror for syntax highlighting and accessibility
+
+## Quick Start
 
 Install dependencies:
 ```
-$ npm install
-$ npm run parser
+npm install
 ```
 
-Note: Rerun `parser` whenever CodeMirror/lezer changes
-
-To run locally:
+Start the development server:
 ```
-$ npm run dev
+npm run dev
 ```
 
-To run the tests:
+Then open your browser to the URL provided (typically `http://localhost:5173/v2/`).
+
+## Running Tests
+
 ```
-$ npm run test
+npm run test
 ```
+
+## Documentation
+
+For a detailed architectural overview and onboarding guide, see [docs/README.md](docs/README.md).
 
 ## License
 

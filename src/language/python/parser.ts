@@ -1,793 +1,607 @@
-import {Parser} from '../parser.js';
-import {Token, TextToken, TokenType} from '../token.js';
-import {Where} from '../where.js';
-import {ParseError} from '../error.js';
-import * as ast from '../ast.js';
-import {Type, ArrayType, SizedArrayType, AnyType} from '../type.js';
+/**
+ * Python parser that converts Python tokens into an Abstract Syntax Tree (AST).
+ * Implements Python-specific grammar including indentation-based blocks and tuple unpacking.
+ */
 
-// https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf
+import type { Token, TokenType } from '../lexer';
+import { type Program, type Statement, type Block, type Expression, type If, type While, type For, type Return, type CallExpression, type Identifier, type FunctionDeclaration, type ClassDeclaration, type FieldDeclaration, type Constructor, type MethodDeclaration, type Parameter, generateId } from '../ast';
 
-enum BlockMode {
-  Curly,
-  End,
-};
+export class Parser {
+  private tokens: Token[];
+  private current = 0;
 
-class PythonParser extends Parser {
-  hasTwoIdentifiers() {
-    return this.has(TokenType.Identifier) && this.hasAhead(TokenType.Identifier, 1);
+  constructor(tokens: Token[]) {
+    this.tokens = tokens;
   }
 
-  parse(): ast.Block {
-    const statements = [];
-    let blank = this.skipLinebreaks();
-    if (blank.n > 0) {
-      statements.push(new ast.Blank(blank.n, blank.where));
+  /**
+   * Helper to attach location info to a statement based on token positions
+   */
+  private withLocation<T extends Statement>(stmt: T, startIdx: number): T {
+    if (startIdx >= 0 && startIdx < this.tokens.length && this.current > startIdx) {
+      const startToken = this.tokens[startIdx];
+      const endToken = this.tokens[this.current - 1];
+      stmt.loc = {
+        start: startToken.start,
+        end: endToken.start + endToken.value.length
+      };
     }
-    while (!this.has(TokenType.EndOfSource)) {
-      statements.push(this.topLevelStatement());
-      let blank = this.skipLinebreaks();
-      if (blank.n > 0) {
-        statements.push(new ast.Blank(blank.n, blank.where));
+    return stmt;
+  }
+
+  parse(): Program {
+    const body: Statement[] = [];
+    while (!this.isAtEnd()) {
+      while (this.match('PUNCTUATION', ';')) { } // Clear leading empty lines
+      if (this.isAtEnd()) break;
+      try {
+        body.push(this.topLevelDeclaration());
+      } catch (e) {
+        // Error recovery: skip to next valid statement and continue
+        this.synchronize();
+        continue;
       }
     }
-    if (statements.length === 0) {
-      return new ast.Block(statements, new Where(0, 0));
-    } else {
-      return new ast.Block(statements, Where.enclose(statements[0].where, statements[statements.length - 1].where));
-    }
+    return { id: generateId(), type: 'Program', body };
   }
 
-  arrayType(elementType: Type): Type {
-    if (this.has(TokenType.LeftBracket)) {
-      let type;
-      const leftToken = this.advance(); // eat [
-
-      // See if there's a range.
-      if (this.has(TokenType.Integer) && this.hasAhead(TokenType.DotDot, 1) && this.hasAhead(TokenType.Integer, 2)) {
-        const minToken = this.advance() as TextToken;
-        this.advance(); // eat ..
-        const maxToken = this.advance() as TextToken;
-        if (minToken.text !== '0') {
-          throw new ParseError("The starting index must be 0.", minToken.where);
-        }
-        const size = parseInt(maxToken.text) + 1;
-        if (!this.has(TokenType.RightBracket)) {
-          throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
-        }
-        const rightToken = this.advance(); // eat ]
-        return new SizedArrayType(this.arrayType(elementType), size, true, Where.enclose(elementType.where, rightToken.where));
-      } else {
-        if (!this.has(TokenType.RightBracket)) {
-          throw new ParseError("The left bracket of this array type is missing its matching right bracket.", leftToken.where);
-        }
-        const rightToken = this.advance(); // eat ]
-        return new ArrayType(this.arrayType(elementType), null, Where.enclose(elementType.where, rightToken.where));
-      }
-    } else {
-      return elementType;
-    }
+  private topLevelDeclaration(): Statement {
+    if (this.check('KEYWORD', 'class')) return this.classDeclaration();
+    if (this.check('KEYWORD', 'def')) return this.functionDeclaration();
+    return this.statement();
   }
 
-  type(): Type {
-    const scalarTypeToken = this.advance() as TextToken;
-    let type = new Type(scalarTypeToken.text, scalarTypeToken.where);
-
-    // int[0..2][0..1] is a 3-array of 2-arrays. Currently I'm parsing this as
-    // (int[0..2])[0..1]. But the brackets are right-associative. Can I parse
-    // this with a recursive helper?
-
-    // Gobble up arrays.
-    if (this.has(TokenType.LeftBracket)) {
-      type = this.arrayType(type);
-    }
-
-    return type;
-  }
-
-  topLevelStatement(): ast.Statement {
-    // functions are defined with def and a following identifier with ()
-    if (this.has(TokenType.Function) && this.hasAhead(TokenType.LeftParenthesis, 2)) {
-      const defineNode = this.functionDefinition();
-      this.statementLinebreak();
-      return defineNode;
-    } else if (this.has(TokenType.Class)) {
-      const defineNode = this.classDefinition();
-      this.statementLinebreak();
-      return defineNode;
-    } else {
-      return this.statement(false);
-    }
-  }
-
-  classDefinition(): ast.ClassDefinition {
-    const classToken = this.advance() as TextToken; // eat Class
-
-    if (!this.has(TokenType.Identifier)) {
-      throw new ParseError("The class name is missing.", classToken.where);
-    }
-    const classIdentifierToken = this.advance() as TextToken;
-    let lastWhere = classIdentifierToken.where;
-
-    let superclass = null;
-    // extending a class in python would require the class token to have ()
-    // with the name of extending class inside.
-    // Ex : class Dog(Animal): ...
-
-    if (!this.has(TokenType.Colon)) {
-      throw new ParseError("A : is missing after the class name.", lastWhere);
-    }
-    this.advance(); // eat :
-
-    if (!this.has(TokenType.Linebreak)) {
-      throw new ParseError("A linebreak is missing after this class header.", Where.enclose(classToken.where, lastWhere));
-    }
-    this.advance(); // eat linebreak
-
-    this.skipLinebreaks();
-
-    const instanceVariableDeclarations: ast.InstanceVariableDeclaration[] = [];
-    const methodDefinitions: ast.MethodDefinition[] = [];
-
-    let constructor_found = false;
-
-    if (this.has(TokenType.Indent)) {
-      let indent = this.advance(); // eat indent
-
-      while (!this.has(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
-        let firstWhere = null;
-
-        // constructor __init__()
-        if (this.has(TokenType.Function) && this.hasAhead(TokenType.UnderscoreUnderscore, 1)) {
-          constructor_found = true;
-          const constructor = this.advance(); // eat def
-          firstWhere = constructor.where;
-
-          const frontUnderscore = this.advance() as TextToken; // eat __
-          if (!this.has(TokenType.Identifier)) {
-            throw new ParseError(`Constructor is missing required name: "init between __."`, frontUnderscore.where);
-          }
-
-          const init = this.advance() as TextToken; // eat constructor identifier
-          if (init.text != "init") {
-            throw new ParseError(`It looks like you defined a method named __${init.text}__, but Python expects the constructor method to be named __init__.`, init.where);
-          }
-
-          if (!this.has(TokenType.UnderscoreUnderscore)) {
-            throw new ParseError(`Constructor definition is missing ending __.`, init.where);
-          }
-          const endUnderscore = this.advance() as TextToken;
-
-          if (!this.has(TokenType.LeftParenthesis)) {
-            throw new ParseError("Constructor is missing required opening parenthesis.", endUnderscore.where);
-          }
-          const leftParenthesis = this.advance(); // eat (
-
-          if (!this.has(TokenType.Identifier)) {
-            throw new ParseError(`Constructor is missing required "self" parameter as the first parameter`, leftParenthesis.where);
-          }
-          const selfParam = this.advance() as TextToken;
-          if (selfParam.text != "self") {
-            throw new ParseError("Constructor is missing required self parameter as the first parameter.", selfParam.where);
-          }
-
-          // collect the parameters
-          const constructorFormals: ast.Formal[] = [];
-          while (this.has(TokenType.Comma)) {
-            const comma = this.advance(); // eat ,
-            if (!this.has(TokenType.Identifier)) {
-              throw new ParseError(`A parameter must have a name.`, comma.where);
-            }
-            const identifierToken = this.advance() as TextToken;
-            constructorFormals.push(new ast.Formal(identifierToken.text, new AnyType));
-            lastWhere = identifierToken.where;
-          }
-
-          if (!this.has(TokenType.RightParenthesis)) {
-            throw new ParseError(`Constructor is missing closing parenthesis.`, lastWhere);
-          }
-          const rightParenthesis = this.advance(); // eat )
-
-          if (!this.has(TokenType.Colon)) {
-            throw new ParseError(`Constructor is missing required :`, rightParenthesis.where);
-          }
-          const colon = this.advance(); // eat :
-
-          const block = this.block(true, 'constructor', Where.enclose(firstWhere, colon.where));
-
-          methodDefinitions.push(new ast.MethodDefinition(frontUnderscore.text + init.text + endUnderscore.text, constructorFormals, new AnyType, block, null, Where.enclose(firstWhere, block.where)));
-          lastWhere = block.where;
-        }
-
-        // check if function
-        if (this.has(TokenType.Function)) {
-          const core = this.functionDefinition();
-          const declaration = new ast.MethodDefinition(core.identifier, core.formals, new AnyType, core.body, null, Where.enclose(core.where, core.body.where));
-          methodDefinitions.push(declaration);
-          lastWhere = declaration.where;
-        }
-
-        this.skipLinebreaks();
-      }
-
-      if (this.has(TokenType.Unindent)) {
-        this.advance();
-      }
-    }
-
-    const constructorDefinitions: ast.ConstructorDefinition[] = [];
-    return new ast.ClassDefinition(classIdentifierToken.text, superclass, instanceVariableDeclarations, constructorDefinitions, methodDefinitions, Where.enclose(classToken.where, lastWhere));
-  }
-
-  subroutineCore(context: string, firstWhere: Where) {
-    const identifierToken = this.advance() as TextToken;
-
-    const leftToken = this.advance(); // eat (
-    let latestToken = leftToken;
-
-    const formals = [];
-    if (this.has(TokenType.Identifier)) {
-      // if (!this.has(TokenType.Identifier)) {
-      //   throw new ParseError("A parameter must have both a type and a name.", type.where);
-      // }
-      const identifierToken = this.advance() as TextToken;
-      latestToken = identifierToken;
-      formals.push(new ast.Formal(identifierToken.text, new AnyType));
-      while (this.has(TokenType.Comma)) {
-        let comma = this.advance(); // pass the ,
-        // const type = this.type();
-        if (!this.has(TokenType.Identifier)) {
-          throw new ParseError(`A ${context} must have a name.`, comma.where);
-        }
-        const identifierToken = this.advance() as TextToken;
-        latestToken = identifierToken;
-        formals.push(new ast.Formal(identifierToken.text, new AnyType));
-      }
-    }
-
-    if (!this.has(TokenType.RightParenthesis)) {
-      throw new ParseError(`A ${context}'s parameter must be enclosed in parentheses.`, Where.enclose(firstWhere, latestToken.where));
-    }
-    const rightToken = this.advance(); // eat )
-
-    if (!this.has(TokenType.Colon)) {
-      throw new ParseError(`A ${context}'s definition must include a :`, Where.enclose(firstWhere, rightToken.where));
-    }
-    const colon = this.advance(); // eat :
-
-    const block = this.block(true, 'function definition', Where.enclose(firstWhere, colon.where));
-    // TODO: Add lastWhere = block.where?? and add it to return
-
-    return {
-      identifier: identifierToken.text,
-      formals,
-      block,
-    };
-  }
-
-  functionDefinition(): ast.FunctionDefinition {
-    // if (!this.has(TokenType.Function)) {
-    //   throw new ParseError("Function definitions must start with keyword def", Where.enclose())
-    // }
-    const def = this.advance(); // eat def
-    const core = this.subroutineCore('function', def.where);
-    return new ast.FunctionDefinition(core.identifier, core.formals, new AnyType, core.block, Where.enclose(def.where, core.block.where));
-  }
-
-  block(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where): ast.Block {
-      return this.indentedBlock(inFunctionDefinition, contextLabel, contextWhere)
-  }
-
-  indentedBlock(inFunctionDefinition: boolean, contextLabel: string, contextWhere: Where) {
-    if (!this.has(TokenType.Linebreak)) {
-      throw new ParseError(`A linebreak is missing after the header of this ${contextLabel}.`, contextWhere);
-    }
+  /**
+   * Synchronize to the next statement by skipping tokens until we find
+   * a keyword that likely starts a new statement
+   */
+  private synchronize(): void {
     this.advance();
 
-    let statements = [];
-    if (this.has(TokenType.Indent)) {
-      const indentToken = this.advance();
-      while (!this.has(TokenType.Unindent) && !this.has(TokenType.EndOfSource)) {
-        const statement = this.statement(inFunctionDefinition);
-        statements.push(statement);
+    while (!this.isAtEnd()) {
+      // Skip to next statement-starting keyword
+      if (this.check('KEYWORD', 'if', 'elif', 'else', 'while', 'for', 'def', 'class', 'return', 'try', 'except', 'finally', 'pass', 'break', 'continue')) {
+        return;
       }
-
-      if (this.has(TokenType.Unindent)) {
+      // Also sync on semicolons or closing braces
+      if (this.check('PUNCTUATION', ';', '}')) {
         this.advance();
+        return;
       }
-    }
-
-    const blockWhere = statements.length > 0 ? Where.enclose(statements[0].where, statements[statements.length - 1].where) : contextWhere;
-    return new ast.Block(statements, blockWhere);
-  }
-
-  statementLinebreak() {
-    if (this.has(TokenType.Linebreak)) {
-      this.advance();
-    } else if (!this.has(TokenType.EndOfSource)) {
-      throw new ParseError(`A statement has stray text: \`${this.tokens[this.i].where.text(this.source)}\`.`, this.tokens[this.i].where);
-    }
-  }
-
-  statement(inFunctionDefinition: boolean): ast.Statement {
-    let statement;
-
-    if (this.has(TokenType.If)) {
-      statement = this.ifStatement(inFunctionDefinition);
-    } else if (this.has(TokenType.While)) {
-      statement = this.whileStatement(inFunctionDefinition);
-    } else if (this.has(TokenType.For)) {
-      throw new ParseError(`For loops are not supported.`, this.advance().where); // for loops currently not supported
-    } else if (this.has(TokenType.Print)) {
-      statement = this.printStatement();
-    } else if (this.has(TokenType.LineComment)) {
-      const token = this.advance() as TextToken;
-      statement = new ast.LineComment(token.text, token.where);
-    } else if (this.has(TokenType.Return)) {
-      statement = this.returnStatement(inFunctionDefinition);
-    } else {
-      statement = this.otherStatement();
-    }
-
-    // Skip past any trailing comment.
-    if (this.has(TokenType.LineComment)) {
       this.advance();
     }
-
-    this.statementLinebreak();
-    return statement;
   }
 
-  hasArrayWithoutIndex() {
-    return this.has(TokenType.Identifier) &&
-           this.hasAhead(TokenType.LeftBracket, 1) &&
-           this.hasAhead(TokenType.RightBracket, 2);
-  }
+  private classDeclaration(): ClassDeclaration {
+    this.consume('KEYWORD', 'class');
+    const name = this.consume('IDENTIFIER').value;
+    let superClass: Identifier | undefined = undefined;
 
-  hasArrayWithRange() {
-    return this.has(TokenType.Identifier) &&
-           this.hasAhead(TokenType.LeftBracket, 1) &&
-           this.hasAhead(TokenType.Integer, 2) &&
-           this.hasAhead(TokenType.DotDot, 3) &&
-           this.hasAhead(TokenType.Integer, 4) &&
-           this.hasAhead(TokenType.RightBracket, 5);
-  }
-
-  arrayLiteral(): ast.ArrayLiteral {
-    const elementNodes = [];
-    const leftToken = this.advance(); // eat [
-
-    if (this.hasOtherwise(TokenType.RightBracket)) {
-      elementNodes.push(this.expression());
-      while (this.has(TokenType.Comma)) {
-        this.advance(); // eat ,
-        elementNodes.push(this.expression());
-      }
+    if (this.match('PUNCTUATION', '(')) {
+      superClass = { id: generateId(), type: 'Identifier', name: this.consume('IDENTIFIER').value };
+      this.consume('PUNCTUATION', ')');
     }
 
-    if (!this.has(TokenType.RightBracket)) {
-      const lastWhere = elementNodes.length === 0 ? leftToken.where : elementNodes[elementNodes.length - 1].where;
-      throw new ParseError("This array literal is missing its `]`.", lastWhere);
-    }
-    const rightToken = this.advance(); // eat ]
+    const body: (FieldDeclaration | Constructor | MethodDeclaration)[] = [];
+    const blockBody = this.block().body;
 
-    return new ast.ArrayLiteral(elementNodes, Where.enclose(leftToken.where, rightToken.where));
-  }
-
-  returnStatement(inFunctionDefinition: boolean): ast.Return {
-    const returnToken = this.advance();
-
-    if (!inFunctionDefinition) {
-      throw new ParseError(`A return statement is allowed only in a function.`, returnToken.where);
-    }
-
-    if (this.hasOtherwise(TokenType.Linebreak)) {
-      const node = this.expression();
-      return new ast.Return(node, Where.enclose(returnToken.where, node.where));
-    } else {
-      return new ast.Return(null, returnToken.where);
-    }
-  }
-
-  ifStatement(inFunctionDefinition: boolean): ast.Statement {
-    const conditionNodes = [];
-    const thenBlocks = [];
-
-    const ifToken = this.advance();
-    const conditionNode = this.eatCondition(ifToken.where, "An if statement's condition").node;
-    let thenBlock;
-    let blockMode;
-    thenBlock = this.block(inFunctionDefinition, 'if statement', Where.enclose(ifToken.where, conditionNode.where));
-    let lastWhere = thenBlock.where;
-    conditionNodes.push(conditionNode);
-    thenBlocks.push(thenBlock);
-
-    while (this.has(TokenType.Else) && this.hasAhead(TokenType.If, 1)) {
-      this.advance(); // eat else
-      const ifToken = this.advance();
-      const conditionNode = this.eatCondition(ifToken.where, "An elif statement's condition").node;
-      thenBlock = this.block(inFunctionDefinition, 'elif statement', Where.enclose(ifToken.where, conditionNode.where));
-      lastWhere = thenBlock.where;
-      conditionNodes.push(conditionNode);
-      thenBlocks.push(thenBlock);
-    }
-
-    let elseBlock = null;
-    if (this.has(TokenType.Else)) {
-      const elseToken = this.advance();
-      elseBlock = this.block(inFunctionDefinition, 'else branch', elseToken.where);
-      lastWhere = elseBlock.where;
-    }
-
-    return new ast.If(conditionNodes, thenBlocks, elseBlock, Where.enclose(ifToken.where, lastWhere));
-  }
-
-  eatCondition(predecessorWhere: Where, prefix: string) {
-    // goal - eat until : is found
-    const node = this.expression(); // this should eat up until the :
-
-    if (!this.has(TokenType.Colon)) {
-      throw new ParseError(`${prefix} must include ':' at the end.`, predecessorWhere);
-    }
-    const endToken = this.advance(); // eat :
-
-    return {
-      node,
-      where: Where.enclose(predecessorWhere, endToken.where)
-    };
-  }
-
-  whileStatement(inFunctionDefinition: boolean): ast.Statement {
-    const whileToken = this.advance();
-    const conditionNode = this.eatCondition(whileToken.where, "A while statement's condition").node;
-
-    const block = this.block(inFunctionDefinition, 'while loop', Where.enclose(whileToken.where, conditionNode.where));
-    let lastWhere = block.where;
-
-    return new ast.While(conditionNode, block, Where.enclose(whileToken.where, lastWhere));
-  }
-
-  printStatement(): ast.Print {
-    const printToken = this.advance(); // eat print
-
-    if (!this.has(TokenType.LeftParenthesis)) {
-      throw new ParseError(`Print statement needs surrounding parenthesis`, printToken.where);
-    }
-    const leftParenthesis = this.advance(); // eat (
-    const parameterNode = this.expression();
-
-    // In Praxly, what character comes after the print is determined by a
-    // trailing comment. The comment text may be "space" or "nothing". Any
-    // other text leads to linebreak.
-    let trailer = "\n";
-    if (this.has(TokenType.LineComment)) {
-      const commentToken = this.advance() as TextToken;
-      if (commentToken.text.toLowerCase() === 'space') {
-        trailer = ' ';
-      } else if (commentToken.text.toLowerCase() === 'nothing') {
-        trailer = '';
-      }
-    }
-
-    if (!this.has(TokenType.RightParenthesis)) {
-      throw new ParseError(`Print statement needs a closing parenthesis`, parameterNode.where);
-    }
-    const rightParenthesis = this.advance(); // eat )
-
-    let statement = new ast.Print(parameterNode, trailer, Where.enclose(printToken.where, rightParenthesis.where));
-
-    return statement;
-  }
-
-  otherStatement(): ast.Statement {
-    const expression = this.expression();
-    if (this.has(TokenType.Equal)) {
-      this.advance();
-      const rightExpression = this.expression();
-      return new ast.Assignment(expression, rightExpression, Where.enclose(expression.where, rightExpression.where));
-    } else {
-      return new ast.ExpressionStatement(expression);
-    }
-  }
-
-  parenthesizedExpression(predecessorWhere: Where, prefix: string) {
-    if (!this.has(TokenType.LeftParenthesis)) {
-      throw new ParseError(`${prefix} must be enclosed in parentheses.`, predecessorWhere);
-    }
-    const leftToken = this.advance(); // eat (
-
-    const node = this.expression();
-
-    if (!this.has(TokenType.RightParenthesis)) {
-      throw new ParseError(`${prefix} must be enclosed in parentheses.`, Where.enclose(predecessorWhere, node.where));
-    }
-    const rightToken = this.advance(); // eat )
-
-    return {
-      node,
-      where: Where.enclose(leftToken.where, rightToken.where),
-    };
-  }
-
-  expression(): ast.Expression {
-    return this.logicalOr();
-  }
-
-  logicalOr(): ast.Expression {
-    let leftNode = this.logicalAnd();
-    while (this.has(TokenType.Or)) {
-      const operatorToken = this.advance();
-      const rightNode = this.logicalAnd();
-      leftNode = new ast.LogicalOr(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
-  }
-
-  logicalAnd(): ast.Expression {
-    let leftNode = this.bitwiseOr();
-    while (this.has(TokenType.And)) {
-      const operatorToken = this.advance();
-      const rightNode = this.bitwiseOr();
-      leftNode = new ast.LogicalAnd(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
-  }
-
-  bitwiseOr(): ast.Expression {
-    let leftNode = this.xor();
-    while (this.has(TokenType.Pipe)) {
-      const operatorToken = this.advance();
-      const rightNode = this.xor();
-      leftNode = new ast.Xor(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
-  }
-
-  xor(): ast.Expression {
-    let leftNode = this.bitwiseAnd();
-    while (this.has(TokenType.Circumflex)) {
-      const operatorToken = this.advance();
-      const rightNode = this.bitwiseAnd();
-      leftNode = new ast.Xor(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
-  }
-
-  bitwiseAnd(): ast.Expression {
-    let leftNode = this.equality();
-    while (this.has(TokenType.Ampersand)) {
-      const operatorToken = this.advance();
-      const rightNode = this.equality();
-      leftNode = new ast.BitwiseAnd(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
-  }
-
-  equality(): ast.Expression {
-    let leftNode = this.relational();
-    while (this.has(TokenType.DoubleEqual) || this.has(TokenType.NotEqual)) {
-      const operatorToken = this.advance();
-      const rightNode = this.relational();
-      if (operatorToken.type === TokenType.DoubleEqual) {
-        leftNode = new ast.Equal(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.NotEqual(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
-  }
-
-  relational(): ast.Expression {
-    let leftNode = this.shift();
-    while (this.has(TokenType.LessThan) || this.has(TokenType.GreaterThan) || this.has(TokenType.LessThanOrEqual) || this.has(TokenType.GreaterThanOrEqual)) {
-      const operatorToken = this.advance();
-      const rightNode = this.shift();
-      if (operatorToken.type === TokenType.LessThan) {
-        leftNode = new ast.LessThan(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else if (operatorToken.type === TokenType.GreaterThan) {
-        leftNode = new ast.GreaterThan(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else if (operatorToken.type === TokenType.LessThanOrEqual) {
-        leftNode = new ast.LessThanOrEqual(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.GreaterThanOrEqual(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
-  }
-
-  shift(): ast.Expression {
-    let leftNode = this.additive();
-    while (this.has(TokenType.DoubleLessThan) || this.has(TokenType.DoubleGreaterThan)) {
-      const operatorToken = this.advance();
-      const rightNode = this.additive();
-      if (operatorToken.type === TokenType.DoubleLessThan) {
-        leftNode = new ast.LeftShift(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.RightShift(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
-  }
-
-  additive(): ast.Expression {
-    let leftNode = this.multiplicative();
-    while (this.has(TokenType.Plus) || this.has(TokenType.Hyphen)) {
-      const operatorToken = this.advance();
-      const rightNode = this.multiplicative();
-      if (operatorToken.type === TokenType.Plus) {
-        leftNode = new ast.Add(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.Subtract(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
-  }
-
-  multiplicative(): ast.Expression {
-    let leftNode = this.power();
-    while (this.has(TokenType.Asterisk) || this.has(TokenType.ForwardSlash) || this.has(TokenType.Percent)) {
-      const operatorToken = this.advance();
-      const rightNode = this.power();
-      if (operatorToken.type === TokenType.Asterisk) {
-        leftNode = new ast.Multiply(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else if (operatorToken.type === TokenType.ForwardSlash) {
-        leftNode = new ast.Divide(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      } else {
-        leftNode = new ast.Remainder(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-      }
-    }
-    return leftNode;
-  }
-
-  power(): ast.Expression {
-    let leftNode = this.prefixUnary();
-    if (this.has(TokenType.DoubleAsterisk)) {
-      const operatorToken = this.advance();
-      const rightNode = this.prefixUnary();
-      leftNode = new ast.Power(leftNode, rightNode, Where.enclose(leftNode.where, rightNode.where));
-    }
-    return leftNode;
-  }
-
-  prefixUnary(): ast.Expression {
-    if (this.has(TokenType.Not)) {
-      const operatorToken = this.advance();
-      const operandNode = this.prefixUnary();
-      return new ast.LogicalNegate(operandNode, Where.enclose(operatorToken.where, operandNode.where));
-    } else if (this.has(TokenType.Hyphen)) {
-      const operatorToken = this.advance();
-      const operandNode = this.prefixUnary();
-      return new ast.ArithmeticNegate(operandNode, Where.enclose(operatorToken.where, operandNode.where));
-    } else if (this.has(TokenType.Tilde)) {
-      const operatorToken = this.advance();
-      const operandNode = this.prefixUnary();
-      return new ast.BitwiseNegate(operandNode, Where.enclose(operatorToken.where, operandNode.where));
-    } else {
-      return this.postfixUnary();
-    }
-  }
-
-  postfixUnary(): ast.Expression {
-    let leftNode = this.instantiate();
-    while (this.hasAny(TokenType.LeftBracket, TokenType.Period, TokenType.DoublePlus, TokenType.DoubleHyphen)) {
-      const operatorToken = this.advance();
-      if (operatorToken.type === TokenType.LeftBracket) {
-        const indexNode = this.expression();
-        if (!this.has(TokenType.RightBracket)) {
-          throw new ParseError("The right bracket of this index is missing.", Where.enclose(operatorToken.where, indexNode.where));
-        }
-        const rightToken = this.advance();
-        leftNode = new ast.ArraySubscript(leftNode, indexNode, Where.enclose(leftNode.where, rightToken.where));
-      } else if (operatorToken.type === TokenType.DoublePlus) {
-        leftNode = new ast.PostIncrement(leftNode, Where.enclose(leftNode.where, operatorToken.where));
-      } else if (operatorToken.type === TokenType.DoubleHyphen) {
-        leftNode = new ast.PostDecrement(leftNode, Where.enclose(leftNode.where, operatorToken.where));
-      } else {
-        if (this.has(TokenType.Identifier)) {
-          const propertyToken = this.advance() as TextToken;
-          if (this.has(TokenType.LeftParenthesis)) {
-            const actualsPayload = this.actuals('function', propertyToken.where);
-            leftNode = new ast.MethodCall(leftNode, propertyToken.text, actualsPayload.actuals, Where.enclose(leftNode.where, actualsPayload.where));
-          } else {
-            leftNode = new ast.Member(leftNode, propertyToken.text, Where.enclose(leftNode.where, propertyToken.where));
-          }
+    for (const stmt of blockBody) {
+      if (stmt.type === 'FunctionDeclaration') {
+        const fd = stmt as any as FunctionDeclaration;
+        if (fd.name === '__init__') {
+          body.push({ id: generateId(), type: 'Constructor', access: 'public', params: fd.params, body: fd.body });
         } else {
-          throw new ParseError("The property name after `.` is missing.", operatorToken.where);
+          body.push({ id: generateId(), type: 'MethodDeclaration', name: fd.name, access: 'public', isStatic: false, returnType: 'auto', params: fd.params, body: fd.body });
+        }
+      } else if (stmt.type === 'Assignment') {
+        body.push({ id: generateId(), type: 'FieldDeclaration', name: stmt.name, fieldType: 'auto', isStatic: false, access: 'public', initializer: stmt.value });
+      }
+    }
+    return { id: generateId(), type: 'ClassDeclaration', name, superClass, body };
+  }
+
+  private functionDeclaration(): FunctionDeclaration {
+    this.consume('KEYWORD', 'def');
+    const name = this.consume('IDENTIFIER').value;
+    this.consume('PUNCTUATION', '(');
+    const params: Parameter[] = [];
+    if (!this.check('PUNCTUATION', ')')) {
+      do {
+        const paramName = this.consume('IDENTIFIER').value;
+        let defaultValue: Expression | undefined = undefined;
+        if (this.match('OPERATOR', '=')) {
+          defaultValue = this.expression();
+        }
+        params.push({ id: generateId(), type: 'Parameter', name: paramName, paramType: 'auto', defaultValue });
+      } while (this.match('PUNCTUATION', ','));
+    }
+    this.consume('PUNCTUATION', ')');
+    const body = this.block();
+    return { id: generateId(), type: 'FunctionDeclaration', name, params, body };
+  }
+
+  private block(): Block {
+    while (this.match('PUNCTUATION', ';')) { } // Eat any virtual semicolons prior to brace start
+
+    if (this.match('PUNCTUATION', '{')) {
+      const statements: Statement[] = [];
+      while (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) {
+        while (this.match('PUNCTUATION', ';')) { } // Clear line breaks
+        if (this.check('PUNCTUATION', '}')) break;
+
+        if (this.match('KEYWORD', 'pass')) {
+          while (this.match('PUNCTUATION', ';')) { }
+          continue;
+        }
+        
+        // Handle function/method declarations inside blocks
+        try {
+          if (this.check('KEYWORD', 'def')) {
+            statements.push(this.functionDeclaration());
+          } else {
+            statements.push(this.statement());
+          }
+        } catch (e) {
+          // Error recovery: skip to next statement
+          while (!this.check('PUNCTUATION', '}') && !this.isAtEnd() && !this.check('KEYWORD', 'if', 'elif', 'else', 'while', 'for', 'def', 'class', 'return', 'try', 'except', 'finally', 'pass', 'break', 'continue')) {
+            this.advance();
+          }
+          if (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) continue;
+          break;
         }
       }
-    }
-    return leftNode;
-  }
-
-  instantiate() {
-    if (this.has(TokenType.New)) {
-      const newToken = this.advance();
-      if (!this.has(TokenType.Identifier)) {
-        throw new ParseError("A class name is missing after `new`.", newToken.where);
-      }
-      const identifierToken = this.advance() as TextToken;
-      return new ast.Instantiation(identifierToken.text, [], Where.enclose(newToken.where, identifierToken.where));
+      if (this.check('PUNCTUATION', '}')) this.consume('PUNCTUATION', '}');
+      return { id: generateId(), type: 'Block', body: statements };
     } else {
-      return this.apex();
+      // Single statement block e.g., if x: return true
+      if (this.match('KEYWORD', 'pass')) {
+        while (this.match('PUNCTUATION', ';')) { }
+        return { id: generateId(), type: 'Block', body: [] };
+      }
+      try {
+        const stmt = this.statement();
+        return { id: generateId(), type: 'Block', body: [stmt] };
+      } catch (e) {
+        // Return empty block on error
+        return { id: generateId(), type: 'Block', body: [] };
+      }
     }
   }
 
-  actuals(context: string, firstWhere: Where) {
-    const leftToken = this.advance();
-    let lastWhere = leftToken.where;
-    const actuals = [];
-    if (this.hasOtherwise(TokenType.RightParenthesis)) {
-      actuals.push(this.expression());
-      while (this.has(TokenType.Comma)) {
-        this.advance();
-        actuals.push(this.expression());
+  private statement(): Statement {
+    const startIdx = this.current;
+    
+    if (this.check('KEYWORD', 'if')) return this.withLocation(this.ifStatement(), startIdx);
+    if (this.check('KEYWORD', 'while')) return this.withLocation(this.whileStatement(), startIdx);
+    if (this.check('KEYWORD', 'for')) return this.withLocation(this.forStatement(), startIdx);
+    if (this.check('KEYWORD', 'try')) return this.withLocation(this.tryStatement(), startIdx);
+    if (this.check('KEYWORD', 'return')) return this.withLocation(this.returnStatement(), startIdx);
+    if (this.match('KEYWORD', 'break')) {
+      const stmt: Statement = { id: generateId(), type: 'Break' };
+      while (this.match('PUNCTUATION', ';')) { }
+      return this.withLocation(stmt, startIdx);
+    }
+    if (this.match('KEYWORD', 'continue')) {
+      const stmt: Statement = { id: generateId(), type: 'Continue' };
+      while (this.match('PUNCTUATION', ';')) { }
+      return this.withLocation(stmt, startIdx);
+    }
+
+    if (this.check('IDENTIFIER', 'print') && this.checkNext('PUNCTUATION', '(')) {
+      this.consume('IDENTIFIER');
+      this.consume('PUNCTUATION', '(');
+      const expressions: Expression[] = [];
+      if (!this.check('PUNCTUATION', ')')) {
+        do { expressions.push(this.logicOr()); } while (this.match('PUNCTUATION', ','));
       }
-      lastWhere = actuals[actuals.length - 1].where;
+      this.consume('PUNCTUATION', ')');
+      while (this.match('PUNCTUATION', ';')) { }
+      return this.withLocation({ id: generateId(), type: 'Print', expressions }, startIdx);
     }
-    if (!this.has(TokenType.RightParenthesis)) {
-      throw new ParseError(`A ${context} call's parameters must be enclosed in parentheses.`, Where.enclose(firstWhere, lastWhere));
+
+    const expr = this.expression();
+
+    if (this.match('OPERATOR', '=')) {
+      // For chained assignment: x = y = z = 10
+      // We need to collect all targets
+      const targets: Expression[] = [expr];
+      
+      // Check if the right side is another assignment (or could be)
+      let rightExpr = this.expression();
+      
+      // Handle chained assignments: collect all intermediate targets
+      while (this.check('OPERATOR', '=')) {
+        // rightExpr is actually another target, collect it
+        targets.push(rightExpr);
+        this.consume('OPERATOR', '=');
+        rightExpr = this.expression();
+      }
+      
+      // Now rightExpr is the final value
+      const value = rightExpr;
+      
+      // For emissions, use the first target as the main one
+      let nameStr = 'unknown';
+      if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
+      else if (expr.type === 'MemberExpression') nameStr = (expr.property as Identifier).name;
+
+      while (this.match('PUNCTUATION', ';')) { }
+      
+      // If there are chained assignments, create nested Assignment nodes
+      if (targets.length > 1) {
+        // x = y = z = 10 becomes: x = (y = (z = 10))
+        let result: any = { id: generateId(), type: 'Assignment', name: 'z', target: targets[targets.length - 1], value };
+        for (let i = targets.length - 2; i >= 0; i--) {
+          const target = targets[i];
+          let targetName = 'unknown';
+          if (target.type === 'Identifier') targetName = (target as Identifier).name;
+          else if (target.type === 'MemberExpression') targetName = (target.property as Identifier).name;
+          result = { id: generateId(), type: 'Assignment', name: targetName, target, value: result };
+        }
+        return this.withLocation(result, startIdx);
+      }
+      
+      return this.withLocation({ id: generateId(), type: 'Assignment', name: nameStr, target: expr, value }, startIdx);
     }
-    const rightToken = this.advance();
+
+    // Augmented assignments e.g., +=, -=
+    if (this.match('OPERATOR', '+=', '-=', '*=', '/=')) {
+      const op = this.previous().value.charAt(0); // Extract '+', '-', etc.
+      const rVal = this.expression();
+      let nameStr = 'unknown';
+      if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
+
+      const augmentedValue: Expression = {
+        id: generateId(), type: 'BinaryExpression', left: expr, operator: op, right: rVal
+      };
+      while (this.match('PUNCTUATION', ';')) { }
+      return this.withLocation({ id: generateId(), type: 'Assignment', name: nameStr, target: expr, value: augmentedValue }, startIdx);
+    }
+
+    while (this.match('PUNCTUATION', ';')) { }
+    return this.withLocation({ id: generateId(), type: 'ExpressionStatement', expression: expr }, startIdx);
+  }
+
+  private ifStatement(): If {
+    this.consume('KEYWORD', 'if');
+    const condition = this.expression();
+    const thenBranch = this.block();
+
+    let elseBranch: Block | undefined = undefined;
+
+    while (this.match('PUNCTUATION', ';')) { }
+    if (this.match('KEYWORD', 'elif')) {
+      const elifIf = this.ifStatementElif();
+      elseBranch = { id: generateId(), type: 'Block', body: [elifIf] };
+    } else if (this.match('KEYWORD', 'else')) {
+      elseBranch = this.block();
+    }
+    return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
+  }
+
+  private ifStatementElif(): If {
+    const condition = this.expression();
+    const thenBranch = this.block();
+
+    let elseBranch: Block | undefined = undefined;
+
+    while (this.match('PUNCTUATION', ';')) { }
+    if (this.match('KEYWORD', 'elif')) {
+      const elifIf = this.ifStatementElif();
+      elseBranch = { id: generateId(), type: 'Block', body: [elifIf] };
+    } else if (this.match('KEYWORD', 'else')) {
+      elseBranch = this.block();
+    }
+    return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
+  }
+
+  private whileStatement(): While {
+    this.consume('KEYWORD', 'while');
+    const condition = this.expression();
+    const body = this.block();
+    
+    let elseBranch: Block | undefined = undefined;
+    while (this.match('PUNCTUATION', ';')) { }
+    if (this.match('KEYWORD', 'else')) {
+      elseBranch = this.block();
+    }
+    
+    return { id: generateId(), type: 'While', condition, body, elseBranch };
+  }
+
+  private tryStatement(): any {
+    this.consume('KEYWORD', 'try');
+    const tryBlock = this.block();
+    
+    const handlers: any[] = [];
+    while (this.match('KEYWORD', 'except')) {
+      let exceptionType: string | undefined = undefined;
+      let varName: string | undefined = undefined;
+      
+      if (!this.check('PUNCTUATION', ':')) {
+        exceptionType = this.consume('IDENTIFIER').value;
+        if (this.match('KEYWORD', 'as')) {
+          varName = this.consume('IDENTIFIER').value;
+        }
+      }
+      
+      const handlerBody = this.block();
+      handlers.push({ type: 'ExceptionHandler', exceptionType, varName, body: handlerBody });
+    }
+    
+    let finallyBlock: Block | undefined = undefined;
+    while (this.match('PUNCTUATION', ';')) { }
+    if (this.match('KEYWORD', 'finally')) {
+      finallyBlock = this.block();
+    }
+    
+    return { id: generateId(), type: 'Try', body: tryBlock, handlers, finallyBlock };
+  }
+
+  private forStatement(): For {
+    this.consume('KEYWORD', 'for');
+    const vars: string[] = [];
+    do {
+      vars.push(this.consume('IDENTIFIER').value);
+    } while (this.match('PUNCTUATION', ','));
+
+    this.consume('KEYWORD', 'in');
+    const iterable = this.expression();
+    const body = this.block();
+
+    let elseBranch: Block | undefined = undefined;
+    while (this.match('PUNCTUATION', ';')) { }
+    if (this.match('KEYWORD', 'else')) {
+      elseBranch = this.block();
+    }
+
     return {
-      actuals,
-      where: Where.enclose(firstWhere, rightToken.where),
+      id: generateId(), type: 'For',
+      variable: vars[0], variables: vars.length > 1 ? vars : undefined,
+      iterable, body, elseBranch
     };
   }
 
-  variable() {
-    const identifierToken = this.advance() as TextToken;
-    if (this.has(TokenType.LeftParenthesis)) {
-      const actualsPayload = this.actuals('function', identifierToken.where);
-      return new ast.FunctionCall(identifierToken.text, actualsPayload.actuals, Where.enclose(identifierToken.where, actualsPayload.where));
-    } else {
-      return new ast.Variable(identifierToken.text, identifierToken.where);
+  private returnStatement(): Return {
+    this.consume('KEYWORD', 'return');
+    let value: Expression | undefined = undefined;
+    if (!this.check('PUNCTUATION', ';') && !this.check('PUNCTUATION', '}') && !this.isAtEnd()) {
+      value = this.expression();
     }
+    while (this.match('PUNCTUATION', ';')) { }
+    return { id: generateId(), type: 'Return', value };
   }
 
-  apex(): ast.Expression {
-    if (this.has(TokenType.Integer)) {
-      const token = this.advance() as TextToken;
-      return new ast.Integer(parseInt(token.text), token.where);
-    } else if (this.has(TokenType.Float)) {
-      const token = this.advance() as TextToken;
-      return new ast.Float(parseFloat(token.text), token.where);
-    } else if (this.has(TokenType.Double)) {
-      const token = this.advance() as TextToken;
-      return new ast.Double(parseFloat(token.text), token.where);
-    } else if (this.has(TokenType.String)) {
-      const token = this.advance() as TextToken;
-      return new ast.String(token.text, token.where);
-    } else if (this.has(TokenType.True)) {
-      const token = this.advance();
-      return new ast.Boolean(true, token.where);
-    } else if (this.has(TokenType.False)) {
-      const token = this.advance();
-      return new ast.Boolean(false, token.where);
-    } else if (this.has(TokenType.Identifier)) {
-      return this.variable();
-    } else if (this.has(TokenType.LeftBracket)) {
-      return this.arrayLiteral();
-    } else if (this.has(TokenType.LeftParenthesis)) {
-      const leftToken = this.advance();
-      const expression = this.expression();
-      if (!this.has(TokenType.RightParenthesis)) {
-        throw new ParseError('A right parenthesis is missing.', Where.enclose(leftToken.where, expression.where));
+  // --- Expressions ---
+
+  private expression(): Expression {
+    // Handle tuple/sequence (comma-separated expressions)
+    const first = this.logicOr();
+    if (this.check('PUNCTUATION', ',') && !this.checkNext('PUNCTUATION', ';') && !this.checkNext('PUNCTUATION', ')') && !this.checkNext('PUNCTUATION', ']')) {
+      const elements: Expression[] = [first];
+      while (this.match('PUNCTUATION', ',')) {
+        // Stop if we hit end of tuple (semicolon, paren, etc)
+        if (this.check('PUNCTUATION', ';') || this.check('PUNCTUATION', ')') || this.check('PUNCTUATION', ']') || this.isAtEnd()) {
+          break;
+        }
+        elements.push(this.logicOr());
       }
-      const rightToken = this.advance(); // eat )
-      return new ast.Association(expression, Where.enclose(leftToken.where, rightToken.where));
-    } else {
-      if (this.i < this.tokens.length) {
-        throw new ParseError(`An unexpected token was encountered: ${this.tokens[this.i].toPretty(this.source)}.`, this.tokens[this.i].where);
+      if (elements.length > 1) {
+        return { id: generateId(), type: 'ArrayLiteral', elements } as any;
+      }
+    }
+    return first;
+  }
+
+  private logicOr(): Expression {
+    let left = this.logicAnd();
+    while (this.match('KEYWORD', 'or')) {
+      const right = this.logicAnd();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator: 'or', right };
+    }
+    return left;
+  }
+
+  private logicAnd(): Expression {
+    let left = this.equality();
+    while (this.match('KEYWORD', 'and')) {
+      const right = this.equality();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator: 'and', right };
+    }
+    return left;
+  }
+
+  private equality(): Expression {
+    let left = this.comparison();
+    while (this.match('OPERATOR', '==', '!=')) {
+      const operator = this.previous().value;
+      const right = this.comparison();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+    }
+    return left;
+  }
+
+  private comparison(): Expression {
+    let left = this.term();
+    while (this.match('OPERATOR', '>', '>=', '<', '<=')) {
+      const operator = this.previous().value;
+      const right = this.term();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+    }
+    return left;
+  }
+
+  private term(): Expression {
+    let left = this.factor();
+    while (this.match('OPERATOR', '+', '-')) {
+      const operator = this.previous().value;
+      const right = this.factor();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+    }
+    return left;
+  }
+
+  private factor(): Expression {
+    let left = this.exponent();
+    while (this.match('OPERATOR', '*', '/', '%')) {
+      const operator = this.previous().value;
+      const right = this.exponent();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+    }
+    return left;
+  }
+
+  private exponent(): Expression {
+    let left = this.unary();
+    while (this.match('OPERATOR', '**')) {
+      const operator = this.previous().value;
+      const right = this.unary();
+      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+    }
+    return left;
+  }
+
+  private unary(): Expression {
+    if (this.match('KEYWORD', 'not')) {
+      const right = this.unary();
+      return { id: generateId(), type: 'UnaryExpression', operator: 'not', argument: right };
+    }
+    if (this.match('OPERATOR', '-', '+')) {
+      const operator = this.previous().value; // Capture the operator before recursive call
+      const right = this.unary();
+      return { id: generateId(), type: 'UnaryExpression', operator, argument: right };
+    }
+    return this.call();
+  }
+
+  private call(): Expression {
+    let expr = this.primary();
+    while (true) {
+      if (this.match('PUNCTUATION', '(')) {
+        expr = this.finishCall(expr);
+      } else if (this.match('PUNCTUATION', '.')) {
+        const name = this.consume('IDENTIFIER').value;
+        expr = { id: generateId(), type: 'MemberExpression', object: expr, property: { id: generateId(), type: 'Identifier', name }, isMethod: false };
+      } else if (this.match('PUNCTUATION', '[')) {
+        let index: Expression | undefined = undefined;
+        let indexEnd: Expression | undefined = undefined;
+        let indexStep: Expression | undefined = undefined;
+
+        if (!this.check('PUNCTUATION', ':')) {
+          index = this.expression();
+        } else {
+          // Implied slice zero bound (e.g. [:3])
+          index = { id: generateId(), type: 'Literal', value: 0, raw: '0' };
+        }
+
+        if (this.match('PUNCTUATION', ':')) {
+          if (!this.check('PUNCTUATION', ':') && !this.check('PUNCTUATION', ']')) {
+            indexEnd = this.expression();
+          }
+          if (this.match('PUNCTUATION', ':')) {
+            if (!this.check('PUNCTUATION', ']')) {
+              indexStep = this.expression();
+            }
+          }
+          this.consume('PUNCTUATION', ']');
+          expr = { id: generateId(), type: 'IndexExpression', object: expr, index, indexEnd, indexStep };
+        } else {
+          this.consume('PUNCTUATION', ']');
+          expr = { id: generateId(), type: 'IndexExpression', object: expr, index };
+        }
       } else {
-        throw new Error('The program ended unexpectedly.');
+        break;
       }
     }
+    return expr;
   }
-}
 
-export function parse(tokens: Token[], source: string) {
-  return new PythonParser(tokens, source).parse();
-}
+  private finishCall(callee: Expression): CallExpression {
+    const args: Expression[] = [];
+    if (!this.check('PUNCTUATION', ')')) {
+      do { args.push(this.logicOr()); } while (this.match('PUNCTUATION', ','));
+    }
+    this.consume('PUNCTUATION', ')');
 
-export function parseExpression(tokens: Token[], source: string) {
-  return new PythonParser(tokens, source).expression();
+    if (callee.type === 'MemberExpression') { (callee as any).isMethod = true; }
+
+    return { id: generateId(), type: 'CallExpression', callee: callee as any, arguments: args };
+  }
+
+  private primary(): Expression {
+    if (this.match('NUMBER')) return { id: generateId(), type: 'Literal', value: parseFloat(this.previous().value), raw: this.previous().value };
+    if (this.match('STRING')) return { id: generateId(), type: 'Literal', value: this.previous().value, raw: `"${this.previous().value}"` };
+    if (this.match('BOOLEAN')) return { id: generateId(), type: 'Literal', value: this.previous().value === 'true', raw: this.previous().value };
+
+    if (this.match('KEYWORD', 'None')) return { id: generateId(), type: 'Literal', value: null, raw: 'None' };
+
+    if (this.match('IDENTIFIER')) return { id: generateId(), type: 'Identifier', name: this.previous().value };
+
+    if (this.match('PUNCTUATION', '[')) {
+      // Check for empty list or list comprehension
+      if (this.check('PUNCTUATION', ']')) {
+        this.advance();
+        return { id: generateId(), type: 'ArrayLiteral', elements: [] };
+      }
+      
+      const firstExpr = this.logicOr();
+      
+      // Check for list comprehension: [expr for var in iterable]
+      if (this.check('KEYWORD', 'for')) {
+        this.advance(); // consume 'for'
+        const varName = this.consume('IDENTIFIER').value;
+        this.consume('KEYWORD', 'in');
+        const iterable = this.logicOr();
+        this.consume('PUNCTUATION', ']');
+        return { id: generateId(), type: 'ListComprehension', element: firstExpr, variable: varName, iterable } as any;
+      }
+      
+      // Regular list literal
+      const elements: Expression[] = [firstExpr];
+      while (this.match('PUNCTUATION', ',')) {
+        if (this.check('PUNCTUATION', ']')) break;
+        elements.push(this.logicOr());
+      }
+      this.consume('PUNCTUATION', ']');
+      return { id: generateId(), type: 'ArrayLiteral', elements };
+    }
+
+    if (this.match('PUNCTUATION', '(')) {
+      const expr = this.expression();
+      this.consume('PUNCTUATION', ')');
+      return expr;
+    }
+    throw new Error(`Expect expression. Found ${this.peek().value}`);
+  }
+
+  private match(type: TokenType, ...values: string[]): boolean {
+    if (this.check(type, ...values)) { this.advance(); return true; }
+    return false;
+  }
+  private check(type: TokenType, ...values: string[]): boolean {
+    if (this.isAtEnd()) return false;
+    const token = this.peek();
+    if (token.type !== type) return false;
+    if (values.length > 0 && !values.includes(token.value)) return false;
+    return true;
+  }
+  private checkNext(type: TokenType, value?: string): boolean {
+    if (this.current + 1 >= this.tokens.length) return false;
+    const token = this.tokens[this.current + 1];
+    if (token.type !== type) return false;
+    if (value && token.value !== value) return false;
+    return true;
+  }
+  private consume(type: TokenType, value?: string): Token {
+    if (this.check(type, ...(value ? [value] : []))) return this.advance();
+    const found = this.peek();
+    throw new Error(`Expected token ${type} ${value || ''} but found ${found.type} '${found.value}' at position ${found.start}`);
+  }
+  private advance(): Token {
+    if (!this.isAtEnd()) this.current++;
+    return this.previous();
+  }
+  private isAtEnd(): boolean { return this.peek().type === 'EOF'; }
+  private peek(): Token { return this.tokens[this.current]; }
+  private previous(): Token { return this.tokens[this.current - 1]; }
 }

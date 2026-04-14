@@ -1,235 +1,113 @@
-import {Lexer} from '../lexer.js';
-import {Token, TokenType} from '../token.js';
-import {Where} from '../where.js';
-import {LexError} from '../error.js';
+/**
+ * Java lexer that tokenizes Java source code.
+ * Handles Java-specific keywords, operators, and syntax elements.
+ */
 
-class PraxisLexer extends Lexer {
-  private indents: string[];
+import type { Token } from '../lexer';
 
-  constructor(source: string) {
-    super(source);
-    this.indents = [''];
+export class JavaLexer {
+  private pos = 0;
+  private input: string;
+
+  constructor(input: string) {
+    this.input = input;
   }
 
-  initialize() {
-    this.lexIndent();
-  }
+  tokenize(): Token[] {
+    const tokens: Token[] = [];
+    while (this.pos < this.input.length) {
+      const char = this.input[this.pos];
 
-  lexToken() {
-    if (this.has(' ') || this.has("\r")) {
-      this.abandon();
-    } else if (this.hasDigit()) {
-      this.lexNumber();
-    } else if (this.accept("\n")) {
-      this.lexLinebreak();
-    } else if (this.accept(',')) {
-      this.emitToken(TokenType.Comma);
-    } else if (this.has('.')) {
-      this.lexDot();
-    } else if (this.accept(';')) {
-      this.emitToken(TokenType.Semicolon);
-    } else if (this.accept('+')) {
-      if (this.accept('+')) {
-        this.emitToken(TokenType.DoublePlus);
-      } else {
-        this.emitToken(TokenType.Plus);
+      if (/\s/.test(char)) { this.pos++; continue; }
+
+      // Comments
+      if (char === '/' && this.input[this.pos + 1] === '/') {
+        while (this.pos < this.input.length && this.input[this.pos] !== '\n') this.pos++;
+        continue;
       }
-    } else if (this.accept('%')) {
-      this.emitToken(TokenType.Percent);
-    } else if (this.accept('(')) {
-      this.emitToken(TokenType.LeftParenthesis);
-    } else if (this.accept(')')) {
-      this.emitToken(TokenType.RightParenthesis);
-    } else if (this.accept('[')) {
-      this.emitToken(TokenType.LeftBracket);
-    } else if (this.accept(']')) {
-      this.emitToken(TokenType.RightBracket);
-    } else if (this.accept('{')) {
-      this.emitToken(TokenType.LeftCurly);
-    } else if (this.accept('}')) {
-      this.emitToken(TokenType.RightCurly);
-    } else if (this.accept('~')) {
-      this.emitToken(TokenType.Tilde);
-    } else if (this.accept('^')) {
-      this.emitToken(TokenType.Circumflex);
-    } else if (this.has('\'')) {
-      this.lexCharacter();
-    } else if (this.has('"')) {
-      this.lexString();
-    } else if (this.hasAlphabetic()) {
-      this.lexIdentifier();
-    } else if (this.accept('*')) {
-      if (this.accept('*')) {
-        this.emitToken(TokenType.DoubleAsterisk);
-      } else {
-        this.emitToken(TokenType.Asterisk);
-      }
-    } else if (this.accept('&')) {
-      if (this.accept('&')) {
-        this.emitToken(TokenType.And);
-      } else {
-        this.emitToken(TokenType.Ampersand);
-      }
-    } else if (this.accept('|')) {
-      if (this.accept('|')) {
-        this.emitToken(TokenType.Or);
-      } else {
-        this.emitToken(TokenType.Pipe);
-      }
-    } else if (this.accept('!')) {
-      if (this.accept('=')) {
-        this.emitToken(TokenType.NotEqual);
-      } else {
-        this.emitToken(TokenType.Not);
-      }
-    } else if (this.accept('=')) {
-      if (this.accept('=')) {
-        this.emitToken(TokenType.DoubleEqual);
-      } else {
-        this.emitToken(TokenType.Equal);
-      }
-    } else if (this.accept('<')) {
-      if (this.accept('<')) {
-        this.emitToken(TokenType.DoubleLessThan);
-      } else if (this.accept('=')) {
-        this.emitToken(TokenType.LessThanOrEqual);
-      } else {
-        this.emitToken(TokenType.LessThan);
-      }
-    } else if (this.accept('>')) {
-      if (this.accept('>')) {
-        this.emitToken(TokenType.DoubleGreaterThan);
-      } else if (this.accept('=')) {
-        this.emitToken(TokenType.GreaterThanOrEqual);
-      } else {
-        this.emitToken(TokenType.GreaterThan);
-      }
-    } else if (this.accept('/')) {
-      if (this.accept('/')) {
-        // Skip over leading whitespace.
-        while (this.accept(' ')) {}
-        let text = '';
-        while (this.hasOtherwise("\n")) {
-          text += this.source[this.i];
-          this.advance();
+
+      if (/\d/.test(char)) {
+        let value = '';
+        const start = this.pos;
+        while (this.pos < this.input.length && (/\d/.test(this.input[this.pos]) || this.input[this.pos] === '.')) {
+          value += this.input[this.pos++];
         }
-        this.emitTextToken(TokenType.LineComment, text);
-      } else {
-        this.emitToken(TokenType.ForwardSlash);
+        tokens.push({ type: 'NUMBER', value, start });
+        continue;
       }
-    } else if (this.has('-')) {
-      if (this.hasDigitAhead(1)) {
-        this.lexNumber();
-      } else {
-        this.advance();
-        if (this.accept('-')) {
-          this.emitToken(TokenType.DoubleHyphen);
-        } else {
-          this.emitToken(TokenType.Hyphen);
+
+      if (char === '"') {
+        const start = this.pos;
+        this.pos++;
+        let value = '';
+        while (this.pos < this.input.length && this.input[this.pos] !== '"') {
+          value += this.input[this.pos++];
         }
-      }
-    } else {
-      throw new LexError(`The program contains an unexpected character: \`${this.source[this.i]}\`.`, new Where(this.i, this.i + 1));
-    }
-  }
-
-  lexLinebreak() {
-    this.emitToken(TokenType.Linebreak);
-    if (this.i < this.source.length) {
-      this.lexIndent();
-    }
-  }
-
-  lexDot() {
-    this.advance(); // eat .
-    if (this.accept('.')) {
-      this.emitToken(TokenType.DotDot);
-    } else {
-      this.emitToken(TokenType.Period);
-    }
-  }
-
-  lexIndent() {
-    let indent = '';
-
-    // First gobble up all the whitespace there is.
-    while (this.has(' ') || this.has("\t")) {
-      indent += this.source[this.i];
-      this.advance();
-    }
-
-    // If the whole line is whitespace, we do not give it any influence over
-    // the indentation.
-    if (this.i === this.source.length || this.has("\r") || this.has("\n")) {
-      if (this.has("\n")) {
-        this.advance();
-        this.lexLinebreak();
-      } else {
-        this.abandon();
-      }
-    }
-
-    // Issue an indent token only if the indent extends the previous indent.
-    else if (indent.length > 0 && indent.length > this.indents[this.indents.length - 1].length && indent.startsWith(this.indents[this.indents.length - 1])) {
-      this.indents.push(indent);
-      this.emitToken(TokenType.Indent);
-    }
-
-    else {
-      // Pop indents until match. If no match, issue error.
-      while (this.indents.length > 1 &&
-             this.indents[this.indents.length - 1].startsWith(indent) &&
-             this.indents[this.indents.length - 1] !== indent) {
-        this.indents.pop();
-        this.emitToken(TokenType.Unindent);
+        this.pos++;
+        tokens.push({ type: 'STRING', value, start });
+        continue;
       }
 
-      if (this.indents[this.indents.length - 1] !== indent) {
-        throw new LexError('A line is not indented like the line above it.', new Where(this.start, this.i));
+      if (/[a-zA-Z_]/.test(char)) {
+        const start = this.pos;
+        let value = '';
+        while (this.pos < this.input.length && /[a-zA-Z0-9_]/.test(this.input[this.pos])) {
+          value += this.input[this.pos++];
+        }
+        // Keywords including OOP-related keywords
+        const keywords = ['public', 'class', 'static', 'void', 'int', 'double', 'boolean', 'if', 'else', 'while', 'for', 'do', 'return', 'true', 'false', 'var', 'new', 'private', 'protected', 'extends', 'this', 'null', 'final', 'abstract', 'interface', 'implements', 'package', 'import', 'String', 'char', 'float', 'long', 'switch', 'case', 'default', 'break'];
+        const type = keywords.includes(value) ? 'KEYWORD' : 'IDENTIFIER';
+        if (value === 'true' || value === 'false') tokens.push({ type: 'BOOLEAN', value, start });
+        else tokens.push({ type, value, start });
+        continue;
       }
+
+      if (['+', '-', '*', '/', '=', '>', '<', '!', '&', '|', '%', '^', '~'].includes(char)) {
+        const start = this.pos;
+        const next = this.input[this.pos + 1];
+        const next2 = this.input[this.pos + 2];
+        if (char === '=' && next === '=') { tokens.push({ type: 'OPERATOR', value: '==', start }); this.pos += 2; continue; }
+        if (char === '!' && next === '=') { tokens.push({ type: 'OPERATOR', value: '!=', start }); this.pos += 2; continue; }
+        if (char === '&' && next === '&') { tokens.push({ type: 'OPERATOR', value: '&&', start }); this.pos += 2; continue; }
+        if (char === '&' && next === '=') { tokens.push({ type: 'OPERATOR', value: '&=', start }); this.pos += 2; continue; }
+        if (char === '|' && next === '|') { tokens.push({ type: 'OPERATOR', value: '||', start }); this.pos += 2; continue; }
+        if (char === '|' && next === '=') { tokens.push({ type: 'OPERATOR', value: '|=', start }); this.pos += 2; continue; }
+        if (char === '^' && next === '=') { tokens.push({ type: 'OPERATOR', value: '^=', start }); this.pos += 2; continue; }
+        if (char === '<' && next === '<') { 
+          if (next2 === '=') { tokens.push({ type: 'OPERATOR', value: '<<=', start }); this.pos += 3; continue; }
+          tokens.push({ type: 'OPERATOR', value: '<<', start }); this.pos += 2; continue; 
+        }
+        if (char === '>' && next === '>') {
+          if (next2 === '>') {
+            if (this.input[this.pos + 3] === '=') { tokens.push({ type: 'OPERATOR', value: '>>>=', start }); this.pos += 4; continue; }
+            tokens.push({ type: 'OPERATOR', value: '>>>', start }); this.pos += 3; continue;
+          }
+          if (next2 === '=') { tokens.push({ type: 'OPERATOR', value: '>>=', start }); this.pos += 3; continue; }
+          tokens.push({ type: 'OPERATOR', value: '>>', start }); this.pos += 2; continue;
+        }
+        if (char === '<' && next === '=') { tokens.push({ type: 'OPERATOR', value: '<=', start }); this.pos += 2; continue; }
+        if (char === '>' && next === '=') { tokens.push({ type: 'OPERATOR', value: '>=', start }); this.pos += 2; continue; }
+        if (char === '+' && next === '+') { tokens.push({ type: 'OPERATOR', value: '++', start }); this.pos += 2; continue; }
+        if (char === '-' && next === '-') { tokens.push({ type: 'OPERATOR', value: '--', start }); this.pos += 2; continue; }
+        if (char === '+' && next === '=') { tokens.push({ type: 'OPERATOR', value: '+=', start }); this.pos += 2; continue; }
+        if (char === '-' && next === '=') { tokens.push({ type: 'OPERATOR', value: '-=', start }); this.pos += 2; continue; }
+        if (char === '*' && next === '*') { tokens.push({ type: 'OPERATOR', value: '**', start }); this.pos += 2; continue; }
+        if (char === '*' && next === '=') { tokens.push({ type: 'OPERATOR', value: '*=', start }); this.pos += 2; continue; }
+        if (char === '/' && next === '=') { tokens.push({ type: 'OPERATOR', value: '/=', start }); this.pos += 2; continue; }
+        if (char === '%' && next === '=') { tokens.push({ type: 'OPERATOR', value: '%=', start }); this.pos += 2; continue; }
+
+        tokens.push({ type: 'OPERATOR', value: char, start: this.pos++ });
+        continue;
+      }
+
+      if (['(', ')', '{', '}', '[', ']', ';', ',', '.', ':', '?'].includes(char)) {
+        tokens.push({ type: 'PUNCTUATION', value: char, start: this.pos++ });
+        continue;
+      }
+
+      throw new Error(`Unexpected character: ${char} at position ${this.pos}`);
     }
+    tokens.push({ type: 'EOF', value: '', start: this.pos });
+    return tokens;
   }
-
-  lexIdentifier() {
-    let text = '';
-    while (this.hasAlphanumeric()) {
-      text += this.source[this.i];
-      this.advance();
-    }
-
-    // Check for System.out.println
-    if (text === 'System' && this.source.substring(this.i, this.i + 12) === '.out.println') {
-      // Consume the entire .out.println sequence
-      this.i += 12;
-      this.emitToken(TokenType.Print);
-      return;
-    }
-
-    if (PraxisLexer.keywords.hasOwnProperty(text)) {
-      this.emitToken(PraxisLexer.keywords[text]);
-    } else {
-      this.emitTextToken(TokenType.Identifier, text);
-    }
-  }
-
-  static keywords: {[index: string]: TokenType} = {
-    class: TokenType.Class,
-    do: TokenType.Do,
-    else: TokenType.Else,
-    extends: TokenType.Extends,
-    false: TokenType.False,
-    for: TokenType.For,
-    if: TokenType.If,
-    new: TokenType.New,
-    null: TokenType.Null,
-    private: TokenType.Private,
-    public: TokenType.Public,
-    return: TokenType.Return,
-    true: TokenType.True,
-    while: TokenType.While,
-  };
-}
-
-export function lex(source: string) {
-  return new PraxisLexer(source).lex();
 }

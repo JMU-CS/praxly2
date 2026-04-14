@@ -1,0 +1,174 @@
+@top Program { statement* }
+
+@skip { space | LineComment }
+
+@precedence {
+  member @left,
+  call @left,
+  prefix,
+  multiply @left,
+  add @left,
+  compare @left,
+  and @left,
+  or @left,
+  stmt @right,
+  assign @right
+}
+
+statement {
+  ClassDeclaration |
+  ProcedureDeclaration |
+  IfStatement |
+  RepeatStatement |
+  ForStatement |
+  ReturnStatement |
+  DisplayStatement |
+  AssignmentStatement |
+  ExpressionStatement { expression }
+}
+
+Block {
+  "{" statement* "}"
+}
+
+Modifier { kw<"PUBLIC"> | kw<"PRIVATE"> }
+
+ClassDeclaration {
+  kw<"CLASS"> Identifier (kw<"EXTENDS"> Identifier)? "{" ClassMember* "}"
+}
+
+ClassMember {
+  Modifier? kw<"CONSTRUCTOR"> "(" commaSep<Identifier> ")" Block |
+  Modifier? kw<"PROCEDURE"> Identifier "(" commaSep<Identifier> ")" Block |
+  Modifier? Identifier (AssignOp expression)?
+}
+
+ProcedureDeclaration {
+  kw<"PROCEDURE"> Identifier "(" commaSep<Identifier> ")" Block
+}
+
+IfStatement {
+  kw<"IF"> expression Block (kw<"ELSE"> Block)?
+}
+
+RepeatStatement {
+  kw<"REPEAT"> kw<"UNTIL"> expression Block |
+  kw<"REPEAT"> expression kw<"TIMES"> Block
+}
+
+ForStatement {
+  kw<"FOR"> kw<"EACH"> Identifier kw<"IN"> expression Block
+}
+
+ReturnStatement {
+  // The !stmt precedence marker resolves the shift/reduce conflict
+  // by forcing the parser to greedily consume the trailing expression.
+  kw<"RETURN"> (!stmt expression)?
+}
+
+DisplayStatement {
+  kw<"DISPLAY"> expression
+}
+
+AssignmentStatement {
+  expression !assign AssignOp expression
+}
+
+expression {
+  Identifier |
+  Number |
+  String |
+  Boolean |
+  Null |
+  ThisExpression |
+  ListLiteral |
+  InputExpression |
+  NewExpression |
+  UnaryExpression |
+  BinaryExpression |
+  MemberExpression |
+  CallExpression |
+  IndexExpression |
+  ParenthesizedExpression
+}
+
+ListLiteral {
+  "[" commaSep<expression> "]"
+}
+
+InputExpression {
+  kw<"INPUT"> "(" ")"
+}
+
+NewExpression {
+  kw<"NEW"> Identifier "(" commaSep<expression> ")"
+}
+
+ThisExpression {
+  kw<"THIS">
+}
+
+UnaryExpression {
+  !prefix (kw<"NOT"> | Minus) expression
+}
+
+BinaryExpression {
+  expression !multiply (Multiply | Divide | kw<"MOD">) expression |
+  expression !add (Plus | Minus) expression |
+  expression !compare (Eq | Neq | Lt | Gt | Lte | Gte) expression |
+  expression !and kw<"AND"> expression |
+  expression !or kw<"OR"> expression
+}
+
+MemberExpression {
+  expression !member "." Identifier
+}
+
+CallExpression {
+  expression !call "(" commaSep<expression> ")"
+}
+
+IndexExpression {
+  expression !member "[" expression "]"
+}
+
+ParenthesizedExpression {
+  "(" expression ")"
+}
+
+commaSep<rule> { "" | rule ("," rule)* }
+
+kw<term> { @specialize[@name={term}]<Identifier, term> }
+
+@tokens {
+  space { $[ \t\n\r]+ }
+  LineComment { "//" ![\n]* }
+
+  Identifier { $[a-zA-Z_] $[a-zA-Z0-9_]* }
+  Number { $[0-9]+ ("." $[0-9]+)? }
+  String { '"' (!["\\] | "\\" _)* '"' | "'" (!['\\] | "\\" _)* "'" }
+
+  Boolean { "true" | "false" | "TRUE" | "FALSE" }
+  Null { "null" | "NULL" | "None" }
+
+  AssignOp { "<-" }
+  Eq { "=" | "==" }
+  Neq { "!=" | "<>" }
+  Lt { "<" }
+  Gt { ">" }
+  Lte { "<=" }
+  Gte { ">=" }
+
+  Plus { "+" }
+  Minus { "-" }
+  Multiply { "*" }
+  Divide { "/" }
+
+  "{" "}" "(" ")" "[" "]" "," "."
+
+  @precedence { LineComment, Divide }
+  @precedence { AssignOp, Lte, Neq, Lt }
+  @precedence { Gte, Gt }
+  @precedence { Eq }
+  @precedence { Boolean, Null, Identifier }
+}
