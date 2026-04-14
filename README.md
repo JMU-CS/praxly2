@@ -6,7 +6,7 @@
 - **Visualize** the Abstract Syntax Tree (AST)
 - **Execute** the code entirely within the browser
 
-Praxly2 is a modern TypeScript rewrite featuring a robust compiler architecture with lexical analysis, parsing, interpretation, and code generation—all running securely in the browser with no backend required.
+Praxly2 is a modern TypeScript rewrite of [Praxly](https://github.com/JMU-CS/praxly) featuring a robust compiler architecture with lexical analysis, parsing, interpretation, and code generation—all running securely in the browser with no backend required.
 
 ### Features
 
