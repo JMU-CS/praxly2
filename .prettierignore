@@ -1,0 +1,7 @@
+dist
+node_modules
+src/language/csp/csp.grammar.js
+src/language/csp/csp.grammar.terms.js
+src/language/praxis/praxis.grammar.js
+src/language/praxis/praxis.grammar.terms.js
+csv/test-results.json

@@ -17,7 +17,7 @@ describe('Python Lexer', () => {
     it('should tokenize strings with single and double quotes', () => {
       const lexer = new PythonLexer('"hello" \'world\'');
       const tokens = lexer.tokenize();
-      const strings = tokens.filter(t => t.type === 'STRING');
+      const strings = tokens.filter((t) => t.type === 'STRING');
       expect(strings.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -37,7 +37,7 @@ describe('Python Lexer', () => {
     it('should tokenize Python keywords', () => {
       const lexer = new PythonLexer('def class if elif else while for in return');
       const tokens = lexer.tokenize();
-      const keywords = tokens.filter(t => t.type === 'KEYWORD').map(t => t.value);
+      const keywords = tokens.filter((t) => t.type === 'KEYWORD').map((t) => t.value);
       expect(keywords).toContain('def');
       expect(keywords).toContain('class');
       expect(keywords).toContain('if');
@@ -47,7 +47,7 @@ describe('Python Lexer', () => {
     it('should skip comments', () => {
       const lexer = new PythonLexer('x = 5 # comment\ny = 10');
       const tokens = lexer.tokenize();
-      const identifiers = tokens.filter(t => t.type === 'IDENTIFIER').map(t => t.value);
+      const identifiers = tokens.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
       expect(identifiers).toContain('x');
       expect(identifiers).toContain('y');
     });
@@ -55,7 +55,7 @@ describe('Python Lexer', () => {
     it('should handle indentation', () => {
       const lexer = new PythonLexer('if x > 5:\n  print(x)');
       const tokens = lexer.tokenize();
-      const punctuation = tokens.filter(t => t.type === 'PUNCTUATION').map(t => t.value);
+      const punctuation = tokens.filter((t) => t.type === 'PUNCTUATION').map((t) => t.value);
       expect(punctuation).toContain('{');
       expect(punctuation).toContain('}');
     });
@@ -63,7 +63,7 @@ describe('Python Lexer', () => {
     it('should handle comparison operators', () => {
       const lexer = new PythonLexer('x == y x != y x <= y x >= y');
       const tokens = lexer.tokenize();
-      const operators = tokens.filter(t => t.type === 'OPERATOR').map(t => t.value);
+      const operators = tokens.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(operators).toContain('==');
       expect(operators).toContain('!=');
       expect(operators).toContain('<=');
@@ -73,7 +73,7 @@ describe('Python Lexer', () => {
     it('should handle compound assignment operators', () => {
       const lexer = new PythonLexer('x += 1 y -= 2 z *= 3');
       const tokens = lexer.tokenize();
-      const operators = tokens.filter(t => t.type === 'OPERATOR').map(t => t.value);
+      const operators = tokens.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(operators).toContain('+=');
       expect(operators).toContain('-=');
       expect(operators).toContain('*=');
@@ -84,7 +84,7 @@ describe('Python Lexer', () => {
     it('should tokenize logical expression', () => {
       const lexer = new PythonLexer('x and y or not z');
       const tokens = lexer.tokenize();
-      const keywords = tokens.filter(t => t.type === 'KEYWORD').map(t => t.value);
+      const keywords = tokens.filter((t) => t.type === 'KEYWORD').map((t) => t.value);
       expect(keywords).toContain('and');
       expect(keywords).toContain('or');
       expect(keywords).toContain('not');
@@ -93,7 +93,7 @@ describe('Python Lexer', () => {
     it('should tokenize list literal', () => {
       const lexer = new PythonLexer('[1, 2, 3]');
       const tokens = lexer.tokenize();
-      const punctuation = tokens.filter(t => t.type === 'PUNCTUATION').map(t => t.value);
+      const punctuation = tokens.filter((t) => t.type === 'PUNCTUATION').map((t) => t.value);
       expect(punctuation).toContain('[');
       expect(punctuation).toContain(']');
     });
@@ -103,17 +103,17 @@ describe('Python Lexer', () => {
     it('should generate braces for indentation increases', () => {
       const lexer = new PythonLexer('if True:\n  x = 5');
       const tokens = lexer.tokenize();
-      const punctuation = tokens.filter(t => t.type === 'PUNCTUATION').map(t => t.value);
+      const punctuation = tokens.filter((t) => t.type === 'PUNCTUATION').map((t) => t.value);
       // Should have opening brace for indentation
-      expect(punctuation.some(p => p === '{')).toBe(true);
+      expect(punctuation.some((p) => p === '{')).toBe(true);
     });
 
     it('should generate braces for indentation decreases', () => {
       const lexer = new PythonLexer('if True:\n  x = 5\ny = 10');
       const tokens = lexer.tokenize();
-      const punctuation = tokens.filter(t => t.type === 'PUNCTUATION').map(t => t.value);
+      const punctuation = tokens.filter((t) => t.type === 'PUNCTUATION').map((t) => t.value);
       // Should have closing brace for dedentation
-      expect(punctuation.some(p => p === '}')).toBe(true);
+      expect(punctuation.some((p) => p === '}')).toBe(true);
     });
   });
 });
@@ -263,10 +263,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -279,10 +279,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -295,10 +295,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -312,10 +312,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -330,10 +330,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -347,10 +347,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -366,10 +366,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -382,10 +382,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -398,10 +398,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -418,10 +418,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -437,10 +437,10 @@ describe('Python Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -461,10 +461,10 @@ finally:
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -477,10 +477,10 @@ finally:
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -496,10 +496,10 @@ else:
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const emitter = new PythonEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new PythonEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -852,7 +852,7 @@ def foo():
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      
+
       // Should still get an AST even with incomplete code
       expect(program).toBeDefined();
       expect(program.type).toBe('Program');
@@ -871,11 +871,11 @@ print("world")
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      
+
       // Should be able to translate partial AST
       const translator = new Translator();
       const result = translator.translate(program, 'java');
-      
+
       expect(result).toBeDefined();
       expect(result.length).toBeGreaterThan(0);
       // Should not contain error message
@@ -890,7 +890,7 @@ describe('Python Bug Fixes', () => {
       const source = `x = 2 ** 3`;
       const lexer = new PythonLexer(source);
       const tokens = lexer.tokenize();
-      expect(tokens.some(t => t.type === 'OPERATOR' && t.value === '**')).toBe(true);
+      expect(tokens.some((t) => t.type === 'OPERATOR' && t.value === '**')).toBe(true);
     });
 
     it('should translate Python ** to Math.pow() in Java', () => {
@@ -966,7 +966,7 @@ describe('Python Bug Fixes', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const forStmt = (program.body[0] as any);
+      const forStmt = program.body[0] as any;
       expect(forStmt.type).toBe('For');
       expect(forStmt.variables).toBeDefined();
       expect(forStmt.variables.length).toBe(2);
@@ -1003,16 +1003,16 @@ describe('Python Bug Fixes', () => {
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      
+
       expect(program.body.length).toBe(1);
       const assignment = program.body[0] as any;
       expect(assignment.type).toBe('Assignment');
-      
+
       const indexExpr = assignment.value;
       expect(indexExpr.type).toBe('IndexExpression');
       expect(indexExpr.object.type).toBe('Identifier');
       expect(indexExpr.object.name).toBe('nums');
-      
+
       // The index should be a UnaryExpression with minus operator
       expect(indexExpr.index.type).toBe('UnaryExpression');
       expect(indexExpr.index.operator).toBe('-');
@@ -1105,7 +1105,7 @@ describe('Python Bug Fixes', () => {
       const pythonEmitter = new PythonEmitter({
         symbolTable: new SymbolTable(),
         functionReturnTypes: new Map(),
-        functionParamTypes: new Map()
+        functionParamTypes: new Map(),
       });
       pythonEmitter.visitProgram(program);
       const code = pythonEmitter.getGeneratedCode();
@@ -1121,7 +1121,7 @@ describe('Python Bug Fixes', () => {
       const pythonEmitter = new PythonEmitter({
         symbolTable: new SymbolTable(),
         functionReturnTypes: new Map(),
-        functionParamTypes: new Map()
+        functionParamTypes: new Map(),
       });
       pythonEmitter.visitProgram(program);
       const code = pythonEmitter.getGeneratedCode();
@@ -1139,27 +1139,27 @@ middle_slice = nums[1:3]`;
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      
+
       // All 4 statements should be parsed
       expect(program.body.length).toBe(4);
-      
+
       // First statement: array literal assignment
       const numsAssign = program.body[0] as any;
       expect(numsAssign.type).toBe('Assignment');
       expect(numsAssign.value.type).toBe('ArrayLiteral');
-      
+
       // Second statement: positive index
       const firstAssign = program.body[1] as any;
       expect(firstAssign.type).toBe('Assignment');
       expect(firstAssign.value.type).toBe('IndexExpression');
       expect(firstAssign.value.index.type).toBe('Literal');
       expect(firstAssign.value.index.value).toBe(0);
-      
+
       // Third statement: negative index
       const lastAssign = program.body[2] as any;
       expect(lastAssign.type).toBe('Assignment');
       expect(lastAssign.value.type).toBe('IndexExpression');
-      
+
       // Fourth statement: slice
       const sliceAssign = program.body[3] as any;
       expect(sliceAssign.type).toBe('Assignment');
@@ -1178,22 +1178,24 @@ middle_slice = nums[1:3]`;
       const program = parser.parse();
       const translator = new Translator();
       const javaCode = translator.translate(program, 'java');
-      
+
       // Should have all 4 assignments
-      const lines = javaCode.split('\n').filter(l => l.includes('=') && !l.trim().startsWith('//'));
+      const lines = javaCode
+        .split('\n')
+        .filter((l) => l.includes('=') && !l.trim().startsWith('//'));
       expect(lines.length).toBeGreaterThanOrEqual(4);
-      
+
       // Should have positive index: nums[0]
       expect(javaCode).toContain('nums[0]');
-      
+
       // Should have negative index translated: nums.length - 1
       expect(javaCode).toContain('nums.length - 1');
       expect(javaCode).not.toContain('nums[-1]');
       expect(javaCode).not.toContain('nums[11]');
-      
+
       // Should have array slice: Arrays.copyOfRange
       expect(javaCode).toContain('Arrays.copyOfRange');
-      
+
       // Should be valid Java
       expect(javaCode).toContain('public class Main');
       expect(javaCode).toContain('{');
@@ -1208,7 +1210,7 @@ middle_slice = nums[1:3]`;
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const printStmt = (program.body[0] as any);
+      const printStmt = program.body[0] as any;
       expect(printStmt.expressions.length).toBe(3);
     });
 
@@ -1268,7 +1270,7 @@ result = foo(1, 2, 3)`;
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      const assignment = (program.body[0] as any);
+      const assignment = program.body[0] as any;
       expect(assignment.value.type).toBe('ListComprehension');
     });
 
@@ -1406,12 +1408,12 @@ d = data[-3:-1]`;
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      
+
       expect(program.body.length).toBe(5);
-      
+
       const translator = new Translator();
       const javaCode = translator.translate(program, 'java');
-      
+
       // Verify all statements translated
       expect(javaCode).toContain('data[0]');
       expect(javaCode).toContain('data.length - 1');
@@ -1431,14 +1433,93 @@ slice_val = nums[1:3]`;
       const pythonEmitter = new PythonEmitter({
         symbolTable: new SymbolTable(),
         functionReturnTypes: new Map(),
-        functionParamTypes: new Map()
+        functionParamTypes: new Map(),
       });
       pythonEmitter.visitProgram(program);
       const pythonCode = pythonEmitter.getGeneratedCode();
-      
+
       // Python should keep negative indices and slicing
       expect(pythonCode).toContain('[-1]');
       expect(pythonCode).toContain('[1:3]');
+    });
+  });
+
+  describe('Class Translation', () => {
+    it('should strip self from constructor parameters in AST', () => {
+      const source = `class Meow:
+  def __init__(self, x, y):
+    self.x = x
+    self.y = y`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+
+      const classDecl = program.body[0] as any;
+      const ctor = classDecl.body.find((member: any) => member.type === 'Constructor');
+      expect(ctor).toBeDefined();
+      expect(ctor.params.map((p: any) => p.name)).toEqual(['x', 'y']);
+    });
+
+    it('should translate Python class constructor to Java class name and this references', () => {
+      const source = `class Meow:
+  def __init__(self, x, y):
+    self.x = x
+    self.y = y`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaCode = translator.translate(program, 'java');
+
+      expect(javaCode).toContain('public class Meow');
+      expect(javaCode).toContain('public Meow(');
+      expect(javaCode).not.toContain('TempClass');
+      expect(javaCode).not.toContain('self,');
+      expect(javaCode).toContain('private Object x;');
+      expect(javaCode).toContain('private Object y;');
+      expect(javaCode).toContain('this.x = x;');
+      expect(javaCode).toContain('this.y = y;');
+    });
+
+    it('should preserve Python parameter type annotations for Java signatures', () => {
+      const source = `class Typed:
+  def __init__(self, x: int, y: double):
+    self.x = x
+    self.y = y`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaCode = translator.translate(program, 'java');
+
+      expect(javaCode).toContain('public Typed(int x, double y)');
+      expect(javaCode).toContain('private int x;');
+      expect(javaCode).toContain('private double y;');
+      expect(javaCode).not.toContain('Object x');
+      expect(javaCode).not.toContain('Object y');
+    });
+
+    it('should instantiate translated classes with new and concrete class type', () => {
+      const source = `class Meow:
+  def __init__(self, x: int):
+    self.x = x
+
+meow = Meow(10)
+print(meow.x)`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaCode = translator.translate(program, 'java');
+
+      expect(javaCode).toContain('public class Meow');
+      expect(javaCode).toContain('private int x;');
+      expect(javaCode).toContain('public Meow(int x)');
+      expect(javaCode).toContain('Meow meow = new Meow(10);');
     });
   });
 });

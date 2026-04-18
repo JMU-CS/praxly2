@@ -4,7 +4,25 @@
  */
 
 import type { Token, TokenType } from '../lexer';
-import { type Program, type Statement, type Block, type Expression, type If, type While, type For, type Return, type CallExpression, type Identifier, type FunctionDeclaration, type ClassDeclaration, type FieldDeclaration, type Constructor, type MethodDeclaration, type Parameter, generateId } from '../ast';
+import {
+  type Program,
+  type Statement,
+  type Block,
+  type Expression,
+  type If,
+  type While,
+  type For,
+  type Return,
+  type CallExpression,
+  type Identifier,
+  type FunctionDeclaration,
+  type ClassDeclaration,
+  type FieldDeclaration,
+  type Constructor,
+  type MethodDeclaration,
+  type Parameter,
+  generateId,
+} from '../ast';
 
 export class Parser {
   private tokens: Token[];
@@ -23,7 +41,7 @@ export class Parser {
       const endToken = this.tokens[this.current - 1];
       stmt.loc = {
         start: startToken.start,
-        end: endToken.start + endToken.value.length
+        end: endToken.start + endToken.value.length,
       };
     }
     return stmt;
@@ -32,7 +50,7 @@ export class Parser {
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
-      while (this.match('PUNCTUATION', ';')) { } // Clear leading empty lines
+      while (this.match('PUNCTUATION', ';')) {} // Clear leading empty lines
       if (this.isAtEnd()) break;
       try {
         body.push(this.topLevelDeclaration());
@@ -60,7 +78,25 @@ export class Parser {
 
     while (!this.isAtEnd()) {
       // Skip to next statement-starting keyword
-      if (this.check('KEYWORD', 'if', 'elif', 'else', 'while', 'for', 'def', 'class', 'return', 'try', 'except', 'finally', 'pass', 'break', 'continue')) {
+      if (
+        this.check(
+          'KEYWORD',
+          'if',
+          'elif',
+          'else',
+          'while',
+          'for',
+          'def',
+          'class',
+          'return',
+          'try',
+          'except',
+          'finally',
+          'pass',
+          'break',
+          'continue'
+        )
+      ) {
         return;
       }
       // Also sync on semicolons or closing braces
@@ -88,16 +124,45 @@ export class Parser {
     for (const stmt of blockBody) {
       if (stmt.type === 'FunctionDeclaration') {
         const fd = stmt as any as FunctionDeclaration;
+        const params = this.stripSelfParameter(fd.params);
         if (fd.name === '__init__') {
-          body.push({ id: generateId(), type: 'Constructor', access: 'public', params: fd.params, body: fd.body });
+          body.push({
+            id: generateId(),
+            type: 'Constructor',
+            access: 'public',
+            params,
+            body: fd.body,
+          });
         } else {
-          body.push({ id: generateId(), type: 'MethodDeclaration', name: fd.name, access: 'public', isStatic: false, returnType: 'auto', params: fd.params, body: fd.body });
+          body.push({
+            id: generateId(),
+            type: 'MethodDeclaration',
+            name: fd.name,
+            access: 'public',
+            isStatic: false,
+            returnType: 'auto',
+            params,
+            body: fd.body,
+          });
         }
       } else if (stmt.type === 'Assignment') {
-        body.push({ id: generateId(), type: 'FieldDeclaration', name: stmt.name, fieldType: 'auto', isStatic: false, access: 'public', initializer: stmt.value });
+        body.push({
+          id: generateId(),
+          type: 'FieldDeclaration',
+          name: stmt.name,
+          fieldType: 'auto',
+          isStatic: false,
+          access: 'public',
+          initializer: stmt.value,
+        });
       }
     }
     return { id: generateId(), type: 'ClassDeclaration', name, superClass, body };
+  }
+
+  private stripSelfParameter(params: Parameter[]): Parameter[] {
+    if (params.length === 0) return params;
+    return params[0].name === 'self' ? params.slice(1) : params;
   }
 
   private functionDeclaration(): FunctionDeclaration {
@@ -108,11 +173,21 @@ export class Parser {
     if (!this.check('PUNCTUATION', ')')) {
       do {
         const paramName = this.consume('IDENTIFIER').value;
+        let paramType = 'auto';
+        if (this.match('PUNCTUATION', ':')) {
+          paramType = this.parseParameterTypeAnnotation();
+        }
         let defaultValue: Expression | undefined = undefined;
         if (this.match('OPERATOR', '=')) {
           defaultValue = this.expression();
         }
-        params.push({ id: generateId(), type: 'Parameter', name: paramName, paramType: 'auto', defaultValue });
+        params.push({
+          id: generateId(),
+          type: 'Parameter',
+          name: paramName,
+          paramType,
+          defaultValue,
+        });
       } while (this.match('PUNCTUATION', ','));
     }
     this.consume('PUNCTUATION', ')');
@@ -120,20 +195,46 @@ export class Parser {
     return { id: generateId(), type: 'FunctionDeclaration', name, params, body };
   }
 
+  private parseParameterTypeAnnotation(): string {
+    const parts: string[] = [];
+    let nestingDepth = 0;
+
+    while (!this.isAtEnd()) {
+      const token = this.peek();
+
+      if (nestingDepth === 0) {
+        if (token.type === 'PUNCTUATION' && (token.value === ',' || token.value === ')')) break;
+        if (token.type === 'OPERATOR' && token.value === '=') break;
+      }
+
+      if (token.type === 'PUNCTUATION' && ['[', '(', '{'].includes(token.value)) {
+        nestingDepth++;
+      } else if (token.type === 'PUNCTUATION' && [']', ')', '}'].includes(token.value)) {
+        nestingDepth = Math.max(0, nestingDepth - 1);
+      }
+
+      parts.push(token.value);
+      this.advance();
+    }
+
+    const annotation = parts.join('').trim();
+    return annotation || 'auto';
+  }
+
   private block(): Block {
-    while (this.match('PUNCTUATION', ';')) { } // Eat any virtual semicolons prior to brace start
+    while (this.match('PUNCTUATION', ';')) {} // Eat any virtual semicolons prior to brace start
 
     if (this.match('PUNCTUATION', '{')) {
       const statements: Statement[] = [];
       while (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) {
-        while (this.match('PUNCTUATION', ';')) { } // Clear line breaks
+        while (this.match('PUNCTUATION', ';')) {} // Clear line breaks
         if (this.check('PUNCTUATION', '}')) break;
 
         if (this.match('KEYWORD', 'pass')) {
-          while (this.match('PUNCTUATION', ';')) { }
+          while (this.match('PUNCTUATION', ';')) {}
           continue;
         }
-        
+
         // Handle function/method declarations inside blocks
         try {
           if (this.check('KEYWORD', 'def')) {
@@ -143,7 +244,27 @@ export class Parser {
           }
         } catch (e) {
           // Error recovery: skip to next statement
-          while (!this.check('PUNCTUATION', '}') && !this.isAtEnd() && !this.check('KEYWORD', 'if', 'elif', 'else', 'while', 'for', 'def', 'class', 'return', 'try', 'except', 'finally', 'pass', 'break', 'continue')) {
+          while (
+            !this.check('PUNCTUATION', '}') &&
+            !this.isAtEnd() &&
+            !this.check(
+              'KEYWORD',
+              'if',
+              'elif',
+              'else',
+              'while',
+              'for',
+              'def',
+              'class',
+              'return',
+              'try',
+              'except',
+              'finally',
+              'pass',
+              'break',
+              'continue'
+            )
+          ) {
             this.advance();
           }
           if (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) continue;
@@ -155,7 +276,7 @@ export class Parser {
     } else {
       // Single statement block e.g., if x: return true
       if (this.match('KEYWORD', 'pass')) {
-        while (this.match('PUNCTUATION', ';')) { }
+        while (this.match('PUNCTUATION', ';')) {}
         return { id: generateId(), type: 'Block', body: [] };
       }
       try {
@@ -170,7 +291,7 @@ export class Parser {
 
   private statement(): Statement {
     const startIdx = this.current;
-    
+
     if (this.check('KEYWORD', 'if')) return this.withLocation(this.ifStatement(), startIdx);
     if (this.check('KEYWORD', 'while')) return this.withLocation(this.whileStatement(), startIdx);
     if (this.check('KEYWORD', 'for')) return this.withLocation(this.forStatement(), startIdx);
@@ -178,12 +299,12 @@ export class Parser {
     if (this.check('KEYWORD', 'return')) return this.withLocation(this.returnStatement(), startIdx);
     if (this.match('KEYWORD', 'break')) {
       const stmt: Statement = { id: generateId(), type: 'Break' };
-      while (this.match('PUNCTUATION', ';')) { }
+      while (this.match('PUNCTUATION', ';')) {}
       return this.withLocation(stmt, startIdx);
     }
     if (this.match('KEYWORD', 'continue')) {
       const stmt: Statement = { id: generateId(), type: 'Continue' };
-      while (this.match('PUNCTUATION', ';')) { }
+      while (this.match('PUNCTUATION', ';')) {}
       return this.withLocation(stmt, startIdx);
     }
 
@@ -192,10 +313,12 @@ export class Parser {
       this.consume('PUNCTUATION', '(');
       const expressions: Expression[] = [];
       if (!this.check('PUNCTUATION', ')')) {
-        do { expressions.push(this.logicOr()); } while (this.match('PUNCTUATION', ','));
+        do {
+          expressions.push(this.logicOr());
+        } while (this.match('PUNCTUATION', ','));
       }
       this.consume('PUNCTUATION', ')');
-      while (this.match('PUNCTUATION', ';')) { }
+      while (this.match('PUNCTUATION', ';')) {}
       return this.withLocation({ id: generateId(), type: 'Print', expressions }, startIdx);
     }
 
@@ -205,10 +328,10 @@ export class Parser {
       // For chained assignment: x = y = z = 10
       // We need to collect all targets
       const targets: Expression[] = [expr];
-      
+
       // Check if the right side is another assignment (or could be)
       let rightExpr = this.expression();
-      
+
       // Handle chained assignments: collect all intermediate targets
       while (this.check('OPERATOR', '=')) {
         // rightExpr is actually another target, collect it
@@ -216,32 +339,48 @@ export class Parser {
         this.consume('OPERATOR', '=');
         rightExpr = this.expression();
       }
-      
+
       // Now rightExpr is the final value
       const value = rightExpr;
-      
+
       // For emissions, use the first target as the main one
       let nameStr = 'unknown';
       if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
       else if (expr.type === 'MemberExpression') nameStr = (expr.property as Identifier).name;
 
-      while (this.match('PUNCTUATION', ';')) { }
-      
+      while (this.match('PUNCTUATION', ';')) {}
+
       // If there are chained assignments, create nested Assignment nodes
       if (targets.length > 1) {
         // x = y = z = 10 becomes: x = (y = (z = 10))
-        let result: any = { id: generateId(), type: 'Assignment', name: 'z', target: targets[targets.length - 1], value };
+        let result: any = {
+          id: generateId(),
+          type: 'Assignment',
+          name: 'z',
+          target: targets[targets.length - 1],
+          value,
+        };
         for (let i = targets.length - 2; i >= 0; i--) {
           const target = targets[i];
           let targetName = 'unknown';
           if (target.type === 'Identifier') targetName = (target as Identifier).name;
-          else if (target.type === 'MemberExpression') targetName = (target.property as Identifier).name;
-          result = { id: generateId(), type: 'Assignment', name: targetName, target, value: result };
+          else if (target.type === 'MemberExpression')
+            targetName = (target.property as Identifier).name;
+          result = {
+            id: generateId(),
+            type: 'Assignment',
+            name: targetName,
+            target,
+            value: result,
+          };
         }
         return this.withLocation(result, startIdx);
       }
-      
-      return this.withLocation({ id: generateId(), type: 'Assignment', name: nameStr, target: expr, value }, startIdx);
+
+      return this.withLocation(
+        { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value },
+        startIdx
+      );
     }
 
     // Augmented assignments e.g., +=, -=
@@ -252,14 +391,30 @@ export class Parser {
       if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
 
       const augmentedValue: Expression = {
-        id: generateId(), type: 'BinaryExpression', left: expr, operator: op, right: rVal
+        id: generateId(),
+        type: 'BinaryExpression',
+        left: expr,
+        operator: op,
+        right: rVal,
       };
-      while (this.match('PUNCTUATION', ';')) { }
-      return this.withLocation({ id: generateId(), type: 'Assignment', name: nameStr, target: expr, value: augmentedValue }, startIdx);
+      while (this.match('PUNCTUATION', ';')) {}
+      return this.withLocation(
+        {
+          id: generateId(),
+          type: 'Assignment',
+          name: nameStr,
+          target: expr,
+          value: augmentedValue,
+        },
+        startIdx
+      );
     }
 
-    while (this.match('PUNCTUATION', ';')) { }
-    return this.withLocation({ id: generateId(), type: 'ExpressionStatement', expression: expr }, startIdx);
+    while (this.match('PUNCTUATION', ';')) {}
+    return this.withLocation(
+      { id: generateId(), type: 'ExpressionStatement', expression: expr },
+      startIdx
+    );
   }
 
   private ifStatement(): If {
@@ -269,7 +424,7 @@ export class Parser {
 
     let elseBranch: Block | undefined = undefined;
 
-    while (this.match('PUNCTUATION', ';')) { }
+    while (this.match('PUNCTUATION', ';')) {}
     if (this.match('KEYWORD', 'elif')) {
       const elifIf = this.ifStatementElif();
       elseBranch = { id: generateId(), type: 'Block', body: [elifIf] };
@@ -285,7 +440,7 @@ export class Parser {
 
     let elseBranch: Block | undefined = undefined;
 
-    while (this.match('PUNCTUATION', ';')) { }
+    while (this.match('PUNCTUATION', ';')) {}
     if (this.match('KEYWORD', 'elif')) {
       const elifIf = this.ifStatementElif();
       elseBranch = { id: generateId(), type: 'Block', body: [elifIf] };
@@ -299,42 +454,42 @@ export class Parser {
     this.consume('KEYWORD', 'while');
     const condition = this.expression();
     const body = this.block();
-    
+
     let elseBranch: Block | undefined = undefined;
-    while (this.match('PUNCTUATION', ';')) { }
+    while (this.match('PUNCTUATION', ';')) {}
     if (this.match('KEYWORD', 'else')) {
       elseBranch = this.block();
     }
-    
+
     return { id: generateId(), type: 'While', condition, body, elseBranch };
   }
 
   private tryStatement(): any {
     this.consume('KEYWORD', 'try');
     const tryBlock = this.block();
-    
+
     const handlers: any[] = [];
     while (this.match('KEYWORD', 'except')) {
       let exceptionType: string | undefined = undefined;
       let varName: string | undefined = undefined;
-      
+
       if (!this.check('PUNCTUATION', ':')) {
         exceptionType = this.consume('IDENTIFIER').value;
         if (this.match('KEYWORD', 'as')) {
           varName = this.consume('IDENTIFIER').value;
         }
       }
-      
+
       const handlerBody = this.block();
       handlers.push({ type: 'ExceptionHandler', exceptionType, varName, body: handlerBody });
     }
-    
+
     let finallyBlock: Block | undefined = undefined;
-    while (this.match('PUNCTUATION', ';')) { }
+    while (this.match('PUNCTUATION', ';')) {}
     if (this.match('KEYWORD', 'finally')) {
       finallyBlock = this.block();
     }
-    
+
     return { id: generateId(), type: 'Try', body: tryBlock, handlers, finallyBlock };
   }
 
@@ -350,15 +505,19 @@ export class Parser {
     const body = this.block();
 
     let elseBranch: Block | undefined = undefined;
-    while (this.match('PUNCTUATION', ';')) { }
+    while (this.match('PUNCTUATION', ';')) {}
     if (this.match('KEYWORD', 'else')) {
       elseBranch = this.block();
     }
 
     return {
-      id: generateId(), type: 'For',
-      variable: vars[0], variables: vars.length > 1 ? vars : undefined,
-      iterable, body, elseBranch
+      id: generateId(),
+      type: 'For',
+      variable: vars[0],
+      variables: vars.length > 1 ? vars : undefined,
+      iterable,
+      body,
+      elseBranch,
     };
   }
 
@@ -368,7 +527,7 @@ export class Parser {
     if (!this.check('PUNCTUATION', ';') && !this.check('PUNCTUATION', '}') && !this.isAtEnd()) {
       value = this.expression();
     }
-    while (this.match('PUNCTUATION', ';')) { }
+    while (this.match('PUNCTUATION', ';')) {}
     return { id: generateId(), type: 'Return', value };
   }
 
@@ -377,11 +536,21 @@ export class Parser {
   private expression(): Expression {
     // Handle tuple/sequence (comma-separated expressions)
     const first = this.logicOr();
-    if (this.check('PUNCTUATION', ',') && !this.checkNext('PUNCTUATION', ';') && !this.checkNext('PUNCTUATION', ')') && !this.checkNext('PUNCTUATION', ']')) {
+    if (
+      this.check('PUNCTUATION', ',') &&
+      !this.checkNext('PUNCTUATION', ';') &&
+      !this.checkNext('PUNCTUATION', ')') &&
+      !this.checkNext('PUNCTUATION', ']')
+    ) {
       const elements: Expression[] = [first];
       while (this.match('PUNCTUATION', ',')) {
         // Stop if we hit end of tuple (semicolon, paren, etc)
-        if (this.check('PUNCTUATION', ';') || this.check('PUNCTUATION', ')') || this.check('PUNCTUATION', ']') || this.isAtEnd()) {
+        if (
+          this.check('PUNCTUATION', ';') ||
+          this.check('PUNCTUATION', ')') ||
+          this.check('PUNCTUATION', ']') ||
+          this.isAtEnd()
+        ) {
           break;
         }
         elements.push(this.logicOr());
@@ -481,7 +650,13 @@ export class Parser {
         expr = this.finishCall(expr);
       } else if (this.match('PUNCTUATION', '.')) {
         const name = this.consume('IDENTIFIER').value;
-        expr = { id: generateId(), type: 'MemberExpression', object: expr, property: { id: generateId(), type: 'Identifier', name }, isMethod: false };
+        expr = {
+          id: generateId(),
+          type: 'MemberExpression',
+          object: expr,
+          property: { id: generateId(), type: 'Identifier', name },
+          isMethod: false,
+        };
       } else if (this.match('PUNCTUATION', '[')) {
         let index: Expression | undefined = undefined;
         let indexEnd: Expression | undefined = undefined;
@@ -504,7 +679,14 @@ export class Parser {
             }
           }
           this.consume('PUNCTUATION', ']');
-          expr = { id: generateId(), type: 'IndexExpression', object: expr, index, indexEnd, indexStep };
+          expr = {
+            id: generateId(),
+            type: 'IndexExpression',
+            object: expr,
+            index,
+            indexEnd,
+            indexStep,
+          };
         } else {
           this.consume('PUNCTUATION', ']');
           expr = { id: generateId(), type: 'IndexExpression', object: expr, index };
@@ -519,23 +701,47 @@ export class Parser {
   private finishCall(callee: Expression): CallExpression {
     const args: Expression[] = [];
     if (!this.check('PUNCTUATION', ')')) {
-      do { args.push(this.logicOr()); } while (this.match('PUNCTUATION', ','));
+      do {
+        args.push(this.logicOr());
+      } while (this.match('PUNCTUATION', ','));
     }
     this.consume('PUNCTUATION', ')');
 
-    if (callee.type === 'MemberExpression') { (callee as any).isMethod = true; }
+    if (callee.type === 'MemberExpression') {
+      (callee as any).isMethod = true;
+    }
 
     return { id: generateId(), type: 'CallExpression', callee: callee as any, arguments: args };
   }
 
   private primary(): Expression {
-    if (this.match('NUMBER')) return { id: generateId(), type: 'Literal', value: parseFloat(this.previous().value), raw: this.previous().value };
-    if (this.match('STRING')) return { id: generateId(), type: 'Literal', value: this.previous().value, raw: `"${this.previous().value}"` };
-    if (this.match('BOOLEAN')) return { id: generateId(), type: 'Literal', value: this.previous().value === 'true', raw: this.previous().value };
+    if (this.match('NUMBER'))
+      return {
+        id: generateId(),
+        type: 'Literal',
+        value: parseFloat(this.previous().value),
+        raw: this.previous().value,
+      };
+    if (this.match('STRING'))
+      return {
+        id: generateId(),
+        type: 'Literal',
+        value: this.previous().value,
+        raw: `"${this.previous().value}"`,
+      };
+    if (this.match('BOOLEAN'))
+      return {
+        id: generateId(),
+        type: 'Literal',
+        value: this.previous().value === 'true',
+        raw: this.previous().value,
+      };
 
-    if (this.match('KEYWORD', 'None')) return { id: generateId(), type: 'Literal', value: null, raw: 'None' };
+    if (this.match('KEYWORD', 'None'))
+      return { id: generateId(), type: 'Literal', value: null, raw: 'None' };
 
-    if (this.match('IDENTIFIER')) return { id: generateId(), type: 'Identifier', name: this.previous().value };
+    if (this.match('IDENTIFIER'))
+      return { id: generateId(), type: 'Identifier', name: this.previous().value };
 
     if (this.match('PUNCTUATION', '[')) {
       // Check for empty list or list comprehension
@@ -543,9 +749,9 @@ export class Parser {
         this.advance();
         return { id: generateId(), type: 'ArrayLiteral', elements: [] };
       }
-      
+
       const firstExpr = this.logicOr();
-      
+
       // Check for list comprehension: [expr for var in iterable]
       if (this.check('KEYWORD', 'for')) {
         this.advance(); // consume 'for'
@@ -553,9 +759,15 @@ export class Parser {
         this.consume('KEYWORD', 'in');
         const iterable = this.logicOr();
         this.consume('PUNCTUATION', ']');
-        return { id: generateId(), type: 'ListComprehension', element: firstExpr, variable: varName, iterable } as any;
+        return {
+          id: generateId(),
+          type: 'ListComprehension',
+          element: firstExpr,
+          variable: varName,
+          iterable,
+        } as any;
       }
-      
+
       // Regular list literal
       const elements: Expression[] = [firstExpr];
       while (this.match('PUNCTUATION', ',')) {
@@ -575,7 +787,10 @@ export class Parser {
   }
 
   private match(type: TokenType, ...values: string[]): boolean {
-    if (this.check(type, ...values)) { this.advance(); return true; }
+    if (this.check(type, ...values)) {
+      this.advance();
+      return true;
+    }
     return false;
   }
   private check(type: TokenType, ...values: string[]): boolean {
@@ -595,13 +810,21 @@ export class Parser {
   private consume(type: TokenType, value?: string): Token {
     if (this.check(type, ...(value ? [value] : []))) return this.advance();
     const found = this.peek();
-    throw new Error(`Expected token ${type} ${value || ''} but found ${found.type} '${found.value}' at position ${found.start}`);
+    throw new Error(
+      `Expected token ${type} ${value || ''} but found ${found.type} '${found.value}' at position ${found.start}`
+    );
   }
   private advance(): Token {
     if (!this.isAtEnd()) this.current++;
     return this.previous();
   }
-  private isAtEnd(): boolean { return this.peek().type === 'EOF'; }
-  private peek(): Token { return this.tokens[this.current]; }
-  private previous(): Token { return this.tokens[this.current - 1]; }
+  private isAtEnd(): boolean {
+    return this.peek().type === 'EOF';
+  }
+  private peek(): Token {
+    return this.tokens[this.current];
+  }
+  private previous(): Token {
+    return this.tokens[this.current - 1];
+  }
 }

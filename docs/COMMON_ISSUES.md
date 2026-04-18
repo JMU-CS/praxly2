@@ -19,28 +19,33 @@ This guide covers common problems, how to diagnose them, and how to fix them.
 ### Issue: Parser throws "Unexpected token" immediately
 
 **Symptom:**
+
 ```
 Error: Unexpected token: 'PUNCTUATION' ','
 ```
 
 **Root Causes:**
+
 1. Lexer didn't emit all necessary tokens
 2. Lexer classified a token with the wrong type
 3. Multi-character operator wasn't recognized (e.g., `==` lexed as `=` and `=`)
 
 **How to Diagnose:**
+
 ```typescript
 const lexer = new YourLexer(sourceCode);
 const tokens = lexer.tokenize();
-console.log(tokens);  // ← Inspect the token stream
+console.log(tokens); // ← Inspect the token stream
 ```
 
 Look for:
+
 - Missing tokens in the sequence
 - Tokens with the wrong `type`
 - Multi-character operators split into multiple tokens
 
 **Example Fix:**
+
 ```typescript
 // BAD: Multi-char operator not checked first
 if (char === '=') {
@@ -69,10 +74,11 @@ Parser tries to parse `if` as an identifier instead of a keyword.
 Lexer didn't recognize the word as a keyword.
 
 **How to Diagnose:**
+
 ```typescript
 const lexer = new YourLexer('if (x > 5) { }');
 const tokens = lexer.tokenize();
-console.log(tokens[0]);  // Should be KEYWORD, not IDENTIFIER
+console.log(tokens[0]); // Should be KEYWORD, not IDENTIFIER
 ```
 
 **Fix:**
@@ -99,6 +105,7 @@ if (keywords.includes(value)) {
 ### Issue: String content is mangled
 
 **Symptom:**
+
 ```
 Input: let msg = "Hello \"World\"";
 Token value: Hello \"World  (missing closing quote)
@@ -108,11 +115,12 @@ Token value: Hello \"World  (missing closing quote)
 Lexer doesn't handle escape sequences correctly.
 
 **Fix:**
+
 ```typescript
 // When parsing strings, handle escapes
 if (char === '"') {
   const start = pos;
-  pos++;  // consume opening quote
+  pos++; // consume opening quote
   let value = '';
   while (pos < input.length && input[pos] !== '"') {
     if (input[pos] === '\\' && pos + 1 < input.length) {
@@ -123,7 +131,7 @@ if (char === '"') {
       value += input[pos++];
     }
   }
-  if (pos < input.length) pos++;  // consume closing quote
+  if (pos < input.length) pos++; // consume closing quote
   tokens.push({ type: 'STRING', value, start });
   continue;
 }
@@ -134,6 +142,7 @@ if (char === '"') {
 ### Issue: Comments aren't skipped
 
 **Symptom:**
+
 ```
 Input: x = 10  // comment
 Tokens include: {..., IDENTIFIER('comment'), ...}
@@ -177,12 +186,14 @@ if (/[a-zA-Z_]/.test(char)) { ... }
 ### Issue: "Expected X, got Y" errors during parsing
 
 **Symptom:**
+
 ```
 Error: Expected PUNCTUATION ')', got IDENTIFIER 'else'
 ```
 
 **Root Cause:**
 Parser is in the wrong context. Usually:
+
 1. Expression parsing continued too long
 2. A previous statement didn't fully consume its tokens
 3. Multi-statement context not handled
@@ -228,6 +239,7 @@ private statement(): Statement {
 ### Issue: Operator precedence is wrong
 
 **Symptom:**
+
 ```
 Input: 2 + 3 * 4
 Expected AST: + (2, *(3, 4))
@@ -295,7 +307,8 @@ while (this.check('KEYWORD', 'let')) {
 }
 
 // GOOD: Advances on each iteration
-while (this.match('KEYWORD', 'let')) {  // ← match() advances
+while (this.match('KEYWORD', 'let')) {
+  // ← match() advances
   let name = this.consume('IDENTIFIER').value;
 }
 ```
@@ -305,6 +318,7 @@ while (this.match('KEYWORD', 'let')) {  // ← match() advances
 ### Issue: "Cannot read property 'name' of undefined"
 
 **Symptom:**
+
 ```
 Error: Cannot read property 'name' of undefined
   at visitAssignment (emitter.ts:120)
@@ -314,9 +328,10 @@ Error: Cannot read property 'name' of undefined
 Parser created an AST node with missing required fields.
 
 **How to Diagnose:**
+
 ```typescript
 // Before passing to interpreter/translator
-console.log(JSON.stringify(ast, null, 2));  // ← Inspect the AST structure
+console.log(JSON.stringify(ast, null, 2)); // ← Inspect the AST structure
 ```
 
 **Fix:**
@@ -326,7 +341,7 @@ Ensure parser always sets all required fields:
 // BAD: Missing 'value' field
 if (this.match('KEYWORD', 'var')) {
   const name = this.consume('IDENTIFIER').value;
-  return { id: generateId(), type: 'Assignment', name };  // ← Missing 'value'
+  return { id: generateId(), type: 'Assignment', name }; // ← Missing 'value'
 }
 
 // GOOD: All required fields set
@@ -349,6 +364,7 @@ Compare against [src/language/ast.ts](../src/language/ast.ts) to see all require
 ### Issue: AST nodes have duplicate types
 
 **Symptom:**
+
 ```
 {
   type: 'Assignment',
@@ -432,16 +448,19 @@ private statement(): Statement {
 ### Issue: "Undefined variable" runtime error
 
 **Symptom:**
+
 ```
 Runtime Error: Undefined variable 'x'
 ```
 
 **Root Cause:**
+
 1. Variable was never declared
 2. Variable was declared in a different scope
 3. Variable name is misspelled
 
 **How to Diagnose:**
+
 ```typescript
 const interpreter = new Interpreter();
 try {
@@ -458,8 +477,8 @@ Check that all variable uses are preceded by declarations:
 
 ```typescript
 // In your parser, ensure variables are declared
-let x = 10;  // ← Declaration
-print(x);    // ← Use
+let x = 10; // ← Declaration
+print(x); // ← Use
 
 // BAD: Using before declaring
 print(x);
@@ -472,7 +491,7 @@ Also check scoping — variables declared inside a block aren't accessible outsi
 if (x > 5) {
   let y = 10;
 }
-print(y);  // ← Error: y is out of scope
+print(y); // ← Error: y is out of scope
 ```
 
 ---
@@ -480,6 +499,7 @@ print(y);  // ← Error: y is out of scope
 ### Issue: "Undefined function" runtime error
 
 **Symptom:**
+
 ```
 Runtime Error: Undefined function 'greet'
 ```
@@ -521,6 +541,7 @@ executeStatement(stmt: Statement) {
 ### Issue: `this` is undefined in methods
 
 **Symptom:**
+
 ```
 Runtime Error: Cannot read property 'x' of undefined
   (this.x in method)
@@ -537,11 +558,11 @@ When calling methods, bind `this`:
 callMethod(methodName: string, args: any[], interpreter: Interpreter, env: Environment): any {
   const method = this.klass.getMethod(methodName);
   const methodEnv = new Environment(env);
-  
+
   // ← Bind this
   methodEnv.define('this', this);
   methodEnv.define('self', this);  // Python compat
-  
+
   // Bind parameters
   method.params.forEach((param, i) => {
     methodEnv.define(param.name, args[i] || null);
@@ -556,9 +577,10 @@ callMethod(methodName: string, args: any[], interpreter: Interpreter, env: Envir
 
 ## Translator / Emitter Issues
 
-### Issue: "visit* method not implemented" error
+### Issue: "visit\* method not implemented" error
 
 **Symptom:**
+
 ```
 TypeError: Object doesn't support property or method 'visitWhile'
 ```
@@ -567,12 +589,13 @@ TypeError: Object doesn't support property or method 'visitWhile'
 Your emitter doesn't implement the `visitWhile()` method, but the AST contains a While node.
 
 **How to Diagnose:**
+
 ```typescript
 const translator = new Translator();
 try {
   const code = translator.translate(ast, 'javascript');
 } catch (e) {
-  console.error(e);  // ← Error will show which method is missing
+  console.error(e); // ← Error will show which method is missing
 }
 ```
 
@@ -597,6 +620,7 @@ export class YourEmitter extends ASTVisitor {
 ### Issue: Generated code has wrong indentation
 
 **Symptom:**
+
 ```
 if (x > 5) {
 print(x);
@@ -633,6 +657,7 @@ visitWhile(stmt: While): void {
 ### Issue: String escaping broken in output
 
 **Symptom:**
+
 ```
 Java output: System.out.println("Hello "World"");  // ← Wrong!
 Expected:    System.out.println("Hello \"World\"");
@@ -664,6 +689,7 @@ case 'Literal': {
 ### Issue: Type information lost in translation
 
 **Symptom:**
+
 ```
 Python: x = 10
 Java translation: x = 10;  // ← Missing type!
@@ -703,12 +729,15 @@ Added the language to the parser, but it doesn't appear in the UI.
 Didn't update `SupportedLang` type or UI dropdown in [src/pages/EditorPage.tsx](../../src/pages/EditorPage.tsx).
 
 **Fix:**
+
 1. Update the type:
+
 ```typescript
 export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'yourNewLang' | 'ast';
 ```
 
 2. Update the dropdown:
+
 ```tsx
 <select value={sourceLang} onChange={...}>
   <option value="python">Python</option>
@@ -733,13 +762,27 @@ Language not added to the "Add Panel" dropdown.
 Find the "Add Panel" menu in [src/pages/EditorPage.tsx](../../src/pages/EditorPage.tsx) and add:
 
 ```tsx
-{showAddMenu && (
-  <div className="language-menu">
-    <button onClick={() => { addPanel('python'); }}>Python</button>
-    ...
-    <button onClick={() => { addPanel('yourNewLang'); }}>Your New Language</button>
-  </div>
-)}
+{
+  showAddMenu && (
+    <div className="language-menu">
+      <button
+        onClick={() => {
+          addPanel('python');
+        }}
+      >
+        Python
+      </button>
+      ...
+      <button
+        onClick={() => {
+          addPanel('yourNewLang');
+        }}
+      >
+        Your New Language
+      </button>
+    </div>
+  );
+}
 ```
 
 ---
@@ -753,18 +796,19 @@ Code parses without errors, but output panel is blank.
 Interpreter isn't being called, or output isn't being captured.
 
 **How to Diagnose:**
+
 ```typescript
 // In useCodeParsing hook
 const parseCode = useCallback((lang: SupportedLang, input: string): Program | null => {
   const ast = parser.parse();
-  console.log('AST:', ast);  // ← Should show the AST
+  console.log('AST:', ast); // ← Should show the AST
   return ast;
 }, []);
 
 // In EditorPage.tsx
 const interpreter = new Interpreter();
 const output = interpreter.interpret(ast);
-console.log('Output:', output);  // ← Should show output
+console.log('Output:', output); // ← Should show output
 ```
 
 **Fix:**
@@ -777,7 +821,7 @@ useEffect(() => {
     if (ast) {
       const interpreter = new Interpreter();
       const output = interpreter.interpret(ast);
-      setOutput(output);  // ← Don't forget this!
+      setOutput(output); // ← Don't forget this!
     }
   } catch (e) {
     setError(e.message);
@@ -794,10 +838,11 @@ useEffect(() => {
 ```typescript
 const lexer = new YourLexer(sourceCode);
 const tokens = lexer.tokenize();
-console.table(tokens);  // Pretty-print tokens
+console.table(tokens); // Pretty-print tokens
 ```
 
 Output:
+
 ```
 ┌─────┬──────────┬────────┬───────┐
 │ (index) │ type     │ value  │ start │
@@ -831,12 +876,12 @@ This will show the entire AST in readable JSON format.
 // In parser
 private statement(): Statement {
   console.log(`[Parser] Parsing statement, current token: ${this.peek().type} ${this.peek().value}`);
-  
+
   if (this.match('KEYWORD', 'if')) {
     console.log(`[Parser] Detected IF statement`);
     return this.ifStatement();
   }
-  
+
   // ...
 }
 ```

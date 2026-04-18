@@ -2,7 +2,7 @@
 
 Welcome to the Praxly 2.0 codebase. Praxly is an **in-browser compiler and programming language translator** that allows users to:
 
-- Write code in **Python, Java, Praxis, or CSP (pseudocode)** 
+- Write code in **Python, Java, Praxis, or CSP (pseudocode)**
 - **Instantly translate** code to other supported languages
 - **View the Abstract Syntax Tree (AST)** to understand how code is parsed
 - **Execute code** safely entirely within the browser
@@ -13,14 +13,16 @@ All of this happens **without a backend server** — everything is compiled and 
 ## Quick Start
 
 1. Install Dependencies:
-    ```bash
-    npm install
-    ```
+
+   ```bash
+   npm install
+   ```
 
 2. Start the Development Server:
-    ```bash
-    npm run dev
-    ```
+
+   ```bash
+   npm run dev
+   ```
 
 3. Open your browser to the URL provided (typically `http://localhost:5173/v2/`)
 
@@ -66,8 +68,8 @@ Source Code (Python/Java/CSP/Praxis)
    - Builds a tree structure representing the program's structure
 
 3. **Interpretation & Translation** — AST → Execution or Code
-   - The same AST can be *executed* (running your program)
-   - Or *translated* to another language (code generation)
+   - The same AST can be _executed_ (running your program)
+   - Or _translated_ to another language (code generation)
 
 ## Design Philosophy
 
@@ -209,6 +211,7 @@ Assignment {
 ```
 
 Parsers use **Recursive Descent**, which means:
+
 - Each grammar rule is a method
 - Methods call each other based on grammar rules
 - Solves operator precedence through the call stack
@@ -219,7 +222,7 @@ The `Interpreter` class walks the AST and executes it:
 
 ```typescript
 // Execute the Assignment node
-this.values['x'] = this.evaluate(rightHandSide)
+this.values['x'] = this.evaluate(rightHandSide);
 // Now x = 15, and this.output = ['x is 15'] (if we printed it)
 ```
 
@@ -231,8 +234,8 @@ The `Translator` walks the AST and regenerates code in a target language:
 
 ```typescript
 // Python AST → Java code emitter
-emitter.visitProgram(ast)  // Walk the tree
-emitter.getGeneratedCode() // "int x = 10 + 5;"
+emitter.visitProgram(ast); // Walk the tree
+emitter.getGeneratedCode(); // "int x = 10 + 5;"
 ```
 
 Each language has an **Emitter** (e.g., `PythonEmitter`, `JavaEmitter`) that extends `ASTVisitor` and implements methods for each AST node type.
@@ -261,7 +264,7 @@ This file defines **every node type** the AST can have. Examples:
 Defines base types that all lexers must follow:
 
 ```typescript
-type TokenType = 'KEYWORD' | 'IDENTIFIER' | 'NUMBER' | 'STRING' | 
+type TokenType = 'KEYWORD' | 'IDENTIFIER' | 'NUMBER' | 'STRING' |
                  'OPERATOR' | 'PUNCTUATION' | 'EOF' | ...
 
 interface Token {

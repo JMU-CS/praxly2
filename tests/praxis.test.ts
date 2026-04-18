@@ -17,7 +17,7 @@ describe('Praxis Lexer', () => {
     it('should tokenize strings with quotes', () => {
       const lexer = new PraxisLexer('"hello" \'world\'');
       const tokens = lexer.tokenize();
-      const strings = tokens.filter(t => t.type === 'STRING');
+      const strings = tokens.filter((t) => t.type === 'STRING');
       expect(strings).toHaveLength(2);
       expect(strings[0].value).toBe('hello');
       expect(strings[1].value).toBe('world');
@@ -33,7 +33,7 @@ describe('Praxis Lexer', () => {
     it('should tokenize keywords', () => {
       const lexer = new PraxisLexer('if else while for class');
       const tokens = lexer.tokenize();
-      const keywords = tokens.filter(t => t.type === 'KEYWORD');
+      const keywords = tokens.filter((t) => t.type === 'KEYWORD');
       expect(keywords.length).toBeGreaterThanOrEqual(5);
     });
 
@@ -46,7 +46,7 @@ describe('Praxis Lexer', () => {
     it('should tokenize comparison operators', () => {
       const lexer = new PraxisLexer('x <> y x <= y x >= y');
       const tokens = lexer.tokenize();
-      const operators = tokens.filter(t => t.type === 'OPERATOR').map(t => t.value);
+      const operators = tokens.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(operators).toContain('<>');
       expect(operators).toContain('<=');
       expect(operators).toContain('>=');
@@ -55,7 +55,7 @@ describe('Praxis Lexer', () => {
     it('should skip comments', () => {
       const lexer = new PraxisLexer('int x // comment\nint y');
       const tokens = lexer.tokenize();
-      const identifiers = tokens.filter(t => t.type === 'IDENTIFIER').map(t => t.value);
+      const identifiers = tokens.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
       expect(identifiers).toContain('x');
       expect(identifiers).toContain('y');
     });
@@ -63,15 +63,15 @@ describe('Praxis Lexer', () => {
     it('should handle block comments', () => {
       const lexer = new PraxisLexer('int x /* comment */ int y');
       const tokens = lexer.tokenize();
-      const identifiers = tokens.filter(t => t.type === 'IDENTIFIER').map(t => t.value);
+      const identifiers = tokens.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
       expect(identifiers).toEqual(['x', 'y']);
     });
 
     it('should tokenize unicode math operators', () => {
       const lexer = new PraxisLexer('x ← 5');
       const tokens = lexer.tokenize();
-      const operators = tokens.filter(t => t.type === 'OPERATOR' || t.type === 'KEYWORD');
-      expect(operators.some(t => ['<-', '←'].includes(t.value))).toBe(true);
+      const operators = tokens.filter((t) => t.type === 'OPERATOR' || t.type === 'KEYWORD');
+      expect(operators.some((t) => ['<-', '←'].includes(t.value))).toBe(true);
     });
   });
 
@@ -79,7 +79,7 @@ describe('Praxis Lexer', () => {
     it('should tokenize arithmetic expression', () => {
       const lexer = new PraxisLexer('x + y * z');
       const tokens = lexer.tokenize();
-      const operators = tokens.filter(t => t.type === 'OPERATOR').map(t => t.value);
+      const operators = tokens.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(operators).toContain('+');
       expect(operators).toContain('*');
     });
@@ -87,7 +87,7 @@ describe('Praxis Lexer', () => {
     it('should tokenize logical expression', () => {
       const lexer = new PraxisLexer('x and y or not z');
       const tokens = lexer.tokenize();
-      const keywords = tokens.filter(t => t.type === 'KEYWORD').map(t => t.value);
+      const keywords = tokens.filter((t) => t.type === 'KEYWORD').map((t) => t.value);
       expect(keywords).toContain('and');
       expect(keywords).toContain('or');
       expect(keywords).toContain('not');
@@ -228,7 +228,7 @@ end add`;
       const emitter = new PraxisEmitter({
         symbolTable: new SymbolTable(),
         functionReturnTypes: new Map(),
-        functionParamTypes: new Map()
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -245,7 +245,7 @@ end add`;
       const emitter = new PraxisEmitter({
         symbolTable: new SymbolTable(),
         functionReturnTypes: new Map(),
-        functionParamTypes: new Map()
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -265,7 +265,7 @@ end if`;
       const emitter = new PraxisEmitter({
         symbolTable: new SymbolTable(),
         functionReturnTypes: new Map(),
-        functionParamTypes: new Map()
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -285,7 +285,7 @@ end if`;
       const emitter = new PraxisEmitter({
         symbolTable: new SymbolTable(),
         functionReturnTypes: new Map(),
-        functionParamTypes: new Map()
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();

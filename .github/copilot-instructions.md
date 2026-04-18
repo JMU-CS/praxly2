@@ -20,11 +20,11 @@ See [docs/COMPILER_PIPELINE.md](docs/COMPILER_PIPELINE.md) for the full pipeline
 
 Each language lives under `src/language/<lang>/` with exactly 3 files:
 
-| File | Class | Purpose |
-|------|-------|---------|
-| `lexer.ts` | `<Lang>Lexer` | `tokenize(): Token[]` — source string to token stream |
-| `parser.ts` | `<Lang>Parser` | `parse(): Program` — tokens to Universal AST |
-| `emitter.ts` | `<Lang>Emitter extends ASTVisitor` | Visitor that generates target language code |
+| File         | Class                              | Purpose                                               |
+| ------------ | ---------------------------------- | ----------------------------------------------------- |
+| `lexer.ts`   | `<Lang>Lexer`                      | `tokenize(): Token[]` — source string to token stream |
+| `parser.ts`  | `<Lang>Parser`                     | `parse(): Program` — tokens to Universal AST          |
+| `emitter.ts` | `<Lang>Emitter extends ASTVisitor` | Visitor that generates target language code           |
 
 CSP and Praxis additionally have Lezer grammar files (`.grammar` → auto-compiled `.grammar.js`) and `lezer.ts` for CodeMirror syntax highlighting. Java and Python use hand-written lexers only.
 

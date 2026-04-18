@@ -45,12 +45,14 @@ The **Lexer** converts raw source code (a string) into a stream of meaningful **
 ### Example
 
 **Input (Python code):**
+
 ```python
 x = 10 + 5
 print(x)
 ```
 
 **Output (Token stream):**
+
 ```
 Token { type: 'IDENTIFIER', value: 'x', start: 0 }
 Token { type: 'OPERATOR', value: '=', start: 2 }
@@ -75,39 +77,41 @@ In [src/language/python/lexer.ts](../../src/language/python/lexer.ts), the lexer
 ```typescript
 // Simplified pseudocode of the lexer algorithm
 while (pos < input.length) {
-  char = input[pos]
-  
+  char = input[pos];
+
   // Skip whitespace
-  if (isWhitespace(char)) { pos++ }
-  
+  if (isWhitespace(char)) {
+    pos++;
+  }
+
   // Match numbers
   else if (isDigit(char)) {
-    value = ""
+    value = '';
     while (isDigit(input[pos]) || input[pos] == '.') {
-      value += input[pos++]
+      value += input[pos++];
     }
-    tokens.push({ type: 'NUMBER', value, start: pos })
+    tokens.push({ type: 'NUMBER', value, start: pos });
   }
-  
+
   // Match identifiers and keywords
   else if (isLetter(char)) {
-    value = ""
+    value = '';
     while (isLetterOrDigit(input[pos])) {
-      value += input[pos++]
+      value += input[pos++];
     }
     if (KEYWORDS.includes(value)) {
-      tokens.push({ type: 'KEYWORD', value, start: pos })
+      tokens.push({ type: 'KEYWORD', value, start: pos });
     } else {
-      tokens.push({ type: 'IDENTIFIER', value, start: pos })
+      tokens.push({ type: 'IDENTIFIER', value, start: pos });
     }
   }
-  
+
   // Match operators
   else if (['+', '-', '*', '/'].includes(char)) {
-    tokens.push({ type: 'OPERATOR', value: char, start: pos })
-    pos++
+    tokens.push({ type: 'OPERATOR', value: char, start: pos });
+    pos++;
   }
-  
+
   // ... and so on
 }
 ```
@@ -130,6 +134,7 @@ Python uses **indentation to denote scopes**, while Java/C use braces. The Pytho
 4. After each line, it injects a virtual `;` (semicolon) — unless the line ends with `:` (which precedes a new block)
 
 This transforms:
+
 ```python
 if x > 5:
     print(x)
@@ -137,6 +142,7 @@ if x > 5:
 ```
 
 Into tokens that look like:
+
 ```
 KEYWORD(if) IDENTIFIER(x) OPERATOR(>) NUMBER(5) COLON
 PUNCTUATION({) KEYWORD(print) PUNCTUATION(() IDENTIFIER(x) PUNCTUATION()) PUNCTUATION(;)
@@ -157,11 +163,13 @@ The **Parser** consumes the token stream and verifies that it follows the langua
 ### Structure of the Parser
 
 Each parser uses **Recursive Descent**, which means:
+
 - Each grammar rule is implemented as a method
 - Methods call each other recursively
 - **Operator precedence** is solved using the call stack (lower-precedence operations call higher-precedence operations)
 
 Example method structure:
+
 ```typescript
 // From src/language/python/parser.ts (simplified)
 parse() → expression()
@@ -182,6 +190,7 @@ This hierarchy ensures that `*` and `/` bind tighter than `+` and `-`, which bin
 ### Example: Parsing an Expression
 
 **Tokens:**
+
 ```
 IDENTIFIER(x) OPERATOR(=) NUMBER(10) OPERATOR(+) NUMBER(5)
 ```
@@ -244,18 +253,18 @@ The parser builds AST nodes defined in [src/language/ast.ts](../../src/language/
 ```typescript
 // Core node structure
 interface ASTNode {
-  id: string;                    // Unique identifier for this node
-  type: NodeType;               // The specific node type (e.g., 'Assignment')
-  loc?: { start: number; end: number };  // Character positions in source
+  id: string; // Unique identifier for this node
+  type: NodeType; // The specific node type (e.g., 'Assignment')
+  loc?: { start: number; end: number }; // Character positions in source
 }
 
 // Example: Assignment statement
 interface Assignment extends ASTNode {
   type: 'Assignment';
-  name: string;                 // Variable name
-  target?: Expression;          // For array/object assignment
-  value: Expression;            // The right-hand side
-  varType?: string;             // Type annotation (if any)
+  name: string; // Variable name
+  target?: Expression; // For array/object assignment
+  value: Expression; // The right-hand side
+  varType?: string; // Type annotation (if any)
 }
 
 // Example: If statement
@@ -263,14 +272,14 @@ interface If extends ASTNode {
   type: 'If';
   condition: Expression;
   thenBranch: Block;
-  elseBranch?: Block;           // Optional else
+  elseBranch?: Block; // Optional else
 }
 
 // Example: Binary operations (arithmetic, logical, etc.)
 interface BinaryExpression extends ASTNode {
   type: 'BinaryExpression';
   left: Expression;
-  operator: string;             // '+', '-', '>', '<', 'and', 'or', etc.
+  operator: string; // '+', '-', '>', '<', 'and', 'or', etc.
   right: Expression;
 }
 ```
@@ -290,6 +299,7 @@ interface BinaryExpression extends ASTNode {
 ### What It Does
 
 The **Interpreter** walks the AST node-by-node and executes it. It maintains:
+
 - An `Environment` (variable storage with nested scoping)
 - A class registry (for OOP support)
 - An output buffer (for `print()` statements)
@@ -316,8 +326,7 @@ export class Interpreter {
 
     // Phase 2: Execute all non-class, non-function statements
     const statements = program.body.filter(
-      stmt => stmt.type !== 'ClassDeclaration' && 
-               stmt.type !== 'FunctionDeclaration'
+      (stmt) => stmt.type !== 'ClassDeclaration' && stmt.type !== 'FunctionDeclaration'
     );
     this.executeBlock(statements, this.globalEnv);
 
@@ -343,9 +352,7 @@ export class Interpreter {
       }
 
       case 'Print': {
-        const values = (stmt as Print).expressions.map(
-          expr => String(this.evaluate(expr, env))
-        );
+        const values = (stmt as Print).expressions.map((expr) => String(this.evaluate(expr, env)));
         this.output.push(values.join(' '));
         break;
       }
@@ -380,16 +387,26 @@ export class Interpreter {
         const op = (expr as BinaryExpression).operator;
 
         switch (op) {
-          case '+': return left + right;
-          case '-': return left - right;
-          case '*': return left * right;
-          case '/': return left / right;
-          case '>': return left > right;
-          case '<': return left < right;
-          case '==': return left === right;
-          case '!=': return left !== right;
-          case 'and': return this.isTruthy(left) && this.isTruthy(right);
-          case 'or': return this.isTruthy(left) || this.isTruthy(right);
+          case '+':
+            return left + right;
+          case '-':
+            return left - right;
+          case '*':
+            return left * right;
+          case '/':
+            return left / right;
+          case '>':
+            return left > right;
+          case '<':
+            return left < right;
+          case '==':
+            return left === right;
+          case '!=':
+            return left !== right;
+          case 'and':
+            return this.isTruthy(left) && this.isTruthy(right);
+          case 'or':
+            return this.isTruthy(left) || this.isTruthy(right);
           // ...
         }
       }
@@ -407,21 +424,21 @@ The `Environment` class manages variable storage with **lexical scoping**:
 ```typescript
 export class Environment {
   public values: Record<string, any> = {};
-  public parent?: Environment;  // Link to outer scope
+  public parent?: Environment; // Link to outer scope
 
   constructor(parent?: Environment) {
     this.parent = parent;
   }
 
   define(name: string, value: any) {
-    this.values[name] = value;  // Create in current scope
+    this.values[name] = value; // Create in current scope
   }
 
   assign(name: string, value: any) {
     if (name in this.values) {
-      this.values[name] = value;  // Update in current scope
+      this.values[name] = value; // Update in current scope
     } else if (this.parent) {
-      this.parent.assign(name, value);  // Update in outer scope
+      this.parent.assign(name, value); // Update in outer scope
     } else {
       throw new Error(`Undefined variable '${name}'`);
     }
@@ -436,6 +453,7 @@ export class Environment {
 ```
 
 **Example:** When executing a function call:
+
 ```typescript
 // At global scope: myEnv = Environment (parent: null)
 // Values: { x: 10 }
@@ -483,10 +501,10 @@ class JavaInstance {
   callMethod(methodName: string, args: any[], interpreter: Interpreter, env: Environment): any {
     const method = this.klass.getMethod(methodName);
     const methodEnv = new Environment(env);
-    
-    methodEnv.define('this', this);  // Bind 'this'
-    methodEnv.define('self', this);  // Python compatibility
-    
+
+    methodEnv.define('this', this); // Bind 'this'
+    methodEnv.define('self', this); // Python compatibility
+
     // Bind parameters
     method.params.forEach((param, i) => {
       methodEnv.define(param.name, args[i] || null);
@@ -557,22 +575,22 @@ Each language has an **Emitter** that extends `ASTVisitor` and implements these 
 export class PythonEmitter extends ASTVisitor {
   visitProgram(program: Program): void {
     // Emit classes first
-    const classes = program.body.filter(s => s.type === 'ClassDeclaration');
-    classes.forEach(classDecl => {
+    const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
+    classes.forEach((classDecl) => {
       this.visitClassDeclaration(classDecl as ClassDeclaration);
       this.emit('');
     });
 
     // Then functions and main code
-    const nonClasses = program.body.filter(s => s.type !== 'ClassDeclaration');
-    const functions = nonClasses.filter(s => s.type === 'FunctionDeclaration');
-    functions.forEach(func => {
+    const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
+    const functions = nonClasses.filter((s) => s.type === 'FunctionDeclaration');
+    functions.forEach((func) => {
       this.visitStatement(func);
       this.emit('');
     });
-    
-    const mainBody = nonClasses.filter(s => s.type !== 'FunctionDeclaration');
-    mainBody.forEach(stmt => this.visitStatement(stmt));
+
+    const mainBody = nonClasses.filter((s) => s.type !== 'FunctionDeclaration');
+    mainBody.forEach((stmt) => this.visitStatement(stmt));
   }
 
   visitAssignment(assignment: Assignment): void {
@@ -596,9 +614,7 @@ export class PythonEmitter extends ASTVisitor {
   }
 
   visitPrint(print: Print): void {
-    const args = print.expressions
-      .map(e => this.generateExpression(e, 0))
-      .join(', ');
+    const args = print.expressions.map((e) => this.generateExpression(e, 0)).join(', ');
     this.emit(`print(${args})`, print.id);
   }
 
@@ -615,7 +631,7 @@ export class JavaEmitter extends ASTVisitor {
   visitAssignment(assignment: Assignment): void {
     const type = this.context.symbolTable.get(assignment.name) || 'int';
     const value = this.generateExpression(assignment.value, 0);
-    
+
     // Java declarations need type information
     this.emit(`${type} ${assignment.name} = ${value};`, assignment.id);
   }
@@ -875,16 +891,16 @@ export default function EditorPage() {
   // On code change: parse, translate, and interpret
   useEffect(() => {
     try {
-      const parsed = parseCode(sourceLang, code);  // Lex + Parse
+      const parsed = parseCode(sourceLang, code); // Lex + Parse
       setAst(parsed);
 
       const interpreter = new Interpreter();
-      const result = interpreter.interpret(parsed);  // Step 3A
+      const result = interpreter.interpret(parsed); // Step 3A
       setOutput(result);
 
       // Update all open translation panels
-      panels.forEach(panel => {
-        const { code } = getTranslation(parsed, panel.lang);  // Step 3B
+      panels.forEach((panel) => {
+        const { code } = getTranslation(parsed, panel.lang); // Step 3B
         // Display code in panel
       });
     } catch (e) {
