@@ -1,6 +1,7 @@
 # Deployment was previously automated using GitHub Actions (see archive/deploy.yml).
 # Starting with Praxly2, deployment is performed manually to allow multiple versions
 # to be deployed to the same website (hosted on a JMU server) under different paths.
+# Note: SPA refreshes rely on public/.htaccess being copied into dist/.htaccess.
 
 npm run build
 rsync -vcaOz --chown=:praxly --delete dist/ w3:/data/praxly/v2/
