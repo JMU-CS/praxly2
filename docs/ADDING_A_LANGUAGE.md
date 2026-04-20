@@ -46,16 +46,19 @@ mkdir -p src/language/<newlang>
 ```
 
 For example, for JavaScript, create:
+
 ```bash
 mkdir -p src/language/javascript
 ```
 
 This folder will contain:
+
 - `lexer.ts` — Tokenization logic
 - `parser.ts` — Grammar & AST building logic
 - `emitter.ts` — Code generation logic
 
 Optional (advanced):
+
 - `lezer.ts` — If using Lezer grammar for syntax highlighting
 - `<lang>.grammar` — Lezer grammar file (auto-compiles to `.grammar.js`)
 
@@ -69,9 +72,9 @@ A lexer converts raw source code into a stream of **tokens**. Each token has:
 
 ```typescript
 interface Token {
-  type: TokenType;           // 'KEYWORD', 'IDENTIFIER', 'NUMBER', etc.
-  value: string;             // The actual text (e.g., "if", "42", "+")
-  start: number;             // Character position in source
+  type: TokenType; // 'KEYWORD', 'IDENTIFIER', 'NUMBER', etc.
+  value: string; // The actual text (e.g., "if", "42", "+")
+  start: number; // Character position in source
 }
 ```
 
@@ -128,7 +131,10 @@ export class JavaScriptLexer {
       if (/\d/.test(char)) {
         const start = this.pos;
         let value = '';
-        while (this.pos < this.input.length && (/\d/.test(this.input[this.pos]) || this.input[this.pos] === '.')) {
+        while (
+          this.pos < this.input.length &&
+          (/\d/.test(this.input[this.pos]) || this.input[this.pos] === '.')
+        ) {
           value += this.input[this.pos++];
         }
         tokens.push({ type: 'NUMBER', value, start });
@@ -180,10 +186,32 @@ export class JavaScriptLexer {
         }
 
         const keywords = [
-          'function', 'return', 'if', 'else', 'while', 'for', 'do',
-          'var', 'let', 'const', 'class', 'new', 'this', 'true', 'false',
-          'null', 'undefined', 'switch', 'case', 'default', 'break', 'continue',
-          'try', 'catch', 'finally', 'throw'
+          'function',
+          'return',
+          'if',
+          'else',
+          'while',
+          'for',
+          'do',
+          'var',
+          'let',
+          'const',
+          'class',
+          'new',
+          'this',
+          'true',
+          'false',
+          'null',
+          'undefined',
+          'switch',
+          'case',
+          'default',
+          'break',
+          'continue',
+          'try',
+          'catch',
+          'finally',
+          'throw',
         ];
 
         if (value === 'true' || value === 'false') {
@@ -243,7 +271,7 @@ export class JavaScriptLexer {
           continue;
         }
         if (char === '=' && next === '>') {
-          tokens.push({ type: 'OPERATOR', value: '=>', start });  // Arrow function
+          tokens.push({ type: 'OPERATOR', value: '=>', start }); // Arrow function
           this.pos += 2;
           continue;
         }
@@ -312,7 +340,7 @@ export class JavaScriptParser {
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
-      body.push(this.declaration());  // or topLevelDeclaration()
+      body.push(this.declaration()); // or topLevelDeclaration()
     }
     return { id: generateId(), type: 'Program', body };
   }
@@ -321,7 +349,11 @@ export class JavaScriptParser {
   private declaration(): Statement {
     if (this.check('KEYWORD', 'class')) return this.classDeclaration();
     if (this.check('KEYWORD', 'function')) return this.functionDeclaration();
-    if (this.check('KEYWORD', 'var') || this.check('KEYWORD', 'let') || this.check('KEYWORD', 'const')) {
+    if (
+      this.check('KEYWORD', 'var') ||
+      this.check('KEYWORD', 'let') ||
+      this.check('KEYWORD', 'const')
+    ) {
       return this.variableDeclaration();
     }
     return this.statement();
@@ -577,9 +609,11 @@ private primary(): Expression {
 **Example:** `2 + 3 * 4` should parse as `2 + (3 * 4)`, not `(2 + 3) * 4`.
 
 In our hierarchy:
+
 - `assignment()` → `logicalOr()` → ... → `term()` → `factor()`
 
 When parsing `2 + 3 * 4`:
+
 1. `assignment()` calls `logicalOr()` ... `term()`
 2. `term()` parses `2` via `factor()`
 3. Sees `+` (lower precedence), so returns `2` to its caller
@@ -618,30 +652,38 @@ Create [src/language/javascript/emitter.ts](../../src/language/javascript/emitte
 
 ```typescript
 import { ASTVisitor } from '../visitor';
-import type { Program, ClassDeclaration, FieldDeclaration, Constructor, MethodDeclaration, Block, Expression } from '../ast';
+import type {
+  Program,
+  ClassDeclaration,
+  FieldDeclaration,
+  Constructor,
+  MethodDeclaration,
+  Block,
+  Expression,
+} from '../ast';
 
 export class JavaScriptEmitter extends ASTVisitor {
   visitProgram(program: Program): void {
     // Separate classes from other statements
-    const classes = program.body.filter(s => s.type === 'ClassDeclaration');
-    const nonClasses = program.body.filter(s => s.type !== 'ClassDeclaration');
+    const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
+    const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
 
     // Emit classes first
-    classes.forEach(classDecl => {
+    classes.forEach((classDecl) => {
       this.visitClassDeclaration(classDecl as ClassDeclaration);
       this.emit('');
     });
 
     // Then functions and statements
-    const functions = nonClasses.filter(s => s.type === 'FunctionDeclaration');
-    const mainBody = nonClasses.filter(s => s.type !== 'FunctionDeclaration');
+    const functions = nonClasses.filter((s) => s.type === 'FunctionDeclaration');
+    const mainBody = nonClasses.filter((s) => s.type !== 'FunctionDeclaration');
 
-    functions.forEach(func => {
+    functions.forEach((func) => {
       this.visitStatement(func);
       this.emit('');
     });
 
-    mainBody.forEach(stmt => this.visitStatement(stmt));
+    mainBody.forEach((stmt) => this.visitStatement(stmt));
   }
 
   visitClassDeclaration(classDecl: ClassDeclaration): void {
@@ -649,7 +691,7 @@ export class JavaScriptEmitter extends ASTVisitor {
     this.emit(`class ${classDecl.name}${baseClass} {`);
     this.indent();
 
-    classDecl.body.forEach(member => {
+    classDecl.body.forEach((member) => {
       if (member.type === 'FieldDeclaration') {
         this.visitFieldDeclaration(member as FieldDeclaration);
       } else if (member.type === 'Constructor') {
@@ -675,7 +717,7 @@ export class JavaScriptEmitter extends ASTVisitor {
   visitConstructor(ctor: Constructor): void {
     const classNameFromContext = ''; // You'd need to track this
     // In a real implementation, track the current class name
-    const params = ctor.params.map(p => p.name).join(', ');
+    const params = ctor.params.map((p) => p.name).join(', ');
     this.emit(`constructor(${params}) {`);
     this.indent();
     this.visitBlock(ctor.body);
@@ -684,7 +726,7 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitMethodDeclaration(method: MethodDeclaration): void {
-    const params = method.params.map(p => p.name).join(', ');
+    const params = method.params.map((p) => p.name).join(', ');
     this.emit(`${method.name}(${params}) {`);
     this.indent();
     this.visitBlock(method.body);
@@ -693,7 +735,7 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitBlock(block: Block): void {
-    block.body.forEach(stmt => this.visitStatement(stmt));
+    block.body.forEach((stmt) => this.visitStatement(stmt));
   }
 
   visitPrint(stmt: any): void {
@@ -703,7 +745,7 @@ export class JavaScriptEmitter extends ASTVisitor {
 
   visitAssignment(stmt: any): void {
     const value = this.generateExpression(stmt.value, 0);
-    this.emit(`let ${stmt.name} = ${value};`, stmt.id);  // 'let' for JavaScript
+    this.emit(`let ${stmt.name} = ${value};`, stmt.id); // 'let' for JavaScript
   }
 
   visitFunctionDeclaration(func: any): void {
@@ -988,16 +1030,48 @@ Also find the "Add Panel" menu and add your language there:
 
 ```tsx
 // Look for the menu that allows adding translation panels
-{showAddMenu && (
-  <div className="menu">
-    <button onClick={() => { addPanel('python'); }}>Python</button>
-    <button onClick={() => { addPanel('java'); }}>Java</button>
-    <button onClick={() => { addPanel('csp'); }}>CSP</button>
-    <button onClick={() => { addPanel('praxis'); }}>Praxis</button>
-    {/* ADD THIS: */}
-    <button onClick={() => { addPanel('javascript'); }}>JavaScript</button>
-  </div>
-)}
+{
+  showAddMenu && (
+    <div className="menu">
+      <button
+        onClick={() => {
+          addPanel('python');
+        }}
+      >
+        Python
+      </button>
+      <button
+        onClick={() => {
+          addPanel('java');
+        }}
+      >
+        Java
+      </button>
+      <button
+        onClick={() => {
+          addPanel('csp');
+        }}
+      >
+        CSP
+      </button>
+      <button
+        onClick={() => {
+          addPanel('praxis');
+        }}
+      >
+        Praxis
+      </button>
+      {/* ADD THIS: */}
+      <button
+        onClick={() => {
+          addPanel('javascript');
+        }}
+      >
+        JavaScript
+      </button>
+    </div>
+  );
+}
 ```
 
 ### Step 6.3: (Optional) Add CodeMirror Syntax Highlighting
@@ -1020,9 +1094,9 @@ export function getCodeMirrorExtensions(lang: SupportedLang) {
     case 'java':
       return [java()];
     case 'csp':
-      return [];  // No extension available
+      return []; // No extension available
     case 'praxis':
-      return [];  // Custom grammar
+      return []; // Custom grammar
     // ADD THIS:
     case 'javascript':
       return [javascript()];
@@ -1051,7 +1125,7 @@ describe('JavaScript Lexer', () => {
   it('should tokenize basic code', () => {
     const lexer = new JavaScriptLexer('let x = 10;');
     const tokens = lexer.tokenize();
-    expect(tokens).toHaveLength(6);  // let, x, =, 10, ;, EOF
+    expect(tokens).toHaveLength(6); // let, x, =, 10, ;, EOF
     expect(tokens[0].type).toBe('KEYWORD');
     expect(tokens[0].value).toBe('let');
   });
@@ -1060,7 +1134,7 @@ describe('JavaScript Lexer', () => {
     const lexer = new JavaScriptLexer('let x = 10; // comment');
     const tokens = lexer.tokenize();
     // Comment should be skipped; tokens should only have let, x, =, 10, ;, EOF
-    expect(tokens.some(t => t.value === 'comment')).toBe(false);
+    expect(tokens.some((t) => t.value === 'comment')).toBe(false);
   });
 
   it('should handle multi-char operators', () => {
@@ -1131,14 +1205,16 @@ npm test
 **Symptom:** Parser throws "Unexpected token" errors.
 
 **Diagnosis:**
+
 - Check that your lexer is returning all expected token types.
 - Use `console.log(tokens)` to inspect the token stream.
 
 **Solution:**
+
 ```typescript
 const lexer = new JavaScriptLexer('let x = 10;');
 const tokens = lexer.tokenize();
-console.log(tokens);  // ← Add this temporarily for debugging
+console.log(tokens); // ← Add this temporarily for debugging
 ```
 
 ### Pitfall 2: Wrong Operator Precedence
@@ -1146,10 +1222,12 @@ console.log(tokens);  // ← Add this temporarily for debugging
 **Symptom:** `2 + 3 * 4` parses as `(2 + 3) * 4` instead of `2 + (3 * 4)`.
 
 **Diagnosis:**
+
 - Your expression parsing methods are in the wrong order.
 - Lower precedence operators should appear higher in the call stack.
 
 **Solution:**
+
 - Verify your method hierarchy: `assignment()` → `logicalOr()` → ... → `factor()`.
 - Higher precedence operators should be closer to `primary()`.
 
@@ -1158,9 +1236,11 @@ console.log(tokens);  // ← Add this temporarily for debugging
 **Symptom:** Parser builds AST but translator fails with "visit method not implemented".
 
 **Diagnosis:**
+
 - Your parser generated AST nodes that the emitter doesn't know how to handle.
 
 **Solution:**
+
 - Check what AST node types your parser generates.
 - Ensure your emitter has a `visit*` method for each node type.
 - Use a base fallback:
@@ -1180,10 +1260,12 @@ visitStatement(stmt: Statement): void {
 **Symptom:** Parser hangs/freezes.
 
 **Diagnosis:**
+
 - A parsing method is not advancing through tokens.
 - Usually happens in a `while` loop that doesn't consume tokens.
 
 **Solution:**
+
 ```typescript
 // BAD: Infinite loop
 while (this.check('KEYWORD', 'let')) {
@@ -1192,7 +1274,8 @@ while (this.check('KEYWORD', 'let')) {
 }
 
 // GOOD:
-while (this.match('KEYWORD', 'let')) {  // ← match() calls advance()
+while (this.match('KEYWORD', 'let')) {
+  // ← match() calls advance()
   let val = this.expression();
 }
 ```
@@ -1202,9 +1285,11 @@ while (this.match('KEYWORD', 'let')) {  // ← match() calls advance()
 **Symptom:** Emitted code is formatted incorrectly.
 
 **Diagnosis:**
+
 - You forgot to call `this.indent()` or `this.dedent()`.
 
 **Solution:**
+
 ```typescript
 visitIf(stmt: If): void {
   this.emit(`if (${condition}) {`);
@@ -1220,9 +1305,11 @@ visitIf(stmt: If): void {
 **Symptom:** Strings with quotes cause parse errors.
 
 **Diagnosis:**
+
 - Your lexer doesn't handle escape sequences.
 
 **Solution:**
+
 ```typescript
 // In lexer, when parsing strings:
 if (char === '"') {
@@ -1244,9 +1331,11 @@ if (char === '"') {
 **Symptom:** Generating a constructor with the wrong class name.
 
 **Diagnosis:**
+
 - Emitter needs to know which class it's currently emitting.
 
 **Solution:**
+
 ```typescript
 export class JavaScriptEmitter extends ASTVisitor {
   private currentClassName: string | null = null;
@@ -1270,9 +1359,11 @@ export class JavaScriptEmitter extends ASTVisitor {
 **Symptom:** Subtle bugs in debugger or highlighting.
 
 **Diagnosis:**
+
 - AST nodes without unique IDs cause issues with source mapping.
 
 **Solution:**
+
 ```typescript
 // Always generate IDs
 import { generateId } from '../ast';

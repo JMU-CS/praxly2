@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prettier check (changed files)
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch origin "${{ github.base_ref }}"
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT "origin/${{ github.base_ref }}"...HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT HEAD~1 HEAD || git ls-files)
+          fi
+
+          PRETTIER_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(ts|tsx|js|jsx|json|md|css|html|yml|yaml)$' || true)
+
+          if [[ -z "$PRETTIER_FILES" ]]; then
+            echo "No Prettier-supported changed files."
+            exit 0
+          fi
+
+          echo "$PRETTIER_FILES" | xargs npx prettier --check
+
+      - name: Lint staged config check
+        run: npx lint-staged --allow-empty
+
+      - name: Run unit tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build

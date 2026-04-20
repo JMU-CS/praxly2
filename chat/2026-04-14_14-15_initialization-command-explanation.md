@@ -39,9 +39,9 @@ Let me start with step 1 and 2 in parallel.
 
 🔧 Searched for files matching `**/{CONTRIBUTING.md,ARCHITECTURE.md,docs/**/*.md}`, 5 matches
 
-🔧 Starting: *Explore codebase architecture* (2/4)
+🔧 Starting: _Explore codebase architecture_ (2/4)
 
-No existing AI instruction files found. Let me explore the codebase in depth via subagents.   
+No existing AI instruction files found. Let me explore the codebase in depth via subagents.
 
 🔧 Deep codebase exploration
 
@@ -235,7 +235,7 @@ No existing AI instruction files found. Let me explore the codebase in depth via
 
 🧠 Now I have comprehensive knowledge of the codebase. Let me also read the workspace-instructions.md skill file for the template and conventions, then generate the copilot-instructions.md file.
 
-Now let me read the agent-customization skill for the template format. 
+Now let me read the agent-customization skill for the template format.
 
 📖 Read skill [agent-customization]`📁SKILL.md?vscodeLinkType%3Dskill#1-1`, lines 1 to 60
 
@@ -243,39 +243,38 @@ Now let me read the agent-customization skill for the template format.
 
 📖 Read skill `agent-customization`: `📄workspace-instructions.md`
 
-🔧 Starting: *Generate copilot-instructions.md* (3/4)
+🔧 Starting: _Generate copilot-instructions.md_ (3/4)
 
 🔧 Running ` mkdir -p /home/mayfiecs/GitHub/Research/praxly2/.github`
 
 🔧 Create File
 
-🔧 Starting: *Suggest follow-up customizations* (4/4)
+🔧 Starting: _Suggest follow-up customizations_ (4/4)
 
 I notice the file I generated matches what was already attached in the conversation context. The existing `📄.github/copilot-instructions.md` is well-structured — it follows the workspace-instructions template (concise sections, links to docs instead of embedding, actionable conventions). I've confirmed it's in place.
 
-Let me ask about feedback before suggesting next steps. 
+Let me ask about feedback before suggesting next steps.
 
 🔧 Asked a question (Instructions feedback)
 
 > Q: The copilot-instructions.md is now in place. Anything you'd like changed before I suggest follow-up customizations?<br>
 > **A: Looks good, suggest next customizations**
 
-🔧 Completed: *Suggest follow-up customizations* (4/4)`📄.github/copilot-instructions.md` is ready. Here are example prompts you can try:
+🔧 Completed: _Suggest follow-up customizations_ (4/4)`📄.github/copilot-instructions.md` is ready. Here are example prompts you can try:
 
-- *"Add a `repeat...times` loop to the Java parser and emitter"*
-- *"Why is my Python for-loop translating without the `range()` call?"*
-- *"Add unit tests for CSP class declarations"*
+- _"Add a `repeat...times` loop to the Java parser and emitter"_
+- _"Why is my Python for-loop translating without the `range()` call?"_
+- _"Add unit tests for CSP class declarations"_
 
 ---
 
 **Suggested follow-up customizations to create next:**
 
-| Customization | Type | Purpose |
-|---|---|---|
-| `/create-instruction add-language` | `.instructions.md` | Applies when editing `src/language/*/` files — injects the 3-file module pattern (lexer/parser/emitter), AST invariants, and links to `📄docs/ADDING_A_LANGUAGE.md` so new language work follows conventions automatically. |
-| `/create-prompt test-language-feature` | `.prompt.md` | Parameterized prompt: given a language + feature name, generates unit tests in the correct `tests/<lang>.test.ts` file following existing `describe`/`it` patterns. |
-| `/create-agent compiler-debugger` | `.agent.md` | Read-only agent restricted to `📁src/language` and `📁tests` that diagnoses "why does X translate wrong?" questions — inspects the AST, traces through emitter visitors, and identifies the mismatch. |
-| `/create-prompt add-csv-test` | `.prompt.md` | Generates new rows for `📄csv/praxly.test.csv` given a feature description, following the existing column format. |
+| Customization                          | Type               | Purpose                                                                                                                                                                                                                     |
+| -------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/create-instruction add-language`     | `.instructions.md` | Applies when editing `src/language/*/` files — injects the 3-file module pattern (lexer/parser/emitter), AST invariants, and links to `📄docs/ADDING_A_LANGUAGE.md` so new language work follows conventions automatically. |
+| `/create-prompt test-language-feature` | `.prompt.md`       | Parameterized prompt: given a language + feature name, generates unit tests in the correct `tests/<lang>.test.ts` file following existing `describe`/`it` patterns.                                                         |
+| `/create-agent compiler-debugger`      | `.agent.md`        | Read-only agent restricted to `📁src/language` and `📁tests` that diagnoses "why does X translate wrong?" questions — inspects the AST, traces through emitter visitors, and identifies the mismatch.                       |
+| `/create-prompt add-csv-test`          | `.prompt.md`       | Generates new rows for `📄csv/praxly.test.csv` given a feature description, following the existing column format.                                                                                                           |
 
 Would you like me to create any of these?
-

@@ -4,6 +4,9 @@ import { JavaParser } from '../src/language/java/parser';
 import { JavaEmitter } from '../src/language/java/emitter';
 import { Translator } from '../src/language/translator';
 import { SymbolTable } from '../src/language/visitor';
+import { Lexer as PythonLexer } from '../src/language/python/lexer';
+import { Parser as PythonParser } from '../src/language/python/parser';
+import { Interpreter } from '../src/language/interpreter';
 
 describe('Java Lexer', () => {
   describe('Basic Tokens', () => {
@@ -17,27 +20,33 @@ describe('Java Lexer', () => {
     it('should tokenize strings', () => {
       const lexer = new JavaLexer('"hello world"');
       const tokens = lexer.tokenize();
-      expect(tokens).toContainEqual(expect.objectContaining({ type: 'STRING', value: 'hello world' }));
+      expect(tokens).toContainEqual(
+        expect.objectContaining({ type: 'STRING', value: 'hello world' })
+      );
     });
 
     it('should tokenize keywords', () => {
       const lexer = new JavaLexer('int public class void');
       const tokens = lexer.tokenize();
-      const keywordTokens = tokens.filter(t => t.type === 'KEYWORD');
+      const keywordTokens = tokens.filter((t) => t.type === 'KEYWORD');
       expect(keywordTokens).toHaveLength(4);
     });
 
     it('should tokenize identifiers', () => {
       const lexer = new JavaLexer('myVariable someFunc');
       const tokens = lexer.tokenize();
-      expect(tokens).toContainEqual(expect.objectContaining({ type: 'IDENTIFIER', value: 'myVariable' }));
-      expect(tokens).toContainEqual(expect.objectContaining({ type: 'IDENTIFIER', value: 'someFunc' }));
+      expect(tokens).toContainEqual(
+        expect.objectContaining({ type: 'IDENTIFIER', value: 'myVariable' })
+      );
+      expect(tokens).toContainEqual(
+        expect.objectContaining({ type: 'IDENTIFIER', value: 'someFunc' })
+      );
     });
 
     it('should tokenize operators', () => {
       const lexer = new JavaLexer('+ - * / == != && ||');
       const tokens = lexer.tokenize();
-      const operators = tokens.filter(t => t.type === 'OPERATOR').map(t => t.value);
+      const operators = tokens.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(operators).toContain('+');
       expect(operators).toContain('==');
       expect(operators).toContain('&&');
@@ -46,7 +55,7 @@ describe('Java Lexer', () => {
     it('should tokenize punctuation', () => {
       const lexer = new JavaLexer('( ) { } [ ] ; , .');
       const tokens = lexer.tokenize();
-      const punctuation = tokens.filter(t => t.type === 'PUNCTUATION').map(t => t.value);
+      const punctuation = tokens.filter((t) => t.type === 'PUNCTUATION').map((t) => t.value);
       expect(punctuation).toContain('(');
       expect(punctuation).toContain('{');
       expect(punctuation).toContain('[');
@@ -55,7 +64,7 @@ describe('Java Lexer', () => {
     it('should handle comments', () => {
       const lexer = new JavaLexer('int x; // this is a comment\nint y;');
       const tokens = lexer.tokenize();
-      const identifiers = tokens.filter(t => t.type === 'IDENTIFIER').map(t => t.value);
+      const identifiers = tokens.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
       expect(identifiers).toContain('x');
       expect(identifiers).toContain('y');
     });
@@ -73,7 +82,7 @@ describe('Java Lexer', () => {
     it('should tokenize method call', () => {
       const lexer = new JavaLexer('obj.method()');
       const tokens = lexer.tokenize();
-      const values = tokens.filter(t => t.type === 'IDENTIFIER').map(t => t.value);
+      const values = tokens.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
       expect(values).toContain('obj');
       expect(values).toContain('method');
     });
@@ -116,7 +125,7 @@ if (x < 10) {
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      expect(program.body.some(s => s.type === 'If')).toBe(true);
+      expect(program.body.some((s) => s.type === 'If')).toBe(true);
     });
 
     it('should parse while loop', () => {
@@ -128,7 +137,7 @@ while (i < 10) {
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      expect(program.body.some(s => s.type === 'While')).toBe(true);
+      expect(program.body.some((s) => s.type === 'While')).toBe(true);
     });
 
     it('should parse for loop', () => {
@@ -178,7 +187,11 @@ describe('Java Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      const context = { symbolTable: new SymbolTable(), functionReturnTypes: new Map(), functionParamTypes: new Map() };
+      const context = {
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
+      };
       const emitter = new JavaEmitter(context);
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -193,7 +206,11 @@ describe('Java Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      const context = { symbolTable: new SymbolTable(), functionReturnTypes: new Map(), functionParamTypes: new Map() };
+      const context = {
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
+      };
       const emitter = new JavaEmitter(context);
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -208,7 +225,11 @@ describe('Java Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      const context = { symbolTable: new SymbolTable(), functionReturnTypes: new Map(), functionParamTypes: new Map() };
+      const context = {
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
+      };
       const emitter = new JavaEmitter(context);
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -224,7 +245,11 @@ describe('Java Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      const context = { symbolTable: new SymbolTable(), functionReturnTypes: new Map(), functionParamTypes: new Map() };
+      const context = {
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
+      };
       const emitter = new JavaEmitter(context);
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -363,6 +388,86 @@ System.out.println(xs[0]);`;
       expect(result).toContain('void');
       expect(result).toContain('inc');
       expect(result).toContain('this.count');
+    });
+
+    it('should translate Java method parameter types to Python annotations', () => {
+      const source = `public class MathUtil {
+  public int add(int x, double y) {
+    return x;
+  }
+}`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const pythonCode = translator.translate(program, 'python');
+
+      expect(pythonCode).toContain('class MathUtil');
+      expect(pythonCode).toContain('def add(self, x: int, y: float):');
+    });
+
+    it('should include non-Main Java classes when translating to Python', () => {
+      const source = `public class Meow {
+  private int x;
+
+  public Meow(int x) {
+    this.x = x;
+  }
+}
+
+public class Main {
+  public static void main(String[] args) {
+    Meow meow = new Meow(10);
+    System.out.println(meow.x);
+  }
+}`;
+      const lexer = new JavaLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new JavaParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const pythonCode = translator.translate(program, 'python');
+
+      expect(pythonCode).toContain('class Meow:');
+      expect(pythonCode).toContain('def __init__(self, x: int):');
+      expect(pythonCode).toContain('self.x = x');
+      expect(pythonCode).toContain('meow = Meow(10)');
+      expect(pythonCode).toContain('print(meow.x)');
+    });
+
+    it('should execute translated Python class constructor calls', () => {
+      const source = `public class Meow {
+  private int x;
+
+  public Meow(int x) {
+    this.x = x;
+  }
+}
+
+public class Main {
+  public static void main(String[] args) {
+    Meow meow = new Meow(10);
+    System.out.println(meow.x);
+  }
+}`;
+      const javaLexer = new JavaLexer(source);
+      const javaTokens = javaLexer.tokenize();
+      const javaParser = new JavaParser(javaTokens);
+      const javaProgram = javaParser.parse();
+      const translator = new Translator();
+      const pythonCode = translator.translate(javaProgram, 'python');
+
+      const pythonLexer = new PythonLexer(pythonCode);
+      const pythonTokens = pythonLexer.tokenize();
+      const pythonParser = new PythonParser(pythonTokens);
+      const pythonProgram = pythonParser.parse();
+
+      const interpreter = new Interpreter();
+      const output = interpreter.interpret(pythonProgram, pythonCode);
+
+      expect(output.join('\n')).not.toContain('Runtime Error');
+      expect(output).toContain('10');
     });
   });
 

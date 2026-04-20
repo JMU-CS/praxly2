@@ -18,7 +18,10 @@ export class JavaLexer {
     while (this.pos < this.input.length) {
       const char = this.input[this.pos];
 
-      if (/\s/.test(char)) { this.pos++; continue; }
+      if (/\s/.test(char)) {
+        this.pos++;
+        continue;
+      }
 
       // Comments
       if (char === '/' && this.input[this.pos + 1] === '/') {
@@ -29,7 +32,10 @@ export class JavaLexer {
       if (/\d/.test(char)) {
         let value = '';
         const start = this.pos;
-        while (this.pos < this.input.length && (/\d/.test(this.input[this.pos]) || this.input[this.pos] === '.')) {
+        while (
+          this.pos < this.input.length &&
+          (/\d/.test(this.input[this.pos]) || this.input[this.pos] === '.')
+        ) {
           value += this.input[this.pos++];
         }
         tokens.push({ type: 'NUMBER', value, start });
@@ -55,7 +61,44 @@ export class JavaLexer {
           value += this.input[this.pos++];
         }
         // Keywords including OOP-related keywords
-        const keywords = ['public', 'class', 'static', 'void', 'int', 'double', 'boolean', 'if', 'else', 'while', 'for', 'do', 'return', 'true', 'false', 'var', 'new', 'private', 'protected', 'extends', 'this', 'null', 'final', 'abstract', 'interface', 'implements', 'package', 'import', 'String', 'char', 'float', 'long', 'switch', 'case', 'default', 'break'];
+        const keywords = [
+          'public',
+          'class',
+          'static',
+          'void',
+          'int',
+          'double',
+          'boolean',
+          'if',
+          'else',
+          'while',
+          'for',
+          'do',
+          'return',
+          'true',
+          'false',
+          'var',
+          'new',
+          'private',
+          'protected',
+          'extends',
+          'this',
+          'null',
+          'final',
+          'abstract',
+          'interface',
+          'implements',
+          'package',
+          'import',
+          'String',
+          'char',
+          'float',
+          'long',
+          'switch',
+          'case',
+          'default',
+          'break',
+        ];
         const type = keywords.includes(value) ? 'KEYWORD' : 'IDENTIFIER';
         if (value === 'true' || value === 'false') tokens.push({ type: 'BOOLEAN', value, start });
         else tokens.push({ type, value, start });
@@ -66,35 +109,121 @@ export class JavaLexer {
         const start = this.pos;
         const next = this.input[this.pos + 1];
         const next2 = this.input[this.pos + 2];
-        if (char === '=' && next === '=') { tokens.push({ type: 'OPERATOR', value: '==', start }); this.pos += 2; continue; }
-        if (char === '!' && next === '=') { tokens.push({ type: 'OPERATOR', value: '!=', start }); this.pos += 2; continue; }
-        if (char === '&' && next === '&') { tokens.push({ type: 'OPERATOR', value: '&&', start }); this.pos += 2; continue; }
-        if (char === '&' && next === '=') { tokens.push({ type: 'OPERATOR', value: '&=', start }); this.pos += 2; continue; }
-        if (char === '|' && next === '|') { tokens.push({ type: 'OPERATOR', value: '||', start }); this.pos += 2; continue; }
-        if (char === '|' && next === '=') { tokens.push({ type: 'OPERATOR', value: '|=', start }); this.pos += 2; continue; }
-        if (char === '^' && next === '=') { tokens.push({ type: 'OPERATOR', value: '^=', start }); this.pos += 2; continue; }
-        if (char === '<' && next === '<') { 
-          if (next2 === '=') { tokens.push({ type: 'OPERATOR', value: '<<=', start }); this.pos += 3; continue; }
-          tokens.push({ type: 'OPERATOR', value: '<<', start }); this.pos += 2; continue; 
+        if (char === '=' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '==', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '!' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '!=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '&' && next === '&') {
+          tokens.push({ type: 'OPERATOR', value: '&&', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '&' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '&=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '|' && next === '|') {
+          tokens.push({ type: 'OPERATOR', value: '||', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '|' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '|=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '^' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '^=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '<' && next === '<') {
+          if (next2 === '=') {
+            tokens.push({ type: 'OPERATOR', value: '<<=', start });
+            this.pos += 3;
+            continue;
+          }
+          tokens.push({ type: 'OPERATOR', value: '<<', start });
+          this.pos += 2;
+          continue;
         }
         if (char === '>' && next === '>') {
           if (next2 === '>') {
-            if (this.input[this.pos + 3] === '=') { tokens.push({ type: 'OPERATOR', value: '>>>=', start }); this.pos += 4; continue; }
-            tokens.push({ type: 'OPERATOR', value: '>>>', start }); this.pos += 3; continue;
+            if (this.input[this.pos + 3] === '=') {
+              tokens.push({ type: 'OPERATOR', value: '>>>=', start });
+              this.pos += 4;
+              continue;
+            }
+            tokens.push({ type: 'OPERATOR', value: '>>>', start });
+            this.pos += 3;
+            continue;
           }
-          if (next2 === '=') { tokens.push({ type: 'OPERATOR', value: '>>=', start }); this.pos += 3; continue; }
-          tokens.push({ type: 'OPERATOR', value: '>>', start }); this.pos += 2; continue;
+          if (next2 === '=') {
+            tokens.push({ type: 'OPERATOR', value: '>>=', start });
+            this.pos += 3;
+            continue;
+          }
+          tokens.push({ type: 'OPERATOR', value: '>>', start });
+          this.pos += 2;
+          continue;
         }
-        if (char === '<' && next === '=') { tokens.push({ type: 'OPERATOR', value: '<=', start }); this.pos += 2; continue; }
-        if (char === '>' && next === '=') { tokens.push({ type: 'OPERATOR', value: '>=', start }); this.pos += 2; continue; }
-        if (char === '+' && next === '+') { tokens.push({ type: 'OPERATOR', value: '++', start }); this.pos += 2; continue; }
-        if (char === '-' && next === '-') { tokens.push({ type: 'OPERATOR', value: '--', start }); this.pos += 2; continue; }
-        if (char === '+' && next === '=') { tokens.push({ type: 'OPERATOR', value: '+=', start }); this.pos += 2; continue; }
-        if (char === '-' && next === '=') { tokens.push({ type: 'OPERATOR', value: '-=', start }); this.pos += 2; continue; }
-        if (char === '*' && next === '*') { tokens.push({ type: 'OPERATOR', value: '**', start }); this.pos += 2; continue; }
-        if (char === '*' && next === '=') { tokens.push({ type: 'OPERATOR', value: '*=', start }); this.pos += 2; continue; }
-        if (char === '/' && next === '=') { tokens.push({ type: 'OPERATOR', value: '/=', start }); this.pos += 2; continue; }
-        if (char === '%' && next === '=') { tokens.push({ type: 'OPERATOR', value: '%=', start }); this.pos += 2; continue; }
+        if (char === '<' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '<=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '>' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '>=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '+' && next === '+') {
+          tokens.push({ type: 'OPERATOR', value: '++', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '-' && next === '-') {
+          tokens.push({ type: 'OPERATOR', value: '--', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '+' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '+=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '-' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '-=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '*' && next === '*') {
+          tokens.push({ type: 'OPERATOR', value: '**', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '*' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '*=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '/' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '/=', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '%' && next === '=') {
+          tokens.push({ type: 'OPERATOR', value: '%=', start });
+          this.pos += 2;
+          continue;
+        }
 
         tokens.push({ type: 'OPERATOR', value: char, start: this.pos++ });
         continue;

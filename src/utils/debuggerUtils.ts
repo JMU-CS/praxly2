@@ -63,4 +63,3 @@ export function getHighlightedLinesFromNodeIds(nodeIds: string[], sourceMap: Sou
   }
   return Array.from(lines);
 }
-

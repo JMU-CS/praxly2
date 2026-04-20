@@ -18,7 +18,10 @@ export class CSPLexer {
     while (this.pos < this.input.length) {
       const char = this.input[this.pos];
 
-      if (/\s/.test(char)) { this.pos++; continue; }
+      if (/\s/.test(char)) {
+        this.pos++;
+        continue;
+      }
 
       // Comments
       if (char === '/' && this.input[this.pos + 1] === '/') {
@@ -29,7 +32,10 @@ export class CSPLexer {
       if (/\d/.test(char)) {
         let value = '';
         const start = this.pos;
-        while (this.pos < this.input.length && (/\d/.test(this.input[this.pos]) || this.input[this.pos] === '.')) {
+        while (
+          this.pos < this.input.length &&
+          (/\d/.test(this.input[this.pos]) || this.input[this.pos] === '.')
+        ) {
           value += this.input[this.pos++];
         }
         tokens.push({ type: 'NUMBER', value, start });
@@ -54,14 +60,41 @@ export class CSPLexer {
         while (this.pos < this.input.length && /[a-zA-Z0-9_]/.test(this.input[this.pos])) {
           value += this.input[this.pos++];
         }
-        const keywords = ['IF', 'ELSE', 'REPEAT', 'UNTIL', 'TIMES', 'FOR', 'EACH', 'IN', 'PROCEDURE', 'RETURN', 'DISPLAY', 'INPUT', 'NOT', 'AND', 'OR', 'MOD', 'true', 'false', 'CLASS', 'PRIVATE', 'PUBLIC', 'CONSTRUCTOR', 'THIS', 'NEW'];
+        const keywords = [
+          'IF',
+          'ELSE',
+          'REPEAT',
+          'UNTIL',
+          'TIMES',
+          'FOR',
+          'EACH',
+          'IN',
+          'PROCEDURE',
+          'RETURN',
+          'DISPLAY',
+          'INPUT',
+          'NOT',
+          'AND',
+          'OR',
+          'MOD',
+          'true',
+          'false',
+          'CLASS',
+          'PRIVATE',
+          'PUBLIC',
+          'CONSTRUCTOR',
+          'THIS',
+          'NEW',
+        ];
         const type = keywords.includes(value) ? 'KEYWORD' : 'IDENTIFIER';
         if (value === 'true' || value === 'false') tokens.push({ type: 'BOOLEAN', value, start });
         else tokens.push({ type, value, start });
         continue;
       }
 
-      if (['+', '-', '*', '/', '=', '>', '<', '(', ')', '{', '}', '[', ']', ',', '<'].includes(char)) {
+      if (
+        ['+', '-', '*', '/', '=', '>', '<', '(', ')', '{', '}', '[', ']', ',', '<'].includes(char)
+      ) {
         const start = this.pos;
         // Check for <-
         if (char === '<' && this.input[this.pos + 1] === '-') {

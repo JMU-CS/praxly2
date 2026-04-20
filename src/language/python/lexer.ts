@@ -66,9 +66,14 @@ export class Lexer {
     while (p < line.length) {
       const char = line[p];
 
-      if (/\s/.test(char)) { p++; continue; }
+      if (/\s/.test(char)) {
+        p++;
+        continue;
+      }
 
-      if (char === '#') { break; } // Inline Comment
+      if (char === '#') {
+        break;
+      } // Inline Comment
 
       if (/\d/.test(char)) {
         let value = '';
@@ -82,8 +87,12 @@ export class Lexer {
         p++;
         let value = '';
         while (p < line.length && line[p] !== quote) {
-          if (line[p] === '\\') { value += '\\' + line[p + 1]; p += 2; }
-          else { value += line[p++]; }
+          if (line[p] === '\\') {
+            value += '\\' + line[p + 1];
+            p += 2;
+          } else {
+            value += line[p++];
+          }
         }
         p++;
         this.tokens.push({ type: 'STRING', value, start: offset + p });
@@ -93,10 +102,38 @@ export class Lexer {
       if (/[a-zA-Z_]/.test(char)) {
         let value = '';
         while (p < line.length && /[a-zA-Z0-9_]/.test(line[p])) value += line[p++];
-        const keywords = ['def', 'class', 'if', 'elif', 'else', 'while', 'for', 'in', 'return', 'break', 'continue', 'and', 'or', 'not', 'True', 'False', 'None', 'pass', 'try', 'except', 'finally', 'as'];
+        const keywords = [
+          'def',
+          'class',
+          'if',
+          'elif',
+          'else',
+          'while',
+          'for',
+          'in',
+          'return',
+          'break',
+          'continue',
+          'and',
+          'or',
+          'not',
+          'True',
+          'False',
+          'None',
+          'pass',
+          'try',
+          'except',
+          'finally',
+          'as',
+        ];
 
         if (keywords.includes(value)) {
-          if (value === 'True' || value === 'False') this.tokens.push({ type: 'BOOLEAN', value: value === 'True' ? 'true' : 'false', start: offset + p });
+          if (value === 'True' || value === 'False')
+            this.tokens.push({
+              type: 'BOOLEAN',
+              value: value === 'True' ? 'true' : 'false',
+              start: offset + p,
+            });
           else this.tokens.push({ type: 'KEYWORD', value, start: offset + p });
         } else {
           this.tokens.push({ type: 'IDENTIFIER', value, start: offset + p });
@@ -104,7 +141,29 @@ export class Lexer {
         continue;
       }
 
-      if (['+', '-', '*', '/', '=', '>', '<', '!', '(', ')', '[', ']', '{', '}', ',', '.', ':', ';', '%'].includes(char)) {
+      if (
+        [
+          '+',
+          '-',
+          '*',
+          '/',
+          '=',
+          '>',
+          '<',
+          '!',
+          '(',
+          ')',
+          '[',
+          ']',
+          '{',
+          '}',
+          ',',
+          '.',
+          ':',
+          ';',
+          '%',
+        ].includes(char)
+      ) {
         let value = char;
         // Dual operators and ** operator
         if (p + 1 < line.length) {

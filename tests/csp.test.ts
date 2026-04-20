@@ -23,7 +23,7 @@ describe('CSP Lexer', () => {
     it('should tokenize CSP keywords', () => {
       const lexer = new CSPLexer('IF REPEAT UNTIL FOR EACH PROCEDURE DISPLAY');
       const tokens = lexer.tokenize();
-      const keywords = tokens.filter(t => t.type === 'KEYWORD').map(t => t.value);
+      const keywords = tokens.filter((t) => t.type === 'KEYWORD').map((t) => t.value);
       expect(keywords).toContain('IF');
       expect(keywords).toContain('REPEAT');
       expect(keywords).toContain('PROCEDURE');
@@ -32,7 +32,7 @@ describe('CSP Lexer', () => {
     it('should tokenize class keywords', () => {
       const lexer = new CSPLexer('CLASS PUBLIC PRIVATE CONSTRUCTOR');
       const tokens = lexer.tokenize();
-      const keywords = tokens.filter(t => t.type === 'KEYWORD').map(t => t.value);
+      const keywords = tokens.filter((t) => t.type === 'KEYWORD').map((t) => t.value);
       expect(keywords).toContain('CLASS');
       expect(keywords).toContain('PUBLIC');
       expect(keywords).toContain('CONSTRUCTOR');
@@ -53,7 +53,7 @@ describe('CSP Lexer', () => {
     it('should tokenize comparison operators', () => {
       const lexer = new CSPLexer('a < b a > c a <= d a >= e');
       const tokens = lexer.tokenize();
-      const operators = tokens.filter(t => t.type === 'OPERATOR').map(t => t.value);
+      const operators = tokens.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(operators).toContain('<');
       expect(operators).toContain('>');
       expect(operators).toContain('<=');
@@ -63,7 +63,7 @@ describe('CSP Lexer', () => {
     it('should skip comments', () => {
       const lexer = new CSPLexer('x <- 5 // comment\ny <- 10');
       const tokens = lexer.tokenize();
-      const identifiers = tokens.filter(t => t.type === 'IDENTIFIER').map(t => t.value);
+      const identifiers = tokens.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
       expect(identifiers).toContain('x');
       expect(identifiers).toContain('y');
     });
@@ -71,7 +71,7 @@ describe('CSP Lexer', () => {
     it('should tokenize logical operators', () => {
       const lexer = new CSPLexer('AND OR NOT');
       const tokens = lexer.tokenize();
-      const keywords = tokens.filter(t => t.type === 'KEYWORD').map(t => t.value);
+      const keywords = tokens.filter((t) => t.type === 'KEYWORD').map((t) => t.value);
       expect(keywords).toContain('AND');
       expect(keywords).toContain('OR');
       expect(keywords).toContain('NOT');
@@ -82,14 +82,14 @@ describe('CSP Lexer', () => {
     it('should tokenize arithmetic with MOD', () => {
       const lexer = new CSPLexer('x MOD 5');
       const tokens = lexer.tokenize();
-      const keywords = tokens.filter(t => t.type === 'KEYWORD').map(t => t.value);
+      const keywords = tokens.filter((t) => t.type === 'KEYWORD').map((t) => t.value);
       expect(keywords).toContain('MOD');
     });
 
     it('should tokenize procedure call', () => {
       const lexer = new CSPLexer('myProc(a, b)');
       const tokens = lexer.tokenize();
-      const identifiers = tokens.filter(t => t.type === 'IDENTIFIER').map(t => t.value);
+      const identifiers = tokens.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
       expect(identifiers).toContain('myProc');
       expect(identifiers).toContain('a');
       expect(identifiers).toContain('b');
@@ -231,10 +231,10 @@ describe('CSP Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
       const program = parser.parse();
-      const emitter = new CSPEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new CSPEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -247,10 +247,10 @@ describe('CSP Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
       const program = parser.parse();
-      const emitter = new CSPEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new CSPEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -263,10 +263,10 @@ describe('CSP Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
       const program = parser.parse();
-      const emitter = new CSPEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new CSPEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -282,10 +282,10 @@ describe('CSP Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
       const program = parser.parse();
-      const emitter = new CSPEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new CSPEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -300,10 +300,10 @@ describe('CSP Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
       const program = parser.parse();
-      const emitter = new CSPEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new CSPEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -316,10 +316,10 @@ describe('CSP Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
       const program = parser.parse();
-      const emitter = new CSPEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new CSPEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -332,10 +332,10 @@ describe('CSP Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
       const program = parser.parse();
-      const emitter = new CSPEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new CSPEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
@@ -348,10 +348,10 @@ describe('CSP Emitter', () => {
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
       const program = parser.parse();
-      const emitter = new CSPEmitter({ 
-        symbolTable: new SymbolTable(), 
-        functionReturnTypes: new Map(), 
-        functionParamTypes: new Map() 
+      const emitter = new CSPEmitter({
+        symbolTable: new SymbolTable(),
+        functionReturnTypes: new Map(),
+        functionParamTypes: new Map(),
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();

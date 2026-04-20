@@ -4,12 +4,42 @@
  */
 
 export type NodeType =
-  | 'Program' | 'Block' | 'Assignment' | 'Print' | 'If' | 'While' | 'DoWhile' | 'For' | 'Switch' | 'SwitchCase'
-  | 'FunctionDeclaration' | 'Return' | 'BinaryExpression' | 'UnaryExpression' | 'UpdateExpression'
-  | 'Identifier' | 'Literal' | 'ArrayLiteral' | 'CallExpression' | 'ExpressionStatement'
-  | 'ClassDeclaration' | 'FieldDeclaration' | 'Constructor' | 'MethodDeclaration'
-  | 'NewExpression' | 'MemberExpression' | 'ThisExpression' | 'Parameter' | 'IndexExpression'
-  | 'Break' | 'Continue' | 'Try' | 'ExceptionHandler' | 'ConditionalExpression' | 'CompoundAssignment' | 'ListComprehension';
+  | 'Program'
+  | 'Block'
+  | 'Assignment'
+  | 'Print'
+  | 'If'
+  | 'While'
+  | 'DoWhile'
+  | 'For'
+  | 'Switch'
+  | 'SwitchCase'
+  | 'FunctionDeclaration'
+  | 'Return'
+  | 'BinaryExpression'
+  | 'UnaryExpression'
+  | 'UpdateExpression'
+  | 'Identifier'
+  | 'Literal'
+  | 'ArrayLiteral'
+  | 'CallExpression'
+  | 'ExpressionStatement'
+  | 'ClassDeclaration'
+  | 'FieldDeclaration'
+  | 'Constructor'
+  | 'MethodDeclaration'
+  | 'NewExpression'
+  | 'MemberExpression'
+  | 'ThisExpression'
+  | 'Parameter'
+  | 'IndexExpression'
+  | 'Break'
+  | 'Continue'
+  | 'Try'
+  | 'ExceptionHandler'
+  | 'ConditionalExpression'
+  | 'CompoundAssignment'
+  | 'ListComprehension';
 
 export interface ASTNode {
   id: string;
@@ -28,9 +58,23 @@ export interface Block extends ASTNode {
 }
 
 export type Statement =
-  | Assignment | Print | If | While | DoWhile | For | Switch | FunctionDeclaration | Return | ExpressionStatement
-  | ClassDeclaration | FieldDeclaration | Constructor | MethodDeclaration
-  | Break | Continue | Try;
+  | Assignment
+  | Print
+  | If
+  | While
+  | DoWhile
+  | For
+  | Switch
+  | FunctionDeclaration
+  | Return
+  | ExpressionStatement
+  | ClassDeclaration
+  | FieldDeclaration
+  | Constructor
+  | MethodDeclaration
+  | Break
+  | Continue
+  | Try;
 
 export interface Break extends ASTNode {
   type: 'Break';
@@ -134,8 +178,20 @@ export interface Return extends ASTNode {
 }
 
 export type Expression =
-  | BinaryExpression | UnaryExpression | UpdateExpression | Identifier | Literal | ArrayLiteral | CallExpression
-  | NewExpression | MemberExpression | ThisExpression | IndexExpression | ConditionalExpression | CompoundAssignment | ListComprehension;
+  | BinaryExpression
+  | UnaryExpression
+  | UpdateExpression
+  | Identifier
+  | Literal
+  | ArrayLiteral
+  | CallExpression
+  | NewExpression
+  | MemberExpression
+  | ThisExpression
+  | IndexExpression
+  | ConditionalExpression
+  | CompoundAssignment
+  | ListComprehension;
 
 export interface BinaryExpression extends ASTNode {
   type: 'BinaryExpression';

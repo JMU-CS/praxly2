@@ -62,8 +62,8 @@ export interface DebugContext {
 export class Debugger {
   private context: DebugContext | null = null;
   private executionGenerator: Generator<any, any, any> | null = null;
-  private stepCallCount: number = 0;  // Counter for debugging
-  private pendingRetryAfterInput: boolean = false;  // Track if we're retrying after input pause
+  private stepCallCount: number = 0; // Counter for debugging
+  private pendingRetryAfterInput: boolean = false; // Track if we're retrying after input pause
 
   /**
    * Initialize debugger with a program and source language
@@ -116,7 +116,9 @@ export class Debugger {
       }
 
       const result = this.executionGenerator.next();
-      console.log(`Debugger.step() #${this.stepCallCount}: generator.next() returned, done=${result.done}`);
+      console.log(
+        `Debugger.step() #${this.stepCallCount}: generator.next() returned, done=${result.done}`
+      );
 
       // If we were retrying and it succeeded, clear the flag
       if (this.pendingRetryAfterInput) {
@@ -138,14 +140,16 @@ export class Debugger {
       }
 
       const { nodeId, nodeType, loc, variables, prompt } = result.value;
-      
+
       // Handle InputPrompt yielded from interpreter
       if (nodeType === 'InputPrompt') {
-        console.log(`Debugger.step() #${this.stepCallCount}: Yielded InputPrompt, waiting for input`);
+        console.log(
+          `Debugger.step() #${this.stepCallCount}: Yielded InputPrompt, waiting for input`
+        );
         this.pendingRetryAfterInput = true;
         this.context.waitingForInput = true;
         this.context.inputPrompt = prompt || '';
-        
+
         const step: DebugStep = {
           stepNumber: this.context.steps.length,
           nodeId,
@@ -178,10 +182,16 @@ export class Debugger {
       console.log(`=== Debugger.step() #${this.stepCallCount} END (step ${nodeType}) ===\n`);
       return step;
     } catch (error: any) {
-      console.log(`Debugger.step() #${this.stepCallCount}: Caught error:`, error.name, error.prompt || '');
+      console.log(
+        `Debugger.step() #${this.stepCallCount}: Caught error:`,
+        error.name,
+        error.prompt || ''
+      );
       // Handle InputPrompt specially
       if (error instanceof InputPrompt) {
-        console.log(`Debugger.step() #${this.stepCallCount}: Marking pendingRetryAfterInput = true`);
+        console.log(
+          `Debugger.step() #${this.stepCallCount}: Marking pendingRetryAfterInput = true`
+        );
         this.pendingRetryAfterInput = true;
         this.context.waitingForInput = true;
         this.context.inputPrompt = error.prompt;

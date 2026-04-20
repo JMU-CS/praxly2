@@ -22,49 +22,49 @@ export type SourceMap = Map<string, number>;
  * Custom hook for parsing code and getting translations
  */
 export const useCodeParsing = () => {
-    const parseCode = useCallback((lang: SupportedLang, input: string): Program | null => {
-        if (lang === 'ast') return null;
-        try {
-            let tokens;
-            let parser;
-            switch (lang) {
-                case 'java':
-                    tokens = new JavaLexer(input).tokenize();
-                    parser = new JavaParser(tokens);
-                    return parser.parse();
-                case 'csp':
-                    tokens = new CSPLexer(input).tokenize();
-                    parser = new CSPParser(tokens);
-                    return parser.parse();
-                case 'praxis':
-                    tokens = new PraxisLexer(input).tokenize();
-                    parser = new PraxisParser(tokens, input);
-                    return parser.parse();
-                case 'python':
-                default:
-                    tokens = new PythonLexer(input).tokenize();
-                    parser = new PythonParser(tokens);
-                    return parser.parse();
-            }
-        } catch (e: any) {
-            throw new Error(e.message);
-        }
-    }, []);
+  const parseCode = useCallback((lang: SupportedLang, input: string): Program | null => {
+    if (lang === 'ast') return null;
+    try {
+      let tokens;
+      let parser;
+      switch (lang) {
+        case 'java':
+          tokens = new JavaLexer(input).tokenize();
+          parser = new JavaParser(tokens);
+          return parser.parse();
+        case 'csp':
+          tokens = new CSPLexer(input).tokenize();
+          parser = new CSPParser(tokens);
+          return parser.parse();
+        case 'praxis':
+          tokens = new PraxisLexer(input).tokenize();
+          parser = new PraxisParser(tokens, input);
+          return parser.parse();
+        case 'python':
+        default:
+          tokens = new PythonLexer(input).tokenize();
+          parser = new PythonParser(tokens);
+          return parser.parse();
+      }
+    } catch (e: any) {
+      throw new Error(e.message);
+    }
+  }, []);
 
-    const getTranslation = useCallback(
-        (ast: Program | null, target: SupportedLang): { code: string; sourceMap: SourceMap } => {
-            if (!ast) return { code: "// Valid source code required...", sourceMap: new Map() };
-            if (target === 'ast') return { code: JSON.stringify(ast, null, 2), sourceMap: new Map() };
+  const getTranslation = useCallback(
+    (ast: Program | null, target: SupportedLang): { code: string; sourceMap: SourceMap } => {
+      if (!ast) return { code: '// Valid source code required...', sourceMap: new Map() };
+      if (target === 'ast') return { code: JSON.stringify(ast, null, 2), sourceMap: new Map() };
 
-            const translator = new Translator();
-            try {
-                return translator.translateWithMap(ast, target as any);
-            } catch (e) {
-                return { code: `// Translation to ${target} not available.`, sourceMap: new Map() };
-            }
-        },
-        []
-    );
+      const translator = new Translator();
+      try {
+        return translator.translateWithMap(ast, target as any);
+      } catch (e) {
+        return { code: `// Translation to ${target} not available.`, sourceMap: new Map() };
+      }
+    },
+    []
+  );
 
-    return { parseCode, getTranslation };
+  return { parseCode, getTranslation };
 };

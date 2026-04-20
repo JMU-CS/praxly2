@@ -27,13 +27,23 @@ interface Token {
 }
 
 type TokenType =
-  | 'KEYWORD' | 'IDENTIFIER' | 'NUMBER' | 'STRING' | 'BOOLEAN'
-  | 'OPERATOR' | 'PUNCTUATION' | 'NEWLINE' | 'INDENT' | 'DEDENT' | 'EOF';
+  | 'KEYWORD'
+  | 'IDENTIFIER'
+  | 'NUMBER'
+  | 'STRING'
+  | 'BOOLEAN'
+  | 'OPERATOR'
+  | 'PUNCTUATION'
+  | 'NEWLINE'
+  | 'INDENT'
+  | 'DEDENT'
+  | 'EOF';
 ```
 
 ### Universal Lexer Contract
 
 Every language lexer must:
+
 1. Take a string in the constructor
 2. Implement `tokenize(): Token[]`
 3. Return a token stream ending with `EOF`
@@ -44,17 +54,19 @@ Every language lexer must:
 
 ```typescript
 export class Lexer {
-  constructor(input: string)
-  tokenize(): Token[]
+  constructor(input: string);
+  tokenize(): Token[];
 }
 ```
 
 **Unique Behavior:**
+
 - Injects virtual `{` and `}` tokens to represent indentation
 - Injects virtual `;` tokens at end of logical lines
 - Handles indentation via `indentStack`
 
 **Usage:**
+
 ```typescript
 const lexer = new Lexer(pythonCode);
 const tokens = lexer.tokenize();
@@ -66,12 +78,13 @@ const tokens = lexer.tokenize();
 
 ```typescript
 export class JavaLexer {
-  constructor(input: string)
-  tokenize(): Token[]
+  constructor(input: string);
+  tokenize(): Token[];
 }
 ```
 
 **Unique Behavior:**
+
 - Does NOT inject virtual tokens
 - Handles multi-character operators: `<<`, `>>`, `>>>`, `<<=`, etc.
 - Recognizes Java keywords and their contextual types
@@ -85,6 +98,7 @@ All parsers follow the Recursive Descent pattern. See [COMPILER_PIPELINE.md](./C
 ### Universal Parser Contract
 
 Every language parser must:
+
 1. Take tokens array in the constructor
 2. Implement `parse(): Program`
 3. Return a valid Program AST node
@@ -96,36 +110,43 @@ These methods are used in all recursive descent parsers:
 ```typescript
 private check(type: TokenType, ...values: string[]): boolean
 ```
+
 Returns true if current token matches type and (optionally) one of the values.
 
 ```typescript
 private match(type: TokenType, ...values: string[]): boolean
 ```
+
 Like `check()`, but also advances to next token if it matches.
 
 ```typescript
 private consume(type: TokenType, value?: string): Token
 ```
+
 Assert that current token matches, advance, and return it. Throws if no match.
 
 ```typescript
 private peek(): Token
 ```
+
 Return current token without consuming.
 
 ```typescript
 private previous(): Token
 ```
+
 Return the token we just consumed.
 
 ```typescript
 private advance(): Token
 ```
+
 Move to next token and return the previous one.
 
 ```typescript
 private isAtEnd(): boolean
 ```
+
 Return true if at EOF.
 
 ### Example: Python Parser
@@ -134,41 +155,42 @@ Return true if at EOF.
 
 ```typescript
 export class Parser {
-  constructor(tokens: Token[])
-  parse(): Program
-  
+  constructor(tokens: Token[]);
+  parse(): Program;
+
   // Top-level parsing
-  private topLevelDeclaration(): Statement
-  private classDeclaration(): ClassDeclaration
-  private functionDeclaration(): FunctionDeclaration
-  
+  private topLevelDeclaration(): Statement;
+  private classDeclaration(): ClassDeclaration;
+  private functionDeclaration(): FunctionDeclaration;
+
   // Statements
-  private statement(): Statement
-  private ifStatement(): If
-  private whileStatement(): While
+  private statement(): Statement;
+  private ifStatement(): If;
+  private whileStatement(): While;
   // ... etc
-  
+
   // Expressions (operator precedence)
-  private expression(): Expression
-  private assignment(): Expression
-  private logicalOr(): Expression
-  private logicalAnd(): Expression
-  private equality(): Expression
-  private comparison(): Expression
-  private term(): Expression        // +, -
-  private factor(): Expression      // *, /
-  private unary(): Expression       // !, -
-  private postfix(): Expression     // (), [], .
-  private primary(): Expression     // Literals, identifiers
-  
+  private expression(): Expression;
+  private assignment(): Expression;
+  private logicalOr(): Expression;
+  private logicalAnd(): Expression;
+  private equality(): Expression;
+  private comparison(): Expression;
+  private term(): Expression; // +, -
+  private factor(): Expression; // *, /
+  private unary(): Expression; // !, -
+  private postfix(): Expression; // (), [], .
+  private primary(): Expression; // Literals, identifiers
+
   // Blocks
-  private block(): Block
+  private block(): Block;
 }
 ```
 
 **Key Method Patterns:**
 
 Statement parsing:
+
 ```typescript
 private ifStatement(): If {
   this.consume('KEYWORD', 'if');
@@ -185,6 +207,7 @@ private ifStatement(): If {
 ```
 
 Expression parsing with precedence:
+
 ```typescript
 private term(): Expression {
   let expr = this.factor();
@@ -216,22 +239,22 @@ private term(): Expression {
 ```typescript
 export class Interpreter {
   constructor()
-  
+
   // Execute a complete program
   interpret(program: Program): string[]
-  
+
   // Debug: step through program with state inspection
   *stepThroughWithState(program: Program): Generator<...>
-  
+
   // Execute a block of statements
   executeBlock(statements: Statement[], env: Environment): void
-  
+
   // Execute a single statement
   executeStatement(stmt: Statement, env: Environment): void
-  
+
   // Evaluate an expression to a value
   evaluate(expr: Expression, env: Environment): any
-  
+
   // Register a class for OOP support
   private registerClass(classDecl: ClassDeclaration): void
 }
@@ -245,20 +268,20 @@ Variable scoping with nested environments:
 export class Environment {
   public values: Record<string, any> = {};
   public parent?: Environment;
-  
-  constructor(parent?: Environment)
-  
+
+  constructor(parent?: Environment);
+
   // Define a variable in current scope
-  define(name: string, value: any): void
-  
+  define(name: string, value: any): void;
+
   // Assign to variable (searches parent scopes)
-  assign(name: string, value: any): void
-  
+  assign(name: string, value: any): void;
+
   // Retrieve variable value (searches parent scopes)
-  get(name: string): any
-  
+  get(name: string): any;
+
   // Get all variables in all scopes
-  getAllVariables(): Record<string, any>
+  getAllVariables(): Record<string, any>;
 }
 ```
 
@@ -272,10 +295,10 @@ globalEnv.define('x', 10);
 const functionEnv = new Environment(globalEnv);
 functionEnv.define('y', 20);
 
-globalEnv.get('x');        // 10
-functionEnv.get('x');      // 10 (found in parent)
-functionEnv.get('y');      // 20
-globalEnv.get('y');        // Error: y not in global scope
+globalEnv.get('x'); // 10
+functionEnv.get('x'); // 10 (found in parent)
+functionEnv.get('y'); // 20
+globalEnv.get('y'); // Error: y not in global scope
 ```
 
 ### OOP Support Classes
@@ -286,20 +309,20 @@ class JavaClass {
   methods: Map<string, MethodDeclaration>;
   fields: Map<string, any>;
   superClass?: JavaClass;
-  
-  addMethod(method: MethodDeclaration): void
-  setConstructor(ctor: Constructor): void
-  getMethod(name: string): MethodDeclaration | undefined
+
+  addMethod(method: MethodDeclaration): void;
+  setConstructor(ctor: Constructor): void;
+  getMethod(name: string): MethodDeclaration | undefined;
 }
 
 class JavaInstance {
   klass: JavaClass;
   fields: Map<string, any>;
-  
-  constructor(klass: JavaClass)
-  getField(name: string): any
-  setField(name: string, value: any): void
-  callMethod(methodName: string, args: any[], interpreter: Interpreter, env: Environment): any
+
+  constructor(klass: JavaClass);
+  getField(name: string): any;
+  setField(name: string, value: any): void;
+  callMethod(methodName: string, args: any[], interpreter: Interpreter, env: Environment): any;
 }
 ```
 
@@ -314,26 +337,28 @@ class JavaInstance {
 ```typescript
 export class Translator {
   // Generate code in target language
-  translate(program: Program, targetLang: TargetLanguage): string
-  
+  translate(program: Program, targetLang: TargetLanguage): string;
+
   // Same as above, but also return source map
-  translateWithMap(program: Program, targetLang: TargetLanguage): TranslationResult
-  
+  translateWithMap(program: Program, targetLang: TargetLanguage): TranslationResult;
+
   // Analyze AST for type inference and symbol table
-  private analyze(program: Program): TranslationContext
+  private analyze(program: Program): TranslationContext;
 }
 ```
 
 **TargetLanguage Type:**
+
 ```typescript
 export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis';
 ```
 
 **TranslationResult:**
+
 ```typescript
 export interface TranslationResult {
-  code: string;                              // Generated source code
-  sourceMap: Map<string, number>;            // AST Node ID → Line number
+  code: string; // Generated source code
+  sourceMap: Map<string, number>; // AST Node ID → Line number
 }
 ```
 
@@ -346,24 +371,24 @@ export abstract class ASTVisitor {
   protected code: string = '';
   protected indentLevel: number = 0;
   protected context: TranslationContext;
-  
-  constructor(context: TranslationContext)
-  
+
+  constructor(context: TranslationContext);
+
   // ===== ABSTRACT METHODS: Subclasses must implement =====
   abstract visitProgram(program: Program): void;
   abstract visitStatement(statement: Statement): void;
   abstract visitExpression(expression: Expression): void;
   // ... etc for each node type
-  
+
   // ===== CONCRETE METHODS: Subclasses inherit =====
-  
-  protected emit(line: string, nodeId?: string): void
-  protected indent(): void
-  protected dedent(): void
-  
-  getGeneratedCode(): string
-  getSourceMap(): SourceMap
-  
+
+  protected emit(line: string, nodeId?: string): void;
+  protected indent(): void;
+  protected dedent(): void;
+
+  getGeneratedCode(): string;
+  getSourceMap(): SourceMap;
+
   protected abstract generateExpression(expr: Expression, minPrecedence: number): string;
 }
 ```
@@ -374,25 +399,25 @@ export abstract class ASTVisitor {
 
 ```typescript
 export class PythonEmitter extends ASTVisitor {
-  constructor(context: TranslationContext)
-  
-  visitProgram(program: Program): void
-  visitClassDeclaration(classDecl: ClassDeclaration): void
-  visitFieldDeclaration(field: FieldDeclaration): void
-  visitConstructor(ctor: Constructor): void
-  visitMethodDeclaration(method: MethodDeclaration): void
-  visitBlock(block: Block): void
-  visitPrint(stmt: Print): void
-  visitAssignment(stmt: Assignment): void
-  visitFunctionDeclaration(func: FunctionDeclaration): void
-  visitReturn(stmt: Return): void
-  visitIf(stmt: If): void
-  visitWhile(stmt: While): void
-  visitFor(stmt: For): void
-  visitBreak(stmt: Break): void
-  visitContinue(stmt: Continue): void
-  
-  protected generateExpression(expr: Expression, minPrecedence: number): string
+  constructor(context: TranslationContext);
+
+  visitProgram(program: Program): void;
+  visitClassDeclaration(classDecl: ClassDeclaration): void;
+  visitFieldDeclaration(field: FieldDeclaration): void;
+  visitConstructor(ctor: Constructor): void;
+  visitMethodDeclaration(method: MethodDeclaration): void;
+  visitBlock(block: Block): void;
+  visitPrint(stmt: Print): void;
+  visitAssignment(stmt: Assignment): void;
+  visitFunctionDeclaration(func: FunctionDeclaration): void;
+  visitReturn(stmt: Return): void;
+  visitIf(stmt: If): void;
+  visitWhile(stmt: While): void;
+  visitFor(stmt: For): void;
+  visitBreak(stmt: Break): void;
+  visitContinue(stmt: Continue): void;
+
+  protected generateExpression(expr: Expression, minPrecedence: number): string;
 }
 ```
 
@@ -404,27 +429,28 @@ Manages type information across nested scopes:
 
 ```typescript
 export class SymbolTable {
-  enterScope(): void     // Push a new scope
-  exitScope(): void      // Pop current scope
-  set(name: string, type: string): void  // Define variable type in current scope
-  get(name: string): string | undefined  // Lookup type (searches parent scopes)
-  hasInCurrentScope(name: string): boolean
+  enterScope(): void; // Push a new scope
+  exitScope(): void; // Pop current scope
+  set(name: string, type: string): void; // Define variable type in current scope
+  get(name: string): string | undefined; // Lookup type (searches parent scopes)
+  hasInCurrentScope(name: string): boolean;
 }
 ```
 
 **Usage:**
+
 ```typescript
 const table = new SymbolTable();
 table.set('x', 'int');
-table.get('x');  // 'int'
+table.get('x'); // 'int'
 
 table.enterScope();
 table.set('y', 'String');
-table.get('x');  // 'int' (found in parent)
-table.get('y');  // 'String'
+table.get('x'); // 'int' (found in parent)
+table.get('y'); // 'String'
 
 table.exitScope();
-table.get('y');  // undefined (no longer in scope)
+table.get('y'); // undefined (no longer in scope)
 ```
 
 ---
@@ -437,8 +463,8 @@ All AST nodes are defined in [src/language/ast.ts](../../src/language/ast.ts).
 
 ```typescript
 export interface ASTNode {
-  id: string;                          // Unique identifier (generated via generateId())
-  type: NodeType;                      // The specific node type
+  id: string; // Unique identifier (generated via generateId())
+  type: NodeType; // The specific node type
   loc?: { start: number; end: number }; // Character positions in source
 }
 ```
@@ -446,6 +472,7 @@ export interface ASTNode {
 ### Statement Nodes
 
 **Program** — Root node
+
 ```typescript
 interface Program extends ASTNode {
   type: 'Program';
@@ -454,6 +481,7 @@ interface Program extends ASTNode {
 ```
 
 **Block** — Sequence of statements in a scope
+
 ```typescript
 interface Block extends ASTNode {
   type: 'Block';
@@ -462,19 +490,21 @@ interface Block extends ASTNode {
 ```
 
 **Assignment** — Variable assignment
+
 ```typescript
 interface Assignment extends ASTNode {
   type: 'Assignment';
   name: string;
-  target?: Expression;      // For array/map assignments
+  target?: Expression; // For array/map assignments
   value: Expression;
-  varType?: string;         // Type annotation
+  varType?: string; // Type annotation
   isMemberAssignment?: boolean;
   memberExpr?: Expression;
 }
 ```
 
 **If** — Conditional statement
+
 ```typescript
 interface If extends ASTNode {
   type: 'If';
@@ -485,16 +515,18 @@ interface If extends ASTNode {
 ```
 
 **While** — While loop
+
 ```typescript
 interface While extends ASTNode {
   type: 'While';
   condition: Expression;
   body: Block;
-  elseBranch?: Block;  // Python-style else on loop
+  elseBranch?: Block; // Python-style else on loop
 }
 ```
 
 **For** — For loop
+
 ```typescript
 interface For extends ASTNode {
   type: 'For';
@@ -506,6 +538,7 @@ interface For extends ASTNode {
 ```
 
 **FunctionDeclaration** — Function definition
+
 ```typescript
 interface FunctionDeclaration extends ASTNode {
   type: 'FunctionDeclaration';
@@ -516,6 +549,7 @@ interface FunctionDeclaration extends ASTNode {
 ```
 
 **ClassDeclaration** — Class definition
+
 ```typescript
 interface ClassDeclaration extends ASTNode {
   type: 'ClassDeclaration';
@@ -526,6 +560,7 @@ interface ClassDeclaration extends ASTNode {
 ```
 
 **Return** — Return statement
+
 ```typescript
 interface Return extends ASTNode {
   type: 'Return';
@@ -534,6 +569,7 @@ interface Return extends ASTNode {
 ```
 
 **Print** — Output statement
+
 ```typescript
 interface Print extends ASTNode {
   type: 'Print';
@@ -544,15 +580,17 @@ interface Print extends ASTNode {
 ### Expression Nodes
 
 **Literal** — Constant value
+
 ```typescript
 interface Literal extends ASTNode {
   type: 'Literal';
-  value: any;            // boolean, number, string, null, etc.
-  raw?: string;          // Optional: original text from source
+  value: any; // boolean, number, string, null, etc.
+  raw?: string; // Optional: original text from source
 }
 ```
 
 **Identifier** — Variable reference
+
 ```typescript
 interface Identifier extends ASTNode {
   type: 'Identifier';
@@ -561,34 +599,38 @@ interface Identifier extends ASTNode {
 ```
 
 **BinaryExpression** — Two operands with an operator
+
 ```typescript
 interface BinaryExpression extends ASTNode {
   type: 'BinaryExpression';
   left: Expression;
-  operator: string;      // '+', '-', '*', '/', '>', '<', '==', 'and', 'or', etc.
+  operator: string; // '+', '-', '*', '/', '>', '<', '==', 'and', 'or', etc.
   right: Expression;
 }
 ```
 
 **UnaryExpression** — One operand with an operator
+
 ```typescript
 interface UnaryExpression extends ASTNode {
   type: 'UnaryExpression';
-  operator: string;      // '!', '-', '+', 'not', etc.
+  operator: string; // '!', '-', '+', 'not', etc.
   argument: Expression;
 }
 ```
 
 **CallExpression** — Function call
+
 ```typescript
 interface CallExpression extends ASTNode {
   type: 'CallExpression';
-  callee: Expression;       // Function to call
+  callee: Expression; // Function to call
   arguments: Expression[];
 }
 ```
 
 **MemberExpression** — Object property access
+
 ```typescript
 interface MemberExpression extends ASTNode {
   type: 'MemberExpression';
@@ -598,6 +640,7 @@ interface MemberExpression extends ASTNode {
 ```
 
 **ArrayLiteral** — Array construction
+
 ```typescript
 interface ArrayLiteral extends ASTNode {
   type: 'ArrayLiteral';
@@ -606,6 +649,7 @@ interface ArrayLiteral extends ASTNode {
 ```
 
 **NewExpression** — Object instantiation
+
 ```typescript
 interface NewExpression extends ASTNode {
   type: 'NewExpression';
@@ -623,17 +667,18 @@ interface NewExpression extends ASTNode {
 **Location:** [src/language/ast.ts](../../src/language/ast.ts)
 
 ```typescript
-export function generateId(): string
+export function generateId(): string;
 ```
 
 Generates a unique identifier for AST nodes.
 
 **Usage:**
+
 ```typescript
 const node = {
   id: generateId(),
   type: 'Identifier',
-  name: 'x'
+  name: 'x',
 };
 ```
 
@@ -645,12 +690,13 @@ const node = {
 export const useCodeParsing = () => {
   const parseCode = (lang: SupportedLang, input: string): Program | null => { ... }
   const getTranslation = (ast: Program | null, target: SupportedLang): { code: string; sourceMap: SourceMap } => { ... }
-  
+
   return { parseCode, getTranslation };
 }
 ```
 
 **Usage in React:**
+
 ```typescript
 const { parseCode, getTranslation } = useCodeParsing();
 
@@ -669,7 +715,7 @@ const { code, sourceMap } = getTranslation(ast, 'java');
 export const useCodeDebugger = (getTranslation: (ast: Program | null, lang: SupportedLang) => { ... }) => {
   const initDebugger = (ast: Program | null): void => { ... }
   const stopDebugger = (): void => { ... }
-  
+
   return {
     isDebugging: boolean,
     setIsDebugging: (b: boolean) => void,
@@ -689,16 +735,19 @@ export const useCodeDebugger = (getTranslation: (ast: Program | null, lang: Supp
 ## Type Definitions Summary
 
 **TargetLanguage:**
+
 ```typescript
 type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis';
 ```
 
 **SupportedLang:**
+
 ```typescript
 type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'ast';
 ```
 
 **TranslationContext:**
+
 ```typescript
 interface TranslationContext {
   symbolTable: SymbolTable;
@@ -708,6 +757,7 @@ interface TranslationContext {
 ```
 
 **SourceMap:**
+
 ```typescript
-type SourceMap = Map<string, number>;  // AST Node ID → Line Number
+type SourceMap = Map<string, number>; // AST Node ID → Line Number
 ```
