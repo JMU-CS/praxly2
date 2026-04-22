@@ -294,6 +294,9 @@ export class Debugger {
       // Parse the translated code to build line mappings
       let currentLine = 1;
 
+      /**
+       * Runs walk ast.
+       */
       const walkAST = (node: ASTNode) => {
         if (node?.loc) {
           // Map this node to the corresponding line in translated code

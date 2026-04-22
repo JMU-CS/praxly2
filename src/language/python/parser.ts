@@ -28,6 +28,9 @@ export class Parser {
   private tokens: Token[];
   private current = 0;
 
+  /**
+   * Creates a new instance.
+   */
   constructor(tokens: Token[]) {
     this.tokens = tokens;
   }
@@ -47,6 +50,9 @@ export class Parser {
     return stmt;
   }
 
+  /**
+   * Parses input.
+   */
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
@@ -63,6 +69,9 @@ export class Parser {
     return { id: generateId(), type: 'Program', body };
   }
 
+  /**
+   * Runs top level declaration.
+   */
   private topLevelDeclaration(): Statement {
     if (this.check('KEYWORD', 'class')) return this.classDeclaration();
     if (this.check('KEYWORD', 'def')) return this.functionDeclaration();
@@ -108,6 +117,9 @@ export class Parser {
     }
   }
 
+  /**
+   * Runs class declaration.
+   */
   private classDeclaration(): ClassDeclaration {
     this.consume('KEYWORD', 'class');
     const name = this.consume('IDENTIFIER').value;
@@ -160,11 +172,17 @@ export class Parser {
     return { id: generateId(), type: 'ClassDeclaration', name, superClass, body };
   }
 
+  /**
+   * Runs strip self parameter.
+   */
   private stripSelfParameter(params: Parameter[]): Parameter[] {
     if (params.length === 0) return params;
     return params[0].name === 'self' ? params.slice(1) : params;
   }
 
+  /**
+   * Runs function declaration.
+   */
   private functionDeclaration(): FunctionDeclaration {
     this.consume('KEYWORD', 'def');
     const name = this.consume('IDENTIFIER').value;
@@ -195,6 +213,9 @@ export class Parser {
     return { id: generateId(), type: 'FunctionDeclaration', name, params, body };
   }
 
+  /**
+   * Parses parameter type annotation.
+   */
   private parseParameterTypeAnnotation(): string {
     const parts: string[] = [];
     let nestingDepth = 0;
@@ -221,6 +242,9 @@ export class Parser {
     return annotation || 'auto';
   }
 
+  /**
+   * Runs block.
+   */
   private block(): Block {
     while (this.match('PUNCTUATION', ';')) {} // Eat any virtual semicolons prior to brace start
 
@@ -289,6 +313,9 @@ export class Parser {
     }
   }
 
+  /**
+   * Runs statement.
+   */
   private statement(): Statement {
     const startIdx = this.current;
 
@@ -417,6 +444,9 @@ export class Parser {
     );
   }
 
+  /**
+   * Runs if statement.
+   */
   private ifStatement(): If {
     this.consume('KEYWORD', 'if');
     const condition = this.expression();
@@ -434,6 +464,9 @@ export class Parser {
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
   }
 
+  /**
+   * Runs if statement elif.
+   */
   private ifStatementElif(): If {
     const condition = this.expression();
     const thenBranch = this.block();
@@ -450,6 +483,9 @@ export class Parser {
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
   }
 
+  /**
+   * Runs while statement.
+   */
   private whileStatement(): While {
     this.consume('KEYWORD', 'while');
     const condition = this.expression();
@@ -464,6 +500,9 @@ export class Parser {
     return { id: generateId(), type: 'While', condition, body, elseBranch };
   }
 
+  /**
+   * Runs try statement.
+   */
   private tryStatement(): any {
     this.consume('KEYWORD', 'try');
     const tryBlock = this.block();
@@ -493,6 +532,9 @@ export class Parser {
     return { id: generateId(), type: 'Try', body: tryBlock, handlers, finallyBlock };
   }
 
+  /**
+   * Runs for statement.
+   */
   private forStatement(): For {
     this.consume('KEYWORD', 'for');
     const vars: string[] = [];
@@ -521,6 +563,9 @@ export class Parser {
     };
   }
 
+  /**
+   * Runs return statement.
+   */
   private returnStatement(): Return {
     this.consume('KEYWORD', 'return');
     let value: Expression | undefined = undefined;
@@ -533,6 +578,9 @@ export class Parser {
 
   // --- Expressions ---
 
+  /**
+   * Runs expression.
+   */
   private expression(): Expression {
     // Handle tuple/sequence (comma-separated expressions)
     const first = this.logicOr();
@@ -562,6 +610,9 @@ export class Parser {
     return first;
   }
 
+  /**
+   * Runs logic or.
+   */
   private logicOr(): Expression {
     let left = this.logicAnd();
     while (this.match('KEYWORD', 'or')) {
@@ -571,6 +622,9 @@ export class Parser {
     return left;
   }
 
+  /**
+   * Runs logic and.
+   */
   private logicAnd(): Expression {
     let left = this.equality();
     while (this.match('KEYWORD', 'and')) {
@@ -580,6 +634,9 @@ export class Parser {
     return left;
   }
 
+  /**
+   * Runs equality.
+   */
   private equality(): Expression {
     let left = this.comparison();
     while (this.match('OPERATOR', '==', '!=')) {
@@ -590,6 +647,9 @@ export class Parser {
     return left;
   }
 
+  /**
+   * Runs comparison.
+   */
   private comparison(): Expression {
     let left = this.term();
     while (this.match('OPERATOR', '>', '>=', '<', '<=')) {
@@ -600,6 +660,9 @@ export class Parser {
     return left;
   }
 
+  /**
+   * Runs term.
+   */
   private term(): Expression {
     let left = this.factor();
     while (this.match('OPERATOR', '+', '-')) {
@@ -610,6 +673,9 @@ export class Parser {
     return left;
   }
 
+  /**
+   * Runs factor.
+   */
   private factor(): Expression {
     let left = this.exponent();
     while (this.match('OPERATOR', '*', '/', '%')) {
@@ -620,6 +686,9 @@ export class Parser {
     return left;
   }
 
+  /**
+   * Runs exponent.
+   */
   private exponent(): Expression {
     let left = this.unary();
     while (this.match('OPERATOR', '**')) {
@@ -630,6 +699,9 @@ export class Parser {
     return left;
   }
 
+  /**
+   * Runs unary.
+   */
   private unary(): Expression {
     if (this.match('KEYWORD', 'not')) {
       const right = this.unary();
@@ -643,6 +715,9 @@ export class Parser {
     return this.call();
   }
 
+  /**
+   * Runs call.
+   */
   private call(): Expression {
     let expr = this.primary();
     while (true) {
@@ -698,6 +773,9 @@ export class Parser {
     return expr;
   }
 
+  /**
+   * Runs finish call.
+   */
   private finishCall(callee: Expression): CallExpression {
     const args: Expression[] = [];
     if (!this.check('PUNCTUATION', ')')) {
@@ -714,6 +792,9 @@ export class Parser {
     return { id: generateId(), type: 'CallExpression', callee: callee as any, arguments: args };
   }
 
+  /**
+   * Runs primary.
+   */
   private primary(): Expression {
     if (this.match('NUMBER'))
       return {
@@ -786,6 +867,9 @@ export class Parser {
     throw new Error(`Expect expression. Found ${this.peek().value}`);
   }
 
+  /**
+   * Runs match.
+   */
   private match(type: TokenType, ...values: string[]): boolean {
     if (this.check(type, ...values)) {
       this.advance();
@@ -793,6 +877,9 @@ export class Parser {
     }
     return false;
   }
+  /**
+   * Runs check.
+   */
   private check(type: TokenType, ...values: string[]): boolean {
     if (this.isAtEnd()) return false;
     const token = this.peek();
@@ -800,6 +887,9 @@ export class Parser {
     if (values.length > 0 && !values.includes(token.value)) return false;
     return true;
   }
+  /**
+   * Runs check next.
+   */
   private checkNext(type: TokenType, value?: string): boolean {
     if (this.current + 1 >= this.tokens.length) return false;
     const token = this.tokens[this.current + 1];
@@ -807,6 +897,9 @@ export class Parser {
     if (value && token.value !== value) return false;
     return true;
   }
+  /**
+   * Runs consume.
+   */
   private consume(type: TokenType, value?: string): Token {
     if (this.check(type, ...(value ? [value] : []))) return this.advance();
     const found = this.peek();
@@ -814,16 +907,28 @@ export class Parser {
       `Expected token ${type} ${value || ''} but found ${found.type} '${found.value}' at position ${found.start}`
     );
   }
+  /**
+   * Runs advance.
+   */
   private advance(): Token {
     if (!this.isAtEnd()) this.current++;
     return this.previous();
   }
+  /**
+   * Runs is at end.
+   */
   private isAtEnd(): boolean {
     return this.peek().type === 'EOF';
   }
+  /**
+   * Runs peek.
+   */
   private peek(): Token {
     return this.tokens[this.current];
   }
+  /**
+   * Runs previous.
+   */
   private previous(): Token {
     return this.tokens[this.current - 1];
   }

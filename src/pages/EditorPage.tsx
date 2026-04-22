@@ -31,9 +31,15 @@ const MAX_AI_PANEL_WIDTH = 560;
 const ADD_STRIP_WIDTH = 64;
 const MOBILE_BREAKPOINT = 1024;
 
+/**
+ * Runs clamp.
+ */
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
+/**
+ * Runs create panel id.
+ */
 const createPanelId = (): string =>
   window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(7);
 
@@ -47,6 +53,9 @@ const DEFAULT_EXAMPLE = getExampleById(DEFAULT_EXAMPLE_ID) ??
     code: 'print("Praxly")',
   };
 
+/**
+ * Runs editor page.
+ */
 export default function EditorPage() {
   const [searchParams] = useSearchParams();
   const [code, setCode] = useState(DEFAULT_EXAMPLE.code);
@@ -123,6 +132,9 @@ export default function EditorPage() {
 
   const isMobile = viewportWidth < MOBILE_BREAKPOINT;
 
+  /**
+   * Runs get mem dia height.
+   */
   const getMemDiaHeight = (paneId: string) => memDiaHeights[paneId] ?? 160;
 
   const getDefaultPanelWidth = useCallback(() => {
@@ -148,6 +160,9 @@ export default function EditorPage() {
     );
   }, [aiPanelWidth, showAiSidePanel, viewportWidth]);
 
+  /**
+   * Handles mem dia resize mouse down.
+   */
   const onMemDiaResizeMouseDown = (e: MouseEvent, paneId: string) => {
     e.preventDefault();
     memDiaResizeRef.current = {
@@ -158,6 +173,9 @@ export default function EditorPage() {
     setResizingMemDiaPaneId(paneId);
   };
 
+  /**
+   * Handles source language change.
+   */
   const handleSourceLanguageChange = (lang: SupportedLang) => {
     if (lang === sourceLang) {
       setShowSourceLangDropdown(false);
@@ -274,6 +292,9 @@ export default function EditorPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    /**
+     * Handles resize.
+     */
     const handleResize = () => {
       setViewportWidth(window.innerWidth);
     };
@@ -373,6 +394,9 @@ export default function EditorPage() {
     );
   }, [ast, getTranslation]);
 
+  /**
+   * Handles run.
+   */
   const handleRun = () => {
     setError(null);
     setOutput([]);
@@ -414,6 +438,9 @@ export default function EditorPage() {
     }
   };
 
+  /**
+   * Handles debug start.
+   */
   const handleDebugStart = () => {
     setError(null);
     setOutput([]);
@@ -434,6 +461,9 @@ export default function EditorPage() {
     }
   };
 
+  /**
+   * Handles debug step.
+   */
   const handleDebugStep = () => {
     if (!ast) return;
 
@@ -464,6 +494,9 @@ export default function EditorPage() {
     }
   };
 
+  /**
+   * Handles debug stop.
+   */
   const handleDebugStop = () => {
     stopDebugger();
     setIsDebugging(false);
@@ -472,6 +505,9 @@ export default function EditorPage() {
     setOutput((prev) => [...prev, 'Debugger stopped.']);
   };
 
+  /**
+   * Handles submit input.
+   */
   const handleSubmitInput = (input: string) => {
     provideInput(input);
 
@@ -499,6 +535,9 @@ export default function EditorPage() {
     }, 0);
   };
 
+  /**
+   * Handles normal mode input submit.
+   */
   const handleNormalModeInputSubmit = (input: string) => {
     if (!currentInterpreter) return;
 
@@ -540,6 +579,9 @@ export default function EditorPage() {
     }
   };
 
+  /**
+   * Handles clear.
+   */
   const handleClear = () => {
     setCode('');
     setAst(null);
@@ -547,6 +589,9 @@ export default function EditorPage() {
     setError(null);
   };
 
+  /**
+   * Handles load example.
+   */
   const handleLoadExample = (exampleId: string) => {
     const example = getExampleById(exampleId);
     if (!example) {
@@ -569,10 +614,16 @@ export default function EditorPage() {
     setShowExamplesMenu(false);
   };
 
+  /**
+   * Handles toggle ai panel.
+   */
   const handleToggleAiPanel = () => {
     setShowAiSidePanel((prev) => !prev);
   };
 
+  /**
+   * Handles share.
+   */
   const handleShare = async () => {
     const encoded = encodeEmbed({
       code,
@@ -587,12 +638,18 @@ export default function EditorPage() {
     }
   };
 
+  /**
+   * Runs get extensions.
+   */
   const getExtensions = (lang: SupportedLang) => {
     const baseExtensions = getCodeMirrorExtensions(lang);
     baseExtensions.push(highlightedLinesField);
     return baseExtensions;
   };
 
+  /**
+   * Runs add panel.
+   */
   const addPanel = (lang: SupportedLang) => {
     setPanels((prev) => {
       if (lang === sourceLang || prev.some((panel) => panel.lang === lang)) {
@@ -615,10 +672,16 @@ export default function EditorPage() {
     setShowAddMenu(false);
   };
 
+  /**
+   * Runs remove panel.
+   */
   const removePanel = (id: string) => {
     setPanels((prev) => prev.filter((panel) => panel.id !== id));
   };
 
+  /**
+   * Runs reorder panels.
+   */
   const reorderPanels = (sourceId: string, targetId: string) => {
     if (sourceId === targetId) return;
 
@@ -634,12 +697,18 @@ export default function EditorPage() {
     });
   };
 
+  /**
+   * Handles panel drag start.
+   */
   const handlePanelDragStart = (e: DragEvent<HTMLDivElement>, panelId: string) => {
     setDraggedPanelId(panelId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', panelId);
   };
 
+  /**
+   * Handles panel drag over.
+   */
   const handlePanelDragOver = (e: DragEvent<HTMLDivElement>, panelId: string) => {
     if (!draggedPanelId || draggedPanelId === panelId) return;
     e.preventDefault();
@@ -649,6 +718,9 @@ export default function EditorPage() {
     }
   };
 
+  /**
+   * Handles panel drop.
+   */
   const handlePanelDrop = (e: DragEvent<HTMLDivElement>, panelId: string) => {
     e.preventDefault();
     const sourceId = draggedPanelId || e.dataTransfer.getData('text/plain');
@@ -664,11 +736,17 @@ export default function EditorPage() {
     setDraggedPanelId(null);
   };
 
+  /**
+   * Handles panel drag end.
+   */
   const handlePanelDragEnd = () => {
     setDraggedPanelId(null);
     setDragOverPanelId(null);
   };
 
+  /**
+   * Handles mouse down.
+   */
   const onMouseDown = (e: MouseEvent, index: number | 'editor' | 'output') => {
     e.preventDefault();
 
@@ -693,6 +771,9 @@ export default function EditorPage() {
   };
 
   useEffect(() => {
+    /**
+     * Handles mouse move.
+     */
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       const drag = resizeDragRef.current;
       if (!drag || resizingIdx === null) return;
@@ -734,6 +815,9 @@ export default function EditorPage() {
       }
     };
 
+    /**
+     * Handles mouse up.
+     */
     const handleMouseUp = () => {
       setResizingIdx(null);
       resizeDragRef.current = null;
@@ -751,6 +835,9 @@ export default function EditorPage() {
   }, [getMaxSourceWidth, resizingIdx]);
 
   useEffect(() => {
+    /**
+     * Handles mouse move.
+     */
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       const drag = memDiaResizeRef.current;
       if (!drag) return;
@@ -767,6 +854,9 @@ export default function EditorPage() {
       });
     };
 
+    /**
+     * Handles mouse up.
+     */
     const handleMouseUp = () => {
       memDiaResizeRef.current = null;
       setResizingMemDiaPaneId(null);
@@ -784,6 +874,9 @@ export default function EditorPage() {
   }, [resizingMemDiaPaneId]);
 
   useEffect(() => {
+    /**
+     * Handles mouse move.
+     */
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       const drag = aiResizeRef.current;
       if (!isResizingAiPanel || !drag) return;
@@ -798,6 +891,9 @@ export default function EditorPage() {
       setAiPanelWidth(nextWidth);
     };
 
+    /**
+     * Handles mouse up.
+     */
     const handleMouseUp = () => {
       aiResizeRef.current = null;
       setIsResizingAiPanel(false);
@@ -815,6 +911,9 @@ export default function EditorPage() {
   }, [isResizingAiPanel, viewportWidth]);
 
   useEffect(() => {
+    /**
+     * Handles click outside.
+     */
     const handleClickOutside = (e: globalThis.MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('.source-lang-dropdown')) {
@@ -832,6 +931,9 @@ export default function EditorPage() {
   }, [showSourceLangDropdown]);
 
   useEffect(() => {
+    /**
+     * Handles click outside.
+     */
     const handleClickOutside = (e: globalThis.MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('.settings-dropdown')) {
@@ -849,6 +951,9 @@ export default function EditorPage() {
   }, [showSettingsMenu]);
 
   useEffect(() => {
+    /**
+     * Handles click outside.
+     */
     const handleClickOutside = (e: globalThis.MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('.examples-dropdown')) {

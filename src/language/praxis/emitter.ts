@@ -33,6 +33,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Main entry point: processes the entire program by separating and emitting classes, functions, and main body
+  /**
+   * Visits program and returns the result.
+   */
   visitProgram(program: Program): void {
     // Separate different types of statements from the program body
     const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
@@ -75,6 +78,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits a class definition with its members and inheritance structure
+  /**
+   * Visits class declaration and returns the result.
+   */
   visitClassDeclaration(classDecl: ClassDeclaration): void {
     // Build class declaration with optional superclass
     const superClass = classDecl.superClass ? ` extends ${classDecl.superClass.name}` : '';
@@ -105,6 +111,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits a field declaration with optional initializer
+  /**
+   * Visits field declaration and returns the result.
+   */
   visitFieldDeclaration(field: FieldDeclaration): void {
     // Determine field type (inferred or explicit)
     let type =
@@ -122,6 +131,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits a constructor definition with parameters and body
+  /**
+   * Visits constructor and returns the result.
+   */
   visitConstructor(ctor: Constructor): void {
     // Format parameter list
     const params = ctor.params.map((p) => `${p.paramType} ${p.name}`).join(', ');
@@ -138,6 +150,9 @@ export class PraxisEmitter extends ASTVisitor {
 
   // Emits a method declaration with parameters, return type, and body
   // Emits a method declaration with parameters, return type, and body
+  /**
+   * Visits method declaration and returns the result.
+   */
   visitMethodDeclaration(method: MethodDeclaration): void {
     // Normalize return types (auto/void become procedure)
     let returnType = method.returnType === 'auto' ? 'procedure' : method.returnType;
@@ -163,12 +178,18 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Visits all statements in a block
+  /**
+   * Visits block and returns the result.
+   */
   visitBlock(block: Block): void {
     block.body.forEach((stmt) => this.visitStatement(stmt));
   }
 
   // Emits a print statement with comma-separated arguments
   // Emits a print statement with comma-separated arguments
+  /**
+   * Visits print and returns the result.
+   */
   visitPrint(stmt: any): void {
     // Convert expressions to strings and join them
     const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
@@ -176,6 +197,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits variable assignments, including tuple unpacking and member assignments
+  /**
+   * Visits assignment and returns the result.
+   */
   visitAssignment(stmt: any): void {
     // Handle tuple unpacking: y, z = 4, 5
     if (stmt.target && stmt.target.type === 'ArrayLiteral') {
@@ -245,6 +269,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits if-else statements with optional else-if chains
+  /**
+   * Visits if and returns the result.
+   */
   visitIf(stmt: any): void {
     // Emit if condition
     this.emit(`if (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
@@ -280,6 +307,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits while loop with condition and body
+  /**
+   * Visits while and returns the result.
+   */
   visitWhile(stmt: any): void {
     this.emit(`while (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
     this.indent();
@@ -291,6 +321,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits do-while loop with body executed before condition check
+  /**
+   * Visits do while and returns the result.
+   */
   visitDoWhile(stmt: any): void {
     this.emit(`do`);
     this.indent();
@@ -302,6 +335,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits switch statement with cases and default branch
+  /**
+   * Visits switch and returns the result.
+   */
   visitSwitch(stmt: any): void {
     this.emit(`switch (${this.generateExpression(stmt.discriminant, 0)})`);
     this.indent();
@@ -322,17 +358,26 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits break statement to exit loop or switch
+  /**
+   * Visits break and returns the result.
+   */
   visitBreak(_stmt: any): void {
     this.emit('break');
   }
 
   // Emits continue statement to skip to next loop iteration
+  /**
+   * Visits continue and returns the result.
+   */
   visitContinue(_stmt: any): void {
     this.emit('continue');
   }
 
   // Emits for loops (C-style, iterator-based, and range-based)
   // Emits for loops (C-style, iterator-based, and range-based)
+  /**
+   * Visits for and returns the result.
+   */
   visitFor(stmt: any): void {
     // Handle C-style for loop: for (init; condition; update)
     if (stmt.init && stmt.condition && stmt.update) {
@@ -430,6 +475,9 @@ export class PraxisEmitter extends ASTVisitor {
 
   // Emits function declaration with parameters and body
   // Emits function declaration with parameters and body
+  /**
+   * Visits function declaration and returns the result.
+   */
   visitFunctionDeclaration(stmt: any): void {
     this.context.symbolTable.enterScope();
 
@@ -450,16 +498,25 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   // Emits return statement with optional return value
+  /**
+   * Visits return and returns the result.
+   */
   visitReturn(stmt: any): void {
     this.emit(`return ${stmt.value ? this.generateExpression(stmt.value, 0) : ''}`, stmt.id);
   }
 
   // Emits standalone expression statement
+  /**
+   * Visits expression statement and returns the result.
+   */
   visitExpressionStatement(stmt: any): void {
     this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
   }
 
   // Emits try-catch-finally block with exception handlers
+  /**
+   * Visits try and returns the result.
+   */
   visitTry(stmt: any): void {
     this.emit('try');
     this.indent();
@@ -492,6 +549,9 @@ export class PraxisEmitter extends ASTVisitor {
 
   // Converts AST expression nodes to Praxis language code with operator precedence handling
   // Converts AST expression nodes to Praxis language code with operator precedence handling
+  /**
+   * Runs generate expression.
+   */
   generateExpression(expr: Expression, parentPrecedence: number): string {
     let output = '';
     let currentPrecedence = 99;
@@ -531,6 +591,9 @@ export class PraxisEmitter extends ASTVisitor {
         const objExpr = this.generateExpression(expr.object, currentPrecedence);
 
         // Helper function to convert index expression to Praxis, handling negative indices
+        /**
+         * Runs convert index praxis.
+         */
         const convertIndexPraxis = (idx: any): string => {
           if (!idx) return '0';
           if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0) {

@@ -29,6 +29,9 @@ export class JavaParser {
   private current = 0;
   private currentClassName: string | null = null;
 
+  /**
+   * Creates a new instance.
+   */
   constructor(tokens: Token[]) {
     this.tokens = tokens;
   }
@@ -62,6 +65,9 @@ export class JavaParser {
     }
   }
 
+  /**
+   * Parses input.
+   */
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
@@ -76,6 +82,9 @@ export class JavaParser {
     return { id: generateId(), type: 'Program', body };
   }
 
+  /**
+   * Runs top level declaration.
+   */
   private topLevelDeclaration(): Statement {
     // Handle class declarations
     if (
@@ -127,6 +136,9 @@ export class JavaParser {
     }
   }
 
+  /**
+   * Runs class declaration.
+   */
   private classDeclaration(): ClassDeclaration {
     this.parseAccessModifier(); // consume access modifier but typically classes are public
     this.consume('KEYWORD', 'class');
@@ -151,6 +163,9 @@ export class JavaParser {
     return { id: generateId(), type: 'ClassDeclaration', name, superClass, body };
   }
 
+  /**
+   * Runs class body declaration.
+   */
   private classBodyDeclaration(): FieldDeclaration | Constructor | MethodDeclaration {
     const access = this.parseAccessModifier();
     const isStatic = this.match('KEYWORD', 'static');
@@ -205,6 +220,9 @@ export class JavaParser {
     throw new Error('Expected class member declaration');
   }
 
+  /**
+   * Runs constructor declaration.
+   */
   private constructorDeclaration(access: AccessModifier): Constructor {
     this.consume('IDENTIFIER'); // consume class name
     this.consume('PUNCTUATION', '(');
@@ -214,6 +232,9 @@ export class JavaParser {
     return { id: generateId(), type: 'Constructor', access, params, body };
   }
 
+  /**
+   * Runs method declaration.
+   */
   private methodDeclaration(
     name: string,
     access: AccessModifier,
@@ -236,6 +257,9 @@ export class JavaParser {
     };
   }
 
+  /**
+   * Parses parameters.
+   */
   private parseParameters(): Parameter[] {
     const params: Parameter[] = [];
     if (!this.check('PUNCTUATION', ')')) {
@@ -260,6 +284,9 @@ export class JavaParser {
     return params;
   }
 
+  /**
+   * Parses access modifier.
+   */
   private parseAccessModifier(): AccessModifier {
     if (this.match('KEYWORD', 'public')) return 'public';
     if (this.match('KEYWORD', 'private')) return 'private';
@@ -267,12 +294,18 @@ export class JavaParser {
     return 'public'; // default access
   }
 
+  /**
+   * Runs check peek ahead.
+   */
   private checkPeekAhead(type: TokenType, value: string, distance: number): boolean {
     if (this.current + distance >= this.tokens.length) return false;
     const token = this.tokens[this.current + distance];
     return token.type === type && token.value === value;
   }
 
+  /**
+   * Runs block.
+   */
   private block(): Block {
     if (this.check('PUNCTUATION', '{')) this.consume('PUNCTUATION', '{');
     const statements: Statement[] = [];
@@ -310,6 +343,9 @@ export class JavaParser {
     return { id: generateId(), type: 'Block', body: statements };
   }
 
+  /**
+   * Runs statement.
+   */
   private statement(): Statement {
     const startIdx = this.current;
 
@@ -435,6 +471,9 @@ export class JavaParser {
     );
   }
 
+  /**
+   * Runs is type start.
+   */
   private isTypeStart(): boolean {
     const token = this.peek();
     const types = [
@@ -452,6 +491,9 @@ export class JavaParser {
     return types.includes(token.value);
   }
 
+  /**
+   * Runs print statement.
+   */
   private printStatement(): Statement {
     // Fix: Consume IDENTIFIER 'System'
     this.consume('IDENTIFIER', 'System');
@@ -466,6 +508,9 @@ export class JavaParser {
     return { id: generateId(), type: 'Print', expressions: [expr] };
   }
 
+  /**
+   * Runs if statement.
+   */
   private ifStatement(): If {
     this.consume('KEYWORD', 'if');
     this.consume('PUNCTUATION', '(');
@@ -486,6 +531,9 @@ export class JavaParser {
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
   }
 
+  /**
+   * Runs while statement.
+   */
   private whileStatement(): While {
     this.consume('KEYWORD', 'while');
     this.consume('PUNCTUATION', '(');
@@ -495,6 +543,9 @@ export class JavaParser {
     return { id: generateId(), type: 'While', condition, body };
   }
 
+  /**
+   * Runs do while statement.
+   */
   private doWhileStatement(): any {
     this.consume('KEYWORD', 'do');
     const body = this.block();
@@ -506,6 +557,9 @@ export class JavaParser {
     return { id: generateId(), type: 'DoWhile', body, condition };
   }
 
+  /**
+   * Runs switch statement.
+   */
   private switchStatement(): any {
     this.consume('KEYWORD', 'switch');
     this.consume('PUNCTUATION', '(');
@@ -545,18 +599,27 @@ export class JavaParser {
     return { id: generateId(), type: 'Switch', discriminant, cases };
   }
 
+  /**
+   * Runs break statement.
+   */
   private breakStatement(): any {
     this.consume('KEYWORD', 'break');
     this.consume('PUNCTUATION', ';');
     return { id: generateId(), type: 'Break' };
   }
 
+  /**
+   * Runs continue statement.
+   */
   private continueStatement(): any {
     this.consume('KEYWORD', 'continue');
     this.consume('PUNCTUATION', ';');
     return { id: generateId(), type: 'Continue' };
   }
 
+  /**
+   * Runs for statement.
+   */
   private forStatement(): For {
     this.consume('KEYWORD', 'for');
     this.consume('PUNCTUATION', '(');
@@ -716,6 +779,9 @@ export class JavaParser {
     return { id: generateId(), type: 'For', variable, iterable, body, init, condition, update };
   }
 
+  /**
+   * Runs return statement.
+   */
   private returnStatement(): Return {
     this.consume('KEYWORD', 'return');
     let value: Expression | undefined = undefined;
@@ -724,10 +790,16 @@ export class JavaParser {
     return { id: generateId(), type: 'Return', value };
   }
 
+  /**
+   * Runs expression.
+   */
   private expression(): Expression {
     return this.assignment();
   }
 
+  /**
+   * Runs assignment.
+   */
   private assignment(): Expression {
     let left = this.ternary();
 
@@ -832,6 +904,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs ternary.
+   */
   private ternary(): Expression {
     let expr = this.logicOr();
 
@@ -851,6 +926,9 @@ export class JavaParser {
     return expr;
   }
 
+  /**
+   * Runs logic or.
+   */
   private logicOr(): Expression {
     let left = this.logicAnd();
     while (this.match('OPERATOR', '||')) {
@@ -860,6 +938,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs logic and.
+   */
   private logicAnd(): Expression {
     let left = this.bitwiseOr();
     while (this.match('OPERATOR', '&&')) {
@@ -869,6 +950,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs bitwise or.
+   */
   private bitwiseOr(): Expression {
     let left = this.bitwiseXor();
     while (this.match('OPERATOR', '|')) {
@@ -878,6 +962,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs bitwise xor.
+   */
   private bitwiseXor(): Expression {
     let left = this.bitwiseAnd();
     while (this.match('OPERATOR', '^')) {
@@ -887,6 +974,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs bitwise and.
+   */
   private bitwiseAnd(): Expression {
     let left = this.equality();
     while (this.match('OPERATOR', '&')) {
@@ -896,6 +986,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs equality.
+   */
   private equality(): Expression {
     let left = this.shift();
     while (this.match('OPERATOR', '==', '!=')) {
@@ -906,6 +999,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs shift.
+   */
   private shift(): Expression {
     let left = this.comparison();
     while (this.match('OPERATOR', '<<', '>>', '>>>')) {
@@ -916,6 +1012,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs comparison.
+   */
   private comparison(): Expression {
     let left = this.term();
     while (this.match('OPERATOR', '>', '>=', '<', '<=')) {
@@ -926,6 +1025,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs term.
+   */
   private term(): Expression {
     let left = this.factor();
     while (this.match('OPERATOR', '+', '-')) {
@@ -936,6 +1038,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs factor.
+   */
   private factor(): Expression {
     let left = this.exponent();
     while (this.match('OPERATOR', '*', '/', '%')) {
@@ -946,6 +1051,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs exponent.
+   */
   private exponent(): Expression {
     let left = this.unary();
     while (this.match('OPERATOR', '**')) {
@@ -956,6 +1064,9 @@ export class JavaParser {
     return left;
   }
 
+  /**
+   * Runs unary.
+   */
   private unary(): Expression {
     // Prefix ++ and --
     if (this.match('OPERATOR', '++', '--')) {
@@ -975,6 +1086,9 @@ export class JavaParser {
     return this.postfix();
   }
 
+  /**
+   * Runs new expression.
+   */
   private newExpression(): Expression {
     const className = this.consume('IDENTIFIER').value;
     this.consume('PUNCTUATION', '(');
@@ -993,6 +1107,9 @@ export class JavaParser {
     };
   }
 
+  /**
+   * Runs postfix.
+   */
   private postfix(): Expression {
     let expr = this.call();
 
@@ -1048,6 +1165,9 @@ export class JavaParser {
     return expr;
   }
 
+  /**
+   * Runs finish call.
+   */
   private finishCall(callee: Expression): CallExpression {
     if (callee.type !== 'Identifier') throw new Error('Can only call identifiers');
     const args: Expression[] = [];
@@ -1065,6 +1185,9 @@ export class JavaParser {
     };
   }
 
+  /**
+   * Runs primary.
+   */
   private primary(): Expression {
     if (this.match('NUMBER'))
       return {
@@ -1112,6 +1235,9 @@ export class JavaParser {
     throw new Error(`Expect expression. Found ${this.peek().value}`);
   }
 
+  /**
+   * Runs call.
+   */
   private call(): Expression {
     let expr = this.primary();
     while (this.match('PUNCTUATION', '(')) {
@@ -1120,6 +1246,9 @@ export class JavaParser {
     return expr;
   }
 
+  /**
+   * Runs match.
+   */
   private match(type: TokenType, ...values: string[]): boolean {
     if (this.check(type, ...values)) {
       this.advance();
@@ -1127,6 +1256,9 @@ export class JavaParser {
     }
     return false;
   }
+  /**
+   * Runs check.
+   */
   private check(type: TokenType, ...values: string[]): boolean {
     if (this.isAtEnd()) return false;
     const token = this.peek();
@@ -1134,6 +1266,9 @@ export class JavaParser {
     if (values.length > 0 && !values.includes(token.value)) return false;
     return true;
   }
+  /**
+   * Runs check next.
+   */
   private checkNext(type: TokenType, value?: string): boolean {
     if (this.current + 1 >= this.tokens.length) return false;
     const token = this.tokens[this.current + 1];
@@ -1141,6 +1276,9 @@ export class JavaParser {
     if (value && token.value !== value) return false;
     return true;
   }
+  /**
+   * Runs consume.
+   */
   private consume(type: TokenType, value?: string): Token {
     if (this.check(type, ...(value ? [value] : []))) return this.advance();
     const found = this.peek();
@@ -1148,16 +1286,28 @@ export class JavaParser {
       `Expected token ${type} ${value || ''} but found ${found.type} '${found.value}' at position ${found.start}`
     );
   }
+  /**
+   * Runs advance.
+   */
   private advance(): Token {
     if (!this.isAtEnd()) this.current++;
     return this.previous();
   }
+  /**
+   * Runs is at end.
+   */
   private isAtEnd(): boolean {
     return this.peek().type === 'EOF';
   }
+  /**
+   * Runs peek.
+   */
   private peek(): Token {
     return this.tokens[this.current];
   }
+  /**
+   * Runs previous.
+   */
   private previous(): Token {
     return this.tokens[this.current - 1];
   }

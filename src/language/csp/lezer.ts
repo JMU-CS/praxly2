@@ -52,6 +52,9 @@ export const cspLanguage = LRLanguage.define({
   },
 });
 
+/**
+ * Runs csp.
+ */
 export function csp() {
   return new LanguageSupport(cspLanguage);
 }

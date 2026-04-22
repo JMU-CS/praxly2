@@ -25,6 +25,9 @@ export class PythonEmitter extends ASTVisitor {
   // Tracks field names in current class scope for self. prefixing
   private currentClassFields = new Set<string>();
 
+  /**
+   * Runs to python type.
+   */
   private toPythonType(typeName?: string): string | undefined {
     if (!typeName) return undefined;
 
@@ -76,6 +79,9 @@ export class PythonEmitter extends ASTVisitor {
     return mappedType;
   }
 
+  /**
+   * Runs format parameter.
+   */
   private formatParameter(param: any): string {
     const annotatedType = this.toPythonType(param.paramType);
     let output = annotatedType ? `${param.name}: ${annotatedType}` : param.name;
@@ -405,10 +411,16 @@ export class PythonEmitter extends ASTVisitor {
     });
   }
 
+  /**
+   * Visits break and returns the result.
+   */
   visitBreak(_stmt: any): void {
     this.emit('break');
   }
 
+  /**
+   * Visits continue and returns the result.
+   */
   visitContinue(_stmt: any): void {
     this.emit('continue');
   }

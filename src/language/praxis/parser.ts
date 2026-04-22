@@ -25,6 +25,9 @@ export class PraxisParser {
   private current = 0;
   private sourceCode: string;
 
+  /**
+   * Creates a new instance.
+   */
   constructor(tokens: Token[], sourceCode: string = '') {
     this.tokens = tokens;
     this.sourceCode = sourceCode;
@@ -45,6 +48,9 @@ export class PraxisParser {
     return stmt;
   }
 
+  /**
+   * Parses input.
+   */
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
@@ -59,6 +65,9 @@ export class PraxisParser {
     return { id: generateId(), type: 'Program', body };
   }
 
+  /**
+   * Runs top level declaration.
+   */
   private topLevelDeclaration(): Statement {
     if (this.check('KEYWORD', 'class')) {
       return this.classDeclaration();
@@ -104,6 +113,9 @@ export class PraxisParser {
     }
   }
 
+  /**
+   * Runs class declaration.
+   */
   private classDeclaration(): ClassDeclaration {
     this.consume('KEYWORD', 'class');
     const name = this.consume('IDENTIFIER').value;
@@ -150,6 +162,9 @@ export class PraxisParser {
     return { id: generateId(), type: 'ClassDeclaration', name, superClass, body: classBody };
   }
 
+  /**
+   * Runs is function declaration.
+   */
   private isFunctionDeclaration(): boolean {
     // Check for 'procedure' or 'function' keywords
     if (this.check('KEYWORD', 'procedure') || this.check('KEYWORD', 'function')) {
@@ -174,6 +189,9 @@ export class PraxisParser {
     return false;
   }
 
+  /**
+   * Runs is variable declaration.
+   */
   private isVariableDeclaration(): boolean {
     let offset = 0;
     if (this.isTypeStart()) {
@@ -202,6 +220,9 @@ export class PraxisParser {
     return this.checkPeekAhead('IDENTIFIER', undefined, offset);
   }
 
+  /**
+   * Runs function declaration.
+   */
   private functionDeclaration(): FunctionDeclaration {
     let returnType = 'auto';
     if (this.isTypeStart() || this.check('KEYWORD', 'void')) {
@@ -247,6 +268,9 @@ export class PraxisParser {
     return { id: generateId(), type: 'FunctionDeclaration', name, params, body, returnType } as any;
   }
 
+  /**
+   * Runs variable declaration.
+   */
   private variableDeclaration(): Statement {
     const typeToken = this.advance(); // consume type
     let typeName = typeToken.value;
@@ -294,6 +318,9 @@ export class PraxisParser {
     } as any;
   }
 
+  /**
+   * Runs statement.
+   */
   private statement(): Statement {
     const startIdx = this.current;
     let stmt: Statement;
@@ -344,6 +371,9 @@ export class PraxisParser {
     return this.withLocation(stmt, startIdx);
   }
 
+  /**
+   * Runs generate member path.
+   */
   private generateMemberPath(expr: any): string {
     if (expr.type === 'Identifier') return expr.name;
     if (expr.type === 'MemberExpression') {
@@ -352,6 +382,9 @@ export class PraxisParser {
     return 'unknown';
   }
 
+  /**
+   * Runs block.
+   */
   private block(breakTokens: string[] = ['end', 'else', 'until']): Block {
     const statements: Statement[] = [];
     while (!this.isAtEnd()) {
@@ -384,6 +417,9 @@ export class PraxisParser {
     return { id: generateId(), type: 'Block', body: statements };
   }
 
+  /**
+   * Runs print statement.
+   */
   private printStatement(): Statement {
     const printToken = this.consume('KEYWORD', 'print');
     const expr = this.expression();
@@ -399,6 +435,9 @@ export class PraxisParser {
     return stmt;
   }
 
+  /**
+   * Runs extract trailing line comment.
+   */
   private extractTrailingLineComment(lineStartPos: number): string | undefined {
     if (!this.sourceCode) return undefined;
 
@@ -411,6 +450,9 @@ export class PraxisParser {
     return lineText.slice(commentStart + 2).trim();
   }
 
+  /**
+   * Runs find single line comment start.
+   */
   private findSingleLineCommentStart(lineText: string): number {
     let inSingleQuote = false;
     let inDoubleQuote = false;
@@ -447,6 +489,9 @@ export class PraxisParser {
     return -1;
   }
 
+  /**
+   * Parses print comment metadata.
+   */
   private parsePrintCommentMetadata(comment: string): {
     separator?: string;
     appendLineFeed?: boolean;
@@ -476,6 +521,9 @@ export class PraxisParser {
     return metadata;
   }
 
+  /**
+   * Runs if statement.
+   */
   private ifStatement(): If {
     this.consume('KEYWORD', 'if');
     this.match('PUNCTUATION', '(');
@@ -495,6 +543,9 @@ export class PraxisParser {
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
   }
 
+  /**
+   * Runs while statement.
+   */
   private whileStatement(): While {
     this.consume('KEYWORD', 'while');
     this.match('PUNCTUATION', '(');
@@ -509,6 +560,9 @@ export class PraxisParser {
     return { id: generateId(), type: 'While', condition, body };
   }
 
+  /**
+   * Runs do while statement.
+   */
   private doWhileStatement(): DoWhile {
     this.consume('KEYWORD', 'do');
     const body = this.block(['end', 'else', 'until', 'while']);
@@ -520,6 +574,9 @@ export class PraxisParser {
     return { id: generateId(), type: 'DoWhile', body, condition };
   }
 
+  /**
+   * Runs repeat until statement.
+   */
   private repeatUntilStatement(): While {
     this.consume('KEYWORD', 'repeat');
     const body = this.block();
@@ -537,6 +594,9 @@ export class PraxisParser {
     return { id: generateId(), type: 'While', condition: notCond, body };
   }
 
+  /**
+   * Runs for statement.
+   */
   private forStatement(): any {
     this.consume('KEYWORD', 'for');
     const hasParen = this.match('PUNCTUATION', '(');
@@ -638,6 +698,9 @@ export class PraxisParser {
     }
   }
 
+  /**
+   * Runs return statement.
+   */
   private returnStatement(): Return {
     this.consume('KEYWORD', 'return');
     let value: Expression | undefined = undefined;
@@ -660,10 +723,16 @@ export class PraxisParser {
 
   // --- Expressions (Standard Precedence) ---
 
+  /**
+   * Runs expression.
+   */
   private expression(): Expression {
     return this.logicOr();
   }
 
+  /**
+   * Runs logic or.
+   */
   private logicOr(): Expression {
     let left = this.logicAnd();
     while (this.match('KEYWORD', 'or')) {
@@ -673,6 +742,9 @@ export class PraxisParser {
     return left;
   }
 
+  /**
+   * Runs logic and.
+   */
   private logicAnd(): Expression {
     let left = this.equality();
     while (this.match('KEYWORD', 'and')) {
@@ -682,6 +754,9 @@ export class PraxisParser {
     return left;
   }
 
+  /**
+   * Runs equality.
+   */
   private equality(): Expression {
     let left = this.range();
     while (this.match('OPERATOR', '==', '!=', '<>')) {
@@ -693,6 +768,9 @@ export class PraxisParser {
     return left;
   }
 
+  /**
+   * Runs range.
+   */
   private range(): Expression {
     let left = this.comparison();
     while (this.match('OPERATOR', '..')) {
@@ -702,6 +780,9 @@ export class PraxisParser {
     return left;
   }
 
+  /**
+   * Runs comparison.
+   */
   private comparison(): Expression {
     let left = this.term();
     while (this.match('OPERATOR', '>', '>=', '<', '<=')) {
@@ -712,6 +793,9 @@ export class PraxisParser {
     return left;
   }
 
+  /**
+   * Runs term.
+   */
   private term(): Expression {
     let left = this.factor();
     while (this.match('OPERATOR', '+', '-')) {
@@ -722,6 +806,9 @@ export class PraxisParser {
     return left;
   }
 
+  /**
+   * Runs factor.
+   */
   private factor(): Expression {
     let left = this.exponent();
     while (this.match('OPERATOR', '*', '/', '%') || this.match('KEYWORD', 'mod')) {
@@ -733,6 +820,9 @@ export class PraxisParser {
     return left;
   }
 
+  /**
+   * Runs exponent.
+   */
   private exponent(): Expression {
     let left = this.unary();
     // Right-associative: handle ^ operator from right to left
@@ -743,6 +833,9 @@ export class PraxisParser {
     return left;
   }
 
+  /**
+   * Runs unary.
+   */
   private unary(): Expression {
     if (this.match('OPERATOR', '!', '-') || this.match('KEYWORD', 'not')) {
       let operator = this.previous().value.toLowerCase();
@@ -753,6 +846,9 @@ export class PraxisParser {
     return this.call();
   }
 
+  /**
+   * Runs call.
+   */
   private call(): Expression {
     let expr = this.primary();
     while (true) {
@@ -790,6 +886,9 @@ export class PraxisParser {
     return expr;
   }
 
+  /**
+   * Runs stringify expression for property.
+   */
   // @ts-ignore - Used recursively for binary expression string conversion
   private stringifyExpressionForProperty(expr: Expression): string {
     if (expr.type === 'Identifier') return (expr as any).name;
@@ -801,6 +900,9 @@ export class PraxisParser {
     return 'expr';
   }
 
+  /**
+   * Runs finish call.
+   */
   private finishCall(callee: Expression): CallExpression {
     const args: Expression[] = [];
     if (!this.check('PUNCTUATION', ')')) {
@@ -812,6 +914,9 @@ export class PraxisParser {
     return { id: generateId(), type: 'CallExpression', callee: callee as any, arguments: args };
   }
 
+  /**
+   * Runs primary.
+   */
   private primary(): Expression {
     if (this.match('NUMBER'))
       return {
@@ -884,6 +989,9 @@ export class PraxisParser {
   }
 
   // Helpers
+  /**
+   * Runs is type start.
+   */
   private isTypeStart(): boolean {
     if (this.isAtEnd()) return false;
     const token = this.peek();
@@ -891,6 +999,9 @@ export class PraxisParser {
     const types = ['boolean', 'char', 'double', 'float', 'int', 'short', 'string', 'void'];
     return types.includes(token.value.toLowerCase());
   }
+  /**
+   * Runs check peek ahead.
+   */
   private checkPeekAhead(type: TokenType, value?: string, distance: number = 1): boolean {
     if (this.current + distance >= this.tokens.length) return false;
     const token = this.tokens[this.current + distance];
@@ -898,6 +1009,9 @@ export class PraxisParser {
     if (value && token.value.toLowerCase() !== value.toLowerCase()) return false;
     return true;
   }
+  /**
+   * Runs match.
+   */
   private match(type: TokenType, ...values: string[]): boolean {
     if (this.check(type, ...values)) {
       this.advance();
@@ -905,6 +1019,9 @@ export class PraxisParser {
     }
     return false;
   }
+  /**
+   * Runs check.
+   */
   private check(type: TokenType, ...values: string[]): boolean {
     if (this.isAtEnd()) return false;
     const token = this.peek();
@@ -916,6 +1033,9 @@ export class PraxisParser {
       return false;
     return true;
   }
+  /**
+   * Runs consume.
+   */
   private consume(type: TokenType, value?: string): Token {
     if (this.check(type, ...(value ? [value] : []))) return this.advance();
     const found = this.peek();
@@ -923,16 +1043,28 @@ export class PraxisParser {
       `Expected token ${type} ${value || ''} but found ${found.type} '${found.value}'`
     );
   }
+  /**
+   * Runs advance.
+   */
   private advance(): Token {
     if (!this.isAtEnd()) this.current++;
     return this.previous();
   }
+  /**
+   * Runs is at end.
+   */
   private isAtEnd(): boolean {
     return this.peek().type === 'EOF';
   }
+  /**
+   * Runs peek.
+   */
   private peek(): Token {
     return this.tokens[this.current];
   }
+  /**
+   * Runs previous.
+   */
   private previous(): Token {
     return this.tokens[this.current - 1];
   }

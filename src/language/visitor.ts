@@ -27,18 +27,30 @@ export type SourceMap = Map<string, number>; // AST Node ID -> Line Number
 export class SymbolTable {
   private scopes: Map<string, string>[] = [new Map()];
 
+  /**
+   * Runs enter scope.
+   */
   enterScope() {
     this.scopes.push(new Map());
   }
 
+  /**
+   * Runs exit scope.
+   */
   exitScope() {
     this.scopes.pop();
   }
 
+  /**
+   * Runs set.
+   */
   set(name: string, type: string) {
     this.scopes[this.scopes.length - 1].set(name, type);
   }
 
+  /**
+   * Runs get.
+   */
   get(name: string): string | undefined {
     for (let i = this.scopes.length - 1; i >= 0; i--) {
       if (this.scopes[i].has(name)) {
@@ -48,6 +60,9 @@ export class SymbolTable {
     return undefined;
   }
 
+  /**
+   * Runs has in current scope.
+   */
   hasInCurrentScope(name: string): boolean {
     return this.scopes[this.scopes.length - 1].has(name);
   }
@@ -83,18 +98,30 @@ export abstract class ASTVisitor {
   protected continueStr = 'continue;';
   protected sourceMap: SourceMap = new Map();
 
+  /**
+   * Creates a new instance.
+   */
   constructor(context: TranslationContext) {
     this.context = context;
   }
 
+  /**
+   * Runs get generated code.
+   */
   getGeneratedCode(): string {
     return this.output.join('\n');
   }
 
+  /**
+   * Runs get source map.
+   */
   getSourceMap(): SourceMap {
     return this.sourceMap;
   }
 
+  /**
+   * Emits target output.
+   */
   protected emit(line: string, nodeId?: string) {
     this.output.push('  '.repeat(this.indentLevel) + line);
     // Map this line (0-based for CodeMirror) to the node ID
@@ -103,36 +130,102 @@ export abstract class ASTVisitor {
     }
   }
 
+  /**
+   * Runs indent.
+   */
   protected indent() {
     this.indentLevel++;
   }
+  /**
+   * Runs dedent.
+   */
   protected dedent() {
     this.indentLevel--;
   }
 
   // -- Visit Methods (To be implemented by concrete emitters) --
+  /**
+   * Visits program and returns the result.
+   */
   abstract visitProgram(program: Program): void;
+  /**
+   * Visits block and returns the result.
+   */
   abstract visitBlock(block: Block): void;
+  /**
+   * Visits class declaration and returns the result.
+   */
   abstract visitClassDeclaration(classDecl: ClassDeclaration): void;
+  /**
+   * Visits method declaration and returns the result.
+   */
   abstract visitMethodDeclaration(method: MethodDeclaration): void;
+  /**
+   * Visits field declaration and returns the result.
+   */
   abstract visitFieldDeclaration(field: FieldDeclaration): void;
+  /**
+   * Visits constructor and returns the result.
+   */
   abstract visitConstructor(ctor: Constructor): void;
 
+  /**
+   * Visits print and returns the result.
+   */
   abstract visitPrint(stmt: any): void;
+  /**
+   * Visits assignment and returns the result.
+   */
   abstract visitAssignment(stmt: any): void;
+  /**
+   * Visits if and returns the result.
+   */
   abstract visitIf(stmt: any): void;
+  /**
+   * Visits while and returns the result.
+   */
   abstract visitWhile(stmt: any): void;
+  /**
+   * Visits do while and returns the result.
+   */
   abstract visitDoWhile(stmt: any): void;
+  /**
+   * Visits switch and returns the result.
+   */
   abstract visitSwitch(stmt: any): void;
+  /**
+   * Visits break and returns the result.
+   */
   abstract visitBreak(stmt: any): void;
+  /**
+   * Visits continue and returns the result.
+   */
   abstract visitContinue(stmt: any): void;
+  /**
+   * Visits for and returns the result.
+   */
   abstract visitFor(stmt: any): void;
+  /**
+   * Visits function declaration and returns the result.
+   */
   abstract visitFunctionDeclaration(stmt: any): void;
+  /**
+   * Visits return and returns the result.
+   */
   abstract visitReturn(stmt: any): void;
+  /**
+   * Visits expression statement and returns the result.
+   */
   abstract visitExpressionStatement(stmt: any): void;
+  /**
+   * Visits try and returns the result.
+   */
   abstract visitTry(stmt: any): void;
 
   // Dispatcher
+  /**
+   * Visits statement and returns the result.
+   */
   visitStatement(stmt: Statement) {
     switch (stmt.type) {
       case 'Print':
@@ -189,8 +282,14 @@ export abstract class ASTVisitor {
     }
   }
 
+  /**
+   * Runs generate expression.
+   */
   abstract generateExpression(expr: Expression, parentPrecedence: number): string;
 
+  /**
+   * Runs infer type.
+   */
   protected inferType(expr: Expression): string {
     switch (expr.type) {
       case 'Literal':

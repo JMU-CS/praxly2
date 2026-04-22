@@ -6,6 +6,9 @@
 import { Link } from 'react-router-dom';
 import { Code, ArrowRight, CheckCircle } from 'lucide-react';
 
+/**
+ * Runs landing page.
+ */
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-5 sm:p-8 relative overflow-hidden">

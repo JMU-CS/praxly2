@@ -11,10 +11,16 @@ export class Lexer {
   private indentStack: number[] = [0];
   private tokens: Token[] = [];
 
+  /**
+   * Creates a new instance.
+   */
   constructor(input: string) {
     this.input = input;
   }
 
+  /**
+   * Tokenizes the source input into lexical tokens.
+   */
   tokenize(): Token[] {
     const lines = this.input.split(/\r?\n/);
 
@@ -61,6 +67,9 @@ export class Lexer {
     return this.tokens;
   }
 
+  /**
+   * Tokenizes the source input into lexical tokens.
+   */
   private tokenizeLine(line: string, offset: number) {
     let p = 0;
     while (p < line.length) {

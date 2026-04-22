@@ -53,6 +53,9 @@ export const praxisLanguage = LRLanguage.define({
   },
 });
 
+/**
+ * Runs praxis.
+ */
 export function praxis() {
   return new LanguageSupport(praxisLanguage);
 }

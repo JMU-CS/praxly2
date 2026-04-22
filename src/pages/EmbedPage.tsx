@@ -20,6 +20,9 @@ import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
 import { Debugger } from '../language/debugger';
 
+/**
+ * Runs embed page.
+ */
 export default function EmbedPage() {
   const [searchParams] = useSearchParams();
   const [embedData, setEmbedData] = useState<EmbedData | null>(null);
@@ -104,12 +107,18 @@ export default function EmbedPage() {
     editorViewRef.current = view;
   }, []);
 
+  /**
+   * Runs get extensions.
+   */
   const getExtensions = (lang: SupportedLang) => {
     const baseExtensions = getCodeMirrorExtensions(lang);
     baseExtensions.push(highlightedLinesField);
     return baseExtensions;
   };
 
+  /**
+   * Handles run.
+   */
   const handleRun = () => {
     setError(null);
     setOutput([]);
@@ -157,6 +166,9 @@ export default function EmbedPage() {
     }
   };
 
+  /**
+   * Handles debug start.
+   */
   const handleDebugStart = () => {
     setError(null);
     setOutput([]);
@@ -172,6 +184,9 @@ export default function EmbedPage() {
     }
   };
 
+  /**
+   * Handles debug step.
+   */
   const handleDebugStep = () => {
     if (!ast || !embedData?.code) return;
 
@@ -195,12 +210,18 @@ export default function EmbedPage() {
     }
   };
 
+  /**
+   * Handles debug stop.
+   */
   const handleDebugStop = () => {
     stopDebugger();
     setIsDebugging(false);
     setOutput((prev) => [...prev, 'Debugger stopped.']);
   };
 
+  /**
+   * Handles submit input.
+   */
   const handleSubmitInput = (input: string) => {
     provideInput(input);
     // Echo removed, handled by interpreter
@@ -223,6 +244,9 @@ export default function EmbedPage() {
     }
   };
 
+  /**
+   * Handles normal mode input submit.
+   */
   const handleNormalModeInputSubmit = (input: string) => {
     if (!currentInterpreter) return;
 
@@ -274,6 +298,9 @@ export default function EmbedPage() {
     }
   };
 
+  /**
+   * Handles open in editor.
+   */
   const handleOpenInEditor = () => {
     if (!embedData) return;
     const encoded = encodeEmbed({
@@ -285,12 +312,18 @@ export default function EmbedPage() {
   };
 
   // Resize handler
+  /**
+   * Handles mouse down.
+   */
   const onMouseDown = (e: React.MouseEvent, idx: 'source' | 'translation') => {
     setResizingIdx(idx);
     e.preventDefault();
   };
 
   useEffect(() => {
+    /**
+     * Handles mouse move.
+     */
     const handleMouseMove = (e: MouseEvent) => {
       if (resizingIdx === null) return;
 
@@ -301,6 +334,9 @@ export default function EmbedPage() {
       }
     };
 
+    /**
+     * Handles mouse up.
+     */
     const handleMouseUp = () => setResizingIdx(null);
 
     if (resizingIdx !== null) {

@@ -18,9 +18,15 @@ export class Environment {
   public types: Record<string, string> = {}; // Track declared types
   public declarationOrigins: Record<string, number> = {}; // Track declaration token positions
   public parent?: Environment;
+  /**
+   * Creates a new instance.
+   */
   constructor(parent?: Environment) {
     this.parent = parent;
   }
+  /**
+   * Runs define.
+   */
   define(name: string, value: any, type?: string, declarationOrigin?: number) {
     this.values[name] = value;
     if (type) {
@@ -30,6 +36,9 @@ export class Environment {
       }
     }
   }
+  /**
+   * Runs assign.
+   */
   assign(name: string, value: any) {
     if (name in this.values) {
       this.values[name] = value;
@@ -41,16 +50,25 @@ export class Environment {
     }
     throw new Error(`Undefined variable '${name}'`);
   }
+  /**
+   * Runs get.
+   */
   get(name: string): any {
     if (name in this.values) return this.values[name];
     if (this.parent) return this.parent.get(name);
     throw new Error(`Undefined variable '${name}'`);
   }
+  /**
+   * Runs get type.
+   */
   getType(name: string): string | undefined {
     if (name in this.types) return this.types[name];
     if (this.parent) return this.parent.getType(name);
     return undefined;
   }
+  /**
+   * Runs get all variables.
+   */
   getAllVariables(): Record<string, any> {
     const vars: Record<string, any> = { ...this.values };
     if (this.parent) {
@@ -62,6 +80,9 @@ export class Environment {
 
 class ReturnException extends Error {
   value: any;
+  /**
+   * Creates a new instance.
+   */
   constructor(value: any) {
     super('Return');
     this.value = value;
@@ -70,6 +91,9 @@ class ReturnException extends Error {
 
 export class InputPrompt extends Error {
   prompt: string;
+  /**
+   * Creates a new instance.
+   */
   constructor(prompt: string = '') {
     super('InputPrompt');
     this.prompt = prompt;
@@ -84,19 +108,31 @@ class JavaClass {
   fields: Map<string, any> = new Map();
   superClass?: JavaClass;
 
+  /**
+   * Creates a new instance.
+   */
   constructor(name: string, superClass?: JavaClass) {
     this.name = name;
     this.superClass = superClass;
   }
 
+  /**
+   * Runs add method.
+   */
   addMethod(method: MethodDeclaration) {
     this.methods.set(method.name, method);
   }
 
+  /**
+   * Runs set constructor.
+   */
   setConstructor(ctor: Constructor) {
     this.ctorDecl = ctor;
   }
 
+  /**
+   * Runs get method.
+   */
   getMethod(name: string): MethodDeclaration | undefined {
     if (this.methods.has(name)) return this.methods.get(name);
     if (this.superClass) return this.superClass.getMethod(name);
@@ -108,10 +144,16 @@ class JavaInstance {
   klass: JavaClass;
   fields: Map<string, any> = new Map();
 
+  /**
+   * Creates a new instance.
+   */
   constructor(klass: JavaClass) {
     this.klass = klass;
   }
 
+  /**
+   * Runs get field.
+   */
   getField(name: string): any {
     if (this.fields.has(name)) return this.fields.get(name);
     // Check class fields
@@ -119,10 +161,16 @@ class JavaInstance {
     throw new Error(`Undefined field '${name}'`);
   }
 
+  /**
+   * Runs set field.
+   */
   setField(name: string, value: any) {
     this.fields.set(name, value);
   }
 
+  /**
+   * Runs call method.
+   */
   callMethod(methodName: string, args: any[], interpreter: Interpreter, env: Environment): any {
     const method = this.klass.getMethod(methodName);
     if (!method) throw new Error(`Undefined method '${methodName}'`);
@@ -158,20 +206,32 @@ export class Interpreter {
   private inputHandler?: (prompt: string) => string; // Callback for collecting input in normal mode
   private seededRandom: (() => number) | null = null;
 
+  /**
+   * Runs set input queue.
+   */
   setInputQueue(inputs: string[]) {
     this.inputQueue = [...inputs];
   }
 
+  /**
+   * Runs add input.
+   */
   addInput(input: string) {
     console.log('addInput called with:', input, 'Queue length before:', this.inputQueue.length);
     this.inputQueue.push(input);
     console.log('Queue length after:', this.inputQueue.length);
   }
 
+  /**
+   * Runs has input.
+   */
   hasInput(): boolean {
     return this.inputQueue.length > 0;
   }
 
+  /**
+   * Runs get next input.
+   */
   getNextInput(): string | null {
     console.log('getNextInput called, queue length:', this.inputQueue.length);
     const result = this.inputQueue.length > 0 ? this.inputQueue.shift()! : null;
@@ -179,15 +239,24 @@ export class Interpreter {
     return result;
   }
 
+  /**
+   * Runs set debugging.
+   */
   setDebugging(isDebugging: boolean) {
     this.isDebugging = isDebugging;
   }
 
+  /**
+   * Runs set input handler.
+   */
   setInputHandler(handler: (prompt: string) => string) {
     this.inputHandler = handler;
   }
 
   // Mulberry32 PRNG provides deterministic pseudo-random values for randomSeed().
+  /**
+   * Runs create seeded random.
+   */
   private createSeededRandom(seed: number): () => number {
     let state = seed >>> 0;
     return () => {
@@ -198,28 +267,43 @@ export class Interpreter {
     };
   }
 
+  /**
+   * Runs normalize seed.
+   */
   private normalizeSeed(seedValue: any): number {
     const seed = Number(seedValue);
     if (!Number.isFinite(seed)) return 0;
     return Math.trunc(seed) >>> 0;
   }
 
+  /**
+   * Runs get random value.
+   */
   private getRandomValue(): number {
     return this.seededRandom ? this.seededRandom() : Math.random();
   }
 
+  /**
+   * Runs is integer type.
+   */
   private isIntegerType(typeName?: string): boolean {
     if (!typeName) return false;
     const baseType = typeName.replace(/\[\]/g, '');
     return ['int', 'byte', 'short', 'long'].includes(baseType);
   }
 
+  /**
+   * Runs is float type.
+   */
   private isFloatType(typeName?: string): boolean {
     if (!typeName) return false;
     const baseType = typeName.replace(/\[\]/g, '');
     return baseType === 'float' || baseType === 'double';
   }
 
+  /**
+   * Runs infer expression type.
+   */
   private inferExpressionType(expr: Expression, env: Environment): string | undefined {
     switch (expr.type) {
       case 'Identifier':
@@ -293,6 +377,9 @@ export class Interpreter {
     }
   }
 
+  /**
+   * Runs append output text.
+   */
   private appendOutputText(text: string, appendLineFeed: boolean) {
     if (appendLineFeed) {
       this.output.push(this.outputLineBuffer + text);
@@ -302,6 +389,9 @@ export class Interpreter {
     this.outputLineBuffer += text;
   }
 
+  /**
+   * Runs flush output buffer.
+   */
   private flushOutputBuffer() {
     if (this.outputLineBuffer.length > 0) {
       this.output.push(this.outputLineBuffer);
@@ -309,6 +399,9 @@ export class Interpreter {
     }
   }
 
+  /**
+   * Interprets and executes the provided program.
+   */
   interpret(program: Program, sourceCode: string = ''): string[] {
     this.sourceCode = sourceCode;
     this.output = [];
@@ -362,6 +455,9 @@ export class Interpreter {
     return this.output;
   }
 
+  /**
+   * Runs step through with state.
+   */
   *stepThroughWithState(
     program: Program,
     sourceCode: string = ''
@@ -422,6 +518,9 @@ export class Interpreter {
     return this.output;
   }
 
+  /**
+   * Runs execute block generator with state.
+   */
   private *executeBlockGeneratorWithState(
     statements: Statement[],
     env: Environment
@@ -637,6 +736,9 @@ export class Interpreter {
     }
   }
 
+  /**
+   * Runs register class.
+   */
   private registerClass(classDecl: ClassDeclaration) {
     const javaClass = new JavaClass(classDecl.name);
 
@@ -674,6 +776,9 @@ export class Interpreter {
 
     if (!expr) return vars;
 
+    /**
+     * Runs traverse.
+     */
     const traverse = (node: any) => {
       if (!node) return;
 
@@ -716,6 +821,9 @@ export class Interpreter {
   ): boolean {
     if (!stmt) return false;
 
+    /**
+     * Runs check.
+     */
     const check = (node: any): boolean => {
       if (!node) return false;
 
@@ -905,12 +1013,18 @@ export class Interpreter {
     return null; // Default compatible
   }
 
+  /**
+   * Runs execute block.
+   */
   executeBlock(statements: Statement[], env: Environment) {
     for (const stmt of statements) {
       this.execute(stmt, env);
     }
   }
 
+  /**
+   * Runs instantiate class.
+   */
   private instantiateClass(klass: JavaClass, args: any[], env: Environment): JavaInstance {
     const instance = new JavaInstance(klass);
 
@@ -932,6 +1046,9 @@ export class Interpreter {
     return instance;
   }
 
+  /**
+   * Runs execute.
+   */
   private execute(stmt: Statement, env: Environment) {
     switch (stmt.type) {
       case 'ClassDeclaration':
@@ -1145,6 +1262,9 @@ export class Interpreter {
     }
   }
 
+  /**
+   * Runs evaluate.
+   */
   evaluate(expr: Expression, env: Environment, expectedType?: string): any {
     switch (expr.type) {
       case 'Literal':
@@ -1169,6 +1289,9 @@ export class Interpreter {
         const r = this.evaluate(expr.right, env, expectedType);
 
         // Helper to get declared type of an expression
+        /**
+         * Runs get declared type.
+         */
         const getDeclaredType = (exprNode: Expression): string => {
           if (exprNode.type === 'Identifier') {
             return env.getType((exprNode as any).name) || '';
@@ -1433,6 +1556,9 @@ export class Interpreter {
     }
   }
 
+  /**
+   * Runs stringify.
+   */
   private stringify(val: any, inArray: boolean = false, type?: string): string {
     if (val === null) return 'None';
     if (val === true) return 'true';
@@ -1466,14 +1592,23 @@ export class Interpreter {
     return String(val);
   }
 
+  /**
+   * Runs get output.
+   */
   getOutput(): string[] {
     return this.output;
   }
 
+  /**
+   * Runs get current env.
+   */
   getCurrentEnv(): Environment {
     return this.currentEnv;
   }
 
+  /**
+   * Runs get global env.
+   */
   getGlobalEnv(): Environment {
     return this.globalEnv;
   }

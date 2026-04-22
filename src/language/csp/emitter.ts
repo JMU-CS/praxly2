@@ -34,6 +34,9 @@ export class CSPEmitter extends ASTVisitor {
     return hasStaticMainMethod;
   }
 
+  /**
+   * Visits program and returns the result.
+   */
   visitProgram(program: Program): void {
     const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
     const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
@@ -65,6 +68,9 @@ export class CSPEmitter extends ASTVisitor {
     }
   }
 
+  /**
+   * Visits class declaration and returns the result.
+   */
   visitClassDeclaration(classDecl: ClassDeclaration): void {
     this.emit(`CLASS ${classDecl.name}`);
     this.emit('{');
@@ -77,6 +83,9 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
+  /**
+   * Visits field declaration and returns the result.
+   */
   visitFieldDeclaration(field: FieldDeclaration): void {
     let line = `${field.access === 'private' ? 'PRIVATE' : 'PUBLIC'} ${field.name}`;
     if (field.initializer) {
@@ -85,6 +94,9 @@ export class CSPEmitter extends ASTVisitor {
     this.emit(line);
   }
 
+  /**
+   * Visits constructor and returns the result.
+   */
   visitConstructor(ctor: Constructor): void {
     const params = ctor.params.map((p) => p.name).join(', ');
     this.emit(`CONSTRUCTOR (${params})`);
@@ -95,6 +107,9 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
+  /**
+   * Visits method declaration and returns the result.
+   */
   visitMethodDeclaration(method: MethodDeclaration): void {
     const access = method.access === 'private' ? 'PRIVATE' : 'PUBLIC';
     const params = method.params.map((p) => p.name).join(', ');
@@ -106,15 +121,24 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
+  /**
+   * Visits block and returns the result.
+   */
   visitBlock(block: Block): void {
     block.body.forEach((stmt) => this.visitStatement(stmt));
   }
 
+  /**
+   * Visits print and returns the result.
+   */
   visitPrint(stmt: any): void {
     const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
     this.emit(`DISPLAY(${args.join(' + " " + ')})`, stmt.id);
   }
 
+  /**
+   * Visits assignment and returns the result.
+   */
   visitAssignment(stmt: any): void {
     // Handle tuple unpacking: y, z = 4, 5
     if (stmt.target && stmt.target.type === 'ArrayLiteral') {
@@ -155,6 +179,9 @@ export class CSPEmitter extends ASTVisitor {
     this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`, stmt.id);
   }
 
+  /**
+   * Visits if and returns the result.
+   */
   visitIf(stmt: any): void {
     this.emit(`IF (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
     this.emit('{');
@@ -186,6 +213,9 @@ export class CSPEmitter extends ASTVisitor {
     }
   }
 
+  /**
+   * Visits while and returns the result.
+   */
   visitWhile(stmt: any): void {
     this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`, stmt.id);
     this.emit('{');
@@ -195,6 +225,9 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
+  /**
+   * Visits do while and returns the result.
+   */
   visitDoWhile(stmt: any): void {
     this.emit('{');
     this.indent();
@@ -205,6 +238,9 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
+  /**
+   * Visits switch and returns the result.
+   */
   visitSwitch(stmt: any): void {
     // CSP doesn't have switch, implement as nested IF statements
     let first = true;
@@ -224,14 +260,23 @@ export class CSPEmitter extends ASTVisitor {
     });
   }
 
+  /**
+   * Visits break and returns the result.
+   */
   visitBreak(_stmt: any): void {
     this.emit('// BREAK');
   }
 
+  /**
+   * Visits continue and returns the result.
+   */
   visitContinue(_stmt: any): void {
     this.emit('// CONTINUE');
   }
 
+  /**
+   * Visits for and returns the result.
+   */
   visitFor(stmt: any): void {
     if (stmt.init && stmt.condition && stmt.update) {
       this.context.symbolTable.enterScope();
@@ -302,6 +347,9 @@ export class CSPEmitter extends ASTVisitor {
     }
   }
 
+  /**
+   * Visits function declaration and returns the result.
+   */
   visitFunctionDeclaration(stmt: any): void {
     const params = stmt.params.map((p: any) => p.name).join(', ');
     this.emit(`PROCEDURE ${stmt.name} (${params})`);
@@ -312,14 +360,23 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
+  /**
+   * Visits return and returns the result.
+   */
   visitReturn(stmt: any): void {
     this.emit(`RETURN ${stmt.value ? this.generateExpression(stmt.value, 0) : ''}`, stmt.id);
   }
 
+  /**
+   * Visits expression statement and returns the result.
+   */
   visitExpressionStatement(stmt: any): void {
     this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
   }
 
+  /**
+   * Visits try and returns the result.
+   */
   visitTry(stmt: any): void {
     this.emit('TRY');
     this.emit('{');
@@ -353,6 +410,9 @@ export class CSPEmitter extends ASTVisitor {
     }
   }
 
+  /**
+   * Runs generate expression.
+   */
   generateExpression(expr: Expression, parentPrecedence: number): string {
     let output = '';
     let currentPrecedence = 99;
@@ -385,6 +445,9 @@ export class CSPEmitter extends ASTVisitor {
         const objStr = this.generateExpression(expr.object, currentPrecedence);
 
         // Helper function to convert index expression to CSP, handling negative indices
+        /**
+         * Runs convert index csp.
+         */
         const convertIndexCSP = (idx: any): string => {
           if (!idx) return '0';
           if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0) {

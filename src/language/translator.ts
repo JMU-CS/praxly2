@@ -23,11 +23,17 @@ export interface TranslationResult {
 }
 
 export class Translator {
+  /**
+   * Translates code between supported languages.
+   */
   translate(program: Program, targetLang: TargetLanguage): string {
     const result = this.translateWithMap(program, targetLang);
     return result.code;
   }
 
+  /**
+   * Translates code between supported languages.
+   */
   translateWithMap(program: Program, targetLang: TargetLanguage): TranslationResult {
     const context = this.analyze(program);
 
@@ -56,6 +62,9 @@ export class Translator {
     };
   }
 
+  /**
+   * Runs analyze.
+   */
   private analyze(program: Program): TranslationContext {
     const context: TranslationContext = {
       symbolTable: new SymbolTable(),
@@ -63,6 +72,9 @@ export class Translator {
       functionParamTypes: new Map(),
     };
 
+    /**
+     * Runs infer type.
+     */
     const inferType = (expr: Expression): string => {
       switch (expr.type) {
         case 'Literal':
@@ -109,6 +121,9 @@ export class Translator {
       }
     };
 
+    /**
+     * Runs analyze block.
+     */
     const analyzeBlock = (statements: Statement[]) => {
       statements.forEach((stmt) => {
         if (stmt.type === 'Assignment') {
@@ -126,6 +141,9 @@ export class Translator {
       });
     };
 
+    /**
+     * Runs analyze calls.
+     */
     const analyzeCalls = (node: any) => {
       if (!node) return;
       if (node.type === 'CallExpression') {
@@ -143,6 +161,9 @@ export class Translator {
       }
     };
 
+    /**
+     * Runs analyze return type.
+     */
     const analyzeReturnType = (block: Block): string => {
       for (const stmt of block.body) {
         if (stmt.type === 'Return') return stmt.value ? inferType(stmt.value) : 'void';

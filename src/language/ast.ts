@@ -326,8 +326,14 @@ export interface ListComprehension extends ASTNode {
   iterable: Expression;
 }
 
+/**
+ * Runs generate id.
+ */
 export const generateId = () => Math.random().toString(36).substr(2, 9);
 
+/**
+ * Runs generate variable name.
+ */
 export function* generateVariableName() {
   let id = 0;
   while (true) {

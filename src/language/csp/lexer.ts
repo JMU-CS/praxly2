@@ -9,10 +9,16 @@ export class CSPLexer {
   private pos = 0;
   private input: string;
 
+  /**
+   * Creates a new instance.
+   */
   constructor(input: string) {
     this.input = input;
   }
 
+  /**
+   * Tokenizes the source input into lexical tokens.
+   */
   tokenize(): Token[] {
     const tokens: Token[] = [];
     while (this.pos < this.input.length) {

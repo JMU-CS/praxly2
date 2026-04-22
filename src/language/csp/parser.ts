@@ -29,6 +29,9 @@ export class CSPParser {
   private tokens: Token[];
   private current = 0;
 
+  /**
+   * Creates a new instance.
+   */
   constructor(tokens: Token[]) {
     this.tokens = tokens;
   }
@@ -48,6 +51,9 @@ export class CSPParser {
     return stmt;
   }
 
+  /**
+   * Parses input.
+   */
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
@@ -62,6 +68,9 @@ export class CSPParser {
     return { id: generateId(), type: 'Program', body };
   }
 
+  /**
+   * Runs top level declaration.
+   */
   private topLevelDeclaration(): Statement {
     if (this.check('KEYWORD', 'CLASS')) {
       return this.classDeclaration();
@@ -106,6 +115,9 @@ export class CSPParser {
     }
   }
 
+  /**
+   * Runs procedure declaration.
+   */
   private procedureDeclaration(): FunctionDeclaration {
     this.consume('KEYWORD', 'PROCEDURE');
     const name = this.consume('IDENTIFIER').value;
@@ -126,6 +138,9 @@ export class CSPParser {
     return { id: generateId(), type: 'FunctionDeclaration', name, params, body };
   }
 
+  /**
+   * Runs class declaration.
+   */
   private classDeclaration(): ClassDeclaration {
     this.consume('KEYWORD', 'CLASS');
     const name = this.consume('IDENTIFIER').value;
@@ -143,6 +158,9 @@ export class CSPParser {
     return { id: generateId(), type: 'ClassDeclaration', name, superClass, body };
   }
 
+  /**
+   * Runs class body declaration.
+   */
   private classBodyDeclaration(): FieldDeclaration | Constructor | MethodDeclaration {
     const access = this.parseAccessModifier();
 
@@ -174,6 +192,9 @@ export class CSPParser {
     throw new Error('Expected class member');
   }
 
+  /**
+   * Runs csp constructor.
+   */
   private cspConstructor(access: AccessModifier): Constructor {
     this.consume('KEYWORD', 'CONSTRUCTOR');
     this.consume('PUNCTUATION', '(');
@@ -189,6 +210,9 @@ export class CSPParser {
     return { id: generateId(), type: 'Constructor', access, params, body };
   }
 
+  /**
+   * Runs csp method.
+   */
   private cspMethod(access: AccessModifier): MethodDeclaration {
     this.consume('KEYWORD', 'PROCEDURE');
     const name = this.consume('IDENTIFIER').value;
@@ -214,12 +238,18 @@ export class CSPParser {
     };
   }
 
+  /**
+   * Parses access modifier.
+   */
   private parseAccessModifier(): AccessModifier {
     if (this.match('KEYWORD', 'PUBLIC')) return 'public';
     if (this.match('KEYWORD', 'PRIVATE')) return 'private';
     return 'public';
   }
 
+  /**
+   * Runs block.
+   */
   private block(): Block {
     if (this.check('PUNCTUATION', '{')) this.consume('PUNCTUATION', '{');
     const statements: Statement[] = [];
@@ -243,6 +273,9 @@ export class CSPParser {
     return { id: generateId(), type: 'Block', body: statements };
   }
 
+  /**
+   * Runs statement.
+   */
   private statement(): Statement {
     const startIdx = this.current;
 
@@ -271,6 +304,9 @@ export class CSPParser {
     );
   }
 
+  /**
+   * Runs print statement.
+   */
   private printStatement(): Statement {
     this.consume('KEYWORD', 'DISPLAY');
     if (this.check('PUNCTUATION', '(')) {
@@ -283,6 +319,9 @@ export class CSPParser {
     return { id: generateId(), type: 'Print', expressions: [expr] };
   }
 
+  /**
+   * Runs if statement.
+   */
   private ifStatement(): If {
     this.consume('KEYWORD', 'IF');
     if (this.check('PUNCTUATION', '(')) this.consume('PUNCTUATION', '(');
@@ -297,6 +336,9 @@ export class CSPParser {
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
   }
 
+  /**
+   * Runs repeat statement.
+   */
   private repeatStatement(): Statement {
     this.consume('KEYWORD', 'REPEAT');
 
@@ -363,6 +405,9 @@ export class CSPParser {
     }
   }
 
+  /**
+   * Runs for statement.
+   */
   private forStatement(): For {
     this.consume('KEYWORD', 'FOR');
     this.consume('KEYWORD', 'EACH');
@@ -373,6 +418,9 @@ export class CSPParser {
     return { id: generateId(), type: 'For', variable, iterable, body };
   }
 
+  /**
+   * Runs return statement.
+   */
   private returnStatement(): Return {
     this.consume('KEYWORD', 'RETURN');
     let value: Expression | undefined = undefined;
@@ -384,10 +432,16 @@ export class CSPParser {
 
   // --- Expressions ---
 
+  /**
+   * Runs expression.
+   */
   private expression(): Expression {
     return this.logicOr();
   }
 
+  /**
+   * Runs logic or.
+   */
   private logicOr(): Expression {
     let left = this.logicAnd();
     while (this.match('KEYWORD', 'OR')) {
@@ -397,6 +451,9 @@ export class CSPParser {
     return left;
   }
 
+  /**
+   * Runs logic and.
+   */
   private logicAnd(): Expression {
     let left = this.equality();
     while (this.match('KEYWORD', 'AND')) {
@@ -406,6 +463,9 @@ export class CSPParser {
     return left;
   }
 
+  /**
+   * Runs equality.
+   */
   private equality(): Expression {
     let left = this.comparison();
     while (this.match('OPERATOR', '=', '<>')) {
@@ -418,6 +478,9 @@ export class CSPParser {
     return left;
   }
 
+  /**
+   * Runs comparison.
+   */
   private comparison(): Expression {
     let left = this.term();
     while (this.match('OPERATOR', '>', '>=', '<', '<=')) {
@@ -428,6 +491,9 @@ export class CSPParser {
     return left;
   }
 
+  /**
+   * Runs term.
+   */
   private term(): Expression {
     let left = this.factor();
     while (this.match('OPERATOR', '+', '-')) {
@@ -438,6 +504,9 @@ export class CSPParser {
     return left;
   }
 
+  /**
+   * Runs factor.
+   */
   private factor(): Expression {
     let left = this.unary();
     while (this.match('OPERATOR', '*', '/')) {
@@ -452,6 +521,9 @@ export class CSPParser {
     return left;
   }
 
+  /**
+   * Runs unary.
+   */
   private unary(): Expression {
     if (this.match('KEYWORD', 'NOT')) {
       const right = this.unary();
@@ -460,6 +532,9 @@ export class CSPParser {
     return this.call();
   }
 
+  /**
+   * Runs call.
+   */
   private call(): Expression {
     let expr = this.primary();
     while (true) {
@@ -481,6 +556,9 @@ export class CSPParser {
     return expr;
   }
 
+  /**
+   * Runs finish call.
+   */
   private finishCall(callee: Expression): CallExpression {
     if (callee.type !== 'Identifier') throw new Error('Can only call identifiers');
     const args: Expression[] = [];
@@ -498,6 +576,9 @@ export class CSPParser {
     };
   }
 
+  /**
+   * Runs primary.
+   */
   private primary(): Expression {
     if (this.match('NUMBER'))
       return {
@@ -552,6 +633,9 @@ export class CSPParser {
     throw new Error(`Expect expression. Found ${this.peek().value}`);
   }
 
+  /**
+   * Runs match.
+   */
   private match(type: TokenType, ...values: string[]): boolean {
     if (this.check(type, ...values)) {
       this.advance();
@@ -559,6 +643,9 @@ export class CSPParser {
     }
     return false;
   }
+  /**
+   * Runs check.
+   */
   private check(type: TokenType, ...values: string[]): boolean {
     if (this.isAtEnd()) return false;
     const token = this.peek();
@@ -573,6 +660,9 @@ export class CSPParser {
   //   if (value && token.value !== value) return false;
   //   return true;
   // }
+  /**
+   * Runs consume.
+   */
   private consume(type: TokenType, value?: string): Token {
     if (this.check(type, ...(value ? [value] : []))) return this.advance();
     const found = this.peek();
@@ -580,16 +670,28 @@ export class CSPParser {
       `Expected token ${type} ${value || ''} but found ${found.type} '${found.value}' at position ${found.start}`
     );
   }
+  /**
+   * Runs advance.
+   */
   private advance(): Token {
     if (!this.isAtEnd()) this.current++;
     return this.previous();
   }
+  /**
+   * Runs is at end.
+   */
   private isAtEnd(): boolean {
     return this.peek().type === 'EOF';
   }
+  /**
+   * Runs peek.
+   */
   private peek(): Token {
     return this.tokens[this.current];
   }
+  /**
+   * Runs previous.
+   */
   private previous(): Token {
     return this.tokens[this.current - 1];
   }
