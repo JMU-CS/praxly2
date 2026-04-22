@@ -3,6 +3,7 @@ import {
   Play,
   Trash2,
   Home,
+  BookOpen,
   Bug,
   FastForward,
   Square,
@@ -10,16 +11,22 @@ import {
   Check,
   Settings,
 } from 'lucide-react';
+import type { ExampleProgram } from '../../utils/sampleCodes';
+import { EXAMPLE_CATEGORIES } from '../../utils/sampleCodes';
 
 interface EditorHeaderProps {
   embedCopied: boolean;
+  showExamplesMenu: boolean;
   showSettingsMenu: boolean;
   showAiSidePanel: boolean;
   showMemDia: boolean;
   isDebugging: boolean;
   isDebugComplete: boolean;
+  examples: ExampleProgram[];
   onClear: () => void;
   onShare: () => void;
+  onLoadExample: (exampleId: string) => void;
+  onToggleExamplesMenu: () => void;
   onToggleSettingsMenu: () => void;
   onToggleAiPanel: () => void;
   onToggleMemDia: () => void;
@@ -31,13 +38,17 @@ interface EditorHeaderProps {
 
 export function EditorHeader({
   embedCopied,
+  showExamplesMenu,
   showSettingsMenu,
   showAiSidePanel,
   showMemDia,
   isDebugging,
   isDebugComplete,
+  examples,
   onClear,
   onShare,
+  onLoadExample,
+  onToggleExamplesMenu,
   onToggleSettingsMenu,
   onToggleAiPanel,
   onToggleMemDia,
@@ -47,8 +58,8 @@ export function EditorHeader({
   onDebugStop,
 }: EditorHeaderProps) {
   return (
-    <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0 shadow-sm z-[200]">
-      <div className="flex items-center gap-3">
+    <header className="bg-slate-900 border-b border-slate-800 flex flex-col lg:flex-row lg:items-center lg:justify-between px-3 lg:px-4 py-2 lg:py-0 lg:h-14 shrink-0 shadow-sm z-[200] gap-2">
+      <div className="flex items-center gap-2 sm:gap-3">
         <Link
           to="/v2/"
           className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
@@ -62,13 +73,49 @@ export function EditorHeader({
             style={{ width: '32px', height: '32px' }}
             alt="Logo"
           />
-          <h1 className="font-bold text-lg text-slate-100 tracking-tight">
+          <h1 className="font-bold text-base sm:text-lg text-slate-100 tracking-tight">
             Praxly <span className="text-indigo-400">2.0</span>
           </h1>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center flex-wrap justify-end gap-2 sm:gap-3">
+        <div className="relative examples-dropdown">
+          <button
+            onClick={onToggleExamplesMenu}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors"
+          >
+            <BookOpen size={14} /> Examples
+          </button>
+
+          {showExamplesMenu && (
+            <div className="absolute top-full right-0 mt-2 w-80 max-h-[360px] overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[220]">
+              <div className="px-4 py-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                Load Example Program
+              </div>
+              <div className="p-2 space-y-1">
+                {examples.map((example) => (
+                  <button
+                    key={example.id}
+                    onClick={() => onLoadExample(example.id)}
+                    className="w-full px-3 py-2 rounded-md text-left hover:bg-slate-800 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-slate-100">{example.title}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-300">
+                        {example.lang}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      {EXAMPLE_CATEGORIES[example.category]} - {example.description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={onClear}
           className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors"

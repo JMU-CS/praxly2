@@ -79,7 +79,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
   return (
     <div
-      className="border-t border-slate-800 flex gap-0 bg-slate-900 shrink-0 z-[60] relative"
+      className="border-t border-slate-800 flex flex-col sm:flex-row gap-0 bg-slate-900 shrink-0 z-[60] relative"
       style={containerStyle}
       data-testid="output-panel"
     >
@@ -90,7 +90,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
       {/* Variables Panel */}
       {showVariables && (
-        <div className="flex flex-col border-r border-slate-800 w-64 shrink-0">
+        <div className="flex flex-col border-b sm:border-b-0 sm:border-r border-slate-800 w-full sm:w-64 shrink-0 max-h-40 sm:max-h-none">
           <div className="h-8 flex items-center px-4 bg-slate-900 border-b border-slate-800 shrink-0">
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
               Variables
