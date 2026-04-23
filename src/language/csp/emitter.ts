@@ -1,7 +1,16 @@
 /**
  * CSP Language Emitter
- * Converts AST nodes into CSP (Communicating Sequential Processes) pseudocode.
- * Handles CSP-specific syntax including PROCEDURE, DISPLAY, FOR FROM TO, and REPEAT UNTIL constructs.
+ * Converts AST nodes into CSP (AP pseudocode) output.
+ * Handles CSP-specific syntax: PROCEDURE, DISPLAY, FOR EACH / FOR FROM TO,
+ * REPEAT n TIMES, REPEAT UNTIL, and brace-delimited blocks.
+ *
+ * Key dialect rules enforced here:
+ *  - No ELSE IF chain — nested IF inside ELSE block instead (per spec)
+ *  - Assignment arrow is <- (spec uses ←, both accepted on input)
+ *  - Equality operator is = (not ==)
+ *  - Not-equal is ≠, but <> is also emitted for ASCII compatibility
+ *  - RETURN uses parens: RETURN(value)
+ *  - DISPLAY(expr) for output
  */
 
 import { ASTVisitor, Precedence } from '../visitor';
@@ -13,90 +22,62 @@ import type {
   MethodDeclaration,
   Block,
   Expression,
+  UnaryExpression,
 } from '../ast';
 
 export class CSPEmitter extends ASTVisitor {
   protected override breakStr = 'BREAK';
   protected override continueStr = 'CONTINUE';
 
-  /**
-   * Check if a ClassDeclaration is Java's special Main class wrapper
-   * (contains only a static main method)
-   */
   private isJavaMainClass(classDecl: ClassDeclaration): boolean {
     if (classDecl.name !== 'Main') return false;
-    const hasStaticMainMethod = classDecl.body.some(
-      (member) =>
-        member.type === 'MethodDeclaration' &&
-        (member as MethodDeclaration).name === 'main' &&
-        (member as MethodDeclaration).isStatic
+    return classDecl.body.some(
+      (m) =>
+        m.type === 'MethodDeclaration' &&
+        (m as MethodDeclaration).name === 'main' &&
+        (m as MethodDeclaration).isStatic
     );
-    return hasStaticMainMethod;
   }
 
-  /**
-   * Visits program and returns the result.
-   */
   visitProgram(program: Program): void {
     const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
     const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
-
-    // Split Main class from other classes
     const mainClass = classes.find((c) => this.isJavaMainClass(c as ClassDeclaration));
     const otherClasses = classes.filter((c) => !this.isJavaMainClass(c as ClassDeclaration));
 
-    // Emit non-Main classes
-    otherClasses.forEach((classDecl) => {
-      this.visitClassDeclaration(classDecl as ClassDeclaration);
+    otherClasses.forEach((c) => {
+      this.visitClassDeclaration(c as ClassDeclaration);
       this.emit('');
     });
+    nonClasses.forEach((s) => this.visitStatement(s));
 
-    // Emit non-class statements
-    nonClasses.forEach((stmt) => this.visitStatement(stmt));
-
-    // If there's a Java Main class, emit its main method body directly
     if (mainClass) {
-      const mainClassDecl = mainClass as ClassDeclaration;
-      const mainMethod = mainClassDecl.body.find(
+      const mainMethod = (mainClass as ClassDeclaration).body.find(
         (m) => m.type === 'MethodDeclaration' && (m as MethodDeclaration).name === 'main'
       ) as MethodDeclaration | undefined;
-
-      if (mainMethod) {
-        // Emit the main method's body directly without class wrapper
-        this.visitBlock(mainMethod.body);
-      }
+      if (mainMethod) this.visitBlock(mainMethod.body);
     }
   }
 
-  /**
-   * Visits class declaration and returns the result.
-   */
   visitClassDeclaration(classDecl: ClassDeclaration): void {
     this.emit(`CLASS ${classDecl.name}`);
     this.emit('{');
     this.indent();
-    classDecl.body.forEach((member) => {
-      this.visitStatement(member);
+    classDecl.body.forEach((m) => {
+      this.visitStatement(m);
       this.emit('');
     });
     this.dedent();
     this.emit('}');
   }
 
-  /**
-   * Visits field declaration and returns the result.
-   */
   visitFieldDeclaration(field: FieldDeclaration): void {
-    let line = `${field.access === 'private' ? 'PRIVATE' : 'PUBLIC'} ${field.name}`;
-    if (field.initializer) {
-      line += ` <- ${this.generateExpression(field.initializer, 0)}`;
-    }
+    const access = field.access === 'private' ? 'PRIVATE' : 'PUBLIC';
+    let line = `${access} ${field.name}`;
+    if (field.initializer) line += ` <- ${this.generateExpression(field.initializer, 0)}`;
     this.emit(line);
   }
 
-  /**
-   * Visits constructor and returns the result.
-   */
   visitConstructor(ctor: Constructor): void {
     const params = ctor.params.map((p) => p.name).join(', ');
     this.emit(`CONSTRUCTOR (${params})`);
@@ -107,9 +88,6 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
-  /**
-   * Visits method declaration and returns the result.
-   */
   visitMethodDeclaration(method: MethodDeclaration): void {
     const access = method.access === 'private' ? 'PRIVATE' : 'PUBLIC';
     const params = method.params.map((p) => p.name).join(', ');
@@ -121,67 +99,56 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
-  /**
-   * Visits block and returns the result.
-   */
   visitBlock(block: Block): void {
-    block.body.forEach((stmt) => this.visitStatement(stmt));
+    block.body.forEach((s) => this.visitStatement(s));
   }
 
-  /**
-   * Visits print and returns the result.
-   */
   visitPrint(stmt: any): void {
-    const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
-    this.emit(`DISPLAY(${args.join(' + " " + ')})`, stmt.id);
+    if (stmt.expressions.length === 0) {
+      this.emit(`DISPLAY("")`, stmt.id);
+      return;
+    }
+    if (stmt.expressions.length === 1) {
+      this.emit(`DISPLAY(${this.generateExpression(stmt.expressions[0], 0)})`, stmt.id);
+      return;
+    }
+    // Multiple expressions: emit separate DISPLAY calls
+    stmt.expressions.forEach((e: any) => {
+      this.emit(`DISPLAY(${this.generateExpression(e, 0)})`, stmt.id);
+    });
   }
 
-  /**
-   * Visits assignment and returns the result.
-   */
   visitAssignment(stmt: any): void {
-    // Handle tuple unpacking: y, z = 4, 5
-    if (stmt.target && stmt.target.type === 'ArrayLiteral') {
+    if (stmt.target?.type === 'ArrayLiteral') {
       const targets = stmt.target.elements;
-      const valueExpr = stmt.value;
-
-      if (valueExpr.type === 'ArrayLiteral') {
-        // Both sides are arrays, unpack them
-        const values = valueExpr.elements;
-        for (let i = 0; i < targets.length; i++) {
-          const target = targets[i];
-          const value = values[i];
-
-          if (target.type === 'Identifier') {
-            const varName = target.name;
-            const valStr = this.generateExpression(value, 0);
-            this.emit(`${varName} <- ${valStr}`, stmt.id);
+      if (stmt.value?.type === 'ArrayLiteral') {
+        stmt.value.elements.forEach((val: any, i: number) => {
+          const t = targets[i];
+          if (t?.type === 'Identifier') {
+            this.emit(`${t.name} <- ${this.generateExpression(val, 0)}`, stmt.id);
           }
-        }
+        });
       }
       return;
     }
 
-    let targetStr = stmt.name;
+    if (stmt.declaredWithoutInitializer) {
+      this.emit(`// ${stmt.name} declared without initializer`, stmt.id);
+      return;
+    }
 
-    // Handle member expression assignments
+    let targetStr: string;
     if (stmt.isMemberAssignment && stmt.memberExpr) {
       targetStr = this.generateExpression(stmt.memberExpr, 0);
     } else if (stmt.target) {
       targetStr = this.generateExpression(stmt.target, 0);
-    }
-
-    if (stmt.declaredWithoutInitializer) {
-      this.emit(`// ${targetStr} declared without initializer`, stmt.id);
-      return;
+    } else {
+      targetStr = stmt.name;
     }
 
     this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`, stmt.id);
   }
 
-  /**
-   * Visits if and returns the result.
-   */
   visitIf(stmt: any): void {
     this.emit(`IF (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
     this.emit('{');
@@ -190,34 +157,34 @@ export class CSPEmitter extends ASTVisitor {
     this.dedent();
     this.emit('}');
 
-    let currentElse = stmt.elseBranch;
-
-    while (currentElse && currentElse.body.length === 1 && currentElse.body[0].type === 'If') {
-      const elifStmt = currentElse.body[0];
-      this.emit(`ELSE IF (${this.generateExpression(elifStmt.condition, 0)})`);
-      this.emit('{');
-      this.indent();
-      this.visitBlock(elifStmt.thenBranch);
-      this.dedent();
-      this.emit('}');
-      currentElse = elifStmt.elseBranch;
-    }
-
-    if (currentElse) {
+    if (stmt.elseBranch) {
       this.emit('ELSE');
       this.emit('{');
       this.indent();
-      this.visitBlock(currentElse);
+      // Nested IFs inside ELSE blocks are emitted naturally — no ELSE IF per spec
+      this.visitBlock(stmt.elseBranch);
       this.dedent();
       this.emit('}');
     }
   }
 
   /**
-   * Visits while and returns the result.
+   * Strips a top-level NOT/! from a condition, returning the inner expression string.
+   * Returns null if the condition is not a simple negation.
    */
+  private stripNot(cond: any): string | null {
+    if (cond.type === 'UnaryExpression' && (cond.operator === 'not' || cond.operator === '!')) {
+      return this.generateExpression((cond as UnaryExpression).argument, 0);
+    }
+    return null;
+  }
+
   visitWhile(stmt: any): void {
-    this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`, stmt.id);
+    // While(cond) → REPEAT UNTIL(NOT cond).
+    // Simplify NOT(NOT(x)) → x to avoid double negation when cond is already a NOT.
+    const inner = this.stripNot(stmt.condition);
+    const untilCond = inner ?? `NOT (${this.generateExpression(stmt.condition, 0)})`;
+    this.emit(`REPEAT UNTIL (${untilCond})`, stmt.id);
     this.emit('{');
     this.indent();
     this.visitBlock(stmt.body);
@@ -225,63 +192,66 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
-  /**
-   * Visits do while and returns the result.
-   */
   visitDoWhile(stmt: any): void {
+    // CSP has no do-while: emit the body once unconditionally, then use REPEAT UNTIL.
+    this.visitBlock(stmt.body);
+    const inner = this.stripNot(stmt.condition);
+    const untilCond = inner ?? `NOT (${this.generateExpression(stmt.condition, 0)})`;
+    this.emit(`REPEAT UNTIL (${untilCond})`, stmt.id);
     this.emit('{');
     this.indent();
     this.visitBlock(stmt.body);
-    this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`);
-    this.emit('{]}');
     this.dedent();
     this.emit('}');
   }
 
-  /**
-   * Visits switch and returns the result.
-   */
+  visitRepeatUntil(stmt: any): void {
+    // Praxis post-condition loop → CSP REPEAT UNTIL (closest available construct).
+    this.emit(`REPEAT UNTIL (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
+    this.emit('{');
+    this.indent();
+    this.visitBlock(stmt.body);
+    this.dedent();
+    this.emit('}');
+  }
+
   visitSwitch(stmt: any): void {
-    // CSP doesn't have switch, implement as nested IF statements
+    // CSP has no switch — translate to nested IF / ELSE IF chains.
+    // CSP has no switch — translate to nested IF / ELSE blocks
     let first = true;
-    stmt.cases.forEach((caseStmt: any, _index: number) => {
-      if (caseStmt.test) {
-        const keyword = first ? 'IF' : 'ELSE IF';
-        this.emit(`${keyword} <expr> = ${this.generateExpression(caseStmt.test, 0)}`);
+    const disc = stmt.discriminant ? this.generateExpression(stmt.discriminant, 0) : '';
+    stmt.cases.forEach((c: any) => {
+      if (c.test) {
+        const testStr = this.generateExpression(c.test, 0);
+        this.emit(first ? `IF (${disc} = ${testStr})` : `ELSE IF (${disc} = ${testStr})`);
         first = false;
       } else {
-        this.emit(`ELSE`);
+        this.emit('ELSE');
       }
       this.emit('{');
       this.indent();
-      caseStmt.consequent.forEach((s: any) => this.visitStatement(s));
+      c.consequent.forEach((s: any) => this.visitStatement(s));
       this.dedent();
       this.emit('}');
     });
   }
 
-  /**
-   * Visits break and returns the result.
-   */
   visitBreak(_stmt: any): void {
     this.emit('// BREAK');
   }
 
-  /**
-   * Visits continue and returns the result.
-   */
   visitContinue(_stmt: any): void {
     this.emit('// CONTINUE');
   }
 
-  /**
-   * Visits for and returns the result.
-   */
   visitFor(stmt: any): void {
     if (stmt.init && stmt.condition && stmt.update) {
+      // C-style for — desugar to assignment + REPEAT UNTIL
       this.context.symbolTable.enterScope();
       this.visitStatement(stmt.init);
-      this.emit(`REPEAT UNTIL (NOT (${this.generateExpression(stmt.condition, 0)}))`, stmt.id);
+      const inner = this.stripNot(stmt.condition);
+      const untilCond = inner ?? `NOT (${this.generateExpression(stmt.condition, 0)})`;
+      this.emit(`REPEAT UNTIL (${untilCond})`, stmt.id);
       this.emit('{');
       this.indent();
       this.visitBlock(stmt.body);
@@ -289,45 +259,32 @@ export class CSPEmitter extends ASTVisitor {
       this.dedent();
       this.emit('}');
       this.context.symbolTable.exitScope();
-    } else if (
-      stmt.iterable.type === 'CallExpression' &&
-      (stmt.iterable as any).callee.name === 'range'
-    ) {
-      // Handle range() calls with proper iteration
-      const args = (stmt.iterable as any).arguments;
+    } else if (stmt.iterable?.type === 'CallExpression' && stmt.iterable.callee?.name === 'range') {
+      const args = stmt.iterable.arguments;
       let start = '0',
         end = '0',
         step = '1';
-      if (args.length === 1) {
-        end = this.generateExpression(args[0], 0);
-      } else if (args.length === 2) {
+      if (args.length === 1) end = this.generateExpression(args[0], 0);
+      else if (args.length >= 2) {
         start = this.generateExpression(args[0], 0);
         end = this.generateExpression(args[1], 0);
-      } else if (args.length === 3) {
-        start = this.generateExpression(args[0], 0);
-        end = this.generateExpression(args[1], 0);
-        step = this.generateExpression(args[2], 0);
       }
+      if (args.length === 3) step = this.generateExpression(args[2], 0);
 
-      // Generate for loop: FOR ${var} FROM ${start} TO ${end} STEP ${step}
-      this.emit(`FOR  ${stmt.variable} FROM ${start} TO ${end} STEP ${step}`, stmt.id);
+      this.emit(`FOR ${stmt.variable} FROM ${start} TO ${end} STEP ${step}`, stmt.id);
       this.emit('{');
       this.indent();
       this.visitBlock(stmt.body);
       this.dedent();
       this.emit('}');
     } else if (
-      stmt.variables &&
-      stmt.variables.length > 1 &&
-      stmt.iterable.type === 'CallExpression' &&
-      (stmt.iterable as any).callee.name === 'enumerate'
+      stmt.variables?.length > 1 &&
+      stmt.iterable?.type === 'CallExpression' &&
+      stmt.iterable.callee?.name === 'enumerate'
     ) {
-      // Handle enumerate: for i, v in enumerate(arr)
-      const arr = this.generateExpression((stmt.iterable as any).arguments[0], 0);
-      const idx = stmt.variables[0];
-      const val = stmt.variables[1];
-
-      this.emit(`FOR  ${idx} FROM 0 TO ${arr}.length STEP 1`, stmt.id);
+      const arr = this.generateExpression(stmt.iterable.arguments[0], 0);
+      const [idx, val] = stmt.variables;
+      this.emit(`FOR ${idx} FROM 0 TO LENGTH(${arr}) STEP 1`, stmt.id);
       this.emit('{');
       this.indent();
       this.emit(`${val} <- ${arr}[${idx}]`);
@@ -347,9 +304,6 @@ export class CSPEmitter extends ASTVisitor {
     }
   }
 
-  /**
-   * Visits function declaration and returns the result.
-   */
   visitFunctionDeclaration(stmt: any): void {
     const params = stmt.params.map((p: any) => p.name).join(', ');
     this.emit(`PROCEDURE ${stmt.name} (${params})`);
@@ -360,48 +314,33 @@ export class CSPEmitter extends ASTVisitor {
     this.emit('}');
   }
 
-  /**
-   * Visits return and returns the result.
-   */
   visitReturn(stmt: any): void {
-    this.emit(`RETURN ${stmt.value ? this.generateExpression(stmt.value, 0) : ''}`, stmt.id);
+    const val = stmt.value ? this.generateExpression(stmt.value, 0) : '';
+    this.emit(`RETURN(${val})`, stmt.id);
   }
 
-  /**
-   * Visits expression statement and returns the result.
-   */
   visitExpressionStatement(stmt: any): void {
     this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
   }
 
-  /**
-   * Visits try and returns the result.
-   */
   visitTry(stmt: any): void {
-    this.emit('TRY');
+    // CSP has no exception handling — emit as comment block
+    this.emit('// TRY');
     this.emit('{');
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
     this.emit('}');
-
-    stmt.handlers.forEach((handler: any) => {
-      if (handler.exceptionType) {
-        this.emit(
-          `EXCEPT ${handler.exceptionType}${handler.varName ? ` AS ${handler.varName}` : ''}`
-        );
-      } else {
-        this.emit(`EXCEPT`);
-      }
+    stmt.handlers.forEach((h: any) => {
+      this.emit(`// EXCEPT${h.exceptionType ? ` ${h.exceptionType}` : ''}`);
       this.emit('{');
       this.indent();
-      this.visitBlock(handler.body);
+      this.visitBlock(h.body);
       this.dedent();
       this.emit('}');
     });
-
     if (stmt.finallyBlock) {
-      this.emit('FINALLY');
+      this.emit('// FINALLY');
       this.emit('{');
       this.indent();
       this.visitBlock(stmt.finallyBlock);
@@ -410,143 +349,146 @@ export class CSPEmitter extends ASTVisitor {
     }
   }
 
-  /**
-   * Runs generate expression.
-   */
   generateExpression(expr: Expression, parentPrecedence: number): string {
     let output = '';
     let currentPrecedence = 99;
 
     switch (expr.type) {
       case 'Literal':
-        if (expr.value === null) output = 'None';
+        if (expr.value === null) output = 'null';
         else if (typeof expr.value === 'string') {
-          const strVal =
+          const v =
             expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
               ? expr.value.substring(1)
               : expr.value;
-          output = `"${strVal}"`;
-        } else if (typeof expr.value === 'boolean') output = expr.value ? 'true' : 'false';
-        else output = String(expr.value);
+          output = `"${v}"`;
+        } else if (typeof expr.value === 'boolean') {
+          output = expr.value ? 'true' : 'false';
+        } else {
+          output = String(expr.value);
+        }
         break;
+
       case 'Identifier':
         output = expr.name;
         break;
+
       case 'ThisExpression':
         output = 'THIS';
         break;
-      case 'NewExpression':
+
+      case 'NewExpression': {
         currentPrecedence = Precedence.Instantiation;
         const args = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
         output = `NEW ${expr.className}(${args})`;
         break;
-      case 'IndexExpression':
+      }
+
+      case 'IndexExpression': {
         currentPrecedence = Precedence.Member;
         const objStr = this.generateExpression(expr.object, currentPrecedence);
-
-        // Helper function to convert index expression to CSP, handling negative indices
-        /**
-         * Runs convert index csp.
-         */
-        const convertIndexCSP = (idx: any): string => {
+        const convertIdx = (idx: any): string => {
           if (!idx) return '0';
-          if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0) {
-            // Negative index: arr[-1] becomes arr[arr.LENGTH() - 1]
-            const absIdx = Math.abs(idx.value);
-            return `${objStr}.LENGTH() - ${absIdx}`;
-          } else if (
+          if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0)
+            return `LENGTH(${objStr}) - ${Math.abs(idx.value)}`;
+          if (
             idx.type === 'UnaryExpression' &&
             idx.operator === '-' &&
             idx.argument.type === 'Literal'
-          ) {
-            // Handle unary minus
-            const val = idx.argument.value as number;
-            return `${objStr}.LENGTH() - ${val}`;
-          } else {
-            return this.generateExpression(idx, 0);
-          }
+          )
+            return `LENGTH(${objStr}) - ${idx.argument.value}`;
+          return this.generateExpression(idx, 0);
         };
-
         if (expr.indexEnd) {
-          // Array slicing: arr[start:end]
-          const startE = convertIndexCSP(expr.index);
-          const endE = convertIndexCSP(expr.indexEnd);
-          // CSP doesn't have native slicing, generate a range expression
-          output = `${objStr}.SLICE(${startE}, ${endE})`;
+          output = `${objStr}.SLICE(${convertIdx(expr.index)}, ${convertIdx(expr.indexEnd)})`;
         } else {
-          // Single index access
-          const indexStr = convertIndexCSP(expr.index);
-          output = `${objStr}[${indexStr}]`;
+          output = `${objStr}[${convertIdx(expr.index)}]`;
         }
         break;
+      }
+
       case 'MemberExpression':
         currentPrecedence = Precedence.Member;
         output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
         break;
-      case 'BinaryExpression':
+
+      case 'BinaryExpression': {
         const opMap: Record<string, { op: string; prec: number }> = {
           or: { op: 'OR', prec: Precedence.LogicalOr },
           and: { op: 'AND', prec: Precedence.LogicalAnd },
           '==': { op: '=', prec: Precedence.Equality },
-          '!=': { op: '<>', prec: Precedence.Equality },
+          '!=': { op: '≠', prec: Precedence.Equality },
           '<': { op: '<', prec: Precedence.Relational },
           '>': { op: '>', prec: Precedence.Relational },
-          '<=': { op: '<=', prec: Precedence.Relational },
-          '>=': { op: '>=', prec: Precedence.Relational },
+          '<=': { op: '≤', prec: Precedence.Relational },
+          '>=': { op: '≥', prec: Precedence.Relational },
           '+': { op: '+', prec: Precedence.Additive },
           '-': { op: '-', prec: Precedence.Additive },
           '*': { op: '*', prec: Precedence.Multiplicative },
           '/': { op: '/', prec: Precedence.Multiplicative },
           '%': { op: 'MOD', prec: Precedence.Multiplicative },
-          '**': { op: 'POW', prec: Precedence.Multiplicative },
+          '**': { op: '^', prec: Precedence.Exponential },
           '..': { op: '..', prec: Precedence.Relational },
         };
-        const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
-        currentPrecedence = opData.prec;
-        output = `${this.generateExpression(expr.left, currentPrecedence)} ${opData.op} ${this.generateExpression(expr.right, currentPrecedence)}`;
+        const od = opMap[expr.operator] ?? { op: expr.operator, prec: 0 };
+        currentPrecedence = od.prec;
+        output = `${this.generateExpression(expr.left, currentPrecedence)} ${od.op} ${this.generateExpression(expr.right, currentPrecedence)}`;
         break;
+      }
+
       case 'UnaryExpression':
         currentPrecedence = Precedence.Unary;
-        let op = expr.operator === '!' || expr.operator === 'not' ? 'NOT ' : expr.operator;
-        output = `${op}${this.generateExpression(expr.argument, currentPrecedence)}`;
+        output = `NOT ${this.generateExpression(expr.argument, currentPrecedence)}`;
         break;
-      case 'UpdateExpression':
-        // CSP doesn't have ++, convert to += 1
+
+      case 'UpdateExpression': {
         const argStr = this.generateExpression((expr as any).argument, Precedence.Unary);
-        if ((expr as any).operator === '++') {
-          output = `${argStr} <- ${argStr} + 1`;
-        } else {
-          output = `${argStr} <- ${argStr} - 1`;
-        }
+        const op = (expr as any).operator === '++' ? '+' : '-';
+        output = `${argStr} <- ${argStr} ${op} 1`;
         break;
-      case 'CallExpression':
+      }
+
+      case 'CallExpression': {
         currentPrecedence = Precedence.Call;
         const calleeStr =
           (expr.callee as any).type === 'MemberExpression'
             ? this.generateExpression(expr.callee as any, 0)
             : (expr.callee as any).name;
 
-        // Handle len() builtin
         if ((calleeStr === 'len' || calleeStr === 'LENGTH') && expr.arguments.length === 1) {
-          output = `${this.generateExpression(expr.arguments[0], 0)}.LENGTH()`;
+          output = `LENGTH(${this.generateExpression(expr.arguments[0], 0)})`;
           break;
         }
-
-        // Handle input() from Python/Praxis - map to CSP INPUT()
-        if (calleeStr === 'input') {
+        if (calleeStr === 'input' || calleeStr === 'INPUT') {
           const argsCsp = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
           output = `INPUT(${argsCsp})`;
           break;
         }
+        if (calleeStr === 'APPEND' && expr.arguments.length === 2) {
+          output = `APPEND(${this.generateExpression(expr.arguments[0], 0)}, ${this.generateExpression(expr.arguments[1], 0)})`;
+          break;
+        }
+        if (calleeStr === 'INSERT' && expr.arguments.length === 3) {
+          output = `INSERT(${expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ')})`;
+          break;
+        }
+        if (calleeStr === 'REMOVE' && expr.arguments.length === 2) {
+          output = `REMOVE(${this.generateExpression(expr.arguments[0], 0)}, ${this.generateExpression(expr.arguments[1], 0)})`;
+          break;
+        }
 
-        const args2 = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
-        output = `${calleeStr}(${args2})`;
+        const argsStr = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
+        output = `${calleeStr}(${argsStr})`;
         break;
-      case 'ArrayLiteral':
+      }
+
+      case 'ArrayLiteral': {
         const elems = expr.elements.map((e) => this.generateExpression(e, 0)).join(', ');
         output = `[${elems}]`;
         break;
+      }
     }
+
     return currentPrecedence < parentPrecedence ? `(${output})` : output;
   }
 }

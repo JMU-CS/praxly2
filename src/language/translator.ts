@@ -299,7 +299,8 @@ export class Translator {
           analyzeBlock(stmt.thenBranch.body);
           if (stmt.elseBranch) analyzeBlock(stmt.elseBranch.body);
         }
-        if (stmt.type === 'While') analyzeBlock(stmt.body.body);
+        if (stmt.type === 'While' || stmt.type === 'DoWhile' || stmt.type === 'RepeatUntil')
+          analyzeBlock(stmt.body.body);
         if (stmt.type === 'For') analyzeBlock(stmt.body.body);
       });
     };

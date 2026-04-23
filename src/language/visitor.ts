@@ -193,6 +193,10 @@ export abstract class ASTVisitor {
    */
   abstract visitDoWhile(stmt: any): void;
   /**
+   * Visits repeat-until (post-condition) loop and returns the result.
+   */
+  abstract visitRepeatUntil(stmt: any): void;
+  /**
    * Visits switch and returns the result.
    */
   abstract visitSwitch(stmt: any): void;
@@ -245,6 +249,9 @@ export abstract class ASTVisitor {
         break;
       case 'DoWhile':
         this.visitDoWhile(stmt);
+        break;
+      case 'RepeatUntil':
+        this.visitRepeatUntil(stmt);
         break;
       case 'Switch':
         this.visitSwitch(stmt);

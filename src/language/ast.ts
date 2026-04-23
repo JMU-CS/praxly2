@@ -11,6 +11,7 @@ export type NodeType =
   | 'If'
   | 'While'
   | 'DoWhile'
+  | 'RepeatUntil'
   | 'For'
   | 'Switch'
   | 'SwitchCase'
@@ -63,6 +64,7 @@ export type Statement =
   | If
   | While
   | DoWhile
+  | RepeatUntil
   | For
   | Switch
   | FunctionDeclaration
@@ -123,6 +125,17 @@ export interface While extends ASTNode {
 
 export interface DoWhile extends ASTNode {
   type: 'DoWhile';
+  body: Block;
+  condition: Expression;
+}
+
+/**
+ * Post-condition loop: body executes first, then condition is checked.
+ * Loop repeats until condition becomes true. Equivalent to do { body } while(!condition).
+ * Used by Praxis's `repeat...until` construct.
+ */
+export interface RepeatUntil extends ASTNode {
+  type: 'RepeatUntil';
   body: Block;
   condition: Expression;
 }

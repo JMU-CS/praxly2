@@ -12,6 +12,7 @@ import {
   type If,
   type While,
   type DoWhile,
+  type RepeatUntil,
   type Return,
   type CallExpression,
   type Identifier,
@@ -126,15 +127,20 @@ export class PraxisParser {
 
     const classBody: any[] = [];
     while (!this.check('KEYWORD', 'end') && !this.isAtEnd()) {
+      // Consume optional access modifier before each member
+      let access: 'public' | 'private' = 'public';
+      if (this.match('KEYWORD', 'public')) access = 'public';
+      else if (this.match('KEYWORD', 'private')) access = 'private';
+
       if (this.isFunctionDeclaration()) {
         const func = this.functionDeclaration();
         classBody.push({
           id: generateId(),
           type: 'MethodDeclaration',
           name: func.name,
-          access: 'public',
+          access,
           isStatic: false,
-          returnType: (func as any).returnType, // Ensure return type is carried over to methods
+          returnType: (func as any).returnType,
           params: func.params,
           body: func.body,
         });
@@ -147,7 +153,7 @@ export class PraxisParser {
             name: (stmt as any).name,
             fieldType: (stmt as any).varType || 'auto',
             isStatic: false,
-            access: 'public',
+            access,
             initializer: (stmt as any).value,
             declaredWithoutInitializer: (stmt as any).declaredWithoutInitializer,
           });
@@ -575,23 +581,17 @@ export class PraxisParser {
   }
 
   /**
-   * Runs repeat until statement.
+   * Parses a Praxis `repeat...until(cond)` post-condition loop.
+   * Stored as a RepeatUntil node (body runs first, loop stops when condition is TRUE).
    */
-  private repeatUntilStatement(): While {
+  private repeatUntilStatement(): RepeatUntil {
     this.consume('KEYWORD', 'repeat');
     const body = this.block();
     this.consume('KEYWORD', 'until');
     this.match('PUNCTUATION', '(');
     const condition = this.expression();
     this.match('PUNCTUATION', ')');
-
-    const notCond: Expression = {
-      id: generateId(),
-      type: 'UnaryExpression',
-      operator: 'not',
-      argument: condition,
-    };
-    return { id: generateId(), type: 'While', condition: notCond, body };
+    return { id: generateId(), type: 'RepeatUntil', condition, body };
   }
 
   /**

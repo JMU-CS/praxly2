@@ -700,6 +700,36 @@ export class Interpreter {
         } while (this.evaluate(doWhileStmt.condition, env));
 
         i++;
+      } else if (stmt.type === 'RepeatUntil') {
+        // Post-condition loop: body runs first, stops when condition becomes TRUE.
+        const repeatStmt = stmt as any;
+        let iterationCount = 0;
+        const MAX_ITERATIONS = 10000;
+
+        do {
+          iterationCount++;
+          if (iterationCount > MAX_ITERATIONS) {
+            const lineNum = this.getLineFromLocation(repeatStmt.loc);
+            throw new Error(
+              `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
+            );
+          }
+
+          yield {
+            nodeId: repeatStmt.id,
+            nodeType: repeatStmt.type,
+            loc: repeatStmt.loc || null,
+            variables: env.getAllVariables(),
+          };
+          try {
+            yield* this.executeBlockGeneratorWithState(repeatStmt.body.body, env);
+          } catch (e) {
+            if (e instanceof ReturnException) throw e;
+            throw e;
+          }
+        } while (!this.evaluate(repeatStmt.condition, env));
+
+        i++;
       } else {
         // For all other statements, execute and yield
         let needsRetry = false;
@@ -863,7 +893,12 @@ export class Interpreter {
           if (this.statementModifiesVariables(stmt, targetVars, env)) return true;
         }
         return false;
-      } else if (node.type === 'While' || node.type === 'For' || node.type === 'DoWhile') {
+      } else if (
+        node.type === 'While' ||
+        node.type === 'For' ||
+        node.type === 'DoWhile' ||
+        node.type === 'RepeatUntil'
+      ) {
         // Nested loops might modify variables
         // For safety, we could assume they might modify condition variables
         // But for now, we'll check the body just to be thorough
@@ -1248,6 +1283,22 @@ export class Interpreter {
           }
           this.executeBlock(stmt.body.body, env);
         } while (this.evaluate(stmt.condition, env));
+        break;
+      }
+      case 'RepeatUntil': {
+        // Post-condition loop: body runs first, stops when condition is TRUE.
+        let iterationCount = 0;
+        const MAX_ITERATIONS = 10000;
+        do {
+          iterationCount++;
+          if (iterationCount > MAX_ITERATIONS) {
+            const lineNum = this.getLineFromLocation(stmt.loc);
+            throw new Error(
+              `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
+            );
+          }
+          this.executeBlock(stmt.body.body, env);
+        } while (!this.evaluate(stmt.condition, env));
         break;
       }
       case 'FunctionDeclaration':

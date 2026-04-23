@@ -109,6 +109,41 @@ export class JavaEmitter extends ASTVisitor {
   }
 
   /**
+   * Scans a block for return statements to infer the return type.
+   * Returns 'void' when no value-producing return is found.
+   */
+  private inferBodyReturnType(body: Block): string {
+    for (const stmt of body.body) {
+      if (stmt.type === 'Return') {
+        const val = (stmt as any).value;
+        if (val) {
+          const t = this.inferType(val);
+          if (t !== 'var' && t !== 'Object') return t;
+        }
+        return 'void';
+      }
+      if (stmt.type === 'If') {
+        const t = this.inferBodyReturnType((stmt as any).thenBranch);
+        if (t !== 'void') return t;
+        if ((stmt as any).elseBranch) {
+          const e = this.inferBodyReturnType((stmt as any).elseBranch);
+          if (e !== 'void') return e;
+        }
+      }
+      if (
+        stmt.type === 'While' ||
+        stmt.type === 'For' ||
+        stmt.type === 'DoWhile' ||
+        stmt.type === 'RepeatUntil'
+      ) {
+        const t = this.inferBodyReturnType((stmt as any).body);
+        if (t !== 'void') return t;
+      }
+    }
+    return 'void';
+  }
+
+  /**
    * Runs generate array list literal.
    */
   private generateArrayListLiteral(expr: any, elementTypeHint?: string): string {
@@ -164,7 +199,16 @@ export class JavaEmitter extends ASTVisitor {
     }
 
     const inferred = this.inferType(value);
-    return inferred === 'var' || inferred === 'auto' ? 'Object' : inferred;
+    if (inferred === 'var' || inferred === 'auto') {
+      // Numeric literals default to int, string literals to String, otherwise Object
+      if (value.type === 'Literal') {
+        if (typeof (value as any).value === 'number') return 'int';
+        if (typeof (value as any).value === 'string') return 'String';
+        if (typeof (value as any).value === 'boolean') return 'boolean';
+      }
+      return 'Object';
+    }
+    return inferred;
   }
 
   /**
@@ -441,7 +485,11 @@ export class JavaEmitter extends ASTVisitor {
 
     let line = `${method.access} `;
     if (method.isStatic) line += 'static ';
-    let returnType = method.returnType === 'auto' ? 'Object' : method.returnType;
+    let returnType = method.returnType;
+    if (!returnType || returnType === 'auto') {
+      const inferred = this.inferBodyReturnType(method.body);
+      returnType = inferred !== 'void' && inferred !== 'var' ? inferred : 'void';
+    }
     line += `${returnType} ${method.name}(`;
     line +=
       methodParams.map((p) => `${this.toJavaParamType(p.paramType)} ${p.name}`).join(', ') + ')';
@@ -664,6 +712,20 @@ export class JavaEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit(`} while (${this.generateExpression(stmt.condition, 0)});`);
+  }
+
+  /**
+   * Translates a post-condition repeat-until loop.
+   * Praxis `repeat...until(cond)` → Java `do { } while (!cond)`.
+   */
+  visitRepeatUntil(stmt: any): void {
+    this.emit(`do {`, stmt.id);
+    this.indent();
+    this.context.symbolTable.enterScope();
+    this.visitBlock(stmt.body);
+    this.context.symbolTable.exitScope();
+    this.dedent();
+    this.emit(`} while (!(${this.generateExpression(stmt.condition, 0)}));`);
   }
 
   /**
