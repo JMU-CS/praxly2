@@ -700,6 +700,36 @@ export class Interpreter {
         } while (this.evaluate(doWhileStmt.condition, env));
 
         i++;
+      } else if (stmt.type === 'RepeatUntil') {
+        // Post-condition loop: body runs first, stops when condition becomes TRUE.
+        const repeatStmt = stmt as any;
+        let iterationCount = 0;
+        const MAX_ITERATIONS = 10000;
+
+        do {
+          iterationCount++;
+          if (iterationCount > MAX_ITERATIONS) {
+            const lineNum = this.getLineFromLocation(repeatStmt.loc);
+            throw new Error(
+              `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
+            );
+          }
+
+          yield {
+            nodeId: repeatStmt.id,
+            nodeType: repeatStmt.type,
+            loc: repeatStmt.loc || null,
+            variables: env.getAllVariables(),
+          };
+          try {
+            yield* this.executeBlockGeneratorWithState(repeatStmt.body.body, env);
+          } catch (e) {
+            if (e instanceof ReturnException) throw e;
+            throw e;
+          }
+        } while (!this.evaluate(repeatStmt.condition, env));
+
+        i++;
       } else {
         // For all other statements, execute and yield
         let needsRetry = false;
@@ -863,7 +893,12 @@ export class Interpreter {
           if (this.statementModifiesVariables(stmt, targetVars, env)) return true;
         }
         return false;
-      } else if (node.type === 'While' || node.type === 'For' || node.type === 'DoWhile') {
+      } else if (
+        node.type === 'While' ||
+        node.type === 'For' ||
+        node.type === 'DoWhile' ||
+        node.type === 'RepeatUntil'
+      ) {
         // Nested loops might modify variables
         // For safety, we could assume they might modify condition variables
         // But for now, we'll check the body just to be thorough
@@ -1250,6 +1285,22 @@ export class Interpreter {
         } while (this.evaluate(stmt.condition, env));
         break;
       }
+      case 'RepeatUntil': {
+        // Post-condition loop: body runs first, stops when condition is TRUE.
+        let iterationCount = 0;
+        const MAX_ITERATIONS = 10000;
+        do {
+          iterationCount++;
+          if (iterationCount > MAX_ITERATIONS) {
+            const lineNum = this.getLineFromLocation(stmt.loc);
+            throw new Error(
+              `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
+            );
+          }
+          this.executeBlock(stmt.body.body, env);
+        } while (!this.evaluate(stmt.condition, env));
+        break;
+      }
       case 'FunctionDeclaration':
         env.define(stmt.name, stmt);
         break;
@@ -1394,6 +1445,55 @@ export class Interpreter {
                 return obj.toUpperCase();
               case 'charAt':
                 return obj.charAt(Number(args[0] ?? 0));
+              case 'length':
+                return obj.length;
+            }
+          }
+
+          if (Array.isArray(obj)) {
+            switch (methodName) {
+              case 'append':
+                obj.push(args[0]);
+                return null;
+              case 'insert': {
+                const idx = Number(args[0] ?? 0);
+                const normalized = Number.isFinite(idx)
+                  ? idx < 0
+                    ? Math.max(0, obj.length + idx)
+                    : idx
+                  : obj.length;
+                obj.splice(normalized, 0, args[1]);
+                return null;
+              }
+              case 'extend': {
+                const iterable = args[0];
+                if (Array.isArray(iterable)) obj.push(...iterable);
+                else if (typeof iterable === 'string') obj.push(...iterable.split(''));
+                else if (iterable != null) obj.push(iterable);
+                return null;
+              }
+              case 'pop': {
+                if (args.length === 0) return obj.pop();
+                const idx = Number(args[0]);
+                const normalized = idx < 0 ? obj.length + idx : idx;
+                if (normalized < 0 || normalized >= obj.length) {
+                  throw new Error('pop index out of range');
+                }
+                return obj.splice(normalized, 1)[0];
+              }
+              case 'remove': {
+                const index = obj.indexOf(args[0]);
+                if (index < 0) throw new Error('list.remove(x): x not in list');
+                obj.splice(index, 1);
+                return null;
+              }
+              case 'sort':
+                if (obj.every((item) => typeof item === 'number')) {
+                  obj.sort((a, b) => (a as number) - (b as number));
+                } else {
+                  obj.sort((a, b) => this.stringify(a).localeCompare(this.stringify(b)));
+                }
+                return null;
               case 'length':
                 return obj.length;
             }

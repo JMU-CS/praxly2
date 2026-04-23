@@ -379,11 +379,22 @@ export class PythonEmitter extends ASTVisitor {
    * Python lacks do-while, so implements as while True with break condition.
    */
   visitDoWhile(stmt: any): void {
-    // Python doesn't have do-while, implement as while True with break
     this.emit(`while True:`);
     this.indent();
     this.visitBlock(stmt.body);
     this.emit(`if not (${this.generateExpression(stmt.condition, 0)}): break`);
+    this.dedent();
+  }
+
+  /**
+   * Translates a post-condition repeat-until loop (Praxis) to Python.
+   * `repeat...until(cond)` → `while True: body; if cond: break`
+   */
+  visitRepeatUntil(stmt: any): void {
+    this.emit(`while True:`, stmt.id);
+    this.indent();
+    this.visitBlock(stmt.body);
+    this.emit(`if ${this.generateExpression(stmt.condition, 0)}: break`);
     this.dedent();
   }
 

@@ -70,6 +70,74 @@ export class Translator {
       symbolTable: new SymbolTable(),
       functionReturnTypes: new Map(),
       functionParamTypes: new Map(),
+      mutableCollections: new Set(),
+      collectionElementTypes: new Map(),
+      inferredVariableTypes: new Map(),
+    };
+
+    /**
+     * Runs to boxed java type.
+     */
+    const toBoxedJavaType = (type: string): string => {
+      switch (type) {
+        case 'int':
+          return 'Integer';
+        case 'double':
+          return 'Double';
+        case 'boolean':
+          return 'Boolean';
+        case 'char':
+          return 'Character';
+        case 'long':
+          return 'Long';
+        case 'float':
+          return 'Float';
+        case 'short':
+          return 'Short';
+        case 'byte':
+          return 'Byte';
+        default:
+          return type;
+      }
+    };
+
+    /**
+     * Runs get collection element type.
+     */
+    const getCollectionElementType = (type: string): string => {
+      if (type.endsWith('[]')) return type.slice(0, -2);
+      if (type.startsWith('ArrayList<') && type.endsWith('>')) {
+        return type.slice('ArrayList<'.length, -1);
+      }
+      return type;
+    };
+
+    /**
+     * Runs set collection element type.
+     */
+    const setCollectionElementType = (name: string, newType: string) => {
+      const normalized = newType === 'var' ? 'Object' : newType;
+      const existing = context.collectionElementTypes?.get(name);
+      if (!existing) {
+        context.collectionElementTypes?.set(name, normalized);
+        return;
+      }
+      if (existing !== normalized) {
+        context.collectionElementTypes?.set(name, 'Object');
+      }
+    };
+
+    /**
+     * Runs get assignment name.
+     */
+    const getAssignmentName = (stmt: any): string | null => {
+      if (stmt.target?.type === 'Identifier') {
+        return stmt.target.name;
+      }
+      if (typeof stmt.name === 'string' && stmt.name && stmt.name !== 'unknown') {
+        return stmt.name;
+      }
+      return null;
     };
 
     /**
@@ -102,10 +170,14 @@ export class Translator {
         case 'IndexExpression':
           const objType = inferType(expr.object);
           if (objType.endsWith('[]')) return objType.slice(0, -2);
+          if (objType.startsWith('ArrayList<') && objType.endsWith('>')) {
+            return objType.slice('ArrayList<'.length, -1);
+          }
           return 'var';
         case 'CallExpression':
           const calleeNameForAnalysis = (expr.callee as any).name;
           if (calleeNameForAnalysis === 'range') return 'int[]';
+          if (calleeNameForAnalysis === 'len' || calleeNameForAnalysis === 'LENGTH') return 'int';
           if (calleeNameForAnalysis === 'input' || calleeNameForAnalysis === 'INPUT')
             return 'String';
           if (calleeNameForAnalysis && context.functionReturnTypes.has(calleeNameForAnalysis))
@@ -122,21 +194,113 @@ export class Translator {
     };
 
     /**
+     * Runs analyze mutable collections.
+     */
+    const analyzeMutableCollections = (node: any) => {
+      if (!node || typeof node !== 'object') return;
+
+      if (node.type === 'Assignment') {
+        const assignmentName = getAssignmentName(node);
+        if (assignmentName && node.value?.type === 'ArrayLiteral') {
+          const inferredElementType =
+            node.value.elements.length > 0 ? inferType(node.value.elements[0]) : 'Object';
+          setCollectionElementType(assignmentName, inferredElementType);
+        }
+
+        if (assignmentName && node.value?.type === 'Identifier') {
+          const aliasedElementType = context.collectionElementTypes?.get(node.value.name);
+          if (aliasedElementType) {
+            setCollectionElementType(assignmentName, aliasedElementType);
+          }
+        }
+      }
+
+      if (node.type === 'CallExpression') {
+        if (node.callee?.type === 'MemberExpression') {
+          const objectExpr = node.callee.object;
+          const methodName = node.callee.property?.name;
+
+          if (objectExpr?.type === 'Identifier' && typeof methodName === 'string') {
+            const collectionName = objectExpr.name;
+            if (['append', 'insert', 'extend', 'pop', 'remove', 'sort'].includes(methodName)) {
+              context.mutableCollections?.add(collectionName);
+            }
+
+            if (methodName === 'append' && node.arguments.length >= 1) {
+              setCollectionElementType(collectionName, inferType(node.arguments[0]));
+            } else if (methodName === 'insert' && node.arguments.length >= 2) {
+              setCollectionElementType(collectionName, inferType(node.arguments[1]));
+            } else if (methodName === 'extend' && node.arguments.length >= 1) {
+              setCollectionElementType(
+                collectionName,
+                getCollectionElementType(inferType(node.arguments[0]))
+              );
+            }
+          }
+        } else {
+          const calleeName = node.callee?.name;
+          if (
+            typeof calleeName === 'string' &&
+            ['APPEND', 'INSERT', 'EXTEND'].includes(calleeName)
+          ) {
+            const collectionArg = node.arguments[0];
+            if (collectionArg?.type === 'Identifier') {
+              const collectionName = collectionArg.name;
+              context.mutableCollections?.add(collectionName);
+
+              if (calleeName === 'APPEND' && node.arguments.length >= 2) {
+                setCollectionElementType(collectionName, inferType(node.arguments[1]));
+              } else if (calleeName === 'INSERT' && node.arguments.length >= 3) {
+                setCollectionElementType(collectionName, inferType(node.arguments[2]));
+              } else if (calleeName === 'EXTEND' && node.arguments.length >= 2) {
+                setCollectionElementType(
+                  collectionName,
+                  getCollectionElementType(inferType(node.arguments[1]))
+                );
+              }
+            }
+          }
+        }
+      }
+
+      for (const value of Object.values(node)) {
+        if (Array.isArray(value)) {
+          value.forEach((entry) => analyzeMutableCollections(entry));
+        } else if (value && typeof value === 'object') {
+          analyzeMutableCollections(value);
+        }
+      }
+    };
+
+    /**
      * Runs analyze block.
      */
     const analyzeBlock = (statements: Statement[]) => {
       statements.forEach((stmt) => {
         if (stmt.type === 'Assignment') {
+          const assignmentName = getAssignmentName(stmt);
           const explicitType = (stmt as any).varType;
-          const type =
-            explicitType && explicitType !== 'auto' ? explicitType : inferType(stmt.value);
-          if (type !== 'var') context.symbolTable.set(stmt.name, type);
+          let type = explicitType && explicitType !== 'auto' ? explicitType : inferType(stmt.value);
+
+          if (assignmentName && context.mutableCollections?.has(assignmentName)) {
+            const elementType =
+              context.collectionElementTypes?.get(assignmentName) ||
+              getCollectionElementType(type) ||
+              'Object';
+            type = `ArrayList<${toBoxedJavaType(elementType)}>`;
+          }
+
+          if (assignmentName && type !== 'var') {
+            context.symbolTable.set(assignmentName, type);
+            context.inferredVariableTypes?.set(assignmentName, type);
+          }
         }
         if (stmt.type === 'If') {
           analyzeBlock(stmt.thenBranch.body);
           if (stmt.elseBranch) analyzeBlock(stmt.elseBranch.body);
         }
-        if (stmt.type === 'While') analyzeBlock(stmt.body.body);
+        if (stmt.type === 'While' || stmt.type === 'DoWhile' || stmt.type === 'RepeatUntil')
+          analyzeBlock(stmt.body.body);
         if (stmt.type === 'For') analyzeBlock(stmt.body.body);
       });
     };
@@ -147,9 +311,9 @@ export class Translator {
     const analyzeCalls = (node: any) => {
       if (!node) return;
       if (node.type === 'CallExpression') {
-        const funcName = node.callee.name;
+        const funcName = node.callee?.name;
         const argTypes = node.arguments.map((arg: Expression) => inferType(arg));
-        if (!context.functionParamTypes.has(funcName)) {
+        if (funcName && !context.functionParamTypes.has(funcName)) {
           context.functionParamTypes.set(funcName, argTypes);
         }
       }
@@ -196,6 +360,7 @@ export class Translator {
       });
     }
 
+    analyzeMutableCollections(program);
     analyzeBlock(program.body);
     analyzeCalls(program);
 

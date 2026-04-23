@@ -20,6 +20,9 @@ export interface TranslationContext {
   symbolTable: SymbolTable;
   functionReturnTypes: Map<string, string>;
   functionParamTypes: Map<string, string[]>;
+  mutableCollections?: Set<string>;
+  collectionElementTypes?: Map<string, string>;
+  inferredVariableTypes?: Map<string, string>;
 }
 
 export type SourceMap = Map<string, number>; // AST Node ID -> Line Number
@@ -190,6 +193,10 @@ export abstract class ASTVisitor {
    */
   abstract visitDoWhile(stmt: any): void;
   /**
+   * Visits repeat-until (post-condition) loop and returns the result.
+   */
+  abstract visitRepeatUntil(stmt: any): void;
+  /**
    * Visits switch and returns the result.
    */
   abstract visitSwitch(stmt: any): void;
@@ -242,6 +249,9 @@ export abstract class ASTVisitor {
         break;
       case 'DoWhile':
         this.visitDoWhile(stmt);
+        break;
+      case 'RepeatUntil':
+        this.visitRepeatUntil(stmt);
         break;
       case 'Switch':
         this.visitSwitch(stmt);
@@ -317,6 +327,9 @@ export abstract class ASTVisitor {
       case 'IndexExpression':
         const objType = this.inferType(expr.object);
         if (objType.endsWith('[]')) return objType.slice(0, -2);
+        if (objType.startsWith('ArrayList<') && objType.endsWith('>')) {
+          return objType.slice('ArrayList<'.length, -1);
+        }
         return 'var';
       case 'CallExpression':
         const calleeName = (expr.callee as any).name;

@@ -116,7 +116,7 @@ end max_num`;
     it('should parse class declaration', () => {
       const source = `class Counter
   int count <- 0
-  procedure increment()
+  void increment()
     count <- count + 1
   end increment
 end class`;
@@ -232,7 +232,7 @@ end add`;
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
-      expect(code).toContain('procedure add');
+      expect(code).toContain('int add');
       expect(code).toContain('end add');
     });
 
@@ -378,7 +378,6 @@ end max`;
       const program = parser.parse();
       const translator = new Translator();
       const result = translator.translate(program, 'praxis');
-      expect(result).toContain('procedure');
       expect(result).toContain('max');
       expect(result).toContain('end max');
     });
@@ -563,7 +562,7 @@ print(n) // print a space after the number`;
     });
 
     it('should translate typed parameters to Python parameter annotations', () => {
-      const source = `procedure show(int n)
+      const source = `void show(int n)
   print(n)
 end show`;
       const lexer = new PraxisLexer(source);

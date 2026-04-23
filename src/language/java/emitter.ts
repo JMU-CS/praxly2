@@ -24,6 +24,8 @@ import type {
  */
 export class JavaEmitter extends ASTVisitor {
   private usesInput: boolean = false;
+  private usesArrayList: boolean = false;
+  private usesArrays: boolean = false;
   private currentClassName: string | null = null;
   private instanceContextDepth = 0;
   private classNames = new Set<string>();
@@ -41,6 +43,136 @@ export class JavaEmitter extends ASTVisitor {
    */
   private toJavaParamType(paramType: string): string {
     return paramType === 'auto' || paramType === 'var' ? 'Object' : paramType;
+  }
+
+  /**
+   * Runs to boxed java type.
+   */
+  private toBoxedJavaType(type: string): string {
+    switch (type) {
+      case 'int':
+        return 'Integer';
+      case 'double':
+        return 'Double';
+      case 'boolean':
+        return 'Boolean';
+      case 'char':
+        return 'Character';
+      case 'long':
+        return 'Long';
+      case 'float':
+        return 'Float';
+      case 'short':
+        return 'Short';
+      case 'byte':
+        return 'Byte';
+      default:
+        return type;
+    }
+  }
+
+  /**
+   * Runs is array list type.
+   */
+  private isArrayListType(type?: string | null): boolean {
+    return !!type && type.startsWith('ArrayList<') && type.endsWith('>');
+  }
+
+  /**
+   * Runs get array list element type.
+   */
+  private getArrayListElementType(type: string): string {
+    if (type.endsWith('[]')) {
+      return this.toBoxedJavaType(type.slice(0, -2));
+    }
+    if (this.isArrayListType(type)) {
+      return type.slice('ArrayList<'.length, -1);
+    }
+    return 'Object';
+  }
+
+  /**
+   * Runs get type for name.
+   */
+  private getTypeForName(name: string): string | undefined {
+    return this.context.symbolTable.get(name) || this.context.inferredVariableTypes?.get(name);
+  }
+
+  /**
+   * Runs get expression type.
+   */
+  private getExpressionType(expr: Expression): string {
+    if (expr.type === 'Identifier') {
+      return this.getTypeForName(expr.name) || this.inferType(expr);
+    }
+    return this.inferType(expr);
+  }
+
+  /**
+   * Scans a block for return statements to infer the return type.
+   * Returns 'void' when no value-producing return is found.
+   */
+  private inferBodyReturnType(body: Block): string {
+    for (const stmt of body.body) {
+      if (stmt.type === 'Return') {
+        const val = (stmt as any).value;
+        if (val) {
+          const t = this.inferType(val);
+          if (t !== 'var' && t !== 'Object') return t;
+        }
+        return 'void';
+      }
+      if (stmt.type === 'If') {
+        const t = this.inferBodyReturnType((stmt as any).thenBranch);
+        if (t !== 'void') return t;
+        if ((stmt as any).elseBranch) {
+          const e = this.inferBodyReturnType((stmt as any).elseBranch);
+          if (e !== 'void') return e;
+        }
+      }
+      if (
+        stmt.type === 'While' ||
+        stmt.type === 'For' ||
+        stmt.type === 'DoWhile' ||
+        stmt.type === 'RepeatUntil'
+      ) {
+        const t = this.inferBodyReturnType((stmt as any).body);
+        if (t !== 'void') return t;
+      }
+    }
+    return 'void';
+  }
+
+  /**
+   * Runs generate array list literal.
+   */
+  private generateArrayListLiteral(expr: any, elementTypeHint?: string): string {
+    this.usesArrayList = true;
+    this.usesArrays = true;
+    const elementType = this.toBoxedJavaType(
+      elementTypeHint || this.getArrayListElementType(this.inferType(expr))
+    );
+    const renderedElements = expr.elements.map((e: Expression) => this.generateExpression(e, 0));
+    return `new ArrayList<${elementType}>(Arrays.asList(${renderedElements.join(', ')}))`;
+  }
+
+  /**
+   * Check if program uses ArrayList/Arrays helpers in emitted Java.
+   */
+  private checkForCollectionHelpers(node: any): void {
+    if (!node) return;
+
+    if (node.type === 'IndexExpression' && node.indexEnd) {
+      this.usesArrays = true;
+    }
+
+    for (const key in node) {
+      if (typeof node[key] === 'object' && node[key] !== null) {
+        if (Array.isArray(node[key]))
+          node[key].forEach((n: any) => this.checkForCollectionHelpers(n));
+        else this.checkForCollectionHelpers(node[key]);
+      }
+    }
   }
 
   /**
@@ -67,7 +199,16 @@ export class JavaEmitter extends ASTVisitor {
     }
 
     const inferred = this.inferType(value);
-    return inferred === 'var' || inferred === 'auto' ? 'Object' : inferred;
+    if (inferred === 'var' || inferred === 'auto') {
+      // Numeric literals default to int, string literals to String, otherwise Object
+      if (value.type === 'Literal') {
+        if (typeof (value as any).value === 'number') return 'int';
+        if (typeof (value as any).value === 'string') return 'String';
+        if (typeof (value as any).value === 'boolean') return 'boolean';
+      }
+      return 'Object';
+    }
+    return inferred;
   }
 
   /**
@@ -199,18 +340,24 @@ export class JavaEmitter extends ASTVisitor {
     // Check if program uses input()
     this.checkForInput(program);
 
+    this.usesArrayList = (this.context.mutableCollections?.size || 0) > 0;
+    if (this.usesArrayList) this.usesArrays = true;
+    this.checkForCollectionHelpers(program);
+
+    const imports: string[] = [];
+    if (this.usesInput) imports.push('import java.util.Scanner;');
+    if (this.usesArrayList) imports.push('import java.util.ArrayList;');
+    if (this.usesArrays) imports.push('import java.util.Arrays;');
+
+    imports.forEach((line) => this.emit(line));
+    if (imports.length > 0) this.emit('');
+
     classes.forEach((classDecl) => {
       this.visitClassDeclaration(classDecl as ClassDeclaration);
       this.emit('');
     });
 
     if (functions.length > 0 || mainBody.length > 0) {
-      // Add imports if input is used
-      if (this.usesInput) {
-        this.emit('import java.util.Scanner;');
-        this.emit('');
-      }
-
       this.context.symbolTable = new SymbolTable();
       this.emit('public class Main {');
       this.indent();
@@ -338,7 +485,11 @@ export class JavaEmitter extends ASTVisitor {
 
     let line = `${method.access} `;
     if (method.isStatic) line += 'static ';
-    let returnType = method.returnType === 'auto' ? 'Object' : method.returnType;
+    let returnType = method.returnType;
+    if (!returnType || returnType === 'auto') {
+      const inferred = this.inferBodyReturnType(method.body);
+      returnType = inferred !== 'void' && inferred !== 'var' ? inferred : 'void';
+    }
     line += `${returnType} ${method.name}(`;
     line +=
       methodParams.map((p) => `${this.toJavaParamType(p.paramType)} ${p.name}`).join(', ') + ')';
@@ -424,17 +575,31 @@ export class JavaEmitter extends ASTVisitor {
     }
 
     const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
+    const analyzedTypeHint = stmt.name
+      ? this.context.inferredVariableTypes?.get(stmt.name)
+      : undefined;
 
     if (stmt.varType && stmt.declaredWithoutInitializer) {
-      this.emit(`${stmt.varType} ${targetStr};`, stmt.id);
-      this.context.symbolTable.set(stmt.name, stmt.varType);
+      const declaredType =
+        analyzedTypeHint && this.isArrayListType(analyzedTypeHint)
+          ? analyzedTypeHint
+          : stmt.varType;
+      this.emit(`${declaredType} ${targetStr};`, stmt.id);
+      this.context.symbolTable.set(stmt.name, declaredType);
       return;
     }
 
     const rVal = this.generateExpression(stmt.value, 0);
     let initVal = rVal;
     if (stmt.value.type === 'ArrayLiteral') {
-      initVal = initVal.replace(/^new \w+\[\] /, '');
+      if (analyzedTypeHint && this.isArrayListType(analyzedTypeHint)) {
+        initVal = this.generateArrayListLiteral(
+          stmt.value,
+          this.getArrayListElementType(analyzedTypeHint)
+        );
+      } else {
+        initVal = initVal.replace(/^new \w+\[\] /, '');
+      }
     }
 
     // Handle member/field assignments (e.g., this.count = value or obj.field = value)
@@ -445,17 +610,36 @@ export class JavaEmitter extends ASTVisitor {
     }
 
     if (stmt.varType) {
-      this.emit(`${stmt.varType} ${targetStr} = ${initVal};`, stmt.id);
-      this.context.symbolTable.set(stmt.name, stmt.varType);
+      const declaredType =
+        analyzedTypeHint && this.isArrayListType(analyzedTypeHint)
+          ? analyzedTypeHint
+          : stmt.varType;
+      this.emit(`${declaredType} ${targetStr} = ${initVal};`, stmt.id);
+      this.context.symbolTable.set(stmt.name, declaredType);
     } else if (stmt.target && stmt.target.type !== 'Identifier') {
       this.emit(`${targetStr} = ${rVal};`, stmt.id);
     } else if (this.context.symbolTable.get(stmt.name) !== undefined) {
-      this.emit(`${targetStr} = ${rVal};`, stmt.id);
+      let nextValue = rVal;
+      const existingType = this.getTypeForName(stmt.name);
+      if (
+        stmt.value.type === 'ArrayLiteral' &&
+        existingType &&
+        this.isArrayListType(existingType)
+      ) {
+        nextValue = this.generateArrayListLiteral(
+          stmt.value,
+          this.getArrayListElementType(existingType)
+        );
+      }
+      this.emit(`${targetStr} = ${nextValue};`, stmt.id);
     } else {
-      let type = this.inferType(stmt.value);
+      let type = analyzedTypeHint || this.inferType(stmt.value);
       if (type === 'var') {
         const ctorName = this.getClassConstructorName(stmt.value);
         type = ctorName || 'Object';
+      }
+      if (stmt.value.type === 'ArrayLiteral' && this.isArrayListType(type)) {
+        initVal = this.generateArrayListLiteral(stmt.value, this.getArrayListElementType(type));
       }
       this.emit(`${type} ${targetStr} = ${initVal};`, stmt.id);
       this.context.symbolTable.set(stmt.name, type);
@@ -528,6 +712,20 @@ export class JavaEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit(`} while (${this.generateExpression(stmt.condition, 0)});`);
+  }
+
+  /**
+   * Translates a post-condition repeat-until loop.
+   * Praxis `repeat...until(cond)` → Java `do { } while (!cond)`.
+   */
+  visitRepeatUntil(stmt: any): void {
+    this.emit(`do {`, stmt.id);
+    this.indent();
+    this.context.symbolTable.enterScope();
+    this.visitBlock(stmt.body);
+    this.context.symbolTable.exitScope();
+    this.dedent();
+    this.emit(`} while (!(${this.generateExpression(stmt.condition, 0)}));`);
   }
 
   /**
@@ -721,27 +919,33 @@ export class JavaEmitter extends ASTVisitor {
       (stmt.iterable as any).callee.name === 'enumerate'
     ) {
       // Handle enumerate(arr) - converts to indexed loop with values
-      const arr = this.generateExpression((stmt.iterable as any).arguments[0], 0);
+      const arrExpr = (stmt.iterable as any).arguments[0];
+      const arr = this.generateExpression(arrExpr, 0);
+      const arrType = this.getExpressionType(arrExpr);
+      const isArrayList = this.isArrayListType(arrType);
       const idx = stmt.variables[0];
       const val = stmt.variables[1];
-      this.emit(`for (int ${idx} = 0; ${idx} < ${arr}.length; ${idx}++) {`);
+      const lengthExpr = isArrayList ? `${arr}.size()` : `${arr}.length`;
+      this.emit(`for (int ${idx} = 0; ${idx} < ${lengthExpr}; ${idx}++) {`);
       this.indent();
       // Infer array element type from the array itself
-      let varType = this.inferType((stmt.iterable as any).arguments[0]);
+      let varType = arrType;
       if (varType.endsWith('[]')) varType = varType.slice(0, -2);
+      else if (this.isArrayListType(varType)) varType = this.getArrayListElementType(varType);
       else varType = 'var';
       // Declare loop variable and assign current element
-      this.emit(`${varType} ${val} = ${arr}[${idx}];`);
+      const valueAccess = isArrayList ? `${arr}.get(${idx})` : `${arr}[${idx}]`;
+      this.emit(`${varType} ${val} = ${valueAccess};`);
       this.visitBlock(stmt.body);
       this.dedent();
       this.emit('}');
     } else {
       // Handle iterator-based for loop: for(type var : iterable)
       let varType = 'var';
-      const iterType = this.inferType(stmt.iterable);
+      const iterType = this.getExpressionType(stmt.iterable);
       // Extract element type from iterable array type
       if (iterType.endsWith('[]')) varType = iterType.slice(0, -2);
-      else if (iterType === 'int[]') varType = 'int';
+      else if (this.isArrayListType(iterType)) varType = this.getArrayListElementType(iterType);
 
       this.emit(
         `for (${varType} ${stmt.variable} : ${this.generateExpression(stmt.iterable, 0)}) {`
@@ -896,6 +1100,9 @@ export class JavaEmitter extends ASTVisitor {
         // Array/list element access and slicing
         currentPrecedence = Precedence.Member;
         const objE = this.generateExpression(expr.object, currentPrecedence);
+        const objType = this.getExpressionType(expr.object);
+        const isArrayListObject = this.isArrayListType(objType);
+        const lengthAccessor = isArrayListObject ? `${objE}.size()` : `${objE}.length`;
 
         // Convert indices to Java-compatible form, handling negative indices
         /**
@@ -906,7 +1113,7 @@ export class JavaEmitter extends ASTVisitor {
           if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0) {
             // Convert negative indices: nums[-1] becomes nums[nums.length - 1]
             const absIdx = Math.abs(idx.value);
-            return `${objE}.length - ${absIdx}`;
+            return `${lengthAccessor} - ${absIdx}`;
           } else if (
             idx.type === 'UnaryExpression' &&
             idx.operator === '-' &&
@@ -914,7 +1121,7 @@ export class JavaEmitter extends ASTVisitor {
           ) {
             // Handle unary minus operator: -1 becomes length - 1
             const val = idx.argument.value as number;
-            return `${objE}.length - ${val}`;
+            return `${lengthAccessor} - ${val}`;
           } else {
             // Regular index access without negative handling
             return this.generateExpression(idx, 0);
@@ -926,11 +1133,17 @@ export class JavaEmitter extends ASTVisitor {
           // Array slicing: Arrays.copyOfRange(array, start, end)
           const startE = convertIndex(expr.index);
           const endE = convertIndex(expr.indexEnd);
-          output = `Arrays.copyOfRange(${objE}, ${startE}, ${endE})`;
+          if (isArrayListObject) {
+            this.usesArrayList = true;
+            output = `new ArrayList<>(${objE}.subList(${startE}, ${endE}))`;
+          } else {
+            this.usesArrays = true;
+            output = `Arrays.copyOfRange(${objE}, ${startE}, ${endE})`;
+          }
         } else {
           // Single element access
           const indexExpr = convertIndex(expr.index);
-          output = `${objE}[${indexExpr}]`;
+          output = isArrayListObject ? `${objE}.get(${indexExpr})` : `${objE}[${indexExpr}]`;
         }
         break;
       case 'MemberExpression':
@@ -1044,7 +1257,7 @@ export class JavaEmitter extends ASTVisitor {
             output =
               argsF.length > 0 ? `${obj}.remove(${argsF[0]})` : `${obj}.remove(${obj}.size() - 1)`;
           else if (method === 'extend') output = `${obj}.addAll(${argsF[0]})`;
-          else if (method === 'sort') output = `Collections.sort(${obj})`;
+          else if (method === 'sort') output = `java.util.Collections.sort(${obj})`;
           else if (method === 'lower') output = `${obj}.toLowerCase()`;
           else if (method === 'upper') output = `${obj}.toUpperCase()`;
           else if (method === 'replace') output = `${obj}.replace(${argsF[0]}, ${argsF[1]})`;
@@ -1059,7 +1272,12 @@ export class JavaEmitter extends ASTVisitor {
         // Handle global/builtin function calls with special mapping
         if (calleeStr === 'LENGTH' || calleeStr === 'len') {
           // length() becomes .length property access
-          output = `${this.generateExpression(expr.arguments[0], 0)}.length`;
+          const lengthTargetExpr = expr.arguments[0];
+          const lengthTarget = this.generateExpression(lengthTargetExpr, 0);
+          const lengthTargetType = this.getExpressionType(lengthTargetExpr);
+          output = this.isArrayListType(lengthTargetType)
+            ? `${lengthTarget}.size()`
+            : `${lengthTarget}.length`;
           break;
         }
         // Handle input() function - map to Scanner.nextLine()
@@ -1098,6 +1316,10 @@ export class JavaEmitter extends ASTVisitor {
       case 'ArrayLiteral':
         // Array literal with Java array initialization syntax
         const type = this.inferType(expr);
+        if (this.isArrayListType(type)) {
+          output = this.generateArrayListLiteral(expr, this.getArrayListElementType(type));
+          break;
+        }
         // Extract base type from array type (remove [] suffix)
         const baseType = type.endsWith('[]') ? type.slice(0, -2) : 'Object';
         // Generate array elements and wrap in new Type[] { ... }

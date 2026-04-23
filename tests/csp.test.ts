@@ -508,6 +508,43 @@ describe('CSP Translation', () => {
       expect(result).toContain('IN');
     });
 
+    it('should parse FOR i FROM start TO end STEP step as range loop', () => {
+      const source = `FOR i FROM 0 TO 6 STEP 2
+{
+  DISPLAY(i)
+}`;
+      const lexer = new CSPLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new CSPParser(tokens);
+      const program = parser.parse();
+
+      const forStmt = program.body[0] as any;
+      expect(forStmt.type).toBe('For');
+      expect(forStmt.iterable.type).toBe('CallExpression');
+      expect(forStmt.iterable.callee.name).toBe('range');
+      expect(forStmt.iterable.arguments.length).toBe(3);
+    });
+
+    it('should translate FOR FROM/TO/STEP loops to other targets', () => {
+      const source = `FOR i FROM 0 TO 6 STEP 2
+{
+  DISPLAY(i)
+}`;
+      const lexer = new CSPLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new CSPParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+
+      const pythonCode = translator.translate(program, 'python');
+      const javaCode = translator.translate(program, 'java');
+      const praxisCode = translator.translate(program, 'praxis');
+
+      expect(pythonCode).toContain('for i in range(0, 6, 2):');
+      expect(javaCode).toContain('for (int i = 0; i < 6; i += 2)');
+      expect(praxisCode).toContain('for (int i <- 0; i < 6; i <- i + 2)');
+    });
+
     it('should handle REPEAT n TIMES with variable', () => {
       const source = `n <- 10
 REPEAT n TIMES
@@ -536,6 +573,38 @@ REPEAT n TIMES
       const result = translator.translate(program, 'python');
       // REPEAT n TIMES becomes a while loop (we have a counter loop internally)
       expect(result).toContain('while');
+    });
+
+    it('should keep fixed-size arrays as Java arrays when not appended', () => {
+      const source = `nums <- [1, 2, 3]
+DISPLAY(nums[0])`;
+      const lexer = new CSPLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new CSPParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaCode = translator.translate(program, 'java');
+
+      expect(javaCode).toContain('int[] nums');
+      expect(javaCode).toContain('nums[0]');
+      expect(javaCode).not.toContain('ArrayList<');
+    });
+
+    it('should emit Java ArrayList when a CSP list is appended', () => {
+      const source = `nums <- [1, 2, 3]
+APPEND(nums, 4)
+DISPLAY(nums[0])`;
+      const lexer = new CSPLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new CSPParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaCode = translator.translate(program, 'java');
+
+      expect(javaCode).toContain('ArrayList<Integer> nums');
+      expect(javaCode).toContain('nums.add(4);');
+      expect(javaCode).toContain('nums.get(0)');
+      expect(javaCode).not.toContain('int[] nums');
     });
   });
 });
