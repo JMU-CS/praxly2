@@ -1399,6 +1399,55 @@ export class Interpreter {
             }
           }
 
+          if (Array.isArray(obj)) {
+            switch (methodName) {
+              case 'append':
+                obj.push(args[0]);
+                return null;
+              case 'insert': {
+                const idx = Number(args[0] ?? 0);
+                const normalized = Number.isFinite(idx)
+                  ? idx < 0
+                    ? Math.max(0, obj.length + idx)
+                    : idx
+                  : obj.length;
+                obj.splice(normalized, 0, args[1]);
+                return null;
+              }
+              case 'extend': {
+                const iterable = args[0];
+                if (Array.isArray(iterable)) obj.push(...iterable);
+                else if (typeof iterable === 'string') obj.push(...iterable.split(''));
+                else if (iterable != null) obj.push(iterable);
+                return null;
+              }
+              case 'pop': {
+                if (args.length === 0) return obj.pop();
+                const idx = Number(args[0]);
+                const normalized = idx < 0 ? obj.length + idx : idx;
+                if (normalized < 0 || normalized >= obj.length) {
+                  throw new Error('pop index out of range');
+                }
+                return obj.splice(normalized, 1)[0];
+              }
+              case 'remove': {
+                const index = obj.indexOf(args[0]);
+                if (index < 0) throw new Error('list.remove(x): x not in list');
+                obj.splice(index, 1);
+                return null;
+              }
+              case 'sort':
+                if (obj.every((item) => typeof item === 'number')) {
+                  obj.sort((a, b) => (a as number) - (b as number));
+                } else {
+                  obj.sort((a, b) => this.stringify(a).localeCompare(this.stringify(b)));
+                }
+                return null;
+              case 'length':
+                return obj.length;
+            }
+          }
+
           if (Array.isArray(obj) && methodName === 'length') {
             return obj.length;
           }

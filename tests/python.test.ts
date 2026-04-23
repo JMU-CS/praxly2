@@ -4,6 +4,7 @@ import { Parser as PythonParser } from '../src/language/python/parser';
 import { PythonEmitter } from '../src/language/python/emitter';
 import { Translator } from '../src/language/translator';
 import { SymbolTable } from '../src/language/visitor';
+import { Interpreter } from '../src/language/interpreter';
 
 describe('Python Lexer', () => {
   describe('Basic Tokens', () => {
@@ -970,6 +971,58 @@ describe('Python Bug Fixes', () => {
       expect(forStmt.type).toBe('For');
       expect(forStmt.variables).toBeDefined();
       expect(forStmt.variables.length).toBe(2);
+    });
+  });
+
+  describe('Java Collection Mutability Inference', () => {
+    it('should emit Java arrays when a Python list is never appended', () => {
+      const source = `nums = [1, 2, 3]
+print(nums[0])`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaCode = translator.translate(program, 'java');
+
+      expect(javaCode).toContain('int[] nums');
+      expect(javaCode).toContain('nums[0]');
+      expect(javaCode).not.toContain('ArrayList<');
+    });
+
+    it('should emit Java ArrayList when a Python list is appended', () => {
+      const source = `nums = [1, 2, 3]
+nums.append(4)
+print(nums[0])`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+      const translator = new Translator();
+      const javaCode = translator.translate(program, 'java');
+
+      expect(javaCode).toContain('ArrayList<Integer> nums');
+      expect(javaCode).toContain('nums.add(4);');
+      expect(javaCode).toContain('nums.get(0)');
+      expect(javaCode).not.toContain('int[] nums');
+      expect(javaCode).toContain('import java.util.ArrayList;');
+      expect(javaCode).toContain('import java.util.Arrays;');
+    });
+
+    it('should execute Python list append without runtime error', () => {
+      const source = `lst = [1, 2, 3]
+lst.append(4)
+print(lst[3])`;
+      const lexer = new PythonLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PythonParser(tokens);
+      const program = parser.parse();
+
+      const interpreter = new Interpreter();
+      const output = interpreter.interpret(program, source);
+
+      expect(output.join('\n')).not.toContain('Runtime Error');
+      expect(output).toContain('4');
     });
   });
 
