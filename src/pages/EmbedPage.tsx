@@ -31,9 +31,8 @@ export default function EmbedPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Layout state
-  const [sourceWidth, setSourceWidth] = useState(window.innerWidth / 3);
-  const [translationWidth, setTranslationWidth] = useState(window.innerWidth / 3);
-  const [resizingIdx, setResizingIdx] = useState<'source' | 'translation' | null>(null);
+  const [sourceWidth, setSourceWidth] = useState(window.innerWidth / 2);
+  const [resizingIdx, setResizingIdx] = useState<'source' | null>(null);
 
   // Translation state
   const [currentTargetLang, setCurrentTargetLang] = useState<SupportedLang>('python');
@@ -323,8 +322,8 @@ export default function EmbedPage() {
   /**
    * Handles mouse down.
    */
-  const onMouseDown = (e: React.MouseEvent, idx: 'source' | 'translation') => {
-    setResizingIdx(idx);
+  const onMouseDown = (e: React.MouseEvent) => {
+    setResizingIdx('source');
     e.preventDefault();
   };
 
@@ -334,12 +333,7 @@ export default function EmbedPage() {
      */
     const handleMouseMove = (e: MouseEvent) => {
       if (resizingIdx === null) return;
-
-      if (resizingIdx === 'source') {
-        setSourceWidth((prev) => Math.max(150, prev + e.movementX));
-      } else if (resizingIdx === 'translation') {
-        setTranslationWidth((prev) => Math.max(150, prev + e.movementX));
-      }
+      setSourceWidth((prev) => Math.max(150, prev + e.movementX));
     };
 
     /**
@@ -374,159 +368,155 @@ export default function EmbedPage() {
   const translation = getTranslation(ast, currentTargetLang);
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
-      {/* Source Code Pane */}
-      <div
-        className="flex shrink-0 relative group/source z-[10] border-r border-slate-800"
-        style={{ width: sourceWidth }}
-      >
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
-            Source ({embedData.lang})
-          </div>
-          <div className="flex-1 relative bg-slate-950 overflow-hidden">
-            <CodeMirror
-              value={embedData.code}
-              height="100%"
-              theme={vscodeDark}
-              extensions={getExtensions(embedData.lang as SupportedLang)}
-              editable={true}
-              onChange={(val) => {
-                setEmbedData((prev) => (prev ? { ...prev, code: val } : null));
-              }}
-              onCreateEditor={handleCreateEditor}
-              className="text-sm h-full font-mono"
-            />
-          </div>
-        </div>
-        {/* Source Resize Handle */}
+    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
+      {/* Top row: Source + Translation */}
+      <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
+        {/* Source Code Pane */}
         <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize z-[20] transition-colors ${resizingIdx === 'source' ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/30'}`}
-          onMouseDown={(e) => onMouseDown(e, 'source')}
-        />
-      </div>
+          className="flex shrink-0 relative group/source z-[10] border-r border-slate-800"
+          style={{ width: sourceWidth }}
+        >
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
+              Source ({embedData.lang})
+            </div>
+            <div className="flex-1 relative bg-slate-950 overflow-hidden">
+              <CodeMirror
+                value={embedData.code}
+                height="100%"
+                theme={vscodeDark}
+                extensions={getExtensions(embedData.lang as SupportedLang)}
+                editable={true}
+                onChange={(val) => {
+                  setEmbedData((prev) => (prev ? { ...prev, code: val } : null));
+                }}
+                onCreateEditor={handleCreateEditor}
+                className="text-sm h-full font-mono"
+              />
+            </div>
+          </div>
+          {/* Source Resize Handle */}
+          <div
+            className={`absolute top-0 right-0 w-1 h-full cursor-col-resize z-[20] transition-colors ${resizingIdx === 'source' ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/30'}`}
+            onMouseDown={(e) => onMouseDown(e)}
+          />
+        </div>
 
-      {/* Translation Pane */}
-      <div
-        className="flex shrink-0 relative group/translation z-[10] border-r border-slate-800"
-        style={{ width: translationWidth }}
-      >
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="bg-slate-900 border-b border-slate-800 shrink-0">
-            {/* Header with tabs */}
-            <div className="h-10 flex items-center justify-between px-4">
-              <div className="relative">
-                <button
-                  onClick={() => setShowTranslationMenu(!showTranslationMenu)}
-                  className="flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors text-xs font-bold uppercase"
-                >
-                  {showAst ? 'AST' : currentTargetLang}
-                  <ChevronDown size={12} />
-                </button>
-                {showTranslationMenu && (
-                  <div className="absolute top-full left-0 w-40 bg-slate-800 border border-slate-700 rounded-md shadow-xl overflow-hidden mt-1 z-[110]">
-                    {(['python', 'java', 'csp', 'praxis'] as SupportedLang[]).map((lang) => (
+        {/* Translation Pane */}
+        <div className="flex flex-1 relative z-[10] border-l border-slate-800 min-w-0">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="bg-slate-900 border-b border-slate-800 shrink-0">
+              {/* Header with tabs */}
+              <div className="h-10 flex items-center justify-between px-4">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowTranslationMenu(!showTranslationMenu)}
+                    className="flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors text-xs font-bold uppercase"
+                  >
+                    {showAst ? 'AST' : currentTargetLang}
+                    <ChevronDown size={12} />
+                  </button>
+                  {showTranslationMenu && (
+                    <div className="absolute top-full left-0 w-40 bg-slate-800 border border-slate-700 rounded-md shadow-xl overflow-hidden mt-1 z-[110]">
+                      {(['python', 'java', 'csp', 'praxis'] as SupportedLang[]).map((lang) => (
+                        <button
+                          key={lang}
+                          onClick={() => {
+                            setCurrentTargetLang(lang);
+                            setShowAst(false);
+                            setShowTranslationMenu(false);
+                          }}
+                          className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${currentTargetLang === lang && !showAst ? 'bg-indigo-600 text-white' : ''}`}
+                        >
+                          {lang}
+                        </button>
+                      ))}
+                      <div className="border-t border-slate-700" />
                       <button
-                        key={lang}
                         onClick={() => {
-                          setCurrentTargetLang(lang);
-                          setShowAst(false);
+                          setShowAst(true);
                           setShowTranslationMenu(false);
                         }}
-                        className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${currentTargetLang === lang && !showAst ? 'bg-indigo-600 text-white' : ''}`}
+                        className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${showAst ? 'bg-indigo-600 text-white' : ''}`}
                       >
-                        {lang}
+                        Show AST
                       </button>
-                    ))}
-                    <div className="border-t border-slate-700" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="h-10 flex items-center gap-2 px-4 border-t border-slate-800 bg-slate-900/50">
+                {!isDebugging ? (
+                  <>
                     <button
-                      onClick={() => {
-                        setShowAst(true);
-                        setShowTranslationMenu(false);
-                      }}
-                      className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${showAst ? 'bg-indigo-600 text-white' : ''}`}
+                      onClick={handleRun}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded transition-all"
                     >
-                      Show AST
+                      <Play size={12} fill="currentColor" /> Run
                     </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="h-10 flex items-center gap-2 px-4 border-t border-slate-800 bg-slate-900/50">
-              {!isDebugging ? (
-                <>
-                  <button
-                    onClick={handleRun}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded transition-all"
-                  >
-                    <Play size={12} fill="currentColor" /> Run
-                  </button>
-                  <button
-                    onClick={handleDebugStart}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 rounded transition-all"
-                  >
-                    Debug
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={handleDebugStep}
-                    disabled={isDebugComplete}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition-all disabled:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <FastForward size={12} fill="currentColor" /> Step
-                  </button>
-                  <button
-                    onClick={handleDebugStop}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition-all"
-                  >
-                    <Square size={12} fill="currentColor" /> Stop
-                  </button>
-                </>
-              )}
-              <button
-                onClick={handleOpenInEditor}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 rounded transition-all ml-auto"
-              >
-                Open in Editor
-              </button>
-            </div>
-          </div>
-
-          {/* Translation Content */}
-          <div className="flex-1 overflow-hidden bg-slate-950 relative">
-            {showAst ? (
-              <div className="text-xs font-mono h-full overflow-auto p-4 custom-scrollbar">
-                {ast ? (
-                  <JSONTree data={ast} />
+                    <button
+                      onClick={handleDebugStart}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 rounded transition-all"
+                    >
+                      Debug
+                    </button>
+                  </>
                 ) : (
-                  <div className="text-slate-700 text-center mt-10 italic">
-                    Valid code required...
-                  </div>
+                  <>
+                    <button
+                      onClick={handleDebugStep}
+                      disabled={isDebugComplete}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition-all disabled:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <FastForward size={12} fill="currentColor" /> Step
+                    </button>
+                    <button
+                      onClick={handleDebugStop}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition-all"
+                    >
+                      <Square size={12} fill="currentColor" /> Stop
+                    </button>
+                  </>
                 )}
+                <button
+                  onClick={handleOpenInEditor}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 rounded transition-all ml-auto"
+                >
+                  Open in Editor
+                </button>
               </div>
-            ) : (
-              <HighlightableCodeMirror
-                value={translation.code}
-                language={currentTargetLang}
-                highlightedLines={highlightedTranslationLines}
-                readOnly={true}
-              />
-            )}
+            </div>
+
+            {/* Translation Content */}
+            <div className="flex-1 overflow-hidden bg-slate-950 relative">
+              {showAst ? (
+                <div className="text-xs font-mono h-full overflow-auto p-4 custom-scrollbar">
+                  {ast ? (
+                    <JSONTree data={ast} />
+                  ) : (
+                    <div className="text-slate-700 text-center mt-10 italic">
+                      Valid code required...
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <HighlightableCodeMirror
+                  value={translation.code}
+                  language={currentTargetLang}
+                  highlightedLines={highlightedTranslationLines}
+                  readOnly={true}
+                />
+              )}
+            </div>
           </div>
         </div>
-        {/* Translation Resize Handle */}
-        <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize z-[20] transition-colors ${resizingIdx === 'translation' ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/30'}`}
-          onMouseDown={(e) => onMouseDown(e, 'translation')}
-        />
       </div>
+      {/* end top row */}
 
       {/* Output Pane */}
-      <div className="flex-1 flex flex-col min-w-0 border-l border-slate-800">
+      <div className="flex flex-col border-t border-slate-800 h-[40%] shrink-0">
         <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 shrink-0">
           <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Output</span>
         </div>

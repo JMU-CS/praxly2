@@ -731,6 +731,64 @@ export class Interpreter {
 
         i++;
       } else {
+        // --- Step-into user-defined function calls ---
+
+        if (stmt.type === 'ExpressionStatement') {
+          const callInfo = this.getUserFunctionCall((stmt as any).expression, env);
+          if (callInfo) {
+            yield {
+              nodeId: stmt.id,
+              nodeType: stmt.type,
+              loc: stmt.loc || null,
+              variables: env.getAllVariables(),
+            };
+            yield* this.callUserFunctionWithState(callInfo.func, callInfo.args, env);
+            i++;
+            continue;
+          }
+        } else if (stmt.type === 'Assignment') {
+          const callInfo = this.getUserFunctionCall((stmt as any).value, env);
+          const target = (stmt as any).target;
+          const varName =
+            target?.type === 'Identifier'
+              ? target.name
+              : !target && !(stmt as any).name?.includes('.')
+                ? (stmt as any).name
+                : null;
+          if (callInfo && varName) {
+            yield {
+              nodeId: stmt.id,
+              nodeType: stmt.type,
+              loc: stmt.loc || null,
+              variables: env.getAllVariables(),
+            };
+            const returnValue = yield* this.callUserFunctionWithState(
+              callInfo.func,
+              callInfo.args,
+              env
+            );
+            env.define(varName, returnValue, (stmt as any).varType, stmt.loc?.start);
+            i++;
+            continue;
+          }
+        } else if (stmt.type === 'Return' && (stmt as any).value) {
+          const callInfo = this.getUserFunctionCall((stmt as any).value, env);
+          if (callInfo) {
+            yield {
+              nodeId: stmt.id,
+              nodeType: stmt.type,
+              loc: stmt.loc || null,
+              variables: env.getAllVariables(),
+            };
+            const returnValue = yield* this.callUserFunctionWithState(
+              callInfo.func,
+              callInfo.args,
+              env
+            );
+            throw new ReturnException(returnValue);
+          }
+        }
+
         // For all other statements, execute and yield
         let needsRetry = false;
         let lastError: any = null;
@@ -763,6 +821,53 @@ export class Interpreter {
         }
         // If InputPrompt, DON'T increment i - next call to generator.next() will re-enter this try block
       }
+    }
+  }
+
+  /**
+   * Returns the FunctionDeclaration and evaluated args if expr is a direct call to a
+   * user-defined function, otherwise returns null.
+   */
+  private getUserFunctionCall(
+    expr: any,
+    env: Environment
+  ): { func: FunctionDeclaration; args: any[] } | null {
+    if (!expr || expr.type !== 'CallExpression') return null;
+    if (expr.callee?.type !== 'Identifier') return null;
+    const calleeName = expr.callee.name;
+    try {
+      const callee = env.get(calleeName);
+      if (!callee || callee.type !== 'FunctionDeclaration') return null;
+      const func = callee as FunctionDeclaration;
+      const args = expr.arguments.map((a: any) => this.evaluate(a, env));
+      return { func, args };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Generator that steps through a user-defined function body one statement at a time.
+   * Catches ReturnException and returns the value as the generator's return value so the
+   * caller can use it (e.g. for assignments).
+   */
+  private *callUserFunctionWithState(
+    func: FunctionDeclaration,
+    args: any[],
+    parentEnv: Environment
+  ): Generator<
+    { nodeId: string; nodeType: string; loc: any; variables: Record<string, any>; prompt?: string },
+    any,
+    void
+  > {
+    const fnEnv = new Environment(parentEnv);
+    func.params.forEach((param, idx) => fnEnv.define(param.name, args[idx] ?? undefined));
+    try {
+      yield* this.executeBlockGeneratorWithState(func.body.body, fnEnv);
+      return null;
+    } catch (e) {
+      if (e instanceof ReturnException) return (e as ReturnException).value;
+      throw e;
     }
   }
 
