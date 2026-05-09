@@ -69,19 +69,27 @@ export default function EmbedPage() {
 
   // Decode the embed data on mount
   useEffect(() => {
+    // v2 format: ?code=<lz-compressed-json>
     const code = searchParams.get('code');
-    if (!code) {
-      setError('No code provided in URL');
+    if (code) {
+      const decoded = decodeEmbed(code);
+      if (!decoded) {
+        setError('Failed to decode embed data');
+        return;
+      }
+      setEmbedData(decoded);
       return;
     }
 
-    const decoded = decodeEmbed(code);
-    if (!decoded) {
-      setError('Failed to decode embed data');
+    // v1 format: #code=<url-encoded-praxis-source>
+    const hash = window.location.hash;
+    if (hash.startsWith('#code=')) {
+      const v1Code = decodeURIComponent(hash.slice('#code='.length));
+      setEmbedData({ code: v1Code, lang: 'praxis' });
       return;
     }
 
-    setEmbedData(decoded);
+    setError('No code provided in URL');
   }, [searchParams]);
 
   // Parse code when embed data changes
