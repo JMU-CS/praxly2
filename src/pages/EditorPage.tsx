@@ -9,7 +9,7 @@ import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemi
 import { computeMultiplePanelHighlighting } from '../utils/debugHandlers';
 import { decodeEmbed, encodeEmbed, copyToClipboard } from '../utils/embedCodec';
 import { getCodeMirrorExtensions } from '../utils/editorUtils';
-import { DEFAULT_EXAMPLE_ID, EXAMPLE_PROGRAMS, getExampleById } from '../utils/sampleCodes';
+import { EXAMPLE_PROGRAMS, getExampleById } from '../utils/sampleCodes';
 import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
 import { Debugger } from '../language/debugger';
@@ -43,25 +43,15 @@ const clamp = (value: number, min: number, max: number): number =>
 const createPanelId = (): string =>
   window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(7);
 
-const DEFAULT_EXAMPLE = getExampleById(DEFAULT_EXAMPLE_ID) ??
-  EXAMPLE_PROGRAMS[0] ?? {
-    id: 'fallback-python',
-    title: 'Fallback Example',
-    description: 'Fallback editor program',
-    category: 'fundamentals' as const,
-    lang: 'python' as const,
-    code: 'print("Praxly")',
-  };
-
 /**
  * Runs editor page.
  */
 export default function EditorPage() {
   const [searchParams] = useSearchParams();
-  const [code, setCode] = useState(DEFAULT_EXAMPLE.code);
+  const [code, setCode] = useState('');
   const [output, setOutput] = useState<string[]>([]);
   const [ast, setAst] = useState<Program | null>(null);
-  const [sourceLang, setSourceLang] = useState<SupportedLang>(DEFAULT_EXAMPLE.lang);
+  const [sourceLang, setSourceLang] = useState<SupportedLang>('praxis');
   const [error, setError] = useState<string | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showSourceLangDropdown, setShowSourceLangDropdown] = useState(false);
@@ -668,8 +658,6 @@ export default function EditorPage() {
         },
       ];
     });
-
-    setShowAddMenu(false);
   };
 
   /**
@@ -677,6 +665,18 @@ export default function EditorPage() {
    */
   const removePanel = (id: string) => {
     setPanels((prev) => prev.filter((panel) => panel.id !== id));
+  };
+
+  /**
+   * Toggles a translation panel on or off without closing the add menu.
+   */
+  const togglePanel = (lang: SupportedLang) => {
+    const existing = panels.find((panel) => panel.lang === lang);
+    if (existing) {
+      removePanel(existing.id);
+    } else {
+      addPanel(lang);
+    }
   };
 
   /**
@@ -970,6 +970,52 @@ export default function EditorPage() {
     };
   }, [showExamplesMenu]);
 
+  useEffect(() => {
+    const handleClickOutside = (e: globalThis.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.add-panel-dropdown')) {
+        setShowAddMenu(false);
+      }
+    };
+
+    if (showAddMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showAddMenu]);
+
+  useEffect(() => {
+    const actionsRef = {
+      handleRun,
+      handleDebugStart,
+      handleDebugStep,
+      handleDebugStop,
+      isDebugging,
+      isDebugComplete,
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F5') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          if (actionsRef.isDebugging) actionsRef.handleDebugStop();
+          else actionsRef.handleDebugStart();
+        } else {
+          if (!actionsRef.isDebugging) actionsRef.handleRun();
+        }
+      } else if (e.key === 'F10' && actionsRef.isDebugging && !actionsRef.isDebugComplete) {
+        e.preventDefault();
+        actionsRef.handleDebugStep();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isDebugging, isDebugComplete, handleRun, handleDebugStart, handleDebugStep, handleDebugStop]);
+
   const sourcePaneWidth = panels.length === 0 ? getContentAvailableWidth() : editorWidth;
 
   return (
@@ -994,10 +1040,7 @@ export default function EditorPage() {
           setShowSettingsMenu((prev) => !prev);
           setShowExamplesMenu(false);
         }}
-        onToggleAiPanel={() => {
-          handleToggleAiPanel();
-          setShowSettingsMenu(false);
-        }}
+        onToggleAiPanel={handleToggleAiPanel}
         onToggleMemDia={() => setShowMemDia((prev) => !prev)}
         onDebugStart={handleDebugStart}
         onRun={handleRun}
@@ -1073,7 +1116,7 @@ export default function EditorPage() {
               sourceLang={sourceLang}
               panels={panels}
               onToggleMenu={() => setShowAddMenu((prev) => !prev)}
-              onAddPanel={addPanel}
+              onTogglePanel={togglePanel}
             />
 
             {showAiSidePanel && (

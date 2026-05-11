@@ -1,6 +1,7 @@
-import { Plus, FileJson, Code } from 'lucide-react';
+import { Plus, FileJson, Check } from 'lucide-react';
 
 import type { SupportedLang } from '../LanguageSelector';
+import { LanguageLogo } from '../LanguageLogo';
 import type { Panel } from './types';
 
 interface AddPanelStripProps {
@@ -8,20 +9,28 @@ interface AddPanelStripProps {
   sourceLang: SupportedLang;
   panels: Panel[];
   onToggleMenu: () => void;
-  onAddPanel: (lang: SupportedLang) => void;
+  onTogglePanel: (lang: SupportedLang) => void;
 }
 
-const PANEL_LANGS: SupportedLang[] = ['python', 'java', 'csp', 'ast', 'praxis'];
+const PANEL_LANGS: SupportedLang[] = ['ast', 'csp', 'java', 'praxis', 'python'];
+
+const LANG_LABELS: Record<SupportedLang, string> = {
+  ast: 'AST',
+  csp: 'CSP',
+  java: 'Java',
+  praxis: 'Praxis',
+  python: 'Python',
+};
 
 export function AddPanelStrip({
   showAddMenu,
   sourceLang,
   panels,
   onToggleMenu,
-  onAddPanel,
+  onTogglePanel,
 }: AddPanelStripProps) {
   return (
-    <div className="w-16 flex flex-col items-center pt-4 bg-slate-900 border-l border-slate-800 shrink-0 relative z-[150] shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">
+    <div className="add-panel-dropdown w-16 flex flex-col items-center pt-4 bg-slate-900 border-l border-slate-800 shrink-0 relative z-[150] shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">
       <div className="relative">
         <button
           onClick={onToggleMenu}
@@ -32,48 +41,52 @@ export function AddPanelStrip({
         </button>
 
         {showAddMenu && (
-          <div className="absolute top-0 right-full mr-3 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.7)] overflow-hidden z-[999] animate-in fade-in slide-in-from-right-2 duration-200">
+          <div className="absolute top-0 right-full mr-3 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.7)] overflow-hidden z-[999] animate-in fade-in slide-in-from-right-2 duration-200">
             <div className="p-3 text-[11px] font-bold text-slate-400 border-b border-slate-700 bg-slate-900/50 uppercase tracking-widest">
               Open View
             </div>
             <div className="p-1">
               {PANEL_LANGS.map((lang) => {
-                const isAlreadyOpen = panels.some((panel) => panel.lang === lang);
+                const isOpen = panels.some((panel) => panel.lang === lang);
                 const isSourceLanguage = lang === sourceLang;
-                const isDisabled = isAlreadyOpen || isSourceLanguage;
+                const isDisabled = isSourceLanguage;
 
                 return (
                   <button
                     key={lang}
-                    onClick={() => !isDisabled && onAddPanel(lang)}
+                    onClick={() => !isDisabled && onTogglePanel(lang)}
                     disabled={isDisabled}
-                    className={`flex items-center justify-between gap-3 w-full text-left px-3 py-2.5 text-xs rounded-md transition-colors capitalize group ${
+                    className={`flex items-center justify-between gap-3 w-full text-left px-3 py-2.5 text-xs rounded-md transition-colors group ${
                       isDisabled
                         ? 'text-slate-600 cursor-not-allowed opacity-50'
-                        : 'text-slate-300 hover:bg-indigo-600 hover:text-white'
+                        : isOpen
+                          ? 'text-emerald-300 hover:bg-slate-700'
+                          : 'text-slate-300 hover:bg-indigo-600 hover:text-white'
                     }`}
                   >
-                    <span className="flex items-center gap-3">
+                    <span className="flex items-center gap-2.5">
                       {lang === 'ast' ? (
-                        <FileJson size={14} className="opacity-50 group-hover:opacity-100" />
+                        <FileJson
+                          size={14}
+                          className="opacity-60 group-hover:opacity-100 shrink-0"
+                        />
                       ) : (
-                        <Code size={14} className="opacity-50 group-hover:opacity-100" />
+                        <span className="shrink-0">
+                          <LanguageLogo lang={lang} size={14} />
+                        </span>
                       )}
-                      {
-                        {
-                          ast: 'AST',
-                          csp: 'CSP',
-                          java: 'Java',
-                          praxis: 'Praxis',
-                          python: 'Python',
-                        }[lang]
-                      }
+                      {LANG_LABELS[lang]}
                     </span>
-                    {isSourceLanguage && (
-                      <span className="text-[10px] uppercase tracking-wide text-slate-500">
-                        Source
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {isSourceLanguage && (
+                        <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                          Source
+                        </span>
+                      )}
+                      {isOpen && !isSourceLanguage && (
+                        <Check size={12} className="text-emerald-400" />
+                      )}
+                    </span>
                   </button>
                 );
               })}

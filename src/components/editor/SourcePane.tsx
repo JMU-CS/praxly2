@@ -4,6 +4,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 
 import type { SupportedLang } from '../LanguageSelector';
+import { LanguageLogo } from '../LanguageLogo';
 import { MemDia } from './MemDia';
 
 interface SourcePaneProps {
@@ -60,13 +61,14 @@ export function SourcePane({
               <ChevronDown size={12} />
             </button>
             {showSourceLangDropdown && (
-              <div className="absolute top-full left-0 w-40 bg-slate-800 border border-slate-700 rounded-md shadow-xl overflow-hidden mt-1 z-[110]">
+              <div className="absolute top-full left-0 w-44 bg-slate-800 border border-slate-700 rounded-md shadow-xl overflow-hidden mt-1 z-[110]">
                 {SOURCE_OPTIONS.map((lang) => (
                   <button
                     key={lang}
                     onClick={() => onSelectSourceLang(lang)}
-                    className="block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors"
+                    className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors"
                   >
+                    <LanguageLogo lang={lang} size={14} />
                     {lang === 'csp'
                       ? 'CSP'
                       : lang === 'java'

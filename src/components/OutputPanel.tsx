@@ -88,33 +88,6 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
         <ResizeHandle direction="vertical" isActive={resizeActive} onMouseDown={onResize} />
       )}
 
-      {/* Variables Panel */}
-      {showVariables && (
-        <div className="flex flex-col border-b sm:border-b-0 sm:border-r border-slate-800 w-full sm:w-64 shrink-0 max-h-40 sm:max-h-none">
-          <div className="h-8 flex items-center px-4 bg-slate-900 border-b border-slate-800 shrink-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              Variables
-            </span>
-          </div>
-          <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-5 bg-slate-950">
-            {Object.keys(variables).length === 0 ? (
-              <div className="text-slate-700 italic opacity-40">No variables</div>
-            ) : (
-              Object.entries(variables).map(([name, value]) => {
-                if (typeof value === 'function' || name.startsWith('_')) return null;
-                const valueStr = formatVariableValue(value);
-                return (
-                  <div key={name} className="flex justify-between gap-2 py-1">
-                    <span className="text-slate-400">{name}:</span>
-                    <span className="text-slate-300 font-semibold">{valueStr}</span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Output Panel */}
       <div className="flex-1 flex flex-col border-r border-slate-800 overflow-hidden">
         <div className="h-8 flex items-center px-4 bg-slate-900 border-b border-slate-800 shrink-0 justify-between">
@@ -150,13 +123,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
               const displayLine = isEchoedInput ? line.slice(2) : line;
 
               return (
-                <div
-                  key={idx}
-                  className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0"
-                >
-                  <span className="text-slate-700 select-none w-6 text-right text-xs">
-                    {idx + 1}
-                  </span>
+                <div key={idx} className="border-b border-slate-900/40 last:border-0 py-0">
                   <span
                     className={`${isEchoedInput ? 'text-cyan-400' : 'text-slate-300'} break-all`}
                   >
@@ -191,6 +158,33 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
           </div>
         )}
       </div>
+
+      {/* Variables Panel */}
+      {showVariables && (
+        <div className="flex flex-col border-t sm:border-t-0 sm:border-l border-slate-800 w-full sm:w-64 shrink-0 max-h-40 sm:max-h-none">
+          <div className="h-8 flex items-center px-4 bg-slate-900 border-b border-slate-800 shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              Variables
+            </span>
+          </div>
+          <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-5 bg-slate-950">
+            {Object.keys(variables).length === 0 ? (
+              <div className="text-slate-700 italic opacity-40">No variables</div>
+            ) : (
+              Object.entries(variables).map(([name, value]) => {
+                if (typeof value === 'function' || name.startsWith('_')) return null;
+                const valueStr = formatVariableValue(value);
+                return (
+                  <div key={name} className="flex justify-between gap-2 py-1">
+                    <span className="text-slate-400">{name}:</span>
+                    <span className="text-slate-300 font-semibold">{valueStr}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
