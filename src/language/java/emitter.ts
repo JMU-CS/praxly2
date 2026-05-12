@@ -939,6 +939,23 @@ export class JavaEmitter extends ASTVisitor {
       this.visitBlock(stmt.body);
       this.dedent();
       this.emit('}');
+    } else if (
+      stmt.iterable.type === 'BinaryExpression' &&
+      (stmt.iterable as any).operator === '..'
+    ) {
+      // Handle Praxis range operator: for x in start..end  (inclusive)
+      const iter = stmt.iterable as any;
+      const start = this.generateExpression(iter.left, 0);
+      const end = this.generateExpression(iter.right, 0);
+      const v = stmt.variable;
+      this.emit(`for (int ${v} = ${start}; ${v} <= ${end}; ${v}++) {`, stmt.id);
+      this.indent();
+      this.context.symbolTable.enterScope();
+      this.context.symbolTable.set(v, 'int');
+      this.visitBlock(stmt.body);
+      this.context.symbolTable.exitScope();
+      this.dedent();
+      this.emit('}');
     } else {
       // Handle iterator-based for loop: for(type var : iterable)
       let varType = 'var';

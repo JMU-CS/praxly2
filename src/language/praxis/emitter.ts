@@ -147,8 +147,12 @@ export class PraxisEmitter extends ASTVisitor {
 
   visitPrint(stmt: any): void {
     const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
-    // Praxis: `print expr` — no parentheses; multiple expressions concatenated with +
-    this.emit(`print ${args.join(' + ')}`, stmt.id);
+    if (args.length === 1) {
+      this.emit(`print ${args[0]}`, stmt.id);
+    } else {
+      // Texas dialect: print(arg1, arg2, ...)
+      this.emit(`print (${args.join(', ')})`, stmt.id);
+    }
   }
 
   visitAssignment(stmt: any): void {
@@ -542,7 +546,8 @@ export class PraxisEmitter extends ASTVisitor {
 
       case 'UpdateExpression': {
         const argStr = this.generateExpression((expr as any).argument, Precedence.Unary);
-        output = (expr as any).operator === '++' ? `${argStr}++` : `${argStr}--`;
+        const upOp = (expr as any).operator;
+        output = (expr as any).prefix ? `${upOp}${argStr}` : `${argStr}${upOp}`;
         break;
       }
 

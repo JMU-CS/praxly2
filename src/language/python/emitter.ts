@@ -437,21 +437,97 @@ export class PythonEmitter extends ASTVisitor {
   }
 
   /**
+   * Attempts to extract range() arguments from a C-style for loop.
+   * Returns null if the loop cannot be cleanly expressed as for-in-range.
+   */
+  private tryExtractRangeArgs(
+    stmt: For
+  ): { variable: string; start: string; end: string; step: string; inclusive: boolean } | null {
+    if (!stmt.init || !stmt.condition || !stmt.update) return null;
+
+    // init must be a simple assignment: var = start
+    const init = stmt.init as any;
+    if (init.type !== 'Assignment') return null;
+    const variable = init.name as string;
+    const start = this.generateExpression(init.value, 0);
+
+    // condition must be: variable < end  OR  variable <= end
+    if (stmt.condition.type !== 'BinaryExpression') return null;
+    const cond = stmt.condition as any;
+    if (cond.left?.type !== 'Identifier' || cond.left.name !== variable) return null;
+    if (!['<', '<='].includes(cond.operator)) return null;
+    const inclusive = cond.operator === '<=';
+    const end = this.generateExpression(cond.right, 0);
+
+    // update must be: variable++ / ++variable  OR  variable = variable + step
+    const update = stmt.update as any;
+    let step = '1';
+    if (update.type === 'ExpressionStatement') {
+      const upd = update.expression as any;
+      if (upd?.type !== 'UpdateExpression') return null;
+      if (upd.argument?.name !== variable || upd.operator !== '++') return null;
+    } else if (update.type === 'Assignment') {
+      if (update.name !== variable) return null;
+      const val = update.value as any;
+      if (val?.type !== 'BinaryExpression') return null;
+      if (val.left?.type !== 'Identifier' || val.left.name !== variable) return null;
+      if (val.operator !== '+') return null;
+      step = this.generateExpression(val.right, 0);
+    } else {
+      return null;
+    }
+
+    return { variable, start, end, step, inclusive };
+  }
+
+  /**
    * Translates for loops in multiple formats:
-   * 1. C-style: converts to while loop
+   * 1. C-style: converts to for-in-range when the pattern matches, falls back to while loop
    * 2. Iterator-based: for var in iterable with optional tuple unpacking
    * Supports optional else clause executed if loop completes without break.
    */
   visitFor(stmt: For): void {
     if (stmt.init && stmt.condition && stmt.update) {
-      this.context.symbolTable.enterScope();
-      this.visitStatement(stmt.init);
-      this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
+      const range = this.tryExtractRangeArgs(stmt);
+      if (range) {
+        const { variable, start, end, step, inclusive } = range;
+        const endExpr = inclusive ? `${end} + 1` : end;
+        let rangeCall: string;
+        if (start === '0' && step === '1') {
+          rangeCall = `range(${endExpr})`;
+        } else if (step === '1') {
+          rangeCall = `range(${start}, ${endExpr})`;
+        } else {
+          rangeCall = `range(${start}, ${endExpr}, ${step})`;
+        }
+        this.emit(`for ${variable} in ${rangeCall}:`, stmt.id);
+        this.indent();
+        this.visitBlock(stmt.body);
+        this.dedent();
+      } else {
+        this.context.symbolTable.enterScope();
+        this.visitStatement(stmt.init);
+        this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
+        this.indent();
+        this.visitBlock(stmt.body);
+        this.visitStatement(stmt.update);
+        this.dedent();
+        this.context.symbolTable.exitScope();
+      }
+    } else if (
+      stmt.iterable?.type === 'BinaryExpression' &&
+      (stmt.iterable as any).operator === '..'
+    ) {
+      // Praxis range operator: for x in start..end  (inclusive) → range(start, end + 1)
+      const iter = stmt.iterable as any;
+      const start = this.generateExpression(iter.left, 0);
+      const end = this.generateExpression(iter.right, 0);
+      const startIsZero = start === '0';
+      const rangeCall = startIsZero ? `range(${end} + 1)` : `range(${start}, ${end} + 1)`;
+      this.emit(`for ${stmt.variable} in ${rangeCall}:`, stmt.id);
       this.indent();
       this.visitBlock(stmt.body);
-      this.visitStatement(stmt.update);
       this.dedent();
-      this.context.symbolTable.exitScope();
     } else {
       if (stmt.variables && stmt.variables.length > 1) {
         this.emit(

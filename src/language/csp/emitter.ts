@@ -291,6 +291,16 @@ export class CSPEmitter extends ASTVisitor {
       this.visitBlock(stmt.body);
       this.dedent();
       this.emit('}');
+    } else if (stmt.iterable?.type === 'BinaryExpression' && stmt.iterable.operator === '..') {
+      // Praxis range operator: for x in start..end  (inclusive)
+      const start = this.generateExpression(stmt.iterable.left, 0);
+      const end = this.generateExpression(stmt.iterable.right, 0);
+      this.emit(`FOR ${stmt.variable} FROM ${start} TO ${end} STEP 1`, stmt.id);
+      this.emit('{');
+      this.indent();
+      this.visitBlock(stmt.body);
+      this.dedent();
+      this.emit('}');
     } else {
       this.emit(
         `FOR EACH ${stmt.variable} IN ${this.generateExpression(stmt.iterable, 0)}`,

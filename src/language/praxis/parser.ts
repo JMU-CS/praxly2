@@ -425,12 +425,26 @@ export class PraxisParser {
 
   /**
    * Runs print statement.
+   * Supports Texas dialect: print arg | print(arg) | print(arg1, arg2, ...)
    */
   private printStatement(): Statement {
     const printToken = this.consume('KEYWORD', 'print');
-    const expr = this.expression();
+    const expressions: Expression[] = [];
 
-    const stmt: any = { id: generateId(), type: 'Print', expressions: [expr] };
+    if (this.match('PUNCTUATION', '(')) {
+      // Parenthesized form: print(arg1, arg2, ...)
+      if (!this.check('PUNCTUATION', ')')) {
+        do {
+          expressions.push(this.expression());
+        } while (this.match('PUNCTUATION', ','));
+      }
+      this.consume('PUNCTUATION', ')');
+    } else {
+      // Bare form: print expr
+      expressions.push(this.expression());
+    }
+
+    const stmt: any = { id: generateId(), type: 'Print', expressions };
     const trailingComment = this.extractTrailingLineComment(printToken.start);
     if (trailingComment) {
       const metadata = this.parsePrintCommentMetadata(trailingComment);
@@ -843,6 +857,18 @@ export class PraxisParser {
       const right = this.unary();
       return { id: generateId(), type: 'UnaryExpression', operator, argument: right };
     }
+    // Prefix increment / decrement: ++i, --i
+    if (this.match('OPERATOR', '++', '--')) {
+      const op = this.previous().value as '++' | '--';
+      const arg = this.call();
+      return {
+        id: generateId(),
+        type: 'UpdateExpression',
+        operator: op,
+        prefix: true,
+        argument: arg,
+      };
+    }
     return this.call();
   }
 
@@ -879,6 +905,16 @@ export class PraxisParser {
           this.current = savedPos;
           break;
         }
+      } else if (this.match('OPERATOR', '++', '--')) {
+        // Postfix increment / decrement: i++, i--
+        const op = this.previous().value as '++' | '--';
+        expr = {
+          id: generateId(),
+          type: 'UpdateExpression',
+          operator: op,
+          prefix: false,
+          argument: expr,
+        };
       } else {
         break;
       }
