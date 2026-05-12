@@ -27,7 +27,7 @@
     "@uiw/codemirror-theme-vscode": "^4.25.4",
     "@uiw/react-codemirror": "^4.25.4",
     "autoprefixer": "^10.4.23",
-    "chromedriver": "^146.0.4",
+    "chromedriver": "^148.0.2",
     "csv-parse": "^6.2.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.6",

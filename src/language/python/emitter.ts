@@ -24,6 +24,74 @@ import type {
 export class PythonEmitter extends ASTVisitor {
   // Tracks field names in current class scope for self. prefixing
   private currentClassFields = new Set<string>();
+  // Full field registry: class name → all fields (own + implicit + inherited)
+  private classFieldRegistry = new Map<string, Set<string>>();
+
+  /** Pre-pass: build field registry for every class, including inherited fields. */
+  private buildClassFieldRegistry(program: Program): void {
+    const classDeclMap = new Map<string, ClassDeclaration>();
+    program.body.forEach((s) => {
+      if (s.type === 'ClassDeclaration') {
+        classDeclMap.set((s as ClassDeclaration).name, s as ClassDeclaration);
+      }
+    });
+
+    const getFields = (name: string): Set<string> => {
+      if (this.classFieldRegistry.has(name)) return this.classFieldRegistry.get(name)!;
+      const decl = classDeclMap.get(name);
+      if (!decl) return new Set();
+
+      const fields = new Set<string>();
+
+      // Explicit FieldDeclarations
+      decl.body.forEach((m) => {
+        if (m.type === 'FieldDeclaration') fields.add((m as any).name);
+      });
+
+      // Implicit: self.x = y  in constructors and methods
+      decl.body.forEach((m) => {
+        if (m.type === 'Constructor' || m.type === 'MethodDeclaration') {
+          this.collectSelfFields((m as any).body, fields);
+        }
+      });
+
+      // Inherited fields from superclass
+      if (decl.superClass) {
+        getFields(decl.superClass.name).forEach((f) => fields.add(f));
+      }
+
+      this.classFieldRegistry.set(name, fields);
+      return fields;
+    };
+
+    classDeclMap.forEach((_, n) => getFields(n));
+  }
+
+  /** Walk a block and add every `self.x = …` / `this.x = …` field name to the set. */
+  private collectSelfFields(body: Block, fields: Set<string>): void {
+    if (!body?.body) return;
+    body.body.forEach((stmt: any) => {
+      // target: MemberExpression(self/this, x)
+      const me =
+        stmt.target?.type === 'MemberExpression'
+          ? stmt.target
+          : stmt.memberExpr?.type === 'MemberExpression'
+            ? stmt.memberExpr
+            : null;
+      if (
+        me &&
+        (me.object?.name === 'self' ||
+          me.object?.name === 'this' ||
+          me.object?.type === 'ThisExpression')
+      ) {
+        fields.add(me.property?.name);
+      }
+      // Recurse into nested blocks
+      if (stmt.body) this.collectSelfFields(stmt.body, fields);
+      if (stmt.thenBranch) this.collectSelfFields(stmt.thenBranch, fields);
+      if (stmt.elseBranch) this.collectSelfFields(stmt.elseBranch, fields);
+    });
+  }
 
   /**
    * Runs to python type.
@@ -114,6 +182,7 @@ export class PythonEmitter extends ASTVisitor {
    * Handles Java Main class wrapper pattern by extracting its main method body.
    */
   visitProgram(program: Program): void {
+    this.buildClassFieldRegistry(program);
     const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
     const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
 
@@ -161,19 +230,14 @@ export class PythonEmitter extends ASTVisitor {
     this.emit(`class ${classDecl.name}${baseClass}:`);
     this.indent();
 
-    this.currentClassFields.clear();
-    classDecl.body.forEach((member) => {
-      if (member.type === 'FieldDeclaration') {
-        this.currentClassFields.add((member as any).name);
-      }
-    });
+    this.currentClassFields = this.classFieldRegistry.get(classDecl.name) ?? new Set();
 
     classDecl.body.forEach((member) => {
       this.visitStatement(member);
       this.emit('');
     });
 
-    this.currentClassFields.clear();
+    this.currentClassFields = new Set();
     this.dedent();
   }
 
@@ -437,21 +501,97 @@ export class PythonEmitter extends ASTVisitor {
   }
 
   /**
+   * Attempts to extract range() arguments from a C-style for loop.
+   * Returns null if the loop cannot be cleanly expressed as for-in-range.
+   */
+  private tryExtractRangeArgs(
+    stmt: For
+  ): { variable: string; start: string; end: string; step: string; inclusive: boolean } | null {
+    if (!stmt.init || !stmt.condition || !stmt.update) return null;
+
+    // init must be a simple assignment: var = start
+    const init = stmt.init as any;
+    if (init.type !== 'Assignment') return null;
+    const variable = init.name as string;
+    const start = this.generateExpression(init.value, 0);
+
+    // condition must be: variable < end  OR  variable <= end
+    if (stmt.condition.type !== 'BinaryExpression') return null;
+    const cond = stmt.condition as any;
+    if (cond.left?.type !== 'Identifier' || cond.left.name !== variable) return null;
+    if (!['<', '<='].includes(cond.operator)) return null;
+    const inclusive = cond.operator === '<=';
+    const end = this.generateExpression(cond.right, 0);
+
+    // update must be: variable++ / ++variable  OR  variable = variable + step
+    const update = stmt.update as any;
+    let step = '1';
+    if (update.type === 'ExpressionStatement') {
+      const upd = update.expression as any;
+      if (upd?.type !== 'UpdateExpression') return null;
+      if (upd.argument?.name !== variable || upd.operator !== '++') return null;
+    } else if (update.type === 'Assignment') {
+      if (update.name !== variable) return null;
+      const val = update.value as any;
+      if (val?.type !== 'BinaryExpression') return null;
+      if (val.left?.type !== 'Identifier' || val.left.name !== variable) return null;
+      if (val.operator !== '+') return null;
+      step = this.generateExpression(val.right, 0);
+    } else {
+      return null;
+    }
+
+    return { variable, start, end, step, inclusive };
+  }
+
+  /**
    * Translates for loops in multiple formats:
-   * 1. C-style: converts to while loop
+   * 1. C-style: converts to for-in-range when the pattern matches, falls back to while loop
    * 2. Iterator-based: for var in iterable with optional tuple unpacking
    * Supports optional else clause executed if loop completes without break.
    */
   visitFor(stmt: For): void {
     if (stmt.init && stmt.condition && stmt.update) {
-      this.context.symbolTable.enterScope();
-      this.visitStatement(stmt.init);
-      this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
+      const range = this.tryExtractRangeArgs(stmt);
+      if (range) {
+        const { variable, start, end, step, inclusive } = range;
+        const endExpr = inclusive ? `${end} + 1` : end;
+        let rangeCall: string;
+        if (start === '0' && step === '1') {
+          rangeCall = `range(${endExpr})`;
+        } else if (step === '1') {
+          rangeCall = `range(${start}, ${endExpr})`;
+        } else {
+          rangeCall = `range(${start}, ${endExpr}, ${step})`;
+        }
+        this.emit(`for ${variable} in ${rangeCall}:`, stmt.id);
+        this.indent();
+        this.visitBlock(stmt.body);
+        this.dedent();
+      } else {
+        this.context.symbolTable.enterScope();
+        this.visitStatement(stmt.init);
+        this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
+        this.indent();
+        this.visitBlock(stmt.body);
+        this.visitStatement(stmt.update);
+        this.dedent();
+        this.context.symbolTable.exitScope();
+      }
+    } else if (
+      stmt.iterable?.type === 'BinaryExpression' &&
+      (stmt.iterable as any).operator === '..'
+    ) {
+      // Praxis range operator: for x in start..end  (inclusive) → range(start, end + 1)
+      const iter = stmt.iterable as any;
+      const start = this.generateExpression(iter.left, 0);
+      const end = this.generateExpression(iter.right, 0);
+      const startIsZero = start === '0';
+      const rangeCall = startIsZero ? `range(${end} + 1)` : `range(${start}, ${end} + 1)`;
+      this.emit(`for ${stmt.variable} in ${rangeCall}:`, stmt.id);
       this.indent();
       this.visitBlock(stmt.body);
-      this.visitStatement(stmt.update);
       this.dedent();
-      this.context.symbolTable.exitScope();
     } else {
       if (stmt.variables && stmt.variables.length > 1) {
         this.emit(
@@ -545,13 +685,16 @@ export class PythonEmitter extends ASTVisitor {
       case 'Literal':
         if (expr.value === null || expr.raw === 'None' || expr.raw === '"None"') output = 'None';
         else if (typeof expr.value === 'string') {
-          const strVal =
-            expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
-              ? expr.value.substring(1)
-              : expr.value;
+          const hasPyPrefix =
+            expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"');
+          const strVal = hasPyPrefix ? expr.value.substring(1) : expr.value;
           output = `"${strVal}"`;
         } else if (typeof expr.value === 'boolean') output = expr.value ? 'True' : 'False';
-        else output = String(expr.value);
+        else {
+          // Preserve float literals like 0.0, 3.14 — raw keeps the original token text
+          const raw = expr.raw;
+          output = raw && raw.includes('.') ? raw : String(expr.value);
+        }
         break;
       case 'Identifier':
         if (expr.name === 'this') {
@@ -661,6 +804,13 @@ export class PythonEmitter extends ASTVisitor {
         }
         if (calleeStrPy === 'REMOVE' && expr.arguments.length === 2) {
           output = `${this.generateExpression(expr.arguments[0], 0)}.pop(${this.generateExpression(expr.arguments[1], 0)} - 1)`;
+          break;
+        }
+
+        // Java super(args) → Python super().__init__(args)
+        if (calleeStrPy === 'super') {
+          const superArgs = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
+          output = `super().__init__(${superArgs})`;
           break;
         }
 

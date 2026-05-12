@@ -425,12 +425,46 @@ export class PraxisParser {
 
   /**
    * Runs print statement.
+   * Supports Texas dialect: print arg | print(arg) | print(arg1, arg2, ...)
    */
   private printStatement(): Statement {
     const printToken = this.consume('KEYWORD', 'print');
-    const expr = this.expression();
+    const expressions: Expression[] = [];
 
-    const stmt: any = { id: generateId(), type: 'Print', expressions: [expr] };
+    const savedPos = this.current;
+    if (this.match('PUNCTUATION', '(')) {
+      // Parenthesized form: print(arg1, arg2, ...)
+      if (!this.check('PUNCTUATION', ')')) {
+        do {
+          expressions.push(this.expression());
+        } while (this.match('PUNCTUATION', ','));
+      }
+      this.consume('PUNCTUATION', ')');
+
+      // If the closing ) is immediately followed by a binary/logical operator,
+      // the ( was part of a larger expression, not a function-call arg list.
+      // Back up and re-parse the whole thing as a bare expression.
+      if (expressions.length === 1) {
+        const next = this.peek();
+        const isBinaryOp =
+          next &&
+          ((next.type === 'KEYWORD' && (next.value === 'and' || next.value === 'or')) ||
+            (next.type === 'OPERATOR' &&
+              ['+', '-', '*', '/', '%', '**', '^', '==', '!=', '<', '>', '<=', '>='].includes(
+                next.value
+              )));
+        if (isBinaryOp) {
+          this.current = savedPos;
+          expressions.length = 0;
+          expressions.push(this.expression());
+        }
+      }
+    } else {
+      // Bare form: print expr
+      expressions.push(this.expression());
+    }
+
+    const stmt: any = { id: generateId(), type: 'Print', expressions };
     const trailingComment = this.extractTrailingLineComment(printToken.start);
     if (trailingComment) {
       const metadata = this.parsePrintCommentMetadata(trailingComment);
@@ -843,6 +877,18 @@ export class PraxisParser {
       const right = this.unary();
       return { id: generateId(), type: 'UnaryExpression', operator, argument: right };
     }
+    // Prefix increment / decrement: ++i, --i
+    if (this.match('OPERATOR', '++', '--')) {
+      const op = this.previous().value as '++' | '--';
+      const arg = this.call();
+      return {
+        id: generateId(),
+        type: 'UpdateExpression',
+        operator: op,
+        prefix: true,
+        argument: arg,
+      };
+    }
     return this.call();
   }
 
@@ -879,6 +925,16 @@ export class PraxisParser {
           this.current = savedPos;
           break;
         }
+      } else if (this.match('OPERATOR', '++', '--')) {
+        // Postfix increment / decrement: i++, i--
+        const op = this.previous().value as '++' | '--';
+        expr = {
+          id: generateId(),
+          type: 'UpdateExpression',
+          operator: op,
+          prefix: false,
+          argument: expr,
+        };
       } else {
         break;
       }

@@ -398,34 +398,20 @@ async function supplyInputs(driver: WebDriver, lines: string[]): Promise<void> {
  */
 async function readOutputPanel(driver: WebDriver): Promise<string> {
   try {
-    // Find the output panel by testid
     const panel = await driver.findElement(By.css('[data-testid="output-panel"]'));
 
-    // Find all output line divs within the panel
+    // The output container is the first bg-slate-950 div (variables panel, if shown, comes after)
     const outputContainer = await panel.findElement(
       By.css('div.flex-1.overflow-auto.bg-slate-950')
     );
 
-    // Get all the line divs (each output line is in a separate div)
-    const lineDivs = await outputContainer.findElements(By.css('div.flex.gap-4'));
+    // Each output line is rendered as: <div><span>text</span></div>
+    // The placeholder ("Run code to see...") is a <div>, not a <span>, so spans-only is safe
+    const spans = await outputContainer.findElements(By.css('div > span'));
 
-    if (lineDivs.length === 0) {
-      // No output yet - check if there's the "Run code to see..." placeholder
-      const text = await outputContainer.getText();
-      return '';
-    }
+    if (spans.length === 0) return '';
 
-    // Extract just the output text (skip the line numbers)
-    const lines: string[] = [];
-    for (const lineDiv of lineDivs) {
-      const spans = await lineDiv.findElements(By.css('span'));
-      if (spans.length >= 2) {
-        // The second span contains the actual output
-        const outputText = await spans[1].getText();
-        lines.push(outputText);
-      }
-    }
-
+    const lines = await Promise.all(spans.map((s) => s.getText()));
     return lines.join('\n');
   } catch (e) {
     console.error('Error reading output panel:', e);
@@ -438,21 +424,16 @@ async function readOutputPanel(driver: WebDriver): Promise<string> {
  */
 async function readErrorText(driver: WebDriver): Promise<string> {
   try {
-    // Find the output panel which contains error info in the header
     const panel = await driver.findElement(By.css('[data-testid="output-panel"]'));
 
-    // Look for error message in the header (where AlertCircle icon appears)
-    const header = await panel.findElement(By.css('div.h-8'));
-    const headerText = await header.getText();
-
-    // The error text appears after the "CONSOLE OUTPUT" label
-    if (headerText.includes('Error') || headerText.includes('error')) {
-      return headerText;
+    // The error message lives in a div with text-red-400 (the AnimatedPulse AlertCircle div)
+    const errorEls = await panel.findElements(By.css('div.text-red-400'));
+    if (errorEls.length > 0) {
+      const text = await errorEls[0].getText();
+      return text.trim();
     }
-
     return '';
   } catch (_) {
-    // If we can't find an error element, there's probably no error
     return '';
   }
 }

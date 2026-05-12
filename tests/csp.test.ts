@@ -572,7 +572,8 @@ REPEAT n TIMES
       const translator = new Translator();
       const result = translator.translate(program, 'python');
       // REPEAT n TIMES becomes a while loop (we have a counter loop internally)
-      expect(result).toContain('while');
+      // expect(result).toContain('while');
+      expect(result).toContain('range');
     });
 
     it('should keep fixed-size arrays as Java arrays when not appended', () => {

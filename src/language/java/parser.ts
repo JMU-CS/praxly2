@@ -1148,7 +1148,13 @@ export class JavaParser {
         expr = {
           id: generateId(),
           type: 'CallExpression',
-          callee: { id: generateId(), type: 'Identifier', name: property },
+          callee: {
+            id: generateId(),
+            type: 'MemberExpression',
+            object: expr,
+            property: { id: generateId(), type: 'Identifier', name: property },
+            isMethod: true,
+          },
           arguments: args,
         };
       } else {

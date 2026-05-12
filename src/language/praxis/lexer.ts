@@ -173,6 +173,18 @@ export class PraxisLexer {
           continue;
         }
 
+        // Increment / Decrement
+        if (char === '+' && this.input[this.pos + 1] === '+') {
+          tokens.push({ type: 'OPERATOR', value: '++', start });
+          this.pos += 2;
+          continue;
+        }
+        if (char === '-' && this.input[this.pos + 1] === '-') {
+          tokens.push({ type: 'OPERATOR', value: '--', start });
+          this.pos += 2;
+          continue;
+        }
+
         // Multi-character Assignments and Comparisons
         if (char === '<' && this.input[this.pos + 1] === '-') {
           tokens.push({ type: 'OPERATOR', value: '<-', start });
