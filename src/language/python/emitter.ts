@@ -621,10 +621,9 @@ export class PythonEmitter extends ASTVisitor {
       case 'Literal':
         if (expr.value === null || expr.raw === 'None' || expr.raw === '"None"') output = 'None';
         else if (typeof expr.value === 'string') {
-          const strVal =
-            expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
-              ? expr.value.substring(1)
-              : expr.value;
+          const hasPyPrefix =
+            expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"');
+          const strVal = hasPyPrefix ? expr.value.substring(1) : expr.value;
           output = `"${strVal}"`;
         } else if (typeof expr.value === 'boolean') output = expr.value ? 'True' : 'False';
         else output = String(expr.value);

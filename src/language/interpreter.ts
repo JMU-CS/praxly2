@@ -875,7 +875,10 @@ export class Interpreter {
    * Runs register class.
    */
   private registerClass(classDecl: ClassDeclaration) {
-    const javaClass = new JavaClass(classDecl.name);
+    const superClass = classDecl.superClass
+      ? this.classes.get(classDecl.superClass.name)
+      : undefined;
+    const javaClass = new JavaClass(classDecl.name, superClass);
 
     for (const member of classDecl.body) {
       if (member.type === 'MethodDeclaration') {

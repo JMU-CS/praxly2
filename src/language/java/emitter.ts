@@ -45,6 +45,14 @@ export class JavaEmitter extends ASTVisitor {
     return paramType === 'auto' || paramType === 'var' ? 'Object' : paramType;
   }
 
+  /** Returns the concrete type for a constructor/method param, falling back to call-site inference. */
+  private resolveCtorParamType(param: any, index: number, callSiteTypes: string[]): string {
+    if (param.paramType && param.paramType !== 'auto' && param.paramType !== 'var') {
+      return this.toJavaParamType(param.paramType);
+    }
+    return callSiteTypes[index] || 'Object';
+  }
+
   /**
    * Runs to boxed java type.
    */
@@ -265,8 +273,13 @@ export class JavaEmitter extends ASTVisitor {
       if (member.type !== 'Constructor' && member.type !== 'MethodDeclaration') return;
 
       const paramTypes = new Map<string, string>();
-      member.params.forEach((param) => {
-        paramTypes.set(param.name, this.toJavaParamType(param.paramType));
+      const isConstructor = member.type === 'Constructor';
+      const callSiteTypes = isConstructor
+        ? this.context.functionParamTypes.get(classDecl.name) || []
+        : [];
+      const paramsForScope = this.normalizeInstanceParams(member.params);
+      paramsForScope.forEach((param, i) => {
+        paramTypes.set(param.name, this.resolveCtorParamType(param, i, callSiteTypes));
       });
 
       scanNode(member.body, paramTypes);
@@ -456,15 +469,16 @@ export class JavaEmitter extends ASTVisitor {
   visitConstructor(ctor: Constructor): void {
     const className = this.currentClassName || 'Main';
     const paramsForSignature = this.normalizeInstanceParams(ctor.params);
+    const callSiteTypes = this.context.functionParamTypes.get(className) || [];
     const params = paramsForSignature
-      .map((p) => `${this.toJavaParamType(p.paramType)} ${p.name}`)
+      .map((p, i) => `${this.resolveCtorParamType(p, i, callSiteTypes)} ${p.name}`)
       .join(', ');
     this.emit(`public ${className}(${params}) {`);
     this.indent();
     this.context.symbolTable.enterScope();
     this.instanceContextDepth++;
-    paramsForSignature.forEach((p) =>
-      this.context.symbolTable.set(p.name, this.toJavaParamType(p.paramType))
+    paramsForSignature.forEach((p, i) =>
+      this.context.symbolTable.set(p.name, this.resolveCtorParamType(p, i, callSiteTypes))
     );
     this.visitBlock(ctor.body);
     this.instanceContextDepth--;
@@ -1091,10 +1105,9 @@ export class JavaEmitter extends ASTVisitor {
         // Handle null, string, boolean, and numeric literals
         if (expr.value === null || expr.raw === '"None"') output = 'null';
         else if (typeof expr.value === 'string') {
-          const strVal =
-            expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
-              ? expr.value.substring(1)
-              : expr.value;
+          const hasPyPrefix =
+            expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"');
+          const strVal = hasPyPrefix ? expr.value.substring(1) : expr.value;
           output = `"${strVal}"`;
         } else if (typeof expr.value === 'boolean') output = expr.value.toString();
         else output = String(expr.value);

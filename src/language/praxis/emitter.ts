@@ -457,10 +457,9 @@ export class PraxisEmitter extends ASTVisitor {
       case 'Literal':
         if (expr.value === null) output = 'null';
         else if (typeof expr.value === 'string') {
-          const v =
-            expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
-              ? expr.value.substring(1)
-              : expr.value;
+          const hasPyPrefix =
+            expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"');
+          const v = hasPyPrefix ? expr.value.substring(1) : expr.value;
           output = `"${v}"`;
         } else if (typeof expr.value === 'boolean') {
           output = expr.value ? 'true' : 'false';

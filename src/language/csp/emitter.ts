@@ -368,7 +368,7 @@ export class CSPEmitter extends ASTVisitor {
         if (expr.value === null) output = 'null';
         else if (typeof expr.value === 'string') {
           const v =
-            expr.value.startsWith('f') || expr.value.startsWith('r') || expr.value.startsWith('b')
+            expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"')
               ? expr.value.substring(1)
               : expr.value;
           output = `"${v}"`;
