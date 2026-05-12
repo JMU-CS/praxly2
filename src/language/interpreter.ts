@@ -747,7 +747,7 @@ export class Interpreter {
             continue;
           }
         } else if (stmt.type === 'Assignment') {
-          const callInfo = this.getUserFunctionCall((stmt as any).value, env);
+          const stmtValue = (stmt as any).value;
           const target = (stmt as any).target;
           const varName =
             target?.type === 'Identifier'
@@ -755,6 +755,32 @@ export class Interpreter {
               : !target && !(stmt as any).name?.includes('.')
                 ? (stmt as any).name
                 : null;
+
+          // Direct user function call: score <- askQ(...)
+          let callInfo = this.getUserFunctionCall(stmtValue, env);
+          let binaryOp: string | null = null;
+          let binaryOtherSide: any = null;
+          let funcOnRight = false;
+
+          // Binary expression with a user function call on one side: score <- score + askQ(...)
+          if (!callInfo && stmtValue?.type === 'BinaryExpression') {
+            const rightInfo = this.getUserFunctionCall(stmtValue.right, env);
+            if (rightInfo) {
+              callInfo = rightInfo;
+              binaryOp = stmtValue.operator;
+              binaryOtherSide = stmtValue.left;
+              funcOnRight = true;
+            } else {
+              const leftInfo = this.getUserFunctionCall(stmtValue.left, env);
+              if (leftInfo) {
+                callInfo = leftInfo;
+                binaryOp = stmtValue.operator;
+                binaryOtherSide = stmtValue.right;
+                funcOnRight = false;
+              }
+            }
+          }
+
           if (callInfo && varName) {
             yield {
               nodeId: stmt.id,
@@ -762,12 +788,40 @@ export class Interpreter {
               loc: stmt.loc || null,
               variables: env.getAllVariables(),
             };
-            const returnValue = yield* this.callUserFunctionWithState(
+            const funcResult = yield* this.callUserFunctionWithState(
               callInfo.func,
               callInfo.args,
               env
             );
-            env.define(varName, returnValue, (stmt as any).varType, stmt.loc?.start);
+            let assignValue: any;
+            if (binaryOp !== null) {
+              const other = this.evaluate(binaryOtherSide, env);
+              const l = funcOnRight ? other : funcResult;
+              const r = funcOnRight ? funcResult : other;
+              switch (binaryOp) {
+                case '+':
+                  assignValue = l + r;
+                  break;
+                case '-':
+                  assignValue = l - r;
+                  break;
+                case '*':
+                  assignValue = l * r;
+                  break;
+                case '/':
+                  assignValue =
+                    this.isIntegerType(env.getType(varName)) && r !== 0 ? Math.trunc(l / r) : l / r;
+                  break;
+                case '%':
+                  assignValue = l % r;
+                  break;
+                default:
+                  assignValue = l + r;
+              }
+            } else {
+              assignValue = funcResult;
+            }
+            env.define(varName, assignValue, (stmt as any).varType, stmt.loc?.start);
             i++;
             continue;
           }
@@ -1251,20 +1305,21 @@ export class Interpreter {
           }
         }
 
-        if (stmt.target) {
-          if (stmt.target.type === 'MemberExpression') {
-            const obj = this.evaluate((stmt.target as any).object, env);
-            const fieldName = (stmt.target as any).property.name;
+        const effectiveTarget = stmt.target || (stmt as any).memberExpr;
+        if (effectiveTarget) {
+          if (effectiveTarget.type === 'MemberExpression') {
+            const obj = this.evaluate((effectiveTarget as any).object, env);
+            const fieldName = (effectiveTarget as any).property.name;
             if (obj instanceof JavaInstance) {
               obj.setField(fieldName, value);
             } else {
               obj[fieldName] = value;
             }
-          } else if (stmt.target.type === 'IndexExpression') {
-            const obj = this.evaluate((stmt.target as any).object, env);
-            const idx = this.evaluate((stmt.target as any).index, env);
+          } else if (effectiveTarget.type === 'IndexExpression') {
+            const obj = this.evaluate((effectiveTarget as any).object, env);
+            const idx = this.evaluate((effectiveTarget as any).index, env);
             obj[idx] = value;
-          } else if (stmt.target.type === 'Identifier') {
+          } else if (effectiveTarget.type === 'Identifier') {
             // Identifier target - define the variable with type info
             env.define(varName, value, (stmt as any).varType, declarationOrigin);
           } else {
@@ -1430,8 +1485,34 @@ export class Interpreter {
         return expr.value;
       case 'ArrayLiteral':
         return expr.elements.map((e) => this.evaluate(e, env));
-      case 'Identifier':
-        return env.get(expr.name);
+      case 'Identifier': {
+        try {
+          return env.get(expr.name);
+        } catch {
+          // Bare field access inside a method: implicitly means this.fieldName
+          let instance: any;
+          try {
+            instance = env.get('this');
+          } catch {
+            /* no this */
+          }
+          if (instance === undefined)
+            try {
+              instance = env.get('self');
+            } catch {
+              /* no self */
+            }
+          if (instance instanceof JavaInstance) {
+            try {
+              return instance.getField(expr.name);
+            } catch {
+              /* fall through */
+            }
+          }
+          // Re-throw original "Undefined variable" error
+          return env.get(expr.name);
+        }
+      }
       case 'ThisExpression':
         try {
           return env.get('this');
@@ -1615,6 +1696,40 @@ export class Interpreter {
         }
 
         const calleeName = (expr.callee as any).name;
+
+        // super(args) — run the parent class constructor on the current instance
+        if (calleeName === 'super') {
+          let instance: any;
+          try {
+            instance = env.get('this');
+          } catch {
+            /* no this */
+          }
+          if (instance === undefined)
+            try {
+              instance = env.get('self');
+            } catch {
+              /* no self */
+            }
+          if (instance instanceof JavaInstance && instance.klass.superClass) {
+            const superClass = instance.klass.superClass;
+            if (superClass.ctorDecl) {
+              const superArgs = expr.arguments.map((a) => this.evaluate(a, env));
+              const superEnv = new Environment(env);
+              superEnv.define('this', instance);
+              superEnv.define('self', instance);
+              superClass.ctorDecl.params.forEach((param, i) => {
+                superEnv.define(param.name, superArgs[i] ?? null);
+              });
+              try {
+                this.executeBlock(superClass.ctorDecl.body.body, superEnv);
+              } catch (e) {
+                if (!(e instanceof ReturnException)) throw e;
+              }
+            }
+          }
+          return null;
+        }
 
         // Handle input() function - get prompt from arguments (CSP style)
         if (calleeName === 'input' || calleeName === 'INPUT') {

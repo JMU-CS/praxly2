@@ -431,6 +431,7 @@ export class PraxisParser {
     const printToken = this.consume('KEYWORD', 'print');
     const expressions: Expression[] = [];
 
+    const savedPos = this.current;
     if (this.match('PUNCTUATION', '(')) {
       // Parenthesized form: print(arg1, arg2, ...)
       if (!this.check('PUNCTUATION', ')')) {
@@ -439,6 +440,25 @@ export class PraxisParser {
         } while (this.match('PUNCTUATION', ','));
       }
       this.consume('PUNCTUATION', ')');
+
+      // If the closing ) is immediately followed by a binary/logical operator,
+      // the ( was part of a larger expression, not a function-call arg list.
+      // Back up and re-parse the whole thing as a bare expression.
+      if (expressions.length === 1) {
+        const next = this.peek();
+        const isBinaryOp =
+          next &&
+          ((next.type === 'KEYWORD' && (next.value === 'and' || next.value === 'or')) ||
+            (next.type === 'OPERATOR' &&
+              ['+', '-', '*', '/', '%', '**', '^', '==', '!=', '<', '>', '<=', '>='].includes(
+                next.value
+              )));
+        if (isBinaryOp) {
+          this.current = savedPos;
+          expressions.length = 0;
+          expressions.push(this.expression());
+        }
+      }
     } else {
       // Bare form: print expr
       expressions.push(this.expression());

@@ -24,6 +24,74 @@ import type {
 export class PythonEmitter extends ASTVisitor {
   // Tracks field names in current class scope for self. prefixing
   private currentClassFields = new Set<string>();
+  // Full field registry: class name → all fields (own + implicit + inherited)
+  private classFieldRegistry = new Map<string, Set<string>>();
+
+  /** Pre-pass: build field registry for every class, including inherited fields. */
+  private buildClassFieldRegistry(program: Program): void {
+    const classDeclMap = new Map<string, ClassDeclaration>();
+    program.body.forEach((s) => {
+      if (s.type === 'ClassDeclaration') {
+        classDeclMap.set((s as ClassDeclaration).name, s as ClassDeclaration);
+      }
+    });
+
+    const getFields = (name: string): Set<string> => {
+      if (this.classFieldRegistry.has(name)) return this.classFieldRegistry.get(name)!;
+      const decl = classDeclMap.get(name);
+      if (!decl) return new Set();
+
+      const fields = new Set<string>();
+
+      // Explicit FieldDeclarations
+      decl.body.forEach((m) => {
+        if (m.type === 'FieldDeclaration') fields.add((m as any).name);
+      });
+
+      // Implicit: self.x = y  in constructors and methods
+      decl.body.forEach((m) => {
+        if (m.type === 'Constructor' || m.type === 'MethodDeclaration') {
+          this.collectSelfFields((m as any).body, fields);
+        }
+      });
+
+      // Inherited fields from superclass
+      if (decl.superClass) {
+        getFields(decl.superClass.name).forEach((f) => fields.add(f));
+      }
+
+      this.classFieldRegistry.set(name, fields);
+      return fields;
+    };
+
+    classDeclMap.forEach((_, n) => getFields(n));
+  }
+
+  /** Walk a block and add every `self.x = …` / `this.x = …` field name to the set. */
+  private collectSelfFields(body: Block, fields: Set<string>): void {
+    if (!body?.body) return;
+    body.body.forEach((stmt: any) => {
+      // target: MemberExpression(self/this, x)
+      const me =
+        stmt.target?.type === 'MemberExpression'
+          ? stmt.target
+          : stmt.memberExpr?.type === 'MemberExpression'
+            ? stmt.memberExpr
+            : null;
+      if (
+        me &&
+        (me.object?.name === 'self' ||
+          me.object?.name === 'this' ||
+          me.object?.type === 'ThisExpression')
+      ) {
+        fields.add(me.property?.name);
+      }
+      // Recurse into nested blocks
+      if (stmt.body) this.collectSelfFields(stmt.body, fields);
+      if (stmt.thenBranch) this.collectSelfFields(stmt.thenBranch, fields);
+      if (stmt.elseBranch) this.collectSelfFields(stmt.elseBranch, fields);
+    });
+  }
 
   /**
    * Runs to python type.
@@ -114,6 +182,7 @@ export class PythonEmitter extends ASTVisitor {
    * Handles Java Main class wrapper pattern by extracting its main method body.
    */
   visitProgram(program: Program): void {
+    this.buildClassFieldRegistry(program);
     const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
     const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
 
@@ -161,19 +230,14 @@ export class PythonEmitter extends ASTVisitor {
     this.emit(`class ${classDecl.name}${baseClass}:`);
     this.indent();
 
-    this.currentClassFields.clear();
-    classDecl.body.forEach((member) => {
-      if (member.type === 'FieldDeclaration') {
-        this.currentClassFields.add((member as any).name);
-      }
-    });
+    this.currentClassFields = this.classFieldRegistry.get(classDecl.name) ?? new Set();
 
     classDecl.body.forEach((member) => {
       this.visitStatement(member);
       this.emit('');
     });
 
-    this.currentClassFields.clear();
+    this.currentClassFields = new Set();
     this.dedent();
   }
 
@@ -626,7 +690,11 @@ export class PythonEmitter extends ASTVisitor {
           const strVal = hasPyPrefix ? expr.value.substring(1) : expr.value;
           output = `"${strVal}"`;
         } else if (typeof expr.value === 'boolean') output = expr.value ? 'True' : 'False';
-        else output = String(expr.value);
+        else {
+          // Preserve float literals like 0.0, 3.14 — raw keeps the original token text
+          const raw = expr.raw;
+          output = raw && raw.includes('.') ? raw : String(expr.value);
+        }
         break;
       case 'Identifier':
         if (expr.name === 'this') {
@@ -736,6 +804,13 @@ export class PythonEmitter extends ASTVisitor {
         }
         if (calleeStrPy === 'REMOVE' && expr.arguments.length === 2) {
           output = `${this.generateExpression(expr.arguments[0], 0)}.pop(${this.generateExpression(expr.arguments[1], 0)} - 1)`;
+          break;
+        }
+
+        // Java super(args) → Python super().__init__(args)
+        if (calleeStrPy === 'super') {
+          const superArgs = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
+          output = `super().__init__(${superArgs})`;
           break;
         }
 

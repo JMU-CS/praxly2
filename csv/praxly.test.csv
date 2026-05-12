@@ -530,12 +530,8 @@ correct_ans <- 3
 askQ()","2
 2","What is the capital of Virginia?
 1: Washington 2: Richmond 3: Norfolk
-What is the capital of Virginia?
-1: Washington 2: Richmond 3: Norfolk
 2
 Correct!
-What is the capital of Maryland?
-1: Baltimore 2: D.C. 3: Annapolis
 What is the capital of Maryland?
 1: Baltimore 2: D.C. 3: Annapolis
 2
@@ -556,12 +552,8 @@ askQ(""What is the capital of Virginia?"", ""1: Washington 2: Richmond 3: Norfol
 askQ(""What is the capital of Maryland?"", ""1: Baltimore 2: D.C. 3: Annapolis"", 3)","3
 3","What is the capital of Virginia?
 1: Washington 2: Richmond 3: Norfolk
-What is the capital of Virginia?
-1: Washington 2: Richmond 3: Norfolk
 3
 Incorrect
-What is the capital of Maryland?
-1: Baltimore 2: D.C. 3: Annapolis
 What is the capital of Maryland?
 1: Baltimore 2: D.C. 3: Annapolis
 3
@@ -586,12 +578,8 @@ score <- score + askQ(""What is the capital of Maryland?"", ""1: Baltimore 2: D.
 print score","2
 3","What is the capital of Virginia?
 1: Washington 2: Richmond 3: Norfolk
-What is the capital of Virginia?
-1: Washington 2: Richmond 3: Norfolk
 2
 Correct!
-What is the capital of Maryland?
-1: Baltimore 2: D.C. 3: Annapolis
 What is the capital of Maryland?
 1: Baltimore 2: D.C. 3: Annapolis
 3
@@ -613,10 +601,8 @@ end askQ
 
 askQ()","9
 10","What is 5 + 5?
-What is 5 + 5?
 9
 Incorrect
-What is 5 + 5?
 What is 5 + 5?
 10
 Correct!",
@@ -633,10 +619,8 @@ end askQ
 
 askQ()","9
 10","What is 5 + 5?
-What is 5 + 5?
 9
 Incorrect
-What is 5 + 5?
 What is 5 + 5?
 10
 Correct!",
