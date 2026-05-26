@@ -3,7 +3,7 @@
  * Similar to EditorPage but optimized for sharing and embedding in external websites.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useId, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Play, AlertCircle, FastForward, Square, ChevronDown } from 'lucide-react';
 
@@ -14,6 +14,7 @@ import { HighlightableCodeMirror } from '../components/HighlightableCodeMirror';
 import { JSONTree } from '../components/JSONTree';
 import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import { EditorView } from '@codemirror/view';
 import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
 import { useCodeParsing } from '../hooks/useCodeParsing';
@@ -65,6 +66,7 @@ export default function EmbedPage() {
   const [currentInterpreter, setCurrentInterpreter] = useState<any>(null);
 
   const editorViewRef = useRef<any>(null);
+  const stdinInputId = useId();
 
   // Decode the embed data on mount
   useEffect(() => {
@@ -385,13 +387,18 @@ export default function EmbedPage() {
                 value={embedData.code}
                 height="100%"
                 theme={vscodeDark}
-                extensions={getExtensions(embedData.lang as SupportedLang)}
+                extensions={[
+                  ...getExtensions(embedData.lang as SupportedLang),
+                  EditorView.contentAttributes.of({
+                    'aria-label': `${embedData.lang} source code editor`,
+                  }),
+                ]}
                 editable={true}
                 onChange={(val) => {
                   setEmbedData((prev) => (prev ? { ...prev, code: val } : null));
                 }}
                 onCreateEditor={handleCreateEditor}
-                className="text-sm h-full font-mono"
+                className="h-full font-mono"
               />
             </div>
           </div>
@@ -452,7 +459,7 @@ export default function EmbedPage() {
                   <>
                     <button
                       onClick={handleRun}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded transition-all"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-green-700 hover:bg-green-800 rounded transition-all"
                     >
                       <Play size={12} fill="currentColor" /> Run
                     </button>
@@ -496,7 +503,7 @@ export default function EmbedPage() {
                   {ast ? (
                     <JSONTree data={ast} />
                   ) : (
-                    <div className="text-slate-700 text-center mt-10 italic">
+                    <div className="text-slate-500 text-center mt-10 italic">
                       Valid code required...
                     </div>
                   )}
@@ -538,14 +545,17 @@ export default function EmbedPage() {
               </div>
             )}
             {output.length === 0 && !error ? (
-              <div className="text-slate-700 italic opacity-40">Run code to see output...</div>
+              <div className="text-slate-500 italic">Run code to see output...</div>
             ) : (
               output.map((line, idx) => (
                 <div
                   key={idx}
                   className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5"
                 >
-                  <span className="text-slate-700 select-none w-6 text-right flex-shrink-0">
+                  <span
+                    className="text-slate-500 select-none w-6 text-right flex-shrink-0"
+                    aria-hidden="true"
+                  >
                     {idx + 1}
                   </span>
                   <span className="text-slate-300 break-all">{line}</span>
@@ -555,15 +565,15 @@ export default function EmbedPage() {
           </div>
           {(waitingForInput || waitingForNormalInput) && (
             <div className="border-t border-slate-800 bg-slate-950 mt-4 pt-4 flex flex-col gap-2 shrink-0">
-              {(inputPrompt || normalModeInputPrompt) && (
-                <div className="text-slate-400 text-xs font-mono">
-                  {inputPrompt || normalModeInputPrompt}
-                </div>
-              )}
+              <label htmlFor={stdinInputId} className="text-slate-400 text-xs font-mono">
+                {inputPrompt || normalModeInputPrompt || 'Program input:'}
+              </label>
               <div className="flex gap-2">
                 <input
+                  id={stdinInputId}
                   type="text"
-                  placeholder="Enter input..."
+                  placeholder="Enter input and press Enter…"
+                  aria-label={inputPrompt || normalModeInputPrompt || 'Program input'}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       const input = (e.target as HTMLInputElement).value;
@@ -575,7 +585,7 @@ export default function EmbedPage() {
                       (e.target as HTMLInputElement).value = '';
                     }
                   }}
-                  className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+                  className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-slate-100 text-xs font-mono placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
                   data-testid="stdin-input"
                   autoFocus={waitingForInput || waitingForNormalInput}
                 />
@@ -590,6 +600,7 @@ export default function EmbedPage() {
                     }
                     (e.currentTarget.previousElementSibling as HTMLInputElement).value = '';
                   }}
+                  aria-label="Submit program input"
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded transition-colors shrink-0"
                 >
                   Submit

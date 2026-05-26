@@ -116,7 +116,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
           {/* Title + error */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <Terminal size={14} className="text-indigo-400 shrink-0" aria-hidden="true" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
               Console Output
             </span>
             {error && (
@@ -135,7 +135,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             <button
               onClick={onClose}
               aria-label="Close output panel"
-              className={`p-1 text-slate-600 hover:text-slate-400 transition-colors rounded ${focusRing}`}
+              className={`p-1 text-slate-400 hover:text-slate-200 transition-colors rounded ${focusRing}`}
             >
               <X size={14} aria-hidden="true" />
             </button>
@@ -153,9 +153,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
               aria-atomic="false"
             >
               {output.length === 0 && !error ? (
-                <div className="text-slate-700 italic opacity-40">
-                  Run code to see execution results...
-                </div>
+                <div className="text-slate-400 italic">Run code to see execution results...</div>
               ) : (
                 output.map((line, idx) => {
                   const isEchoedInput = line.startsWith('> ');
@@ -193,7 +191,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     placeholder="Enter input and press Enter…"
                     aria-label={inputPrompt || 'Program input'}
                     style={{ fontSize: 'var(--praxly-font-size, 14px)' }}
-                    className={`flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-slate-100 font-mono focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 ${focusRing}`}
+                    className={`flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-slate-100 font-mono placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 ${focusRing}`}
                     data-testid="stdin-input"
                   />
                   <button
@@ -227,7 +225,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             style={{ fontSize: 'var(--praxly-font-size, 12px)' }}
           >
             {Object.keys(variables).length === 0 ? (
-              <div className="text-slate-700 italic opacity-40">No variables</div>
+              <div className="text-slate-500 italic">No variables</div>
             ) : (
               Object.entries(variables).map(([name, value]) => {
                 if (typeof value === 'function' || name.startsWith('_')) return null;

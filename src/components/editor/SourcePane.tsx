@@ -2,6 +2,7 @@ import type { MouseEvent, RefObject } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import { EditorView } from '@codemirror/view';
 
 import type { SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
@@ -59,7 +60,7 @@ export function SourcePane({
     <div className="flex shrink-0 relative group/editor z-[10]" style={{ width }}>
       <div className="flex-1 flex flex-col border-r border-slate-800 overflow-hidden">
         {/* Pane header */}
-        <div className="h-10 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
+        <div className="h-10 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
           <div className="flex items-center relative h-full source-lang-dropdown">
             <button
               onClick={onToggleSourceLangDropdown}
@@ -108,7 +109,10 @@ export function SourcePane({
               value={code}
               height="100%"
               theme={vscodeDark}
-              extensions={extensions}
+              extensions={[
+                ...extensions,
+                EditorView.contentAttributes.of({ 'aria-label': 'Source code editor' }),
+              ]}
               onChange={onCodeChange}
               onCreateEditor={onCreateEditor}
               className="h-full font-mono"

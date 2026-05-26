@@ -82,14 +82,14 @@ export function TranslationPaneItem({
             ) : (
               <ArrowRightLeft size={14} className="text-indigo-400" aria-hidden="true" />
             )}
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
               {panel.lang} View
             </span>
           </div>
           <button
             onClick={() => onRemovePanel(panel.id)}
             aria-label={`Remove ${panel.lang} panel`}
-            className={`p-1 text-slate-600 hover:text-red-400 transition-colors rounded ${focusRing}`}
+            className={`p-1 text-slate-400 hover:text-red-400 transition-colors rounded ${focusRing}`}
           >
             <X size={14} aria-hidden="true" />
           </button>
@@ -103,7 +103,7 @@ export function TranslationPaneItem({
                 {ast ? (
                   <JSONTree data={ast} />
                 ) : (
-                  <div className="text-slate-700 text-center mt-10 italic">
+                  <div className="text-slate-500 text-center mt-10 italic">
                     Valid code required...
                   </div>
                 )}

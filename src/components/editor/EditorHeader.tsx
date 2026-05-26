@@ -277,7 +277,7 @@ export function EditorHeader({
             <button
               onClick={onRun}
               aria-label="Run code (F5)"
-              className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-md shadow-lg shadow-green-900/20 transition-all hover:translate-y-[-1px] active:translate-y-[1px] ${focusRing}`}
+              className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-green-700 hover:bg-green-800 rounded-md shadow-lg shadow-green-900/20 transition-all hover:translate-y-[-1px] active:translate-y-[1px] ${focusRing}`}
             >
               <Play size={16} fill="currentColor" aria-hidden="true" /> Run Code
             </button>
