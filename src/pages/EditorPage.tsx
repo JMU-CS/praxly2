@@ -15,6 +15,7 @@ import { useCodeDebugger } from '../hooks/useCodeDebugger';
 import { Debugger } from '../language/debugger';
 
 import { EditorHeader } from '../components/editor/EditorHeader';
+import type { TextSize } from '../components/editor/EditorHeader';
 import { SourcePane } from '../components/editor/SourcePane';
 import { TranslationPaneItem } from '../components/editor/TranslationPaneItem';
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
@@ -62,6 +63,11 @@ export default function EditorPage() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showAiSidePanel, setShowAiSidePanel] = useState(false);
   const [showMemDia, setShowMemDia] = useState(false);
+  const [outputCollapsed, setOutputCollapsed] = useState(false);
+  const [textSize, setTextSize] = useState<TextSize>(
+    () => Number(localStorage.getItem('praxly-text-size')) || 3
+  );
+  const [memDiaCollapsedPanes, setMemDiaCollapsedPanes] = useState<Set<string>>(new Set());
   const [aiPanelWidth, setAiPanelWidth] = useState(320);
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false);
   const [resizingMemDiaPaneId, setResizingMemDiaPaneId] = useState<string | null>(null);
@@ -611,6 +617,22 @@ export default function EditorPage() {
     setShowAiSidePanel((prev) => !prev);
   };
 
+  const handleTextSizeChange = (size: TextSize) => {
+    setTextSize(size);
+    localStorage.setItem('praxly-text-size', String(size));
+  };
+
+  const isMemDiaCollapsed = (paneId: string) => memDiaCollapsedPanes.has(paneId);
+
+  const toggleMemDiaCollapsed = (paneId: string) => {
+    setMemDiaCollapsedPanes((prev) => {
+      const next = new Set(prev);
+      if (next.has(paneId)) next.delete(paneId);
+      else next.add(paneId);
+      return next;
+    });
+  };
+
   /**
    * Handles share.
    */
@@ -1018,8 +1040,21 @@ export default function EditorPage() {
 
   const sourcePaneWidth = panels.length === 0 ? getContentAvailableWidth() : editorWidth;
 
+  const fontSize = `${10 + textSize * 2}px`;
+
   return (
-    <div className="flex flex-col h-dvh bg-slate-950 text-slate-100 font-sans overflow-hidden">
+    <div
+      className="flex flex-col h-dvh bg-slate-950 text-slate-100 font-sans overflow-hidden"
+      style={{ '--praxly-font-size': fontSize } as React.CSSProperties}
+    >
+      {/* Skip link for keyboard / screen-reader users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded focus:outline-none"
+      >
+        Skip to main content
+      </a>
+
       <EditorHeader
         embedCopied={embedCopied}
         showExamplesMenu={showExamplesMenu}
@@ -1029,6 +1064,7 @@ export default function EditorPage() {
         isDebugging={isDebugging}
         isDebugComplete={isDebugComplete}
         examples={EXAMPLE_PROGRAMS}
+        textSize={textSize}
         onClear={handleClear}
         onShare={handleShare}
         onLoadExample={handleLoadExample}
@@ -1046,9 +1082,10 @@ export default function EditorPage() {
         onRun={handleRun}
         onDebugStep={handleDebugStep}
         onDebugStop={handleDebugStop}
+        onTextSizeChange={handleTextSizeChange}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden min-h-0">
+      <main id="main-content" className="flex-1 flex flex-col overflow-hidden min-h-0">
         <div className="flex-1 min-h-0 relative overflow-x-auto lg:overflow-visible">
           <div className={`flex min-h-0 h-full ${isMobile ? 'min-w-max' : 'w-full'}`}>
             <SourcePane
@@ -1062,6 +1099,8 @@ export default function EditorPage() {
               currentVariables={currentVariables}
               editorRef={editorRef}
               extensions={getExtensions(sourceLang === 'ast' ? 'python' : sourceLang)}
+              isMemDiaCollapsed={isMemDiaCollapsed('source')}
+              onToggleMemDiaCollapse={() => toggleMemDiaCollapsed('source')}
               onToggleSourceLangDropdown={() => setShowSourceLangDropdown((prev) => !prev)}
               onSelectSourceLang={handleSourceLanguageChange}
               onCodeChange={(value) => {
@@ -1100,9 +1139,11 @@ export default function EditorPage() {
                   memDiaHeight={getMemDiaHeight(panel.id)}
                   currentVariables={currentVariables}
                   resizeActive={resizingIdx === idx}
+                  isMemDiaCollapsed={isMemDiaCollapsed(panel.id)}
                   onRemovePanel={removePanel}
                   onResize={(e) => onMouseDown(e, idx)}
                   onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
+                  onToggleMemDiaCollapse={() => toggleMemDiaCollapsed(panel.id)}
                   onPanelDragStart={handlePanelDragStart}
                   onPanelDragOver={handlePanelDragOver}
                   onPanelDrop={handlePanelDrop}
@@ -1142,7 +1183,7 @@ export default function EditorPage() {
           error={error}
           variables={currentVariables}
           showVariables={isDebugging}
-          height={outputHeight}
+          height={outputCollapsed ? undefined : outputHeight}
           resizeActive={resizingIdx === 'output'}
           onResize={(e) => onMouseDown(e, 'output')}
           waitingForInput={waitingForInput || waitingForNormalInput}
@@ -1154,6 +1195,8 @@ export default function EditorPage() {
               handleSubmitInput(input);
             }
           }}
+          isCollapsed={outputCollapsed}
+          onToggleCollapse={() => setOutputCollapsed((prev) => !prev)}
         />
       </main>
     </div>
