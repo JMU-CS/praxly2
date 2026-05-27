@@ -21,11 +21,18 @@ import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
 import { Debugger } from '../language/debugger';
 
+const VALID_TO_LANGS = ['python', 'java', 'csp', 'praxis', 'ast'];
+
 /**
  * Runs embed page.
  */
 export default function EmbedPage() {
   const [searchParams] = useSearchParams();
+
+  // Determine layout mode from ?to= URL param
+  const toParam = searchParams.get('to');
+  const isTranslationMode = toParam !== null && VALID_TO_LANGS.includes(toParam);
+
   const [embedData, setEmbedData] = useState<EmbedData | null>(null);
   const [output, setOutput] = useState<string[]>([]);
   const [ast, setAst] = useState<Program | null>(null);
@@ -35,10 +42,12 @@ export default function EmbedPage() {
   const [sourceWidth, setSourceWidth] = useState(window.innerWidth / 2);
   const [resizingIdx, setResizingIdx] = useState<'source' | null>(null);
 
-  // Translation state
-  const [currentTargetLang, setCurrentTargetLang] = useState<SupportedLang>('python');
+  // Translation state (initialized from ?to= param when in translation mode)
+  const [currentTargetLang, setCurrentTargetLang] = useState<SupportedLang>(
+    isTranslationMode && toParam !== 'ast' ? (toParam as SupportedLang) : 'python'
+  );
   const [showTranslationMenu, setShowTranslationMenu] = useState(false);
-  const [showAst, setShowAst] = useState(false);
+  const [showAst, setShowAst] = useState(toParam === 'ast');
 
   // Get hooks for parsing and debugging
   const { parseCode, getTranslation } = useCodeParsing();
@@ -316,8 +325,12 @@ export default function EmbedPage() {
       code: embedData.code,
       lang: embedData.lang as any,
     });
-    const targetLang = showAst ? 'ast' : currentTargetLang;
-    window.open(`/v2/editor?code=${encoded}&targetLang=${targetLang}`, '_blank');
+    if (isTranslationMode) {
+      const targetLang = showAst ? 'ast' : currentTargetLang;
+      window.open(`/v2/editor?code=${encoded}&targetLang=${targetLang}`, '_blank');
+    } else {
+      window.open(`/v2/editor?code=${encoded}`, '_blank');
+    }
   };
 
   // Resize handler
@@ -369,247 +382,307 @@ export default function EmbedPage() {
 
   const translation = getTranslation(ast, currentTargetLang);
 
-  return (
-    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
-      {/* Top row: Source + Translation */}
-      <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
-        {/* Source Code Pane */}
-        <div
-          className="flex shrink-0 relative group/source z-[10] border-r border-slate-800"
-          style={{ width: sourceWidth }}
-        >
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
-              Source ({embedData.lang})
-            </div>
-            <div className="flex-1 relative bg-slate-950 overflow-hidden">
-              <CodeMirror
-                value={embedData.code}
-                height="100%"
-                theme={vscodeDark}
-                extensions={[
-                  ...getExtensions(embedData.lang as SupportedLang),
-                  EditorView.contentAttributes.of({
-                    'aria-label': `${embedData.lang} source code editor`,
-                  }),
-                ]}
-                editable={true}
-                onChange={(val) => {
-                  setEmbedData((prev) => (prev ? { ...prev, code: val } : null));
-                }}
-                onCreateEditor={handleCreateEditor}
-                className="h-full font-mono"
-              />
-            </div>
+  // Shared action buttons used in both layouts
+  const actionButtons = (
+    <div className="flex items-center gap-2">
+      {!isDebugging ? (
+        <>
+          <button
+            onClick={handleRun}
+            aria-label="Run code"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-green-700 hover:bg-green-800 rounded transition-all"
+          >
+            <Play size={12} fill="currentColor" aria-hidden="true" /> Run
+          </button>
+          <button
+            onClick={handleDebugStart}
+            aria-label="Start debugger"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 rounded transition-all"
+          >
+            Debug
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            onClick={handleDebugStep}
+            disabled={isDebugComplete}
+            aria-label="Step through code"
+            aria-disabled={isDebugComplete}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition-all disabled:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FastForward size={12} fill="currentColor" aria-hidden="true" /> Step
+          </button>
+          <button
+            onClick={handleDebugStop}
+            aria-label="Stop debugger"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition-all"
+          >
+            <Square size={12} fill="currentColor" aria-hidden="true" /> Stop
+          </button>
+        </>
+      )}
+      <button
+        onClick={handleOpenInEditor}
+        aria-label="Open in full editor"
+        className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 rounded transition-all"
+      >
+        Open in Editor
+      </button>
+    </div>
+  );
+
+  // Shared output content used in both layouts
+  const outputContent = (
+    <div
+      className="flex-1 overflow-auto p-4 font-mono text-xs bg-slate-950 leading-6 flex flex-col"
+      aria-live="polite"
+    >
+      <div className="flex-1 overflow-auto">
+        {error && (
+          <div className="text-red-400 mb-3 p-3 bg-red-950/30 rounded border border-red-900/50">
+            <span className="font-bold">Error:</span> {error}
           </div>
-          {/* Source Resize Handle */}
-          <div
-            className={`absolute top-0 right-0 w-1 h-full cursor-col-resize z-[20] transition-colors ${resizingIdx === 'source' ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/30'}`}
-            onMouseDown={(e) => onMouseDown(e)}
+        )}
+        {isDebugging && Object.keys(currentVariables).length > 0 && (
+          <div className="mb-3 p-3 bg-slate-800/50 rounded border border-slate-700">
+            <div className="font-bold text-indigo-400 mb-2">Variables:</div>
+            {Object.entries(currentVariables).map(([key, value]) => (
+              <div key={key} className="text-slate-300 ml-2">
+                <span className="text-indigo-300">{key}</span>: {JSON.stringify(value)}
+              </div>
+            ))}
+          </div>
+        )}
+        {output.length === 0 && !error ? (
+          <div className="text-slate-500 italic">Run code to see output...</div>
+        ) : (
+          output.map((line, idx) => (
+            <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5">
+              <span
+                className="text-slate-500 select-none w-6 text-right flex-shrink-0"
+                aria-hidden="true"
+              >
+                {idx + 1}
+              </span>
+              <span className="text-slate-300 break-all">{line}</span>
+            </div>
+          ))
+        )}
+      </div>
+      {(waitingForInput || waitingForNormalInput) && (
+        <div className="border-t border-slate-800 bg-slate-950 mt-4 pt-4 flex flex-col gap-2 shrink-0">
+          <label htmlFor={stdinInputId} className="text-slate-400 text-xs font-mono">
+            {inputPrompt || normalModeInputPrompt || 'Program input:'}
+          </label>
+          <div className="flex gap-2">
+            <input
+              id={stdinInputId}
+              type="text"
+              placeholder="Enter input and press Enter…"
+              aria-label={inputPrompt || normalModeInputPrompt || 'Program input'}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const input = (e.target as HTMLInputElement).value;
+                  if (waitingForNormalInput) {
+                    handleNormalModeInputSubmit(input);
+                  } else {
+                    handleSubmitInput(input);
+                  }
+                  (e.target as HTMLInputElement).value = '';
+                }
+              }}
+              className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-slate-100 text-xs font-mono placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+              data-testid="stdin-input"
+              autoFocus={waitingForInput || waitingForNormalInput}
+            />
+            <button
+              onClick={(e) => {
+                const input = (e.currentTarget.previousElementSibling as HTMLInputElement).value;
+                if (waitingForNormalInput) {
+                  handleNormalModeInputSubmit(input);
+                } else {
+                  handleSubmitInput(input);
+                }
+                (e.currentTarget.previousElementSibling as HTMLInputElement).value = '';
+              }}
+              aria-label="Submit program input"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded transition-colors shrink-0"
+            >
+              Submit
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Shared source pane used in both layouts
+  const sourcePane = (
+    <div
+      className="flex shrink-0 relative group/source z-[10] border-r border-slate-800"
+      style={{ width: sourceWidth }}
+    >
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
+          Source ({embedData.lang})
+        </div>
+        <div className="flex-1 relative bg-slate-950 overflow-hidden">
+          <CodeMirror
+            value={embedData.code}
+            height="100%"
+            theme={vscodeDark}
+            extensions={[
+              ...getExtensions(embedData.lang as SupportedLang),
+              EditorView.contentAttributes.of({
+                'aria-label': `${embedData.lang} source code editor`,
+              }),
+            ]}
+            editable={true}
+            onChange={(val) => {
+              setEmbedData((prev) => (prev ? { ...prev, code: val } : null));
+            }}
+            onCreateEditor={handleCreateEditor}
+            className="h-full font-mono"
           />
         </div>
+      </div>
+      {/* Source Resize Handle */}
+      <div
+        className={`absolute top-0 right-0 w-1 h-full cursor-col-resize z-[20] transition-colors ${resizingIdx === 'source' ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/30'}`}
+        onMouseDown={onMouseDown}
+        aria-hidden="true"
+      />
+    </div>
+  );
 
-        {/* Translation Pane */}
-        <div className="flex flex-1 relative z-[10] border-l border-slate-800 min-w-0">
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="bg-slate-900 border-b border-slate-800 shrink-0">
-              {/* Header with tabs */}
-              <div className="h-10 flex items-center justify-between px-4">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowTranslationMenu(!showTranslationMenu)}
-                    className="flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors text-xs font-bold uppercase"
-                  >
-                    {showAst ? 'AST' : currentTargetLang}
-                    <ChevronDown size={12} />
-                  </button>
-                  {showTranslationMenu && (
-                    <div className="absolute top-full left-0 w-40 bg-slate-800 border border-slate-700 rounded-md shadow-xl overflow-hidden mt-1 z-[110]">
-                      {(['python', 'java', 'csp', 'praxis'] as SupportedLang[]).map((lang) => (
-                        <button
-                          key={lang}
-                          onClick={() => {
-                            setCurrentTargetLang(lang);
-                            setShowAst(false);
-                            setShowTranslationMenu(false);
-                          }}
-                          className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${currentTargetLang === lang && !showAst ? 'bg-indigo-600 text-white' : ''}`}
-                        >
-                          {lang}
-                        </button>
-                      ))}
-                      <div className="border-t border-slate-700" />
+  return (
+    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
+      {isTranslationMode ? (
+        /* Translation layout: source + translation on top, output at bottom */
+        <>
+          <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
+            {sourcePane}
+
+            {/* Translation Pane */}
+            <div className="flex flex-1 relative z-[10] border-l border-slate-800 min-w-0">
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="bg-slate-900 border-b border-slate-800 shrink-0">
+                  {/* Header with language selector */}
+                  <div className="h-10 flex items-center justify-between px-4">
+                    <div className="relative">
                       <button
-                        onClick={() => {
-                          setShowAst(true);
-                          setShowTranslationMenu(false);
-                        }}
-                        className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${showAst ? 'bg-indigo-600 text-white' : ''}`}
+                        onClick={() => setShowTranslationMenu(!showTranslationMenu)}
+                        aria-expanded={showTranslationMenu}
+                        aria-haspopup="listbox"
+                        aria-label={`Translation language: ${showAst ? 'AST' : currentTargetLang}. Click to change`}
+                        className="flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors text-xs font-bold uppercase"
                       >
-                        Show AST
+                        {showAst ? 'AST' : currentTargetLang}
+                        <ChevronDown size={12} aria-hidden="true" />
                       </button>
+                      {showTranslationMenu && (
+                        <div
+                          role="listbox"
+                          aria-label="Select translation language"
+                          className="absolute top-full left-0 w-40 bg-slate-800 border border-slate-700 rounded-md shadow-xl overflow-hidden mt-1 z-[110]"
+                        >
+                          {(['python', 'java', 'csp', 'praxis'] as SupportedLang[]).map((lang) => (
+                            <button
+                              key={lang}
+                              role="option"
+                              aria-selected={lang === currentTargetLang && !showAst}
+                              onClick={() => {
+                                setCurrentTargetLang(lang);
+                                setShowAst(false);
+                                setShowTranslationMenu(false);
+                              }}
+                              className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${currentTargetLang === lang && !showAst ? 'bg-indigo-600 text-white' : ''}`}
+                            >
+                              {lang}
+                            </button>
+                          ))}
+                          <div className="border-t border-slate-700" />
+                          <button
+                            role="option"
+                            aria-selected={showAst}
+                            onClick={() => {
+                              setShowAst(true);
+                              setShowTranslationMenu(false);
+                            }}
+                            className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${showAst ? 'bg-indigo-600 text-white' : ''}`}
+                          >
+                            Show AST
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="h-10 flex items-center gap-2 px-4 border-t border-slate-800 bg-slate-900/50">
-                {!isDebugging ? (
-                  <>
-                    <button
-                      onClick={handleRun}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-green-700 hover:bg-green-800 rounded transition-all"
-                    >
-                      <Play size={12} fill="currentColor" /> Run
-                    </button>
-                    <button
-                      onClick={handleDebugStart}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 rounded transition-all"
-                    >
-                      Debug
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={handleDebugStep}
-                      disabled={isDebugComplete}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition-all disabled:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <FastForward size={12} fill="currentColor" /> Step
-                    </button>
-                    <button
-                      onClick={handleDebugStop}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition-all"
-                    >
-                      <Square size={12} fill="currentColor" /> Stop
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={handleOpenInEditor}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 rounded transition-all ml-auto"
-                >
-                  Open in Editor
-                </button>
-              </div>
-            </div>
-
-            {/* Translation Content */}
-            <div className="flex-1 overflow-hidden bg-slate-950 relative">
-              {showAst ? (
-                <div className="text-xs font-mono h-full overflow-auto p-4 custom-scrollbar">
-                  {ast ? (
-                    <JSONTree data={ast} />
-                  ) : (
-                    <div className="text-slate-500 text-center mt-10 italic">
-                      Valid code required...
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <HighlightableCodeMirror
-                  value={translation.code}
-                  language={currentTargetLang}
-                  highlightedLines={highlightedTranslationLines}
-                  readOnly={true}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* end top row */}
-
-      {/* Output Pane */}
-      <div className="flex flex-col border-t border-slate-800 h-[40%] shrink-0">
-        <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 shrink-0">
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Output</span>
-        </div>
-        <div className="flex-1 overflow-auto p-4 font-mono text-xs bg-slate-950 leading-6 flex flex-col">
-          <div className="flex-1 overflow-auto">
-            {error && (
-              <div className="text-red-400 mb-3 p-3 bg-red-950/30 rounded border border-red-900/50">
-                <span className="font-bold">Error:</span> {error}
-              </div>
-            )}
-            {isDebugging && Object.keys(currentVariables).length > 0 && (
-              <div className="mb-3 p-3 bg-slate-800/50 rounded border border-slate-700">
-                <div className="font-bold text-indigo-400 mb-2">Variables:</div>
-                {Object.entries(currentVariables).map(([key, value]) => (
-                  <div key={key} className="text-slate-300 ml-2">
-                    <span className="text-indigo-300">{key}</span>: {JSON.stringify(value)}
                   </div>
-                ))}
-              </div>
-            )}
-            {output.length === 0 && !error ? (
-              <div className="text-slate-500 italic">Run code to see output...</div>
-            ) : (
-              output.map((line, idx) => (
-                <div
-                  key={idx}
-                  className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5"
-                >
-                  <span
-                    className="text-slate-500 select-none w-6 text-right flex-shrink-0"
-                    aria-hidden="true"
-                  >
-                    {idx + 1}
-                  </span>
-                  <span className="text-slate-300 break-all">{line}</span>
+
+                  {/* Action buttons */}
+                  <div className="h-10 flex items-center gap-2 px-4 border-t border-slate-800 bg-slate-900/50">
+                    {actionButtons}
+                  </div>
                 </div>
-              ))
-            )}
-          </div>
-          {(waitingForInput || waitingForNormalInput) && (
-            <div className="border-t border-slate-800 bg-slate-950 mt-4 pt-4 flex flex-col gap-2 shrink-0">
-              <label htmlFor={stdinInputId} className="text-slate-400 text-xs font-mono">
-                {inputPrompt || normalModeInputPrompt || 'Program input:'}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id={stdinInputId}
-                  type="text"
-                  placeholder="Enter input and press Enter…"
-                  aria-label={inputPrompt || normalModeInputPrompt || 'Program input'}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const input = (e.target as HTMLInputElement).value;
-                      if (waitingForNormalInput) {
-                        handleNormalModeInputSubmit(input);
-                      } else {
-                        handleSubmitInput(input);
-                      }
-                      (e.target as HTMLInputElement).value = '';
-                    }
-                  }}
-                  className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-slate-100 text-xs font-mono placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
-                  data-testid="stdin-input"
-                  autoFocus={waitingForInput || waitingForNormalInput}
-                />
-                <button
-                  onClick={(e) => {
-                    const input = (e.currentTarget.previousElementSibling as HTMLInputElement)
-                      .value;
-                    if (waitingForNormalInput) {
-                      handleNormalModeInputSubmit(input);
-                    } else {
-                      handleSubmitInput(input);
-                    }
-                    (e.currentTarget.previousElementSibling as HTMLInputElement).value = '';
-                  }}
-                  aria-label="Submit program input"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded transition-colors shrink-0"
-                >
-                  Submit
-                </button>
+
+                {/* Translation Content */}
+                <div className="flex-1 overflow-hidden bg-slate-950 relative">
+                  {showAst ? (
+                    <div className="text-xs font-mono h-full overflow-auto p-4 custom-scrollbar">
+                      {ast ? (
+                        <JSONTree data={ast} />
+                      ) : (
+                        <div className="text-slate-500 text-center mt-10 italic">
+                          Valid code required...
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <HighlightableCodeMirror
+                      value={translation.code}
+                      language={currentTargetLang}
+                      highlightedLines={highlightedTranslationLines}
+                      readOnly={true}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          )}
+          </div>
+
+          {/* Output Pane */}
+          <section
+            aria-label="Console output"
+            className="flex flex-col border-t border-slate-800 h-[40%] shrink-0"
+          >
+            <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 shrink-0">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Output
+              </span>
+            </div>
+            {outputContent}
+          </section>
+        </>
+      ) : (
+        /* Simple layout: source on the left, output on the right */
+        <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
+          {sourcePane}
+
+          {/* Output Pane (right) */}
+          <section
+            aria-label="Console output"
+            className="flex flex-1 flex-col border-l border-slate-800 min-w-0 overflow-hidden"
+          >
+            <div className="h-10 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-800 shrink-0">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Output
+              </span>
+              {actionButtons}
+            </div>
+            {outputContent}
+          </section>
         </div>
-      </div>
+      )}
     </div>
   );
 }
