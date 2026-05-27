@@ -12,12 +12,13 @@ interface AddPanelStripProps {
   onTogglePanel: (lang: SupportedLang) => void;
 }
 
-const PANEL_LANGS: SupportedLang[] = ['ast', 'csp', 'java', 'praxis', 'python'];
+const PANEL_LANGS: SupportedLang[] = ['ast', 'csp', 'java', 'javascript', 'praxis', 'python'];
 
 const LANG_LABELS: Record<SupportedLang, string> = {
   ast: 'AST',
   csp: 'CSP',
   java: 'Java',
+  javascript: 'JavaScript',
   praxis: 'Praxis',
   python: 'Python',
 };

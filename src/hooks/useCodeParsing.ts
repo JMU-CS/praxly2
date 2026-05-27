@@ -14,6 +14,8 @@ import { CSPLexer } from '../language/csp/lexer';
 import { CSPParser } from '../language/csp/parser';
 import { PraxisLexer } from '../language/praxis/lexer';
 import { PraxisParser } from '../language/praxis/parser';
+import { JavaScriptLexer } from '../language/javascript/lexer';
+import { JavaScriptParser } from '../language/javascript/parser';
 import { Translator } from '../language/translator';
 
 export type SourceMap = Map<string, number>;
@@ -39,6 +41,10 @@ export const useCodeParsing = () => {
         case 'praxis':
           tokens = new PraxisLexer(input).tokenize();
           parser = new PraxisParser(tokens, input);
+          return parser.parse();
+        case 'javascript':
+          tokens = new JavaScriptLexer(input).tokenize();
+          parser = new JavaScriptParser(tokens);
           return parser.parse();
         case 'python':
         default:

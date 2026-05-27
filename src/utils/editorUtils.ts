@@ -5,6 +5,7 @@
 
 import { python } from '@codemirror/lang-python';
 import { java } from '@codemirror/lang-java';
+import { javascript } from '@codemirror/lang-javascript';
 import { praxis } from '../language/praxis/lezer';
 import { csp } from '../language/csp/lezer';
 import type { SupportedLang } from '../components/LanguageSelector';
@@ -26,6 +27,9 @@ export const getCodeMirrorExtensions = (lang: SupportedLang | 'json'): any[] => 
       break;
     case 'csp':
       baseExtensions.push(csp());
+      break;
+    case 'javascript':
+      baseExtensions.push(javascript());
       break;
   }
 

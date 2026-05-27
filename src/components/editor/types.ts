@@ -6,4 +6,5 @@ export interface Panel {
   lang: SupportedLang;
   width: number;
   sourceMap: SourceMap;
+  stackedUnder?: string; // ID of the panel this is rendered below (shares that panel's column)
 }

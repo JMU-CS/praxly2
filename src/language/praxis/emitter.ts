@@ -193,8 +193,13 @@ export class PraxisEmitter extends ASTVisitor {
     const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
 
     if (stmt.varType) {
-      this.emit(`${stmt.varType} ${targetStr} <- ${initVal}`, stmt.id);
-      this.context.symbolTable.set(stmt.name, stmt.varType);
+      let type = stmt.varType;
+      if (type === 'auto' || type === 'var') {
+        type = this.inferType(stmt.value);
+        if (type === 'var') type = 'int';
+      }
+      this.emit(`${type} ${targetStr} <- ${initVal}`, stmt.id);
+      this.context.symbolTable.set(stmt.name, type);
     } else if (stmt.target && stmt.target.type !== 'Identifier') {
       this.emit(`${targetStr} <- ${rVal}`, stmt.id);
     } else if (this.context.symbolTable.get(stmt.name) !== undefined) {

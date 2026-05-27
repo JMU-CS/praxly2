@@ -63,11 +63,11 @@ export default function EditorPage() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showAiSidePanel, setShowAiSidePanel] = useState(false);
   const [showMemDia, setShowMemDia] = useState(false);
-  const [outputCollapsed, setOutputCollapsed] = useState(false);
+  const [outputState, setOutputState] = useState<'open' | 'closed'>('open');
   const [textSize, setTextSize] = useState<TextSize>(
     () => Number(localStorage.getItem('praxly-text-size')) || 3
   );
-  const [memDiaCollapsedPanes, setMemDiaCollapsedPanes] = useState<Set<string>>(new Set());
+  const [memDiaStates, setMemDiaStates] = useState<Map<string, 'open' | 'closed'>>(new Map());
   const [aiPanelWidth, setAiPanelWidth] = useState(320);
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false);
   const [resizingMemDiaPaneId, setResizingMemDiaPaneId] = useState<string | null>(null);
@@ -330,12 +330,14 @@ export default function EditorPage() {
   useEffect(() => {
     const availableWidth = getContentAvailableWidth();
 
-    if (panels.length === 0) {
+    const rootPanelCount = panels.filter((p) => !p.stackedUnder).length;
+
+    if (rootPanelCount === 0) {
       setEditorWidth((prev) => (prev === availableWidth ? prev : availableWidth));
       return;
     }
 
-    const totalPaneCount = panels.length + 1;
+    const totalPaneCount = rootPanelCount + 1;
     const targetSourceWidth = Math.max(
       MIN_SOURCE_WIDTH,
       Math.floor(availableWidth / totalPaneCount)
@@ -347,6 +349,7 @@ export default function EditorPage() {
     setPanels((prev) => {
       let changed = false;
       const next = prev.map((panel) => {
+        if (panel.stackedUnder) return panel;
         if (panel.width !== targetPanelWidth) {
           changed = true;
           return { ...panel, width: targetPanelWidth };
@@ -356,7 +359,7 @@ export default function EditorPage() {
 
       return changed ? next : prev;
     });
-  }, [getContentAvailableWidth, panels.length]);
+  }, [getContentAvailableWidth, panels]);
 
   const handleCreateEditor = useCallback((view: any) => {
     editorViewRef.current = view;
@@ -622,15 +625,18 @@ export default function EditorPage() {
     localStorage.setItem('praxly-text-size', String(size));
   };
 
-  const isMemDiaCollapsed = (paneId: string) => memDiaCollapsedPanes.has(paneId);
+  const getMemDiaState = (paneId: string): 'open' | 'closed' => memDiaStates.get(paneId) ?? 'open';
 
-  const toggleMemDiaCollapsed = (paneId: string) => {
-    setMemDiaCollapsedPanes((prev) => {
-      const next = new Set(prev);
-      if (next.has(paneId)) next.delete(paneId);
-      else next.add(paneId);
+  const cycleMemDiaState = (paneId: string) => {
+    setMemDiaStates((prev) => {
+      const next = new Map(prev);
+      next.set(paneId, (next.get(paneId) ?? 'open') === 'open' ? 'closed' : 'open');
       return next;
     });
+  };
+
+  const cycleOutputState = () => {
+    setOutputState((prev) => (prev === 'open' ? 'closed' : 'open'));
   };
 
   /**
@@ -686,7 +692,11 @@ export default function EditorPage() {
    * Runs remove panel.
    */
   const removePanel = (id: string) => {
-    setPanels((prev) => prev.filter((panel) => panel.id !== id));
+    setPanels((prev) => {
+      const filtered = prev.filter((panel) => panel.id !== id);
+      // Unstack any panel that was stacked under the removed panel
+      return filtered.map((p) => (p.stackedUnder === id ? { ...p, stackedUnder: undefined } : p));
+    });
   };
 
   /**
@@ -699,6 +709,40 @@ export default function EditorPage() {
     } else {
       addPanel(lang);
     }
+  };
+
+  const togglePanelStack = (id: string) => {
+    setPanels((prev) => {
+      const panel = prev.find((p) => p.id === id);
+      if (!panel) return prev;
+
+      if (panel.stackedUnder) {
+        // Unstack: move back to standalone
+        return prev.map((p) => (p.id === id ? { ...p, stackedUnder: undefined } : p));
+      }
+
+      // Stack under the nearest root panel to the left
+      const rootPanels = prev.filter((p) => !p.stackedUnder && p.id !== id);
+      if (rootPanels.length === 0) return prev;
+
+      // Find the root panel immediately to the left of this panel in order
+      const panelIndex = prev.indexOf(panel);
+      let targetRoot: Panel | undefined;
+      for (let i = panelIndex - 1; i >= 0; i--) {
+        if (!prev[i].stackedUnder) {
+          targetRoot = prev[i];
+          break;
+        }
+      }
+      // Fallback to last root panel
+      if (!targetRoot) targetRoot = rootPanels[rootPanels.length - 1];
+
+      // If targetRoot already has a stacked panel, can't stack again (only 2 per column)
+      const alreadyStacked = prev.some((p) => p.stackedUnder === targetRoot!.id);
+      if (alreadyStacked) return prev;
+
+      return prev.map((p) => (p.id === id ? { ...p, stackedUnder: targetRoot!.id } : p));
+    });
   };
 
   /**
@@ -714,7 +758,8 @@ export default function EditorPage() {
 
       const reordered = [...prev];
       const [moved] = reordered.splice(sourceIndex, 1);
-      reordered.splice(targetIndex, 0, moved);
+      // Dragging always unstacks — the panel becomes a new standalone column at its drop position
+      reordered.splice(targetIndex, 0, { ...moved, stackedUnder: undefined });
       return reordered;
     });
   };
@@ -803,12 +848,14 @@ export default function EditorPage() {
       if (resizingIdx === 'output') {
         const deltaY = e.clientY - drag.startY;
         const maxOutputHeight = Math.max(MIN_OUTPUT_HEIGHT, window.innerHeight - 120);
-        const nextHeight = clamp(
-          drag.startOutputHeight - deltaY,
-          MIN_OUTPUT_HEIGHT,
-          maxOutputHeight
-        );
-        setOutputHeight(nextHeight);
+        const rawHeight = drag.startOutputHeight - deltaY;
+        if (rawHeight < MIN_OUTPUT_HEIGHT - 40) {
+          setOutputState('closed');
+        } else {
+          const nextHeight = clamp(rawHeight, MIN_OUTPUT_HEIGHT, maxOutputHeight);
+          setOutputHeight(nextHeight);
+          setOutputState('open');
+        }
       } else if (resizingIdx === 'editor') {
         const deltaX = e.clientX - drag.startX;
         const nextWidth = clamp(
@@ -1077,7 +1124,12 @@ export default function EditorPage() {
           setShowExamplesMenu(false);
         }}
         onToggleAiPanel={handleToggleAiPanel}
-        onToggleMemDia={() => setShowMemDia((prev) => !prev)}
+        onToggleMemDia={() => {
+          setShowMemDia((prev) => {
+            if (!prev) setMemDiaStates(new Map()); // Reset all closed panes when enabling
+            return !prev;
+          });
+        }}
         onDebugStart={handleDebugStart}
         onRun={handleRun}
         onDebugStep={handleDebugStep}
@@ -1099,8 +1151,8 @@ export default function EditorPage() {
               currentVariables={currentVariables}
               editorRef={editorRef}
               extensions={getExtensions(sourceLang === 'ast' ? 'python' : sourceLang)}
-              isMemDiaCollapsed={isMemDiaCollapsed('source')}
-              onToggleMemDiaCollapse={() => toggleMemDiaCollapsed('source')}
+              memDiaState={getMemDiaState('source')}
+              onToggleMemDiaCollapse={() => cycleMemDiaState('source')}
               onToggleSourceLangDropdown={() => setShowSourceLangDropdown((prev) => !prev)}
               onSelectSourceLang={handleSourceLanguageChange}
               onCodeChange={(value) => {
@@ -1125,31 +1177,98 @@ export default function EditorPage() {
               className={`${isMobile ? 'flex shrink-0' : 'flex-1'} flex overflow-x-auto scrollbar-hide relative z-[10] bg-slate-900 min-w-0`}
               ref={containerRef}
             >
-              {panels.map((panel, idx) => (
-                <TranslationPaneItem
-                  key={panel.id}
-                  panel={panel}
-                  ast={ast}
-                  draggedPanelId={draggedPanelId}
-                  dragOverPanelId={dragOverPanelId}
-                  translationCode={getTranslation(ast, panel.lang).code}
-                  highlightedLines={panelHighlightedLines.get(panel.id) || []}
-                  showMemDia={showMemDia}
-                  resizingMemDiaPaneId={resizingMemDiaPaneId}
-                  memDiaHeight={getMemDiaHeight(panel.id)}
-                  currentVariables={currentVariables}
-                  resizeActive={resizingIdx === idx}
-                  isMemDiaCollapsed={isMemDiaCollapsed(panel.id)}
-                  onRemovePanel={removePanel}
-                  onResize={(e) => onMouseDown(e, idx)}
-                  onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
-                  onToggleMemDiaCollapse={() => toggleMemDiaCollapsed(panel.id)}
-                  onPanelDragStart={handlePanelDragStart}
-                  onPanelDragOver={handlePanelDragOver}
-                  onPanelDrop={handlePanelDrop}
-                  onPanelDragEnd={handlePanelDragEnd}
-                />
-              ))}
+              {/* Render root panels as columns; each column may have a stacked child below */}
+              {panels
+                .filter((p) => !p.stackedUnder)
+                .map((rootPanel) => {
+                  const rootIdx = panels.indexOf(rootPanel);
+                  const stackedPanel = panels.find((p) => p.stackedUnder === rootPanel.id);
+                  // "Stack below" button is shown on a root panel when:
+                  // - it has no stacked child yet (column isn't full)
+                  // - there is at least one other root panel that also has no stacked child
+                  //   (so this panel could move below that one)
+                  const otherFreeRoots = panels.filter(
+                    (p) =>
+                      !p.stackedUnder &&
+                      p.id !== rootPanel.id &&
+                      !panels.some((sp) => sp.stackedUnder === p.id)
+                  );
+                  const canStack = !stackedPanel && otherFreeRoots.length > 0;
+
+                  return (
+                    <div
+                      key={rootPanel.id}
+                      className="flex flex-col shrink-0 border-r border-slate-800 last:border-0"
+                      style={{ width: rootPanel.width }}
+                    >
+                      {/* Top panel (root) */}
+                      <div
+                        className={
+                          stackedPanel
+                            ? 'flex-1 min-h-0 overflow-hidden border-b border-slate-700'
+                            : 'flex-1 min-h-0 overflow-hidden'
+                        }
+                      >
+                        <TranslationPaneItem
+                          panel={rootPanel}
+                          ast={ast}
+                          draggedPanelId={draggedPanelId}
+                          dragOverPanelId={dragOverPanelId}
+                          translationCode={getTranslation(ast, rootPanel.lang).code}
+                          highlightedLines={panelHighlightedLines.get(rootPanel.id) || []}
+                          showMemDia={showMemDia}
+                          resizingMemDiaPaneId={resizingMemDiaPaneId}
+                          memDiaHeight={getMemDiaHeight(rootPanel.id)}
+                          currentVariables={currentVariables}
+                          resizeActive={resizingIdx === rootIdx}
+                          memDiaState={getMemDiaState(rootPanel.id)}
+                          onToggleStack={
+                            canStack ? () => togglePanelStack(rootPanel.id) : undefined
+                          }
+                          isStacked={false}
+                          onRemovePanel={removePanel}
+                          onResize={(e) => onMouseDown(e, rootIdx)}
+                          onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
+                          onToggleMemDiaCollapse={() => cycleMemDiaState(rootPanel.id)}
+                          onPanelDragStart={handlePanelDragStart}
+                          onPanelDragOver={handlePanelDragOver}
+                          onPanelDrop={handlePanelDrop}
+                          onPanelDragEnd={handlePanelDragEnd}
+                        />
+                      </div>
+
+                      {/* Bottom panel (stacked child) — same flex-1 height, shares column width */}
+                      {stackedPanel && (
+                        <div className="flex-1 min-h-0 overflow-hidden">
+                          <TranslationPaneItem
+                            panel={stackedPanel}
+                            ast={ast}
+                            draggedPanelId={draggedPanelId}
+                            dragOverPanelId={dragOverPanelId}
+                            translationCode={getTranslation(ast, stackedPanel.lang).code}
+                            highlightedLines={panelHighlightedLines.get(stackedPanel.id) || []}
+                            showMemDia={showMemDia}
+                            resizingMemDiaPaneId={resizingMemDiaPaneId}
+                            memDiaHeight={getMemDiaHeight(stackedPanel.id)}
+                            currentVariables={currentVariables}
+                            resizeActive={resizingIdx === rootIdx}
+                            memDiaState={getMemDiaState(stackedPanel.id)}
+                            onToggleStack={() => togglePanelStack(stackedPanel.id)}
+                            isStacked={true}
+                            onRemovePanel={removePanel}
+                            onResize={(e) => onMouseDown(e, rootIdx)}
+                            onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
+                            onToggleMemDiaCollapse={() => cycleMemDiaState(stackedPanel.id)}
+                            onPanelDragStart={handlePanelDragStart}
+                            onPanelDragOver={handlePanelDragOver}
+                            onPanelDrop={handlePanelDrop}
+                            onPanelDragEnd={handlePanelDragEnd}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
 
             <AddPanelStrip
@@ -1183,7 +1302,7 @@ export default function EditorPage() {
           error={error}
           variables={currentVariables}
           showVariables={isDebugging}
-          height={outputCollapsed ? undefined : outputHeight}
+          height={outputState === 'open' ? outputHeight : undefined}
           resizeActive={resizingIdx === 'output'}
           onResize={(e) => onMouseDown(e, 'output')}
           waitingForInput={waitingForInput || waitingForNormalInput}
@@ -1195,8 +1314,9 @@ export default function EditorPage() {
               handleSubmitInput(input);
             }
           }}
-          isCollapsed={outputCollapsed}
-          onToggleCollapse={() => setOutputCollapsed((prev) => !prev)}
+          panelState={outputState}
+          onToggle={cycleOutputState}
+          onOpen={() => setOutputState('open')}
         />
       </main>
     </div>

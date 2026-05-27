@@ -16,6 +16,7 @@ import { JavaEmitter } from './java/emitter';
 import { CSPEmitter } from './csp/emitter';
 import { PythonEmitter } from './python/emitter';
 import { PraxisEmitter } from './praxis/emitter';
+import { JavaScriptEmitter } from './javascript/emitter';
 
 export interface TranslationResult {
   code: string;
@@ -50,6 +51,9 @@ export class Translator {
         break;
       case 'praxis':
         emitter = new PraxisEmitter(context);
+        break;
+      case 'javascript':
+        emitter = new JavaScriptEmitter(context);
         break;
       default:
         throw new Error(`Unsupported target language: ${targetLang}`);

@@ -19,7 +19,7 @@ interface SourcePaneProps {
   currentVariables: Record<string, any>;
   editorRef: RefObject<HTMLDivElement | null>;
   extensions: any[];
-  isMemDiaCollapsed: boolean;
+  memDiaState: 'open' | 'collapsed' | 'closed';
   onToggleMemDiaCollapse: () => void;
   onToggleSourceLangDropdown: () => void;
   onSelectSourceLang: (lang: SupportedLang) => void;
@@ -30,7 +30,7 @@ interface SourcePaneProps {
   editorResizeActive: boolean;
 }
 
-const SOURCE_OPTIONS: SupportedLang[] = ['csp', 'java', 'praxis', 'python'];
+const SOURCE_OPTIONS: SupportedLang[] = ['csp', 'java', 'javascript', 'praxis', 'python'];
 
 const focusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-800';
@@ -46,7 +46,7 @@ export function SourcePane({
   currentVariables,
   editorRef,
   extensions,
-  isMemDiaCollapsed,
+  memDiaState,
   onToggleMemDiaCollapse,
   onToggleSourceLangDropdown,
   onSelectSourceLang,
@@ -91,9 +91,11 @@ export function SourcePane({
                       ? 'CSP'
                       : lang === 'java'
                         ? 'Java'
-                        : lang === 'praxis'
-                          ? 'Praxis'
-                          : 'Python'}
+                        : lang === 'javascript'
+                          ? 'JavaScript'
+                          : lang === 'praxis'
+                            ? 'Praxis'
+                            : 'Python'}
                   </button>
                 ))}
               </div>
@@ -119,10 +121,10 @@ export function SourcePane({
             />
           </div>
 
-          {showMemDia && (
+          {showMemDia && memDiaState !== 'closed' && (
             <>
-              {/* Resize handle — only shown when expanded */}
-              {!isMemDiaCollapsed && (
+              {/* Resize handle — only shown when open */}
+              {memDiaState === 'open' && (
                 <div
                   className={`h-1 shrink-0 cursor-row-resize transition-colors ${
                     resizingMemDiaPaneId === 'source'
@@ -134,18 +136,21 @@ export function SourcePane({
                 />
               )}
 
-              {/* MemDia header — always visible when showMemDia */}
+              {/* MemDia header — always visible when not closed */}
               <div className="h-8 flex items-center gap-2 px-3 bg-slate-900 border-t border-slate-700/60 shrink-0">
                 <button
                   onClick={onToggleMemDiaCollapse}
-                  aria-label={isMemDiaCollapsed ? 'Expand MemDia panel' : 'Collapse MemDia panel'}
-                  aria-expanded={!isMemDiaCollapsed}
+                  aria-label={
+                    memDiaState === 'open' ? 'Collapse MemDia panel' : 'Close MemDia panel'
+                  }
+                  aria-expanded={memDiaState === 'open'}
                   className={`p-0.5 text-slate-500 hover:text-emerald-300 transition-colors rounded ${focusRing}`}
+                  title={memDiaState === 'open' ? 'Collapse' : 'Click again to close'}
                 >
-                  {isMemDiaCollapsed ? (
-                    <ChevronUp size={12} aria-hidden="true" />
-                  ) : (
+                  {memDiaState === 'open' ? (
                     <ChevronDown size={12} aria-hidden="true" />
+                  ) : (
+                    <ChevronUp size={12} aria-hidden="true" />
                   )}
                 </button>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
@@ -153,8 +158,8 @@ export function SourcePane({
                 </span>
               </div>
 
-              {/* MemDia content — only when expanded */}
-              {!isMemDiaCollapsed && (
+              {/* MemDia content — only when open */}
+              {memDiaState === 'open' && (
                 <div className="shrink-0 overflow-hidden" style={{ height: memDiaHeight }}>
                   <MemDia
                     paneTitle="Source"

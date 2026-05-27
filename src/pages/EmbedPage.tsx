@@ -21,7 +21,7 @@ import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
 import { Debugger } from '../language/debugger';
 
-const VALID_TO_LANGS = ['python', 'java', 'csp', 'praxis', 'ast'];
+const VALID_TO_LANGS = ['python', 'java', 'csp', 'praxis', 'javascript', 'ast'];
 
 /**
  * Runs embed page.
