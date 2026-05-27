@@ -1,5 +1,5 @@
 import type { DragEvent, MouseEvent } from 'react';
-import { FileJson, ArrowRightLeft, X } from 'lucide-react';
+import { FileJson, ArrowRightLeft, X, ChevronDown, ChevronUp } from 'lucide-react';
 
 import type { Program } from '../../language/ast';
 import { JSONTree } from '../JSONTree';
@@ -19,14 +19,19 @@ interface TranslationPaneItemProps {
   memDiaHeight: number;
   currentVariables: Record<string, any>;
   resizeActive: boolean;
+  isMemDiaCollapsed: boolean;
   onRemovePanel: (id: string) => void;
   onResize: (e: MouseEvent) => void;
   onMemDiaResizeMouseDown: (e: MouseEvent, paneId: string) => void;
+  onToggleMemDiaCollapse: () => void;
   onPanelDragStart: (e: DragEvent<HTMLDivElement>, panelId: string) => void;
   onPanelDragOver: (e: DragEvent<HTMLDivElement>, panelId: string) => void;
   onPanelDrop: (e: DragEvent<HTMLDivElement>, panelId: string) => void;
   onPanelDragEnd: () => void;
 }
+
+const focusRing =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-800';
 
 export function TranslationPaneItem({
   panel,
@@ -40,9 +45,11 @@ export function TranslationPaneItem({
   memDiaHeight,
   currentVariables,
   resizeActive,
+  isMemDiaCollapsed,
   onRemovePanel,
   onResize,
   onMemDiaResizeMouseDown,
+  onToggleMemDiaCollapse,
   onPanelDragStart,
   onPanelDragOver,
   onPanelDrop,
@@ -62,6 +69,7 @@ export function TranslationPaneItem({
       onDrop={(e) => onPanelDrop(e, panel.id)}
     >
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Pane header (draggable) */}
         <div
           className="h-10 bg-slate-900/50 flex items-center justify-between px-4 border-b border-slate-800 shrink-0 cursor-grab active:cursor-grabbing"
           draggable
@@ -70,22 +78,24 @@ export function TranslationPaneItem({
         >
           <div className="flex items-center gap-2">
             {panel.lang === 'ast' ? (
-              <FileJson size={14} className="text-indigo-400" />
+              <FileJson size={14} className="text-indigo-400" aria-hidden="true" />
             ) : (
-              <ArrowRightLeft size={14} className="text-indigo-400" />
+              <ArrowRightLeft size={14} className="text-indigo-400" aria-hidden="true" />
             )}
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
               {panel.lang} View
             </span>
           </div>
           <button
             onClick={() => onRemovePanel(panel.id)}
-            className="p-1 text-slate-600 hover:text-red-400 transition-colors"
+            aria-label={`Remove ${panel.lang} panel`}
+            className={`p-1 text-slate-400 hover:text-red-400 transition-colors rounded ${focusRing}`}
           >
-            <X size={14} />
+            <X size={14} aria-hidden="true" />
           </button>
         </div>
 
+        {/* Code / AST content */}
         <div className="flex-1 flex flex-col overflow-hidden bg-slate-950 relative">
           <div className="flex-1 overflow-hidden">
             {panel.lang === 'ast' ? (
@@ -93,7 +103,7 @@ export function TranslationPaneItem({
                 {ast ? (
                   <JSONTree data={ast} />
                 ) : (
-                  <div className="text-slate-700 text-center mt-10 italic">
+                  <div className="text-slate-500 text-center mt-10 italic">
                     Valid code required...
                   </div>
                 )}
@@ -110,31 +120,60 @@ export function TranslationPaneItem({
 
           {showMemDia && (
             <>
-              <div
-                className={`h-1 shrink-0 cursor-row-resize transition-colors ${
-                  resizingMemDiaPaneId === panel.id
-                    ? 'bg-emerald-500'
-                    : 'bg-transparent hover:bg-emerald-500/40'
-                }`}
-                onMouseDown={(e) => onMemDiaResizeMouseDown(e, panel.id)}
-              />
-              <div className="shrink-0 border-t border-slate-800" style={{ height: memDiaHeight }}>
-                <MemDia
-                  paneTitle="Panel"
-                  paneLang={panel.lang}
-                  currentVariables={currentVariables}
+              {/* Resize handle — only when expanded */}
+              {!isMemDiaCollapsed && (
+                <div
+                  className={`h-1 shrink-0 cursor-row-resize transition-colors ${
+                    resizingMemDiaPaneId === panel.id
+                      ? 'bg-emerald-500'
+                      : 'bg-transparent hover:bg-emerald-500/40'
+                  }`}
+                  onMouseDown={(e) => onMemDiaResizeMouseDown(e, panel.id)}
+                  aria-hidden="true"
                 />
+              )}
+
+              {/* MemDia header — always visible when showMemDia */}
+              <div className="h-8 flex items-center gap-2 px-3 bg-slate-900 border-t border-slate-700/60 shrink-0">
+                <button
+                  onClick={onToggleMemDiaCollapse}
+                  aria-label={isMemDiaCollapsed ? 'Expand MemDia panel' : 'Collapse MemDia panel'}
+                  aria-expanded={!isMemDiaCollapsed}
+                  className={`p-0.5 text-slate-500 hover:text-emerald-300 transition-colors rounded ${focusRing}`}
+                >
+                  {isMemDiaCollapsed ? (
+                    <ChevronUp size={12} aria-hidden="true" />
+                  ) : (
+                    <ChevronDown size={12} aria-hidden="true" />
+                  )}
+                </button>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
+                  MemDia
+                </span>
               </div>
+
+              {/* MemDia content — only when expanded */}
+              {!isMemDiaCollapsed && (
+                <div className="shrink-0 overflow-hidden" style={{ height: memDiaHeight }}>
+                  <MemDia
+                    paneTitle="Panel"
+                    paneLang={panel.lang}
+                    currentVariables={currentVariables}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
 
+      {/* Horizontal resize handle */}
       <div
         className={`absolute top-0 right-0 w-1 h-full cursor-col-resize z-[20] transition-colors ${
           resizeActive ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/30'
         }`}
         onMouseDown={onResize}
+        aria-hidden="true"
       />
     </div>
   );

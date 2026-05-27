@@ -25,7 +25,20 @@
 
 /* Code Editor Specifics */
 .cm-editor {
-  @apply h-full text-sm font-mono leading-relaxed;
+  @apply h-full font-mono leading-relaxed;
+  font-size: var(--praxly-font-size, 14px);
+}
+
+.cm-editor .cm-content,
+.cm-editor .cm-line,
+.cm-editor .cm-gutters {
+  font-size: var(--praxly-font-size, 14px) !important;
+}
+
+/* Line-number contrast fix: vscodeDark uses #838383 (4.39:1) which just misses AA.
+   #969696 on #1e1e1e gives ~5.4:1, meeting the 4.5:1 requirement. */
+.cm-lineNumbers .cm-gutterElement {
+  color: #969696 !important;
 }
 
 .code-font {

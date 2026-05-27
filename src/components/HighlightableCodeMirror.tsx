@@ -3,7 +3,7 @@
  * Uses CodeMirror's StateField system to manage highlighted line decorations.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { Decoration, EditorView } from '@codemirror/view';
@@ -73,8 +73,16 @@ export const HighlightableCodeMirror: React.FC<HighlightableCodeMirrorProps> = (
     });
   }, [highlightedLines]);
 
-  const extensions = getCodeMirrorExtensions(language);
-  extensions.push(highlightedLinesField);
+  const extensions = useMemo(() => {
+    const base = getCodeMirrorExtensions(language);
+    base.push(highlightedLinesField);
+    base.push(
+      EditorView.contentAttributes.of({
+        'aria-label': `${language} translation${readOnly ? ', read-only' : ''}`,
+      })
+    );
+    return base;
+  }, [language, readOnly]);
 
   return (
     <CodeMirror
@@ -85,7 +93,7 @@ export const HighlightableCodeMirror: React.FC<HighlightableCodeMirrorProps> = (
       readOnly={readOnly}
       editable={!readOnly}
       onCreateEditor={handleCreateEditor}
-      className={`text-[11px] h-full font-mono ${className}`}
+      className={`h-full font-mono ${className}`}
     />
   );
 };
