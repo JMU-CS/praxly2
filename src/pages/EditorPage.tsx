@@ -912,15 +912,26 @@ export default function EditorPage() {
       if (!drag) return;
 
       const deltaY = e.clientY - drag.startY;
-      const nextHeight = clamp(drag.startHeight - deltaY, MIN_MEM_DIA_HEIGHT, MAX_MEM_DIA_HEIGHT);
+      const rawHeight = drag.startHeight - deltaY;
 
-      setMemDiaHeights((prev) => {
-        if (prev[drag.paneId] === nextHeight) {
-          return prev;
-        }
-
-        return { ...prev, [drag.paneId]: nextHeight };
-      });
+      if (rawHeight < MIN_MEM_DIA_HEIGHT - 40) {
+        setMemDiaStates((prev) => {
+          const next = new Map(prev);
+          next.set(drag.paneId, 'closed');
+          return next;
+        });
+      } else {
+        const nextHeight = clamp(rawHeight, MIN_MEM_DIA_HEIGHT, MAX_MEM_DIA_HEIGHT);
+        setMemDiaHeights((prev) =>
+          prev[drag.paneId] === nextHeight ? prev : { ...prev, [drag.paneId]: nextHeight }
+        );
+        setMemDiaStates((prev) => {
+          if ((prev.get(drag.paneId) ?? 'open') === 'open') return prev;
+          const next = new Map(prev);
+          next.set(drag.paneId, 'open');
+          return next;
+        });
+      }
     };
 
     /**
