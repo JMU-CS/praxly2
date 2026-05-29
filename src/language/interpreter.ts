@@ -217,9 +217,9 @@ export class Interpreter {
    * Runs add input.
    */
   addInput(input: string) {
-    console.log('addInput called with:', input, 'Queue length before:', this.inputQueue.length);
+    // console.log('addInput called with:', input, 'Queue length before:', this.inputQueue.length);
     this.inputQueue.push(input);
-    console.log('Queue length after:', this.inputQueue.length);
+    // console.log('Queue length after:', this.inputQueue.length);
   }
 
   /**
@@ -233,9 +233,9 @@ export class Interpreter {
    * Runs get next input.
    */
   getNextInput(): string | null {
-    console.log('getNextInput called, queue length:', this.inputQueue.length);
+    // console.log('getNextInput called, queue length:', this.inputQueue.length);
     const result = this.inputQueue.length > 0 ? this.inputQueue.shift()! : null;
-    console.log('getNextInput returning:', result);
+    // console.log('getNextInput returning:', result);
     return result;
   }
 
@@ -529,11 +529,11 @@ export class Interpreter {
     void,
     void
   > {
-    console.log('executeBlockGeneratorWithState: Processing', statements.length, 'statements');
+    // console.log('executeBlockGeneratorWithState: Processing', statements.length, 'statements');
     let i = 0;
     while (i < statements.length) {
       const stmt = statements[i];
-      console.log('Processing statement type:', stmt.type, 'index:', i);
+      // console.log('Processing statement type:', stmt.type, 'index:', i);
       this.currentEnv = env;
 
       // Handle control flow statements specially to yield steps for nested statements
@@ -1769,17 +1769,17 @@ export class Interpreter {
         if (calleeName === 'input' || calleeName === 'INPUT') {
           const promptStr =
             expr.arguments.length > 0 ? this.stringify(this.evaluate(expr.arguments[0], env)) : '';
-          console.log('input() called, checking for queued input...');
+          // console.log('input() called, checking for queued input...');
           const nextInput = this.getNextInput();
           if (nextInput !== null) {
-            console.log('Found input in queue, returning:', nextInput);
+            // console.log('Found input in queue, returning:', nextInput);
             // Add echo to output to ensure correct order
             this.flushOutputBuffer();
             this.output.push(`> ${nextInput}`);
             return nextInput;
           }
           // No input available
-          console.log('No input in queue, throwing InputPrompt with prompt:', promptStr);
+          // console.log('No input in queue, throwing InputPrompt with prompt:', promptStr);
           if (this.isDebugging) {
             // In debug mode, throw InputPrompt so debugger can handle it
             throw new InputPrompt(promptStr);
