@@ -746,6 +746,35 @@ export default function EditorPage() {
   };
 
   /**
+   * Swaps which panel is root and which is stacked within the same column.
+   */
+  const swapStackedPanels = (sourceId: string, targetId: string) => {
+    setPanels((prev) => {
+      const source = prev.find((p) => p.id === sourceId);
+      const target = prev.find((p) => p.id === targetId);
+      if (!source || !target) return prev;
+
+      // source is stacked under target → source becomes root, target stacks under source
+      if (source.stackedUnder === targetId) {
+        return prev.map((p) => {
+          if (p.id === sourceId) return { ...p, stackedUnder: undefined };
+          if (p.id === targetId) return { ...p, stackedUnder: sourceId };
+          return p;
+        });
+      }
+      // target is stacked under source → target becomes root, source stacks under target
+      if (target.stackedUnder === sourceId) {
+        return prev.map((p) => {
+          if (p.id === targetId) return { ...p, stackedUnder: undefined };
+          if (p.id === sourceId) return { ...p, stackedUnder: targetId };
+          return p;
+        });
+      }
+      return prev;
+    });
+  };
+
+  /**
    * Runs reorder panels.
    */
   const reorderPanels = (sourceId: string, targetId: string) => {
@@ -798,7 +827,17 @@ export default function EditorPage() {
       return;
     }
 
-    reorderPanels(sourceId, panelId);
+    const source = panels.find((p) => p.id === sourceId);
+    const target = panels.find((p) => p.id === panelId);
+    const inSameColumn =
+      source && target && (source.stackedUnder === panelId || target.stackedUnder === sourceId);
+
+    if (inSameColumn) {
+      swapStackedPanels(sourceId, panelId);
+    } else {
+      reorderPanels(sourceId, panelId);
+    }
+
     setDragOverPanelId(null);
     setDraggedPanelId(null);
   };
@@ -1148,187 +1187,189 @@ export default function EditorPage() {
         onTextSizeChange={handleTextSizeChange}
       />
 
-      <main id="main-content" className="flex-1 flex flex-col overflow-hidden min-h-0">
-        <div className="flex-1 min-h-0 relative overflow-x-auto lg:overflow-visible">
-          <div className={`flex min-h-0 h-full ${isMobile ? 'min-w-max' : 'w-full'}`}>
-            <SourcePane
-              width={sourcePaneWidth}
-              sourceLang={sourceLang}
-              showSourceLangDropdown={showSourceLangDropdown}
-              code={code}
-              showMemDia={showMemDia}
-              resizingMemDiaPaneId={resizingMemDiaPaneId}
-              memDiaHeight={getMemDiaHeight('source')}
-              currentVariables={currentVariables}
-              editorRef={editorRef}
-              extensions={getExtensions(sourceLang === 'ast' ? 'python' : sourceLang)}
-              memDiaState={getMemDiaState('source')}
-              onToggleMemDiaCollapse={() => cycleMemDiaState('source')}
-              onToggleSourceLangDropdown={() => setShowSourceLangDropdown((prev) => !prev)}
-              onSelectSourceLang={handleSourceLanguageChange}
-              onCodeChange={(value) => {
-                setCode(value);
-                if (isDebugging) {
-                  setHighlightedSourceLines([]);
-                  setPanelHighlightedLines(new Map());
-                }
-              }}
-              onCreateEditor={handleCreateEditor}
-              onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
-              onResizeEditor={(e) => {
-                if (panels.length === 0) {
-                  return;
-                }
-                onMouseDown(e, 'editor');
-              }}
-              editorResizeActive={panels.length > 0 && resizingIdx === 'editor'}
-            />
+      <main id="main-content" className="flex-1 flex flex-row overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
+          <div className="flex-1 min-h-0 relative overflow-x-auto lg:overflow-visible">
+            <div className={`flex min-h-0 h-full ${isMobile ? 'min-w-max' : 'w-full'}`}>
+              <SourcePane
+                width={sourcePaneWidth}
+                sourceLang={sourceLang}
+                showSourceLangDropdown={showSourceLangDropdown}
+                code={code}
+                showMemDia={showMemDia}
+                resizingMemDiaPaneId={resizingMemDiaPaneId}
+                memDiaHeight={getMemDiaHeight('source')}
+                currentVariables={currentVariables}
+                editorRef={editorRef}
+                extensions={getExtensions(sourceLang === 'ast' ? 'python' : sourceLang)}
+                memDiaState={getMemDiaState('source')}
+                onToggleMemDiaCollapse={() => cycleMemDiaState('source')}
+                onToggleSourceLangDropdown={() => setShowSourceLangDropdown((prev) => !prev)}
+                onSelectSourceLang={handleSourceLanguageChange}
+                onCodeChange={(value) => {
+                  setCode(value);
+                  if (isDebugging) {
+                    setHighlightedSourceLines([]);
+                    setPanelHighlightedLines(new Map());
+                  }
+                }}
+                onCreateEditor={handleCreateEditor}
+                onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
+                onResizeEditor={(e) => {
+                  if (panels.length === 0) {
+                    return;
+                  }
+                  onMouseDown(e, 'editor');
+                }}
+                editorResizeActive={panels.length > 0 && resizingIdx === 'editor'}
+              />
 
-            <div
-              className={`${isMobile ? 'flex shrink-0' : 'flex-1'} flex overflow-x-auto scrollbar-hide relative z-[10] bg-slate-900 min-w-0`}
-              ref={containerRef}
-            >
-              {/* Render root panels as columns; each column may have a stacked child below */}
-              {panels
-                .filter((p) => !p.stackedUnder)
-                .map((rootPanel) => {
-                  const rootIdx = panels.indexOf(rootPanel);
-                  const stackedPanel = panels.find((p) => p.stackedUnder === rootPanel.id);
-                  // "Stack below" button is shown on a root panel when:
-                  // - it has no stacked child yet (column isn't full)
-                  // - there is at least one other root panel that also has no stacked child
-                  //   (so this panel could move below that one)
-                  const otherFreeRoots = panels.filter(
-                    (p) =>
-                      !p.stackedUnder &&
-                      p.id !== rootPanel.id &&
-                      !panels.some((sp) => sp.stackedUnder === p.id)
-                  );
-                  const canStack = !stackedPanel && otherFreeRoots.length > 0;
+              <div
+                className={`${isMobile ? 'flex shrink-0' : 'flex-1'} flex overflow-x-auto scrollbar-hide relative z-[10] bg-slate-900 min-w-0`}
+                ref={containerRef}
+              >
+                {/* Render root panels as columns; each column may have a stacked child below */}
+                {panels
+                  .filter((p) => !p.stackedUnder)
+                  .map((rootPanel) => {
+                    const rootIdx = panels.indexOf(rootPanel);
+                    const stackedPanel = panels.find((p) => p.stackedUnder === rootPanel.id);
+                    // "Stack below" button is shown on a root panel when:
+                    // - it has no stacked child yet (column isn't full)
+                    // - there is at least one other root panel that also has no stacked child
+                    //   (so this panel could move below that one)
+                    const otherFreeRoots = panels.filter(
+                      (p) =>
+                        !p.stackedUnder &&
+                        p.id !== rootPanel.id &&
+                        !panels.some((sp) => sp.stackedUnder === p.id)
+                    );
+                    const canStack = !stackedPanel && otherFreeRoots.length > 0;
 
-                  return (
-                    <div
-                      key={rootPanel.id}
-                      className="flex flex-col shrink-0 border-r border-slate-800 last:border-0"
-                      style={{ width: rootPanel.width }}
-                    >
-                      {/* Top panel (root) */}
+                    return (
                       <div
-                        className={
-                          stackedPanel
-                            ? 'flex-1 min-h-0 overflow-hidden border-b border-slate-700'
-                            : 'flex-1 min-h-0 overflow-hidden'
-                        }
+                        key={rootPanel.id}
+                        className="flex flex-col shrink-0 border-r border-slate-800 last:border-0"
+                        style={{ width: rootPanel.width }}
                       >
-                        <TranslationPaneItem
-                          panel={rootPanel}
-                          ast={ast}
-                          draggedPanelId={draggedPanelId}
-                          dragOverPanelId={dragOverPanelId}
-                          translationCode={getTranslation(ast, rootPanel.lang).code}
-                          highlightedLines={panelHighlightedLines.get(rootPanel.id) || []}
-                          showMemDia={showMemDia}
-                          resizingMemDiaPaneId={resizingMemDiaPaneId}
-                          memDiaHeight={getMemDiaHeight(rootPanel.id)}
-                          currentVariables={currentVariables}
-                          resizeActive={resizingIdx === rootIdx}
-                          memDiaState={getMemDiaState(rootPanel.id)}
-                          onToggleStack={
-                            canStack ? () => togglePanelStack(rootPanel.id) : undefined
+                        {/* Top panel (root) */}
+                        <div
+                          className={
+                            stackedPanel
+                              ? 'flex-1 min-h-0 overflow-hidden border-b border-slate-700'
+                              : 'flex-1 min-h-0 overflow-hidden'
                           }
-                          isStacked={false}
-                          onRemovePanel={removePanel}
-                          onResize={(e) => onMouseDown(e, rootIdx)}
-                          onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
-                          onToggleMemDiaCollapse={() => cycleMemDiaState(rootPanel.id)}
-                          onPanelDragStart={handlePanelDragStart}
-                          onPanelDragOver={handlePanelDragOver}
-                          onPanelDrop={handlePanelDrop}
-                          onPanelDragEnd={handlePanelDragEnd}
-                        />
-                      </div>
-
-                      {/* Bottom panel (stacked child) — same flex-1 height, shares column width */}
-                      {stackedPanel && (
-                        <div className="flex-1 min-h-0 overflow-hidden">
+                        >
                           <TranslationPaneItem
-                            panel={stackedPanel}
+                            panel={rootPanel}
                             ast={ast}
                             draggedPanelId={draggedPanelId}
                             dragOverPanelId={dragOverPanelId}
-                            translationCode={getTranslation(ast, stackedPanel.lang).code}
-                            highlightedLines={panelHighlightedLines.get(stackedPanel.id) || []}
+                            translationCode={getTranslation(ast, rootPanel.lang).code}
+                            highlightedLines={panelHighlightedLines.get(rootPanel.id) || []}
                             showMemDia={showMemDia}
                             resizingMemDiaPaneId={resizingMemDiaPaneId}
-                            memDiaHeight={getMemDiaHeight(stackedPanel.id)}
+                            memDiaHeight={getMemDiaHeight(rootPanel.id)}
                             currentVariables={currentVariables}
                             resizeActive={resizingIdx === rootIdx}
-                            memDiaState={getMemDiaState(stackedPanel.id)}
-                            onToggleStack={() => togglePanelStack(stackedPanel.id)}
-                            isStacked={true}
+                            memDiaState={getMemDiaState(rootPanel.id)}
+                            onToggleStack={
+                              canStack ? () => togglePanelStack(rootPanel.id) : undefined
+                            }
+                            isStacked={false}
                             onRemovePanel={removePanel}
                             onResize={(e) => onMouseDown(e, rootIdx)}
                             onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
-                            onToggleMemDiaCollapse={() => cycleMemDiaState(stackedPanel.id)}
+                            onToggleMemDiaCollapse={() => cycleMemDiaState(rootPanel.id)}
                             onPanelDragStart={handlePanelDragStart}
                             onPanelDragOver={handlePanelDragOver}
                             onPanelDrop={handlePanelDrop}
                             onPanelDragEnd={handlePanelDragEnd}
                           />
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        {/* Bottom panel (stacked child) — same flex-1 height, shares column width */}
+                        {stackedPanel && (
+                          <div className="flex-1 min-h-0 overflow-hidden">
+                            <TranslationPaneItem
+                              panel={stackedPanel}
+                              ast={ast}
+                              draggedPanelId={draggedPanelId}
+                              dragOverPanelId={dragOverPanelId}
+                              translationCode={getTranslation(ast, stackedPanel.lang).code}
+                              highlightedLines={panelHighlightedLines.get(stackedPanel.id) || []}
+                              showMemDia={showMemDia}
+                              resizingMemDiaPaneId={resizingMemDiaPaneId}
+                              memDiaHeight={getMemDiaHeight(stackedPanel.id)}
+                              currentVariables={currentVariables}
+                              resizeActive={resizingIdx === rootIdx}
+                              memDiaState={getMemDiaState(stackedPanel.id)}
+                              onToggleStack={() => togglePanelStack(stackedPanel.id)}
+                              isStacked={true}
+                              onRemovePanel={removePanel}
+                              onResize={(e) => onMouseDown(e, rootIdx)}
+                              onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
+                              onToggleMemDiaCollapse={() => cycleMemDiaState(stackedPanel.id)}
+                              onPanelDragStart={handlePanelDragStart}
+                              onPanelDragOver={handlePanelDragOver}
+                              onPanelDrop={handlePanelDrop}
+                              onPanelDragEnd={handlePanelDragEnd}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
-
-            <AddPanelStrip
-              showAddMenu={showAddMenu}
-              sourceLang={sourceLang}
-              panels={panels}
-              onToggleMenu={() => setShowAddMenu((prev) => !prev)}
-              onTogglePanel={togglePanel}
-            />
-
-            {showAiSidePanel && (
-              <AiSidePanel
-                width={aiPanelWidth}
-                isResizing={isResizingAiPanel}
-                onStartResize={(e) => {
-                  e.preventDefault();
-                  aiResizeRef.current = {
-                    startX: e.clientX,
-                    startWidth: aiPanelWidth,
-                  };
-                  setIsResizingAiPanel(true);
-                }}
-                onClose={() => setShowAiSidePanel(false)}
-              />
-            )}
           </div>
+
+          <OutputPanel
+            output={output}
+            error={error}
+            variables={currentVariables}
+            showVariables={isDebugging}
+            height={outputState === 'open' ? outputHeight : undefined}
+            resizeActive={resizingIdx === 'output'}
+            onResize={(e) => onMouseDown(e, 'output')}
+            waitingForInput={waitingForInput || waitingForNormalInput}
+            inputPrompt={inputPrompt || normalModeInputPrompt}
+            onSubmitInput={(input) => {
+              if (waitingForNormalInput) {
+                handleNormalModeInputSubmit(input);
+              } else {
+                handleSubmitInput(input);
+              }
+            }}
+            panelState={outputState}
+            onToggle={cycleOutputState}
+            onOpen={() => setOutputState('open')}
+          />
         </div>
 
-        <OutputPanel
-          output={output}
-          error={error}
-          variables={currentVariables}
-          showVariables={isDebugging}
-          height={outputState === 'open' ? outputHeight : undefined}
-          resizeActive={resizingIdx === 'output'}
-          onResize={(e) => onMouseDown(e, 'output')}
-          waitingForInput={waitingForInput || waitingForNormalInput}
-          inputPrompt={inputPrompt || normalModeInputPrompt}
-          onSubmitInput={(input) => {
-            if (waitingForNormalInput) {
-              handleNormalModeInputSubmit(input);
-            } else {
-              handleSubmitInput(input);
-            }
-          }}
-          panelState={outputState}
-          onToggle={cycleOutputState}
-          onOpen={() => setOutputState('open')}
+        <AddPanelStrip
+          showAddMenu={showAddMenu}
+          sourceLang={sourceLang}
+          panels={panels}
+          onToggleMenu={() => setShowAddMenu((prev) => !prev)}
+          onTogglePanel={togglePanel}
         />
+
+        {showAiSidePanel && (
+          <AiSidePanel
+            width={aiPanelWidth}
+            isResizing={isResizingAiPanel}
+            onStartResize={(e) => {
+              e.preventDefault();
+              aiResizeRef.current = {
+                startX: e.clientX,
+                startWidth: aiPanelWidth,
+              };
+              setIsResizingAiPanel(true);
+            }}
+            onClose={() => setShowAiSidePanel(false)}
+          />
+        )}
       </main>
     </div>
   );

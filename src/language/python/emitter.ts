@@ -468,7 +468,6 @@ export class PythonEmitter extends ASTVisitor {
    */
   visitSwitch(stmt: any): void {
     // Python doesn't have switch, implement as if-elif-else
-    console.log(stmt);
     let first = true;
     stmt.cases.forEach((caseStmt: any, _index: number) => {
       if (caseStmt.test) {

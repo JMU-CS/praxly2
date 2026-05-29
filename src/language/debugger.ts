@@ -108,17 +108,17 @@ export class Debugger {
     if (!this.context || !this.executionGenerator) return null;
 
     this.stepCallCount++;
-    console.log(`\n=== Debugger.step() #${this.stepCallCount} START ===`);
+    // console.log(`\n=== Debugger.step() #${this.stepCallCount} START ===`);
 
     try {
       if (this.pendingRetryAfterInput) {
-        console.log(`Debugger.step() #${this.stepCallCount}: Retrying after input was provided`);
+        // console.log(`Debugger.step() #${this.stepCallCount}: Retrying after input was provided`);
       }
 
       const result = this.executionGenerator.next();
-      console.log(
-        `Debugger.step() #${this.stepCallCount}: generator.next() returned, done=${result.done}`
-      );
+      // console.log(
+      // `Debugger.step() #${this.stepCallCount}: generator.next() returned, done=${result.done}`
+      // );
 
       // If we were retrying and it succeeded, clear the flag
       if (this.pendingRetryAfterInput) {
@@ -127,7 +127,7 @@ export class Debugger {
 
       if (result.done) {
         this.context.waitingForInput = false;
-        console.log(`=== Debugger.step() #${this.stepCallCount} END (complete) ===\n`);
+        // console.log(`=== Debugger.step() #${this.stepCallCount} END (complete) ===\n`);
         return {
           stepNumber: this.context.steps.length,
           nodeId: '',
@@ -143,9 +143,9 @@ export class Debugger {
 
       // Handle InputPrompt yielded from interpreter
       if (nodeType === 'InputPrompt') {
-        console.log(
-          `Debugger.step() #${this.stepCallCount}: Yielded InputPrompt, waiting for input`
-        );
+        // console.log(
+        // `Debugger.step() #${this.stepCallCount}: Yielded InputPrompt, waiting for input`
+        // );
         this.pendingRetryAfterInput = true;
         this.context.waitingForInput = true;
         this.context.inputPrompt = prompt || '';
@@ -162,7 +162,7 @@ export class Debugger {
           inputPrompt: prompt || '',
         };
         this.context.steps.push(step);
-        console.log(`=== Debugger.step() #${this.stepCallCount} END (InputPrompt) ===\n`);
+        // console.log(`=== Debugger.step() #${this.stepCallCount} END (InputPrompt) ===\n`);
         return step;
       }
 
@@ -179,19 +179,16 @@ export class Debugger {
       this.context.steps.push(step);
       this.context.currentStep = this.context.steps.length - 1;
 
-      console.log(`=== Debugger.step() #${this.stepCallCount} END (step ${nodeType}) ===\n`);
+      // console.log(`=== Debugger.step() #${this.stepCallCount} END (step ${nodeType}) ===\n`);
       return step;
     } catch (error: any) {
-      console.log(
-        `Debugger.step() #${this.stepCallCount}: Caught error:`,
-        error.name,
-        error.prompt || ''
-      );
+      // console.log(
+      // `Debugger.step() #${this.stepCallCount}: Caught error:`,
+      // error.name,
+      // error.prompt || ''
+      // );
       // Handle InputPrompt specially
       if (error instanceof InputPrompt) {
-        console.log(
-          `Debugger.step() #${this.stepCallCount}: Marking pendingRetryAfterInput = true`
-        );
         this.pendingRetryAfterInput = true;
         this.context.waitingForInput = true;
         this.context.inputPrompt = error.prompt;
@@ -207,7 +204,7 @@ export class Debugger {
           inputPrompt: error.prompt,
         };
         this.context.steps.push(step);
-        console.log(`=== Debugger.step() #${this.stepCallCount} END (InputPrompt) ===\n`);
+        // console.log(`=== Debugger.step() #${this.stepCallCount} END (InputPrompt) ===\n`);
         return step;
       }
 
@@ -223,7 +220,7 @@ export class Debugger {
       };
 
       this.context.steps.push(errorStep);
-      console.log(`=== Debugger.step() #${this.stepCallCount} END (error) ===\n`);
+      // console.log(`=== Debugger.step() #${this.stepCallCount} END (error) ===\n`);
       return errorStep;
     }
   }
@@ -398,15 +395,15 @@ export class Debugger {
    * Provide input to the debugger and resume execution
    */
   provideInput(input: string): void {
-    console.log('Debugger.provideInput called with:', input);
+    // console.log('Debugger.provideInput called with:', input);
     if (!this.context) {
-      console.log('No context!');
+      // console.log('No context!');
       return;
     }
-    console.log('Calling interpreter.addInput');
+    // console.log('Calling interpreter.addInput');
     this.context.interpreter.addInput(input);
     this.context.waitingForInput = false;
-    console.log('provideInput complete');
+    // console.log('provideInput complete');
   }
 
   /**
