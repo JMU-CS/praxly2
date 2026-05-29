@@ -1519,6 +1519,40 @@ export class Interpreter {
         } catch {
           return env.get('self');
         }
+      case 'UpdateExpression': {
+        const argName = (expr.argument as any).name;
+        const oldVal = env.get(argName);
+        const newVal = expr.operator === '++' ? oldVal + 1 : oldVal - 1;
+        env.assign(argName, newVal);
+        return expr.prefix ? newVal : oldVal;
+      }
+      case 'CompoundAssignment': {
+        const compName = (expr as any).name;
+        const compLeft = env.get(compName);
+        const compRight = this.evaluate((expr as any).right, env);
+        let compResult: any;
+        switch ((expr as any).operator) {
+          case '+':
+            compResult = compLeft + compRight;
+            break;
+          case '-':
+            compResult = compLeft - compRight;
+            break;
+          case '*':
+            compResult = compLeft * compRight;
+            break;
+          case '/':
+            compResult = compLeft / compRight;
+            break;
+          case '%':
+            compResult = compLeft % compRight;
+            break;
+          default:
+            compResult = compLeft + compRight;
+        }
+        env.assign(compName, compResult);
+        return compResult;
+      }
       case 'UnaryExpression':
         const right = this.evaluate(expr.argument, env, expectedType);
         if (expr.operator === '-') return -right;

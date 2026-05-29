@@ -5,7 +5,7 @@
  * preserve compile-time checks, and attach metadata for menu grouping.
  */
 
-export type ExampleLanguage = 'python' | 'java' | 'csp' | 'praxis';
+export type ExampleLanguage = 'python' | 'java' | 'csp' | 'praxis' | 'javascript';
 export type ExampleCategory = 'fundamentals' | 'conditionals' | 'loops' | 'functions';
 
 export interface ExampleProgram {
@@ -137,6 +137,63 @@ DISPLAY(x)`,
 }
 
 greet("Praxly")`,
+  },
+  {
+    id: 'javascript-grade-check',
+    title: 'JS Grade Bands',
+    description: 'If / else if / else branching',
+    category: 'conditionals',
+    lang: 'javascript',
+    code: `let score = 84;
+
+if (score >= 90) {
+  console.log("A");
+} else if (score >= 80) {
+  console.log("B");
+} else {
+  console.log("Keep practicing");
+}`,
+  },
+  {
+    id: 'javascript-for-loop',
+    title: 'JS Running Sum',
+    description: 'C-style for loop with accumulator',
+    category: 'loops',
+    lang: 'javascript',
+    code: `let total = 0;
+for (let i = 1; i <= 5; i++) {
+  total = total + i;
+}
+console.log(total);`,
+  },
+  {
+    id: 'javascript-function',
+    title: 'JS Max Function',
+    description: 'Function declaration with conditional return',
+    category: 'functions',
+    lang: 'javascript',
+    code: `function max(a, b) {
+  if (a > b) {
+    return a;
+  } else {
+    return b;
+  }
+}
+
+console.log(max(7, 3));`,
+  },
+  {
+    id: 'javascript-array-loop',
+    title: 'JS Array For-Of',
+    description: 'For-of loop over an array literal',
+    category: 'loops',
+    lang: 'javascript',
+    code: `let nums = [10, 20, 30, 40];
+let sum = 0;
+for (const n of nums) {
+  sum = sum + n;
+}
+console.log(sum);`,
   },
 ];
 

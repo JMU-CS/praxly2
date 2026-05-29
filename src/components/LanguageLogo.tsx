@@ -1,4 +1,4 @@
-export type LogoLang = 'python' | 'java' | 'csp' | 'praxis' | 'ast';
+export type LogoLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'ast';
 
 function PythonLogo({ size }: { size: number }) {
   return (
@@ -72,6 +72,24 @@ function CspLogo({ size }: { size: number }) {
   );
 }
 
+function JavaScriptLogo({ size }: { size: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 32 32">
+      <rect width="32" height="32" rx="3" fill="#f7df1e" />
+      <text
+        x="3"
+        y="26"
+        fontFamily="Arial Black, Arial, sans-serif"
+        fontWeight="900"
+        fontSize="19"
+        fill="#323330"
+      >
+        JS
+      </text>
+    </svg>
+  );
+}
+
 function PraxisLogo({ size }: { size: number }) {
   return (
     <svg
@@ -101,6 +119,8 @@ export function LanguageLogo({ lang, size = 14 }: { lang: LogoLang; size?: numbe
       return <JavaLogo size={size} />;
     case 'csp':
       return <CspLogo size={size} />;
+    case 'javascript':
+      return <JavaScriptLogo size={size} />;
     case 'praxis':
       return <PraxisLogo size={size} />;
     default:

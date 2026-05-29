@@ -594,10 +594,11 @@ export class JavaEmitter extends ASTVisitor {
       : undefined;
 
     if (stmt.varType && stmt.declaredWithoutInitializer) {
-      const declaredType =
+      let declaredType =
         analyzedTypeHint && this.isArrayListType(analyzedTypeHint)
           ? analyzedTypeHint
           : stmt.varType;
+      if (declaredType === 'auto' || declaredType === 'var') declaredType = 'Object';
       this.emit(`${declaredType} ${targetStr};`, stmt.id);
       this.context.symbolTable.set(stmt.name, declaredType);
       return;
@@ -624,10 +625,17 @@ export class JavaEmitter extends ASTVisitor {
     }
 
     if (stmt.varType) {
-      const declaredType =
+      let declaredType =
         analyzedTypeHint && this.isArrayListType(analyzedTypeHint)
           ? analyzedTypeHint
           : stmt.varType;
+      if (declaredType === 'auto' || declaredType === 'var') {
+        declaredType = this.inferType(stmt.value);
+        if (declaredType === 'var' || declaredType === 'auto') {
+          const ctorName = this.getClassConstructorName(stmt.value);
+          declaredType = ctorName || 'Object';
+        }
+      }
       this.emit(`${declaredType} ${targetStr} = ${initVal};`, stmt.id);
       this.context.symbolTable.set(stmt.name, declaredType);
     } else if (stmt.target && stmt.target.type !== 'Identifier') {

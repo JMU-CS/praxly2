@@ -7,7 +7,7 @@ import type { Program, ASTNode } from './ast';
 import { Interpreter, InputPrompt } from './interpreter';
 import { Translator } from './translator';
 
-export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'ast';
+export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'ast';
 
 /**
  * Represents a single execution step with all relevant debug information
@@ -86,7 +86,7 @@ export class Debugger {
     };
 
     // Generate source maps for all target languages
-    const targetLanguages: SupportedLang[] = ['python', 'java', 'csp', 'praxis'];
+    const targetLanguages: SupportedLang[] = ['python', 'java', 'csp', 'praxis', 'javascript'];
     for (const lang of targetLanguages) {
       if (lang !== 'ast') {
         const sourceMap = this.generateSourceMap(program, lang as any);

@@ -86,9 +86,10 @@ export class JavaParser {
    * Runs top level declaration.
    */
   private topLevelDeclaration(): Statement {
-    // Handle class declarations
+    // Handle class declarations (with or without an access modifier)
     if (
       this.check('KEYWORD', 'public', 'private', 'protected') ||
+      this.check('KEYWORD', 'class') ||
       this.checkPeekAhead('KEYWORD', 'class', 2)
     ) {
       return this.classDeclaration();

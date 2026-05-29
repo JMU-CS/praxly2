@@ -6,7 +6,7 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 
-export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'ast';
+export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'ast';
 
 interface LanguageSelectorProps {
   value: SupportedLang;
