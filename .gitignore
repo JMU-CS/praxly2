@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Environment / secrets (API keys live here, never commit)
+.env
+server/.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

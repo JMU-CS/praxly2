@@ -20,6 +20,7 @@ import { SourcePane } from '../components/editor/SourcePane';
 import { TranslationPaneItem } from '../components/editor/TranslationPaneItem';
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
 import { AiSidePanel } from '../components/editor/AiSidePanel';
+import type { AiMessage } from '../components/editor/AiSidePanel';
 import type { Panel } from '../components/editor/types';
 
 const MIN_SOURCE_WIDTH = 280;
@@ -70,6 +71,8 @@ export default function EditorPage() {
   const [memDiaStates, setMemDiaStates] = useState<Map<string, 'open' | 'closed'>>(new Map());
   const [aiPanelWidth, setAiPanelWidth] = useState(320);
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false);
+  const [aiMessages, setAiMessages] = useState<AiMessage[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
   const [resizingMemDiaPaneId, setResizingMemDiaPaneId] = useState<string | null>(null);
   const [memDiaHeights, setMemDiaHeights] = useState<Record<string, number>>({});
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
@@ -618,6 +621,30 @@ export default function EditorPage() {
    */
   const handleToggleAiPanel = () => {
     setShowAiSidePanel((prev) => !prev);
+  };
+
+  const handleAiMessage = async (message: string) => {
+    setAiMessages((prev) => [...prev, { role: 'user', text: message }]);
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, language: sourceLang, code }),
+      });
+      const data = await res.json();
+      const reply: string = res.ok
+        ? (data.reply ?? 'No response.')
+        : (data.error ?? 'Server error.');
+      setAiMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
+    } catch {
+      setAiMessages((prev) => [
+        ...prev,
+        { role: 'assistant', text: 'Could not reach the AI server. Is it running?' },
+      ]);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleTextSizeChange = (size: TextSize) => {
@@ -1368,6 +1395,9 @@ export default function EditorPage() {
               setIsResizingAiPanel(true);
             }}
             onClose={() => setShowAiSidePanel(false)}
+            messages={aiMessages}
+            isLoading={aiLoading}
+            onSendMessage={handleAiMessage}
           />
         )}
       </main>
