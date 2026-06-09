@@ -1,51 +1,80 @@
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { Send, X } from 'lucide-react';
-import type { KeyboardEvent, MouseEvent } from 'react';
-
-export interface AiMessage {
-  role: 'user' | 'assistant';
-  text: string;
-}
+import type { MouseEvent } from 'react';
+import {
+  AssistantRuntimeProvider,
+  useLocalRuntime,
+  ThreadPrimitive,
+  MessagePrimitive,
+  ComposerPrimitive,
+  type ChatModelAdapter,
+} from '@assistant-ui/react';
+import { streamAssistant, type SimpleMessage } from '../../util/llm';
 
 interface AiSidePanelProps {
   width: number;
   isResizing: boolean;
   onStartResize: (e: MouseEvent) => void;
   onClose: () => void;
-  messages: AiMessage[];
-  isLoading: boolean;
-  onSendMessage: (message: string) => void;
+  code: string;
+  language: string;
 }
+
+const UserMessage = () => (
+  <MessagePrimitive.Root className="flex justify-end">
+    <div className="max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap bg-indigo-600 text-white">
+      <MessagePrimitive.Parts />
+    </div>
+  </MessagePrimitive.Root>
+);
+
+const AssistantMessage = () => (
+  <MessagePrimitive.Root className="flex justify-start">
+    <div className="max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap bg-slate-800 text-slate-200 border border-slate-700">
+      <MessagePrimitive.Parts />
+    </div>
+  </MessagePrimitive.Root>
+);
 
 export function AiSidePanel({
   width,
   isResizing,
   onStartResize,
   onClose,
-  messages,
-  isLoading,
-  onSendMessage,
+  code,
+  language,
 }: AiSidePanelProps) {
-  const [input, setInput] = useState('');
-  const bottomRef = useRef<HTMLDivElement>(null);
+  // Keep the latest editor code/language available to the adapter closure.
+  const codeRef = useRef(code);
+  codeRef.current = code;
+  const langRef = useRef(language);
+  langRef.current = language;
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  const adapter = useMemo<ChatModelAdapter>(
+    () => ({
+      async *run({ messages, abortSignal }) {
+        const simple: SimpleMessage[] = messages
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            text: m.content.map((p) => ('text' in p ? p.text : '')).join(''),
+          }))
+          .filter((m) => m.text.length > 0);
 
-  const handleSend = () => {
-    const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
-    onSendMessage(trimmed);
-    setInput('');
-  };
+        for await (const text of streamAssistant({
+          messages: simple,
+          code: codeRef.current,
+          language: langRef.current,
+          signal: abortSignal,
+        })) {
+          yield { content: [{ type: 'text', text }] };
+        }
+      },
+    }),
+    []
+  );
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  const runtime = useLocalRuntime(adapter);
 
   return (
     <div
@@ -74,55 +103,35 @@ export function AiSidePanel({
         </button>
       </div>
 
-      {/* Message history */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
-        {messages.length === 0 && (
-          <p className="text-xs text-slate-500 text-center mt-6">Ask anything about your code.</p>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div
-              className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap ${
-                msg.role === 'user'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-800 text-slate-200 border border-slate-700'
-              }`}
-            >
-              {msg.text}
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-400">
-              Thinking…
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <ThreadPrimitive.Root className="flex-1 flex flex-col min-h-0">
+          <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
+            <ThreadPrimitive.Empty>
+              <p className="text-xs text-slate-500 text-center mt-6">
+                Ask anything about your code.
+              </p>
+            </ThreadPrimitive.Empty>
+            <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
+          </ThreadPrimitive.Viewport>
 
-      {/* Input area */}
-      <div className="border-t border-slate-800 p-3 shrink-0">
-        <div className="flex gap-2 items-end">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about your code… (Enter to send)"
-            rows={2}
-            className="flex-1 resize-none rounded-md bg-slate-800 border border-slate-700 text-xs text-slate-200 placeholder-slate-500 px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="p-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
-            title="Send"
-          >
-            <Send size={14} />
-          </button>
-        </div>
-      </div>
+          {/* Input area */}
+          <div className="border-t border-slate-800 p-3 shrink-0">
+            <ComposerPrimitive.Root className="flex gap-2 items-end">
+              <ComposerPrimitive.Input
+                placeholder="Ask about your code… (Enter to send)"
+                rows={2}
+                className="flex-1 resize-none rounded-md bg-slate-800 border border-slate-700 text-xs text-slate-200 placeholder-slate-500 px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
+              />
+              <ComposerPrimitive.Send
+                className="p-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                title="Send"
+              >
+                <Send size={14} />
+              </ComposerPrimitive.Send>
+            </ComposerPrimitive.Root>
+          </div>
+        </ThreadPrimitive.Root>
+      </AssistantRuntimeProvider>
     </div>
   );
 }
