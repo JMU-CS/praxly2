@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { EditorView } from '@codemirror/view';
+import type { ViewUpdate } from '@codemirror/view';
 
 import type { SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
@@ -25,6 +26,7 @@ interface SourcePaneProps {
   onSelectSourceLang: (lang: SupportedLang) => void;
   onCodeChange: (value: string) => void;
   onCreateEditor: (view: any) => void;
+  onEditorUpdate?: (update: ViewUpdate) => void;
   onMemDiaResizeMouseDown: (e: MouseEvent, paneId: string) => void;
   onResizeEditor: (e: MouseEvent) => void;
   editorResizeActive: boolean;
@@ -52,6 +54,7 @@ export function SourcePane({
   onSelectSourceLang,
   onCodeChange,
   onCreateEditor,
+  onEditorUpdate,
   onMemDiaResizeMouseDown,
   onResizeEditor,
   editorResizeActive,
@@ -117,6 +120,7 @@ export function SourcePane({
               ]}
               onChange={onCodeChange}
               onCreateEditor={onCreateEditor}
+              onUpdate={onEditorUpdate}
               className="h-full font-mono"
             />
           </div>

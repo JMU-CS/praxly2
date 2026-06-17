@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { DragEvent, MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';
@@ -20,6 +21,7 @@ import { SourcePane } from '../components/editor/SourcePane';
 import { TranslationPaneItem } from '../components/editor/TranslationPaneItem';
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
 import { AiSidePanel } from '../components/editor/AiSidePanel';
+import type { LlmPanel } from '../util/llm';
 import type { Panel } from '../components/editor/types';
 
 const MIN_SOURCE_WIDTH = 280;
@@ -70,6 +72,11 @@ export default function EditorPage() {
   const [memDiaStates, setMemDiaStates] = useState<Map<string, 'open' | 'closed'>>(new Map());
   const [aiPanelWidth, setAiPanelWidth] = useState(320);
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false);
+  // Highlight-to-chat: text selected in the source editor + where to float the button.
+  const [aiSelection, setAiSelection] = useState('');
+  const [aiSelectionCoords, setAiSelectionCoords] = useState<{ top: number; left: number } | null>(
+    null
+  );
   const [resizingMemDiaPaneId, setResizingMemDiaPaneId] = useState<string | null>(null);
   const [memDiaHeights, setMemDiaHeights] = useState<Record<string, number>>({});
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
@@ -365,6 +372,25 @@ export default function EditorPage() {
     editorViewRef.current = view;
   }, []);
 
+  // Track the current source-editor selection so the user can chat about it.
+  const handleEditorUpdate = useCallback((update: any) => {
+    if (!update.selectionSet && !update.docChanged && !update.geometryChanged) return;
+    const sel = update.state.selection.main;
+    if (sel.empty) {
+      setAiSelection('');
+      setAiSelectionCoords(null);
+      return;
+    }
+    setAiSelection(update.state.sliceDoc(sel.from, sel.to));
+    const coords = update.view.coordsAtPos(sel.to);
+    setAiSelectionCoords(coords ? { top: coords.bottom + 4, left: coords.left } : null);
+  }, []);
+
+  const clearAiSelection = useCallback(() => {
+    setAiSelection('');
+    setAiSelectionCoords(null);
+  }, []);
+
   useEffect(() => {
     dispatchLineHighlighting(editorViewRef, highlightedSourceLines);
   }, [highlightedSourceLines]);
@@ -392,6 +418,28 @@ export default function EditorPage() {
       })
     );
   }, [ast, getTranslation]);
+
+  // Gather every open code panel (source + translations) so the AI panel can
+  // send all of them as context, not just the source.
+  const aiPanelContext = useMemo<LlmPanel[]>(() => {
+    const result: LlmPanel[] = [];
+    if (code.trim()) {
+      result.push({ language: sourceLang, code });
+    }
+    if (ast) {
+      for (const panel of panels) {
+        try {
+          const translated = getTranslation(ast, panel.lang).code;
+          if (translated?.trim()) {
+            result.push({ language: panel.lang, code: translated });
+          }
+        } catch {
+          // Skip panels that can't currently be translated.
+        }
+      }
+    }
+    return result;
+  }, [code, sourceLang, ast, panels, getTranslation]);
 
   /**
    * Handles run.
@@ -1214,6 +1262,7 @@ export default function EditorPage() {
                   }
                 }}
                 onCreateEditor={handleCreateEditor}
+                onEditorUpdate={handleEditorUpdate}
                 onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
                 onResizeEditor={(e) => {
                   if (panels.length === 0) {
@@ -1368,9 +1417,29 @@ export default function EditorPage() {
               setIsResizingAiPanel(true);
             }}
             onClose={() => setShowAiSidePanel(false)}
-            code={code}
-            language={sourceLang}
+            panels={aiPanelContext}
+            selection={aiSelection}
+            onClearSelection={clearAiSelection}
           />
+        )}
+
+        {/* Highlight-to-chat: floating button near the editor selection. */}
+        {aiSelection && aiSelectionCoords && (
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShowAiSidePanel(true)}
+            style={{
+              position: 'fixed',
+              top: aiSelectionCoords.top,
+              left: aiSelectionCoords.left,
+              zIndex: 300,
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-600 text-white text-xs font-medium shadow-lg hover:bg-indigo-500 transition-colors"
+            title="Ask the AI about the selected code"
+          >
+            <Sparkles size={12} />
+            Ask AI
+          </button>
         )}
       </main>
     </div>
