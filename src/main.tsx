@@ -4,16 +4,11 @@ import App from './App.tsx';
 import './index.css';
 import keycloak from './auth/keycloak';
 
-// Silently check if already logged in but don't redirect — auth is only
-// required when the user opens the AI panel.
+// Initialise Keycloak without redirecting — auth is only required when the
+// user opens the AI panel. The panel shows a Sign in button if not logged in.
 keycloak
-  .init({
-    onLoad: 'check-sso',
-    silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
-  })
-  .catch(() => {
-    // If SSO check fails, continue without auth — panel will prompt to log in.
-  })
+  .init({ checkLoginIframe: false })
+  .catch(() => {})
   .finally(() => {
     createRoot(document.getElementById('root')!).render(
       <StrictMode>

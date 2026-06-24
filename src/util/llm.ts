@@ -106,9 +106,10 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
 
       try {
         const parsed = JSON.parse(data) as {
-          choices?: Array<{ delta?: { content?: string } }>;
+          type?: string;
+          delta?: string;
         };
-        const delta = parsed.choices?.[0]?.delta?.content ?? '';
+        const delta = parsed.type === 'text-delta' ? (parsed.delta ?? '') : '';
         if (delta) {
           acc += delta;
           yield acc;
