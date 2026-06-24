@@ -63,6 +63,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "keycloak-js": "^26.2.4",
     "lz-string": "^1.5.0",
     "openai": "^6.42.0",
     "prompt-sync": "^4.2.0",

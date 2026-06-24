@@ -1,36 +1,17 @@
-import OpenAI from 'openai';
+import keycloak from '../auth/keycloak';
 
 /**
- * Talks to an LLM through Dr. Mayfield's LiteLLM proxy using the OpenAI SDK.
- * LiteLLM is OpenAI-compatible, so switching models is just changing `MODEL`
- * (e.g. 'anthropic/claude-3-5-sonnet', 'gemini/gemini-2.5-flash', ...).
+ * Talks to the k12-llm-backend (Hono / Node) through Keycloak auth.
+ * The backend proxies to LiteLLM server-side so no LiteLLM key is needed here.
  *
- * Config comes from Vite env vars (set these in a root `.env` file):
- *   VITE_LITELLM_BASE_URL  - the LiteLLM proxy URL (required)
- *   VITE_LITELLM_API_KEY   - the LiteLLM key (required)
- *   VITE_LLM_MODEL         - model name (defaults to qwen2.5:0.5b)
+ * Config (optional — defaults point to the shared dev server):
+ *   VITE_BACKEND_URL  - k12-llm-backend base URL
  */
 
-// Cast avoids needing the Vite client type reference here.
 const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ??
   {}) as Record<string, string | undefined>;
 
-const MODEL = env.VITE_LLM_MODEL ?? 'qwen2.5:0.5b';
-
-const client = new OpenAI({
-  baseURL: env.VITE_LITELLM_BASE_URL,
-  apiKey: env.VITE_LITELLM_API_KEY,
-  // We call the proxy directly from the browser during development.
-  dangerouslyAllowBrowser: true,
-});
-
-const SYSTEM_PROMPT =
-  'You are a helpful coding tutor built into the Praxly IDE. ' +
-  'Praxly supports Praxis pseudocode, Python, Java, and CSP (a pseudocode used in AP CS Principles). ' +
-  'The student has one or more code panels open in the editor, shown below — often the same program ' +
-  'translated across languages. Use all of them as context. ' +
-  'Give clear, concise answers aimed at K-12 students learning to code. ' +
-  'Guide the student to understand rather than dumping the full answer.';
+const BACKEND_URL = env.VITE_BACKEND_URL ?? 'https://k12api.torta-server.duckdns.org';
 
 export interface SimpleMessage {
   role: 'user' | 'assistant';
@@ -46,53 +27,95 @@ export interface LlmPanel {
 export interface StreamOptions {
   messages: SimpleMessage[];
   panels: LlmPanel[];
-  /** Code the student highlighted in the editor to focus the conversation on. */
+  /** Code the student highlighted — appended to the last user message. */
   selection?: string;
   signal?: AbortSignal;
-}
-
-function buildContextBlock(panels: LlmPanel[], selection?: string): string {
-  const withCode = panels.filter((p) => p.code.trim().length > 0);
-
-  let block =
-    withCode.length === 0
-      ? 'The student has not written any code yet.'
-      : 'The student currently has these code panels open:\n\n' +
-        withCode.map((p) => `${p.language}:\n\`\`\`\n${p.code}\n\`\`\``).join('\n\n');
-
-  if (selection && selection.trim().length > 0) {
-    block +=
-      `\n\nThe student has highlighted this specific snippet and wants to focus on it:\n` +
-      `\`\`\`\n${selection}\n\`\`\``;
-  }
-
-  return block;
+  /** Backend session ID — if null, the backend creates a new session. */
+  sessionId?: string | null;
+  /** Called with the session ID once the backend returns the X-Session-Id header. */
+  onSessionId?: (id: string) => void;
 }
 
 /**
- * Streams the assistant's reply. Yields the full accumulated text each time
- * a new chunk arrives, which is what assistant-ui's local runtime expects.
+ * Streams the assistant's reply from the k12-llm-backend.
+ * Yields the full accumulated text each time a new chunk arrives.
  */
 export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<string> {
-  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    {
-      role: 'system',
-      content: `${SYSTEM_PROMPT}\n\n${buildContextBlock(opts.panels, opts.selection)}`,
+  // Silently try to refresh the token if it's about to expire.
+  await keycloak.updateToken(30).catch(() => {});
+
+  const token = keycloak.token;
+  if (!token) throw new Error('Not authenticated — please refresh the page to log in.');
+
+  // Send the first non-empty panel as code context.
+  const primaryPanel = opts.panels.find((p) => p.code.trim().length > 0);
+
+  // Append any highlighted selection to the last user message.
+  const backendMessages = opts.messages.map((m, i) => {
+    const isLastUser = i === opts.messages.length - 1 && m.role === 'user';
+    const content =
+      isLastUser && opts.selection?.trim()
+        ? `${m.text}\n\nI've highlighted this specific snippet:\n\`\`\`\n${opts.selection}\n\`\`\``
+        : m.text;
+    return { role: m.role, content };
+  });
+
+  const response = await fetch(`${BACKEND_URL}/api/praxly/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
     },
-    ...opts.messages.map((m) => ({ role: m.role, content: m.text })),
-  ];
+    body: JSON.stringify({
+      sessionId: opts.sessionId ?? undefined,
+      messages: backendMessages,
+      code: primaryPanel?.code,
+      language: primaryPanel?.language,
+    }),
+    signal: opts.signal,
+  });
 
-  const stream = await client.chat.completions.create(
-    { model: MODEL, stream: true, messages },
-    { signal: opts.signal }
-  );
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`AI request failed (${response.status})${text ? `: ${text}` : ''}`);
+  }
 
+  // The backend tells us which session was used/created so we can reuse it.
+  const sessionId = response.headers.get('X-Session-Id');
+  if (sessionId) opts.onSessionId?.(sessionId);
+
+  const reader = response.body?.getReader();
+  if (!reader) return;
+
+  const decoder = new TextDecoder();
   let acc = '';
-  for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta?.content ?? '';
-    if (delta) {
-      acc += delta;
-      yield acc;
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') return;
+
+      try {
+        const parsed = JSON.parse(data) as {
+          choices?: Array<{ delta?: { content?: string } }>;
+        };
+        const delta = parsed.choices?.[0]?.delta?.content ?? '';
+        if (delta) {
+          acc += delta;
+          yield acc;
+        }
+      } catch {
+        // ignore malformed SSE lines
+      }
     }
   }
 }

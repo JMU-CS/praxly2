@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { History, Plus, Search, Send, Trash2, X } from 'lucide-react';
+import { History, LogIn, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import type { MouseEvent } from 'react';
+import keycloak from '../../auth/keycloak';
 import {
   AssistantRuntimeProvider,
   useLocalRuntime,
@@ -27,21 +28,23 @@ interface AiSidePanelProps {
   onClearSelection: () => void;
 }
 
-/**
- * A saved conversation. Stored only in React state for now — chats are lost on
- * refresh. The backend (accounts) will replace this store soon, keeping the
- * same shape so the UI doesn't change.
- */
 interface Chat {
   id: string;
   title: string;
   messages: SimpleMessage[];
+  /** Backend session ID — null until the first message is sent. */
+  sessionId: string | null;
 }
 
 const newChatId = (): string =>
   window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).slice(2);
 
-const makeChat = (): Chat => ({ id: newChatId(), title: 'New chat', messages: [] });
+const makeChat = (): Chat => ({
+  id: newChatId(),
+  title: 'New chat',
+  messages: [],
+  sessionId: null,
+});
 
 const titleFrom = (text: string): string => {
   const clean = text.trim().replace(/\s+/g, ' ');
@@ -113,22 +116,28 @@ function ChatThread({
   selection,
   onClearSelection,
   onMessages,
+  onSessionId,
 }: {
   chat: Chat;
   panels: LlmPanel[];
   selection: string;
   onClearSelection: () => void;
   onMessages: (chatId: string, messages: SimpleMessage[]) => void;
+  onSessionId: (chatId: string, sessionId: string) => void;
 }) {
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
+  const sessionIdRef = useRef(chat.sessionId);
+  sessionIdRef.current = chat.sessionId;
 
   // Captured once at mount so the runtime isn't reset on every parent render.
   const initialMessages = useRef(
     chat.messages.map((m) => ({ role: m.role, content: m.text }))
   ).current;
+
+  const chatId = chat.id;
 
   const adapter = useMemo<ChatModelAdapter>(
     () => ({
@@ -147,18 +156,19 @@ function ChatThread({
           panels: panelsRef.current,
           selection: selectionRef.current,
           signal: abortSignal,
+          sessionId: sessionIdRef.current,
+          onSessionId: (id) => onSessionId(chatId, id),
         })) {
           last = text;
           yield { content: [{ type: 'text', text }] };
         }
 
-        // The tiny dev model occasionally returns nothing — avoid a blank bubble.
         if (last.trim().length === 0) {
           yield { content: [{ type: 'text', text: '(No response — please try asking again.)' }] };
         }
       },
     }),
-    []
+    [chatId, onSessionId]
   );
 
   const runtime = useLocalRuntime(adapter, { initialMessages });
@@ -246,6 +256,10 @@ export function AiSidePanel({
     );
   }, []);
 
+  const handleSessionId = useCallback((chatId: string, sessionId: string) => {
+    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, sessionId } : c)));
+  }, []);
+
   const newChat = useCallback(() => {
     const c = makeChat();
     setChats((prev) => [c, ...prev]);
@@ -313,7 +327,18 @@ export function AiSidePanel({
         </div>
       </div>
 
-      {showHistory ? (
+      {!keycloak.authenticated ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
+          <p className="text-xs text-slate-400">Sign in to use the AI assistant.</p>
+          <button
+            onClick={() => keycloak.login()}
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-500 transition-colors"
+          >
+            <LogIn size={14} />
+            Sign in
+          </button>
+        </div>
+      ) : showHistory ? (
         <div className="flex-1 flex flex-col min-h-0">
           {/* Search */}
           <div className="p-2 border-b border-slate-800">
@@ -370,6 +395,7 @@ export function AiSidePanel({
           selection={selection}
           onClearSelection={onClearSelection}
           onMessages={handleMessages}
+          onSessionId={handleSessionId}
         />
       )}
     </div>
