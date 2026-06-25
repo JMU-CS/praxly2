@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { History, LogIn, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import type { MouseEvent } from 'react';
-import keycloak from '../../auth/keycloak';
+import Fuse from 'fuse.js';
 import {
   AssistantRuntimeProvider,
   useLocalRuntime,
@@ -12,10 +12,17 @@ import {
   ComposerPrimitive,
   type ChatModelAdapter,
 } from '@assistant-ui/react';
+import keycloak from '../../auth/keycloak';
 import { streamAssistant, type SimpleMessage, type LlmPanel } from '../../util/llm';
+import {
+  listChats,
+  getChat,
+  deleteChatApi,
+  renameChatApi,
+  toSimpleMessages,
+} from '../../util/chatApi';
+import { useChatStore, type SessionMeta } from '../../store/appStore';
 
-// Max characters a user may send in one message. Keeps requests bounded so we
-// don't overload the model's context window. Easy to tune.
 const MAX_INPUT_CHARS = 2000;
 
 interface AiSidePanelProps {
@@ -28,6 +35,7 @@ interface AiSidePanelProps {
   onClearSelection: () => void;
 }
 
+/** A local chat that may or may not have a backend session yet. */
 interface Chat {
   id: string;
   title: string;
@@ -36,11 +44,11 @@ interface Chat {
   sessionId: string | null;
 }
 
-const newChatId = (): string =>
+const newLocalId = (): string =>
   window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).slice(2);
 
-const makeChat = (): Chat => ({
-  id: newChatId(),
+const makeNewChat = (): Chat => ({
+  id: newLocalId(),
   title: 'New chat',
   messages: [],
   sessionId: null,
@@ -50,6 +58,15 @@ const titleFrom = (text: string): string => {
   const clean = text.trim().replace(/\s+/g, ' ');
   return clean.length > 40 ? `${clean.slice(0, 40)}…` : clean || 'New chat';
 };
+
+const sessionToChat = (s: SessionMeta, messages: SimpleMessage[] = []): Chat => ({
+  id: s.id,
+  title: s.title ?? 'New chat',
+  messages,
+  sessionId: s.id,
+});
+
+// ── Message components ────────────────────────────────────────────────────────
 
 const UserMessage = () => (
   <MessagePrimitive.Root className="flex justify-end">
@@ -81,10 +98,8 @@ const AssistantMessage = () => {
   );
 };
 
-/**
- * Mirrors the active thread's messages back into the parent chat store so they
- * survive switching chats (within the session).
- */
+// ── MessageSync ───────────────────────────────────────────────────────────────
+
 function MessageSync({
   chatId,
   onMessages,
@@ -106,10 +121,8 @@ function MessageSync({
   return null;
 }
 
-/**
- * One conversation: its own assistant-ui runtime seeded from the saved messages.
- * Re-mounted (via `key`) when the active chat changes.
- */
+// ── ChatThread ────────────────────────────────────────────────────────────────
+
 function ChatThread({
   chat,
   panels,
@@ -132,7 +145,6 @@ function ChatThread({
   const sessionIdRef = useRef(chat.sessionId);
   sessionIdRef.current = chat.sessionId;
 
-  // Captured once at mount so the runtime isn't reset on every parent render.
   const initialMessages = useRef(
     chat.messages.map((m) => ({ role: m.role, content: m.text }))
   ).current;
@@ -184,7 +196,6 @@ function ChatThread({
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
         </ThreadPrimitive.Viewport>
 
-        {/* Input area */}
         <div className="border-t border-slate-800 p-3 shrink-0">
           {selection.trim().length > 0 && (
             <div className="mb-2 flex items-start gap-2 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-1.5">
@@ -223,6 +234,8 @@ function ChatThread({
   );
 }
 
+// ── AiSidePanel ───────────────────────────────────────────────────────────────
+
 export function AiSidePanel({
   width,
   isResizing,
@@ -232,37 +245,96 @@ export function AiSidePanel({
   selection,
   onClearSelection,
 }: AiSidePanelProps) {
-  const [chats, setChats] = useState<Chat[]>(() => [makeChat()]);
-  const [activeId, setActiveId] = useState<string>(() => chats[0].id);
+  const { sessions, setSessions, addSession, removeSession, updateSession } = useChatStore();
+
+  // Local chats: backend sessions + optional unsent "new chat" placeholder.
+  const [localChats, setLocalChats] = useState<Chat[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [search, setSearch] = useState('');
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Keep activeId pointing at a chat that still exists.
+  // Load sessions from backend when authenticated.
   useEffect(() => {
-    if (chats.length > 0 && !chats.some((c) => c.id === activeId)) {
-      setActiveId(chats[0].id);
-    }
-  }, [chats, activeId]);
+    if (!keycloak.authenticated) return;
+    listChats()
+      .then((s) => {
+        setSessions(s);
+        const chats = s.map((sess) => sessionToChat(sess));
+        setLocalChats(chats);
+        if (chats.length > 0) setActiveId(chats[0].id);
+      })
+      .catch(() => {});
+  }, [setSessions]);
 
-  const activeChat = chats.find((c) => c.id === activeId) ?? chats[0];
-
-  const handleMessages = useCallback((chatId: string, messages: SimpleMessage[]) => {
-    setChats((prev) =>
+  // Sync store session titles back into localChats.
+  useEffect(() => {
+    setLocalChats((prev) =>
       prev.map((c) => {
-        if (c.id !== chatId) return c;
-        const firstUser = messages.find((m) => m.role === 'user');
-        return { ...c, messages, title: firstUser ? titleFrom(firstUser.text) : 'New chat' };
+        const sess = sessions.find((s) => s.id === c.sessionId);
+        return sess ? { ...c, title: sess.title ?? c.title } : c;
       })
     );
-  }, []);
+  }, [sessions]);
 
-  const handleSessionId = useCallback((chatId: string, sessionId: string) => {
-    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, sessionId } : c)));
-  }, []);
+  // Load messages for a chat when it becomes active (if not already loaded).
+  useEffect(() => {
+    if (!activeId) return;
+    const chat = localChats.find((c) => c.id === activeId);
+    if (!chat || !chat.sessionId || chat.messages.length > 0) return;
+
+    setLoadingMessages(true);
+    getChat(chat.sessionId)
+      .then((detail) => {
+        const messages = toSimpleMessages(detail.messages);
+        setLocalChats((prev) => prev.map((c) => (c.id === activeId ? { ...c, messages } : c)));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMessages(false));
+  }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activeChat = localChats.find((c) => c.id === activeId) ?? localChats[0] ?? null;
+
+  const handleMessages = useCallback(
+    (chatId: string, messages: SimpleMessage[]) => {
+      setLocalChats((prev) =>
+        prev.map((c) => {
+          if (c.id !== chatId) return c;
+          const firstUser = messages.find((m) => m.role === 'user');
+          const title = firstUser ? titleFrom(firstUser.text) : c.title;
+          if (c.sessionId && title !== c.title) {
+            renameChatApi(c.sessionId, title).catch(() => {});
+            updateSession(c.sessionId, { title });
+          }
+          return { ...c, messages, title };
+        })
+      );
+    },
+    [updateSession]
+  );
+
+  const handleSessionId = useCallback(
+    (chatId: string, sessionId: string) => {
+      setLocalChats((prev) =>
+        prev.map((c) => {
+          if (c.id !== chatId || c.sessionId) return c;
+          // First message sent — register this session in the store.
+          addSession({
+            id: sessionId,
+            title: null,
+            updatedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          });
+          return { ...c, sessionId };
+        })
+      );
+    },
+    [addSession]
+  );
 
   const newChat = useCallback(() => {
-    const c = makeChat();
-    setChats((prev) => [c, ...prev]);
+    const c = makeNewChat();
+    setLocalChats((prev) => [c, ...prev]);
     setActiveId(c.id);
     setShowHistory(false);
   }, []);
@@ -272,22 +344,42 @@ export function AiSidePanel({
     setShowHistory(false);
   }, []);
 
-  const deleteChat = useCallback((id: string) => {
-    setChats((prev) => {
-      const next = prev.filter((c) => c.id !== id);
-      return next.length > 0 ? next : [makeChat()];
-    });
-  }, []);
+  const deleteChat = useCallback(
+    (id: string) => {
+      const chat = localChats.find((c) => c.id === id);
+      if (chat?.sessionId) {
+        deleteChatApi(chat.sessionId).catch(() => {});
+        removeSession(chat.sessionId);
+      }
+      setLocalChats((prev) => {
+        const next = prev.filter((c) => c.id !== id);
+        return next.length > 0 ? next : [makeNewChat()];
+      });
+      if (activeId === id) {
+        setActiveId(() => {
+          const remaining = localChats.filter((c) => c.id !== id);
+          return remaining[0]?.id ?? null;
+        });
+      }
+    },
+    [localChats, activeId, removeSession]
+  );
+
+  // Fuse.js fuzzy search over localChats.
+  const fuse = useMemo(
+    () =>
+      new Fuse(localChats, {
+        keys: ['title', 'messages.text'],
+        threshold: 0.4,
+      }),
+    [localChats]
+  );
 
   const filteredChats = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return chats;
-    return chats.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.messages.some((m) => m.text.toLowerCase().includes(q))
-    );
-  }, [chats, search]);
+    const q = search.trim();
+    if (!q) return localChats;
+    return fuse.search(q).map((r) => r.item);
+  }, [search, localChats, fuse]);
 
   const iconBtn =
     'p-1 text-slate-400 hover:text-slate-100 transition-colors rounded hover:bg-slate-800';
@@ -340,7 +432,6 @@ export function AiSidePanel({
         </div>
       ) : showHistory ? (
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Search */}
           <div className="p-2 border-b border-slate-800">
             <div className="flex items-center gap-2 rounded-md bg-slate-800 border border-slate-700 px-2">
               <Search size={13} className="text-slate-500 shrink-0" />
@@ -352,7 +443,6 @@ export function AiSidePanel({
               />
             </div>
           </div>
-          {/* List */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
             {filteredChats.length === 0 && (
               <p className="text-xs text-slate-500 text-center mt-6">No chats found.</p>
@@ -387,17 +477,24 @@ export function AiSidePanel({
             ))}
           </div>
         </div>
-      ) : (
-        <ChatThread
-          key={activeChat.id}
-          chat={activeChat}
-          panels={panels}
-          selection={selection}
-          onClearSelection={onClearSelection}
-          onMessages={handleMessages}
-          onSessionId={handleSessionId}
-        />
-      )}
+      ) : activeChat ? (
+        // Show spinner while messages are being fetched from backend.
+        loadingMessages || (activeChat.sessionId !== null && activeChat.messages.length === 0) ? (
+          <div className="flex-1 flex items-center justify-center">
+            <TypingDots />
+          </div>
+        ) : (
+          <ChatThread
+            key={activeChat.id}
+            chat={activeChat}
+            panels={panels}
+            selection={selection}
+            onClearSelection={onClearSelection}
+            onMessages={handleMessages}
+            onSessionId={handleSessionId}
+          />
+        )
+      ) : null}
     </div>
   );
 }

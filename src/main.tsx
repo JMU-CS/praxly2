@@ -4,10 +4,32 @@ import App from './App.tsx';
 import './index.css';
 import keycloak from './auth/keycloak';
 
-// Initialise Keycloak without redirecting — auth is only required when the
-// user opens the AI panel. The panel shows a Sign in button if not logged in.
+// Restore saved tokens so users stay logged in across page refreshes.
+const savedToken = localStorage.getItem('kc_token') ?? undefined;
+const savedRefreshToken = localStorage.getItem('kc_refresh_token') ?? undefined;
+
+// Keep tokens fresh in localStorage whenever Keycloak refreshes them.
+keycloak.onTokenExpired = () => {
+  keycloak
+    .updateToken(30)
+    .then(() => {
+      localStorage.setItem('kc_token', keycloak.token!);
+      localStorage.setItem('kc_refresh_token', keycloak.refreshToken!);
+    })
+    .catch(() => {
+      localStorage.removeItem('kc_token');
+      localStorage.removeItem('kc_refresh_token');
+    });
+};
+
 keycloak
-  .init({ checkLoginIframe: false })
+  .init({ checkLoginIframe: false, token: savedToken, refreshToken: savedRefreshToken })
+  .then((authenticated) => {
+    if (authenticated) {
+      localStorage.setItem('kc_token', keycloak.token!);
+      localStorage.setItem('kc_refresh_token', keycloak.refreshToken!);
+    }
+  })
   .catch(() => {})
   .finally(() => {
     createRoot(document.getElementById('root')!).render(
