@@ -1,4 +1,4 @@
-import keycloak from '../auth/keycloak';
+import keycloak from './keycloak';
 
 /**
  * Talks to the k12-llm-backend (Hono / Node) through Keycloak auth.
@@ -41,16 +41,13 @@ export interface StreamOptions {
  * Yields the full accumulated text each time a new chunk arrives.
  */
 export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<string> {
-  // Silently try to refresh the token if it's about to expire.
   await keycloak.updateToken(30).catch(() => {});
 
   const token = keycloak.token;
   if (!token) throw new Error('Not authenticated — please refresh the page to log in.');
 
-  // Send the first non-empty panel as code context.
   const primaryPanel = opts.panels.find((p) => p.code.trim().length > 0);
 
-  // Append any highlighted selection to the last user message.
   const backendMessages = opts.messages.map((m, i) => {
     const isLastUser = i === opts.messages.length - 1 && m.role === 'user';
     const content =
@@ -80,7 +77,6 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
     throw new Error(`AI request failed (${response.status})${text ? `: ${text}` : ''}`);
   }
 
-  // The backend tells us which session was used/created so we can reuse it.
   const sessionId = response.headers.get('X-Session-Id');
   if (sessionId) opts.onSessionId?.(sessionId);
 
@@ -105,10 +101,7 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
       if (data === '[DONE]') return;
 
       try {
-        const parsed = JSON.parse(data) as {
-          type?: string;
-          delta?: string;
-        };
+        const parsed = JSON.parse(data) as { type?: string; delta?: string };
         const delta = parsed.type === 'text-delta' ? (parsed.delta ?? '') : '';
         if (delta) {
           acc += delta;

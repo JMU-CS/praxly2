@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import keycloak from './auth/keycloak';
+import keycloak from './api/keycloak';
 
 // Restore saved tokens so users stay logged in across page refreshes.
 const savedToken = localStorage.getItem('kc_token') ?? undefined;

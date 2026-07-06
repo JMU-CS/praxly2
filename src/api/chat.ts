@@ -1,4 +1,4 @@
-import keycloak from '../auth/keycloak';
+import keycloak from './keycloak';
 import type { SimpleMessage } from './llm';
 
 const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ??
@@ -52,7 +52,6 @@ export async function renameChatApi(id: string, title: string): Promise<void> {
   });
 }
 
-/** Convert backend messages to the SimpleMessage shape the panel uses. */
 export function toSimpleMessages(messages: SessionDetail['messages']): SimpleMessage[] {
   return messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')

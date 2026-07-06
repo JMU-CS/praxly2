@@ -21,7 +21,7 @@ import { SourcePane } from '../components/editor/SourcePane';
 import { TranslationPaneItem } from '../components/editor/TranslationPaneItem';
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
 import { AiSidePanel } from '../components/editor/AiSidePanel';
-import type { LlmPanel } from '../util/llm';
+import type { LlmPanel } from '../api/llm';
 import type { Panel } from '../components/editor/types';
 
 const MIN_SOURCE_WIDTH = 280;
