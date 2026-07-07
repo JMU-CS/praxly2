@@ -66,9 +66,6 @@ export class Translator {
     };
   }
 
-  /**
-   * Runs analyze.
-   */
   private analyze(program: Program): TranslationContext {
     const context: TranslationContext = {
       symbolTable: new SymbolTable(),
@@ -79,9 +76,6 @@ export class Translator {
       inferredVariableTypes: new Map(),
     };
 
-    /**
-     * Runs to boxed java type.
-     */
     const toBoxedJavaType = (type: string): string => {
       switch (type) {
         case 'int':
@@ -105,9 +99,6 @@ export class Translator {
       }
     };
 
-    /**
-     * Runs get collection element type.
-     */
     const getCollectionElementType = (type: string): string => {
       if (type.endsWith('[]')) return type.slice(0, -2);
       if (type.startsWith('ArrayList<') && type.endsWith('>')) {
@@ -116,9 +107,6 @@ export class Translator {
       return type;
     };
 
-    /**
-     * Runs set collection element type.
-     */
     const setCollectionElementType = (name: string, newType: string) => {
       const normalized = newType === 'var' ? 'Object' : newType;
       const existing = context.collectionElementTypes?.get(name);
@@ -131,9 +119,6 @@ export class Translator {
       }
     };
 
-    /**
-     * Runs get assignment name.
-     */
     const getAssignmentName = (stmt: any): string | null => {
       if (stmt.target?.type === 'Identifier') {
         return stmt.target.name;
@@ -144,9 +129,6 @@ export class Translator {
       return null;
     };
 
-    /**
-     * Runs infer type.
-     */
     const inferType = (expr: Expression): string => {
       switch (expr.type) {
         case 'Literal':
@@ -197,9 +179,6 @@ export class Translator {
       }
     };
 
-    /**
-     * Runs analyze mutable collections.
-     */
     const analyzeMutableCollections = (node: any) => {
       if (!node || typeof node !== 'object') return;
 
@@ -276,9 +255,6 @@ export class Translator {
       }
     };
 
-    /**
-     * Runs analyze block.
-     */
     const analyzeBlock = (statements: Statement[]) => {
       statements.forEach((stmt) => {
         if (stmt.type === 'Assignment') {
@@ -309,9 +285,6 @@ export class Translator {
       });
     };
 
-    /**
-     * Runs analyze calls.
-     */
     const analyzeCalls = (node: any) => {
       if (!node) return;
       if (node.type === 'CallExpression') {
@@ -329,9 +302,6 @@ export class Translator {
       }
     };
 
-    /**
-     * Runs analyze return type.
-     */
     const analyzeReturnType = (block: Block): string => {
       for (const stmt of block.body) {
         if (stmt.type === 'Return') return stmt.value ? inferType(stmt.value) : 'void';

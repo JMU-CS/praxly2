@@ -5,6 +5,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import EditorPage from './pages/EditorPage';
 import EmbedPage from './pages/EmbedPage';
+import AccountPage from './pages/AccountPage';
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
       <Routes>
         <Route path="/v2/editor" element={<EditorPage />} />
         <Route path="/v2/embed" element={<EmbedPage />} />
+        <Route path="/v2/account" element={<AccountPage />} />
         <Route path="*" element={<Navigate to="/v2/editor" replace />} />
       </Routes>
     </Router>

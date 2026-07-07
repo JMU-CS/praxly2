@@ -1,18 +1,7 @@
-import keycloak from './keycloak';
+import { BACKEND_URL, authHeaders } from './config';
 import type { SimpleMessage } from './llm';
 
-const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ??
-  {}) as Record<string, string | undefined>;
-
-const BACKEND_URL = env.VITE_BACKEND_URL ?? 'https://k12api.torta-server.duckdns.org';
-
-async function authHeaders(): Promise<Record<string, string>> {
-  await keycloak.updateToken(30).catch(() => {});
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${keycloak.token ?? ''}`,
-  };
-}
+/** Session list / detail endpoints — chat content lives in the backend DB. */
 
 export interface SessionMeta {
   id: string;

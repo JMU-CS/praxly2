@@ -1,17 +1,15 @@
-import keycloak from './keycloak';
+import { BACKEND_URL, requireAuthHeaders } from './config';
+import { useByokStore } from '../store/appStore';
 
 /**
  * Talks to the k12-llm-backend (Hono / Node) through Keycloak auth.
  * The backend proxies to LiteLLM server-side so no LiteLLM key is needed here.
  *
- * Config (optional — defaults point to the shared dev server):
- *   VITE_BACKEND_URL  - k12-llm-backend base URL
+ * Each request carries only the newest user message plus the id of the
+ * message it replies to (parentMessageId); the backend reloads the rest of
+ * the conversation from its database, so payloads stay small no matter how
+ * long the chat gets.
  */
-
-const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ??
-  {}) as Record<string, string | undefined>;
-
-const BACKEND_URL = env.VITE_BACKEND_URL ?? 'https://k12api.torta-server.duckdns.org';
 
 export interface SimpleMessage {
   role: 'user' | 'assistant';
@@ -24,16 +22,39 @@ export interface LlmPanel {
   code: string;
 }
 
+/** Ids of the rows the backend persisted for one completed turn. */
+export interface TurnIds {
+  sessionId: string;
+  userMessageId: string;
+  assistantMessageId: string;
+}
+
 export interface StreamOptions {
-  messages: SimpleMessage[];
+  /** The user's newest message — previous turns are never resent. */
+  message: string;
   panels: LlmPanel[];
-  /** Code the student highlighted — appended to the last user message. */
+  /** Code the student highlighted — appended to the message. */
   selection?: string;
   signal?: AbortSignal;
   /** Backend session ID — if null, the backend creates a new session. */
   sessionId?: string | null;
+  /** Id of the last message in the thread (normally the previous assistant reply). */
+  parentMessageId?: string | null;
   /** Called with the session ID once the backend returns the X-Session-Id header. */
   onSessionId?: (id: string) => void;
+  /** Called with the persisted message ids when the stream finishes. */
+  onComplete?: (ids: TurnIds) => void;
+}
+
+/** BYOK headers — set only when the user configured their own provider key. */
+function byokHeaders(): Record<string, string> {
+  const { provider, apiKey, model } = useByokStore.getState();
+  if (!provider || !apiKey.trim()) return {};
+  return {
+    'X-LLM-Provider': provider,
+    'X-LLM-Api-Key': apiKey.trim(),
+    ...(model.trim() ? { 'X-LLM-Model': model.trim() } : {}),
+  };
 }
 
 /**
@@ -41,31 +62,20 @@ export interface StreamOptions {
  * Yields the full accumulated text each time a new chunk arrives.
  */
 export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<string> {
-  await keycloak.updateToken(30).catch(() => {});
-
-  const token = keycloak.token;
-  if (!token) throw new Error('Not authenticated — please refresh the page to log in.');
+  const headers = { ...(await requireAuthHeaders()), ...byokHeaders() };
 
   const primaryPanel = opts.panels.find((p) => p.code.trim().length > 0);
-
-  const backendMessages = opts.messages.map((m, i) => {
-    const isLastUser = i === opts.messages.length - 1 && m.role === 'user';
-    const content =
-      isLastUser && opts.selection?.trim()
-        ? `${m.text}\n\nI've highlighted this specific snippet:\n\`\`\`\n${opts.selection}\n\`\`\``
-        : m.text;
-    return { role: m.role, content };
-  });
+  const message = opts.selection?.trim()
+    ? `${opts.message}\n\nI've highlighted this specific snippet:\n\`\`\`\n${opts.selection}\n\`\`\``
+    : opts.message;
 
   const response = await fetch(`${BACKEND_URL}/api/praxly/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify({
+      message,
       sessionId: opts.sessionId ?? undefined,
-      messages: backendMessages,
+      parentMessageId: opts.parentMessageId ?? undefined,
       code: primaryPanel?.code,
       language: primaryPanel?.language,
     }),
@@ -100,15 +110,31 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
       const data = line.slice(6).trim();
       if (data === '[DONE]') return;
 
+      let parsed: {
+        type?: string;
+        delta?: string;
+        message?: string;
+        sessionId?: string;
+        userMessageId?: string;
+        assistantMessageId?: string;
+      };
       try {
-        const parsed = JSON.parse(data) as { type?: string; delta?: string };
-        const delta = parsed.type === 'text-delta' ? (parsed.delta ?? '') : '';
-        if (delta) {
-          acc += delta;
-          yield acc;
-        }
+        parsed = JSON.parse(data);
       } catch {
-        // ignore malformed SSE lines
+        continue; // ignore malformed SSE lines
+      }
+
+      if (parsed.type === 'text-delta' && parsed.delta) {
+        acc += parsed.delta;
+        yield acc;
+      } else if (parsed.type === 'complete' && parsed.assistantMessageId) {
+        opts.onComplete?.({
+          sessionId: parsed.sessionId ?? sessionId ?? '',
+          userMessageId: parsed.userMessageId ?? '',
+          assistantMessageId: parsed.assistantMessageId,
+        });
+      } else if (parsed.type === 'error') {
+        throw new Error(parsed.message ?? 'The AI service reported an error.');
       }
     }
   }

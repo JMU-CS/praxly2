@@ -1,4 +1,4 @@
-import { Plus, FileJson, Check } from 'lucide-react';
+import { Plus, FileJson, Check, Bot } from 'lucide-react';
 
 import type { SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
@@ -8,8 +8,10 @@ interface AddPanelStripProps {
   showAddMenu: boolean;
   sourceLang: SupportedLang;
   panels: Panel[];
+  showAiSidePanel: boolean;
   onToggleMenu: () => void;
   onTogglePanel: (lang: SupportedLang) => void;
+  onToggleAiPanel: () => void;
 }
 
 const PANEL_LANGS: SupportedLang[] = ['ast', 'csp', 'java', 'javascript', 'praxis', 'python'];
@@ -27,11 +29,13 @@ export function AddPanelStrip({
   showAddMenu,
   sourceLang,
   panels,
+  showAiSidePanel,
   onToggleMenu,
   onTogglePanel,
+  onToggleAiPanel,
 }: AddPanelStripProps) {
   return (
-    <div className="add-panel-dropdown w-16 flex flex-col items-center pt-4 bg-slate-900 border-l border-slate-800 shrink-0 relative z-[150] shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">
+    <div className="add-panel-dropdown w-16 flex flex-col items-center gap-3 pt-4 bg-slate-900 border-l border-slate-800 shrink-0 relative z-[150] shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">
       <div className="relative">
         <button
           onClick={onToggleMenu}
@@ -95,6 +99,20 @@ export function AddPanelStrip({
           </div>
         )}
       </div>
+
+      {/* AI assistant — opens the side chat */}
+      <button
+        onClick={onToggleAiPanel}
+        aria-pressed={showAiSidePanel}
+        className={`p-3 rounded-xl transition-all shadow-lg active:scale-90 border ${
+          showAiSidePanel
+            ? 'bg-indigo-600 text-white border-indigo-500'
+            : 'bg-slate-800 hover:bg-indigo-600 text-indigo-400 hover:text-white border-slate-700'
+        }`}
+        title={showAiSidePanel ? 'Close AI Assistant' : 'Open AI Assistant'}
+      >
+        <Bot size={24} />
+      </button>
     </div>
   );
 }

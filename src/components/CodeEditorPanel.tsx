@@ -6,6 +6,7 @@
 
 import React, { type ReactNode } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
+import type { EditorView } from '@codemirror/view';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { ResizeHandle } from './ResizeHandle';
 import { LanguageSelector, type SupportedLang } from './LanguageSelector';
@@ -25,7 +26,7 @@ interface CodeEditorPanelProps {
   onResize?: (e: React.MouseEvent) => void;
   header?: ReactNode;
   className?: string;
-  onCreateEditor?: (view: any) => void;
+  onCreateEditor?: (view: EditorView) => void;
 }
 
 export const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({

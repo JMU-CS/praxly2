@@ -18,6 +18,37 @@ interface ChatStore {
   getCachedMessages: (sessionId: string) => SimpleMessage[] | undefined;
 }
 
+/** Providers users can bring their own API key for. */
+export type ByokProvider = 'gemini' | 'anthropic' | 'openai';
+
+interface ByokStore {
+  /** null → use the school-provided model through the backend's own key. */
+  provider: ByokProvider | null;
+  apiKey: string;
+  /** Optional model override; empty string → backend default for the provider. */
+  model: string;
+  setByok: (settings: { provider: ByokProvider | null; apiKey: string; model: string }) => void;
+  clearByok: () => void;
+}
+
+/**
+ * Bring-your-own-key settings. Persisted to localStorage so the key survives
+ * refreshes; it is only ever sent to our backend (as X-LLM-* headers), which
+ * forwards it per-request to the LLM provider without storing it.
+ */
+export const useByokStore = create<ByokStore>()(
+  persist(
+    (set) => ({
+      provider: null,
+      apiKey: '',
+      model: '',
+      setByok: ({ provider, apiKey, model }) => set({ provider, apiKey, model }),
+      clearByok: () => set({ provider: null, apiKey: '', model: '' }),
+    }),
+    { name: 'praxly-byok' }
+  )
+);
+
 export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => ({

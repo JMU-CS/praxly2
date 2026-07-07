@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { History, LogIn, Plus, X } from 'lucide-react';
+import { History, KeyRound, LogIn, Plus, X } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import Fuse from 'fuse.js';
 import keycloak from '../../api/keycloak';
 import { listChats, getChat, deleteChatApi, renameChatApi, toSimpleMessages } from '../../api/chat';
-import { type LlmPanel, type SimpleMessage } from '../../api/llm';
-import { useChatStore, type SessionMeta } from '../../store/appStore';
+import { type LlmPanel, type SimpleMessage, type TurnIds } from '../../api/llm';
+import { useByokStore, useChatStore, type SessionMeta } from '../../store/appStore';
+import { randomId } from '../../utils/id';
 import { ChatThread, type Chat } from '../ai/ChatThread';
 import { HistoryPanel } from '../ai/HistoryPanel';
+import { ApiKeySettings } from '../ai/ApiKeySettings';
 import { TypingDots } from '../ai/MessageComponents';
 
 interface AiSidePanelProps {
@@ -20,14 +22,12 @@ interface AiSidePanelProps {
   onClearSelection: () => void;
 }
 
-const newLocalId = (): string =>
-  window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).slice(2);
-
 const makeNewChat = (): Chat => ({
-  id: newLocalId(),
+  id: randomId(),
   title: 'New chat',
   messages: [],
   sessionId: null,
+  parentMessageId: null,
 });
 
 const titleFrom = (text: string): string => {
@@ -40,6 +40,7 @@ const sessionToChat = (s: SessionMeta, messages: SimpleMessage[] = []): Chat => 
   title: s.title ?? 'New chat',
   messages,
   sessionId: s.id,
+  parentMessageId: null,
 });
 
 export function AiSidePanel({
@@ -60,10 +61,12 @@ export function AiSidePanel({
     setMessages,
     getCachedMessages,
   } = useChatStore();
+  const byokProvider = useByokStore((s) => s.provider);
 
   const [localChats, setLocalChats] = useState<Chat[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showKeySettings, setShowKeySettings] = useState(false);
   const [search, setSearch] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
 
@@ -87,13 +90,15 @@ export function AiSidePanel({
   }, [setSessions, getCachedMessages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load messages for the active chat — check cache first, fetch only if needed.
+  // The backend fetch also recovers the id of the last message, which becomes
+  // the parentMessageId for the next turn.
   useEffect(() => {
     if (!activeId) return;
     const chat = localChats.find((c) => c.id === activeId);
     if (!chat?.sessionId || chat.messages.length > 0) return;
 
     const cached = getCachedMessages(chat.sessionId);
-    if (cached) {
+    if (cached && chat.parentMessageId) {
       setLocalChats((prev) =>
         prev.map((c) => (c.id === activeId ? { ...c, messages: cached } : c))
       );
@@ -104,8 +109,11 @@ export function AiSidePanel({
     getChat(chat.sessionId)
       .then((detail) => {
         const messages = toSimpleMessages(detail.messages);
+        const parentMessageId = detail.messages.at(-1)?.id ?? null;
         setMessages(chat.sessionId!, messages);
-        setLocalChats((prev) => prev.map((c) => (c.id === activeId ? { ...c, messages } : c)));
+        setLocalChats((prev) =>
+          prev.map((c) => (c.id === activeId ? { ...c, messages, parentMessageId } : c))
+        );
       })
       .catch(() => {})
       .finally(() => setLoadingMessages(false));
@@ -150,11 +158,20 @@ export function AiSidePanel({
     [addSession]
   );
 
+  // After each persisted turn, remember the assistant message id — it becomes
+  // the parentMessageId the next request references instead of a transcript.
+  const handleTurnComplete = useCallback((chatId: string, ids: TurnIds) => {
+    setLocalChats((prev) =>
+      prev.map((c) => (c.id === chatId ? { ...c, parentMessageId: ids.assistantMessageId } : c))
+    );
+  }, []);
+
   const newChat = useCallback(() => {
     const c = makeNewChat();
     setLocalChats((prev) => [c, ...prev]);
     setActiveId(c.id);
     setShowHistory(false);
+    setShowKeySettings(false);
   }, []);
 
   const openChat = useCallback((id: string) => {
@@ -181,10 +198,11 @@ export function AiSidePanel({
     [localChats, activeId, removeSession]
   );
 
-  // Fuse index built from session titles only — stable, not rebuilt on SSE tokens.
+  // Fuse index built from chat titles only — rebuilt when the list changes,
+  // not on every streamed token (titles only change on new/renamed chats).
   const fuse = useMemo(
     () => new Fuse(localChats, { keys: ['title'], threshold: 0.4 }),
-    [sessions] // eslint-disable-line react-hooks/exhaustive-deps
+    [localChats]
   );
 
   const filteredChats = useMemo(() => {
@@ -216,11 +234,30 @@ export function AiSidePanel({
             <Plus size={15} />
           </button>
           <button
-            onClick={() => setShowHistory((s) => !s)}
+            onClick={() => {
+              setShowHistory((s) => !s);
+              setShowKeySettings(false);
+            }}
             className={`${iconBtn} ${showHistory ? 'text-indigo-300 bg-slate-800' : ''}`}
             title="Chat history"
           >
             <History size={15} />
+          </button>
+          <button
+            onClick={() => {
+              setShowKeySettings((s) => !s);
+              setShowHistory(false);
+            }}
+            className={`${iconBtn} relative ${showKeySettings ? 'text-indigo-300 bg-slate-800' : ''}`}
+            title="AI model & API key"
+          >
+            <KeyRound size={15} />
+            {byokProvider && (
+              <span
+                className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400"
+                title={`Using your ${byokProvider} key`}
+              />
+            )}
           </button>
           <button onClick={onClose} className={iconBtn} title="Close AI panel">
             <X size={15} />
@@ -230,7 +267,7 @@ export function AiSidePanel({
 
       {!keycloak.authenticated ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
-          <p className="text-xs text-slate-400">Sign in to use the AI assistant.</p>
+          <p className="text-sm text-slate-400">Sign in to use the AI assistant.</p>
           <button
             onClick={() => keycloak.login()}
             className="flex items-center gap-2 px-4 py-2 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-500 transition-colors"
@@ -239,6 +276,8 @@ export function AiSidePanel({
             Sign in
           </button>
         </div>
+      ) : showKeySettings ? (
+        <ApiKeySettings onDone={() => setShowKeySettings(false)} />
       ) : showHistory ? (
         <HistoryPanel
           chats={filteredChats}
@@ -262,6 +301,7 @@ export function AiSidePanel({
             onClearSelection={onClearSelection}
             onMessages={handleMessages}
             onSessionId={handleSessionId}
+            onTurnComplete={handleTurnComplete}
           />
         )
       ) : null}

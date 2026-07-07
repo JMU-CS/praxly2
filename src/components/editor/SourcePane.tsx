@@ -4,6 +4,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { EditorView } from '@codemirror/view';
 import type { ViewUpdate } from '@codemirror/view';
+import type { Extension } from '@codemirror/state';
 
 import type { SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
@@ -19,13 +20,13 @@ interface SourcePaneProps {
   memDiaHeight: number;
   currentVariables: Record<string, any>;
   editorRef: RefObject<HTMLDivElement | null>;
-  extensions: any[];
+  extensions: Extension[];
   memDiaState: 'open' | 'closed';
   onToggleMemDiaCollapse: () => void;
   onToggleSourceLangDropdown: () => void;
   onSelectSourceLang: (lang: SupportedLang) => void;
   onCodeChange: (value: string) => void;
-  onCreateEditor: (view: any) => void;
+  onCreateEditor: (view: EditorView) => void;
   onEditorUpdate?: (update: ViewUpdate) => void;
   onMemDiaResizeMouseDown: (e: MouseEvent, paneId: string) => void;
   onResizeEditor: (e: MouseEvent) => void;

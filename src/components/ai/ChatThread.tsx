@@ -7,8 +7,9 @@ import {
   ComposerPrimitive,
   type ChatModelAdapter,
 } from '@assistant-ui/react';
-import { streamAssistant, type SimpleMessage, type LlmPanel } from '../../api/llm';
+import { streamAssistant, type SimpleMessage, type LlmPanel, type TurnIds } from '../../api/llm';
 import { UserMessage, AssistantMessage, MessageSync } from './MessageComponents';
+import { threadMessageText } from './threadMessages';
 
 const MAX_INPUT_CHARS = 2000;
 
@@ -16,7 +17,10 @@ export interface Chat {
   id: string;
   title: string;
   messages: SimpleMessage[];
+  /** Backend session id; null until the first turn completes. */
   sessionId: string | null;
+  /** Id of the last persisted message — sent as parentMessageId on the next turn. */
+  parentMessageId: string | null;
 }
 
 interface ChatThreadProps {
@@ -26,6 +30,8 @@ interface ChatThreadProps {
   onClearSelection: () => void;
   onMessages: (chatId: string, messages: SimpleMessage[]) => void;
   onSessionId: (chatId: string, sessionId: string) => void;
+  /** Fired when a turn is persisted — carries the new parentMessageId. */
+  onTurnComplete: (chatId: string, ids: TurnIds) => void;
 }
 
 export function ChatThread({
@@ -35,13 +41,17 @@ export function ChatThread({
   onClearSelection,
   onMessages,
   onSessionId,
+  onTurnComplete,
 }: ChatThreadProps) {
+  // Refs keep the adapter stable across renders while still reading fresh values.
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   const sessionIdRef = useRef(chat.sessionId);
   sessionIdRef.current = chat.sessionId;
+  const parentMessageIdRef = useRef(chat.parentMessageId);
+  parentMessageIdRef.current = chat.parentMessageId;
 
   const initialMessages = useRef(
     chat.messages.map((m) => ({ role: m.role, content: m.text }))
@@ -52,22 +62,21 @@ export function ChatThread({
   const adapter = useMemo<ChatModelAdapter>(
     () => ({
       async *run({ messages, abortSignal }) {
-        const simple: SimpleMessage[] = messages
-          .filter((m) => m.role === 'user' || m.role === 'assistant')
-          .map((m) => ({
-            role: m.role as 'user' | 'assistant',
-            text: m.content.map((p) => ('text' in p ? p.text : '')).join(''),
-          }))
-          .filter((m) => m.text.length > 0);
+        // Only the newest user message goes over the wire — the backend
+        // rebuilds the rest of the conversation from parentMessageId.
+        const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+        const messageText = lastUser ? threadMessageText(lastUser) : '';
 
         let last = '';
         for await (const text of streamAssistant({
-          messages: simple,
+          message: messageText,
           panels: panelsRef.current,
           selection: selectionRef.current,
           signal: abortSignal,
           sessionId: sessionIdRef.current,
+          parentMessageId: parentMessageIdRef.current,
           onSessionId: (id) => onSessionId(chatId, id),
+          onComplete: (ids) => onTurnComplete(chatId, ids),
         })) {
           last = text;
           yield { content: [{ type: 'text', text }] };
@@ -78,7 +87,7 @@ export function ChatThread({
         }
       },
     }),
-    [chatId, onSessionId]
+    [chatId, onSessionId, onTurnComplete]
   );
 
   const runtime = useLocalRuntime(adapter, { initialMessages });
@@ -89,7 +98,7 @@ export function ChatThread({
       <ThreadPrimitive.Root className="flex-1 flex flex-col min-h-0">
         <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
           <ThreadPrimitive.Empty>
-            <p className="text-xs text-slate-500 text-center mt-6">Ask anything about your code.</p>
+            <p className="text-sm text-slate-500 text-center mt-6">Ask anything about your code.</p>
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
         </ThreadPrimitive.Viewport>
@@ -117,7 +126,7 @@ export function ChatThread({
               placeholder="Ask about your code… (Enter to send)"
               rows={2}
               maxLength={MAX_INPUT_CHARS}
-              className="flex-1 resize-none rounded-md bg-slate-800 border border-slate-700 text-xs text-slate-200 placeholder-slate-500 px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="flex-1 resize-none rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-500 px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
             />
             <ComposerPrimitive.Send
               className="p-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"

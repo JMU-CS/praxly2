@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { MessagePrimitive, useMessage, useThread } from '@assistant-ui/react';
 import type { SimpleMessage } from '../../api/llm';
+import { MarkdownLite } from './MarkdownLite';
+import { threadMessageText, toSimpleMessages } from './threadMessages';
 
 export const UserMessage = () => (
   <MessagePrimitive.Root className="flex justify-end">
-    <div className="max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap bg-indigo-600 text-white">
+    <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap bg-indigo-600 text-white">
       <MessagePrimitive.Parts />
     </div>
   </MessagePrimitive.Root>
@@ -20,13 +22,11 @@ export const TypingDots = () => (
 
 export const AssistantMessage = () => {
   const isRunning = useMessage((m) => m.status?.type === 'running');
-  const hasText = useMessage((m) =>
-    m.content.some((p) => ('text' in p ? p.text.trim().length > 0 : false))
-  );
+  const text = useMessage((m) => threadMessageText(m));
   return (
     <MessagePrimitive.Root className="flex justify-start">
-      <div className="max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap bg-slate-800 text-slate-200 border border-slate-700">
-        {isRunning && !hasText ? <TypingDots /> : <MessagePrimitive.Parts />}
+      <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed bg-slate-800 text-slate-200 border border-slate-700">
+        {isRunning && !text.trim() ? <TypingDots /> : <MarkdownLite text={text} />}
       </div>
     </MessagePrimitive.Root>
   );
@@ -42,14 +42,7 @@ export function MessageSync({
 }) {
   const messages = useThread((t) => t.messages);
   useEffect(() => {
-    const simple: SimpleMessage[] = messages
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        text: m.content.map((p) => ('text' in p ? p.text : '')).join(''),
-      }))
-      .filter((m) => m.text.length > 0);
-    onMessages(chatId, simple);
+    onMessages(chatId, toSimpleMessages(messages));
   }, [messages, chatId, onMessages]);
   return null;
 }

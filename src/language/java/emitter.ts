@@ -30,17 +30,11 @@ export class JavaEmitter extends ASTVisitor {
   private instanceContextDepth = 0;
   private classNames = new Set<string>();
 
-  /**
-   * Runs normalize instance params.
-   */
   private normalizeInstanceParams<T extends { name: string }>(params: T[]): T[] {
     if (params.length === 0) return params;
     return params[0].name === 'self' ? params.slice(1) : params;
   }
 
-  /**
-   * Runs to java param type.
-   */
   private toJavaParamType(paramType: string): string {
     return paramType === 'auto' || paramType === 'var' ? 'Object' : paramType;
   }
@@ -53,9 +47,6 @@ export class JavaEmitter extends ASTVisitor {
     return callSiteTypes[index] || 'Object';
   }
 
-  /**
-   * Runs to boxed java type.
-   */
   private toBoxedJavaType(type: string): string {
     switch (type) {
       case 'int':
@@ -79,16 +70,10 @@ export class JavaEmitter extends ASTVisitor {
     }
   }
 
-  /**
-   * Runs is array list type.
-   */
   private isArrayListType(type?: string | null): boolean {
     return !!type && type.startsWith('ArrayList<') && type.endsWith('>');
   }
 
-  /**
-   * Runs get array list element type.
-   */
   private getArrayListElementType(type: string): string {
     if (type.endsWith('[]')) {
       return this.toBoxedJavaType(type.slice(0, -2));
@@ -99,16 +84,10 @@ export class JavaEmitter extends ASTVisitor {
     return 'Object';
   }
 
-  /**
-   * Runs get type for name.
-   */
   private getTypeForName(name: string): string | undefined {
     return this.context.symbolTable.get(name) || this.context.inferredVariableTypes?.get(name);
   }
 
-  /**
-   * Runs get expression type.
-   */
   private getExpressionType(expr: Expression): string {
     if (expr.type === 'Identifier') {
       return this.getTypeForName(expr.name) || this.inferType(expr);
@@ -151,9 +130,6 @@ export class JavaEmitter extends ASTVisitor {
     return 'void';
   }
 
-  /**
-   * Runs generate array list literal.
-   */
   private generateArrayListLiteral(expr: any, elementTypeHint?: string): string {
     this.usesArrayList = true;
     this.usesArrays = true;
@@ -183,9 +159,6 @@ export class JavaEmitter extends ASTVisitor {
     }
   }
 
-  /**
-   * Runs is self member expression.
-   */
   private isSelfMemberExpression(expr: any): boolean {
     if (!expr || expr.type !== 'MemberExpression') return false;
     if (expr.object?.type === 'ThisExpression') return true;
@@ -195,9 +168,6 @@ export class JavaEmitter extends ASTVisitor {
     );
   }
 
-  /**
-   * Runs resolve field type from value.
-   */
   private resolveFieldTypeFromValue(value: Expression, paramTypes: Map<string, string>): string {
     if (value.type === 'Identifier') {
       const fromParam = paramTypes.get(value.name);
@@ -219,9 +189,6 @@ export class JavaEmitter extends ASTVisitor {
     return inferred;
   }
 
-  /**
-   * Runs collect implicit fields.
-   */
   private collectImplicitFields(classDecl: ClassDeclaration): FieldDeclaration[] {
     const explicitFieldNames = new Set(
       classDecl.body
@@ -231,9 +198,6 @@ export class JavaEmitter extends ASTVisitor {
 
     const inferredFieldTypes = new Map<string, string>();
 
-    /**
-     * Runs scan node.
-     */
     const scanNode = (node: any, paramTypes: Map<string, string>): void => {
       if (!node || typeof node !== 'object') return;
 
@@ -296,9 +260,6 @@ export class JavaEmitter extends ASTVisitor {
     }));
   }
 
-  /**
-   * Runs get class constructor name.
-   */
   private getClassConstructorName(expr: Expression): string | null {
     if (expr.type !== 'CallExpression') return null;
     const callee: any = expr.callee;
@@ -308,9 +269,6 @@ export class JavaEmitter extends ASTVisitor {
     return null;
   }
 
-  /**
-   * Runs infer type.
-   */
   protected inferType(expr: Expression): string {
     const classCtorName = this.getClassConstructorName(expr);
     if (classCtorName) return classCtorName;
@@ -1143,9 +1101,6 @@ export class JavaEmitter extends ASTVisitor {
         const lengthAccessor = isArrayListObject ? `${objE}.size()` : `${objE}.length`;
 
         // Convert indices to Java-compatible form, handling negative indices
-        /**
-         * Runs convert index.
-         */
         const convertIndex = (idx: any): string => {
           if (!idx) return '0';
           if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0) {
