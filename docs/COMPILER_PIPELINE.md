@@ -11,8 +11,6 @@ This document provides a detailed, step-by-step walkthrough of how source code f
 5. [Phase 3B: Translation (Code Generation)](#phase-3b-translation)
 6. [Data Flow Example](#data-flow-example)
 
----
-
 ## Overview
 
 The compilation pipeline consists of **three main phases** applied in sequence:
@@ -33,8 +31,6 @@ Source Code
 ```
 
 The key insight is that **Phase 2 produces a Universal AST** that is completely language-agnostic. Phases 3A and 3B don't know or care which language produced the AST.
-
----
 
 ## Phase 1: Lexical Analysis
 
@@ -151,8 +147,6 @@ PUNCTUATION(})
 ```
 
 Now the parser can treat it identically to C-style syntax!
-
----
 
 ## Phase 2: Syntactic Analysis
 
@@ -291,8 +285,6 @@ interface BinaryExpression extends ASTNode {
 - [src/language/java/parser.ts](../../src/language/java/parser.ts) — Java parser (797 lines)
 - [src/language/csp/parser.ts](../../src/language/csp/parser.ts) — CSP parser (445 lines)
 - [src/language/praxis/parser.ts](../../src/language/praxis/parser.ts) — Praxis parser
-
----
 
 ## Phase 3A: Interpretation
 
@@ -520,8 +512,6 @@ class JavaInstance {
 
 - [src/language/interpreter.ts](../../src/language/interpreter.ts) — Main interpreter class
 
----
-
 ## Phase 3B: Translation
 
 ### What It Does
@@ -724,8 +714,6 @@ This is essential for translating from **dynamically-typed languages (Python) to
 - [src/language/csp/emitter.ts](../../src/language/csp/emitter.ts) — CSP code generator
 - [src/language/praxis/emitter.ts](../../src/language/praxis/emitter.ts) — Praxis code generator
 
----
-
 ## Data Flow Example
 
 Let's trace a complete example: **Execute Python code, then translate to Java**
@@ -840,8 +828,6 @@ void greet(String name) {
 greet("World");
 ```
 
----
-
 ## Connecting to the React UI
 
 The pipeline is integrated into the React UI via hooks:
@@ -911,8 +897,6 @@ export default function EditorPage() {
   // Etc.
 }
 ```
-
----
 
 ## Summary
 

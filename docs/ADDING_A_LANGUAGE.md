@@ -15,8 +15,6 @@ This guide walks you through adding a new language (e.g., JavaScript, TypeScript
 9. [Common Pitfalls & Solutions](#common-pitfalls--solutions)
 10. [File Checklist](#file-checklist)
 
----
-
 ## Before You Start
 
 ### Prerequisites
@@ -34,8 +32,6 @@ Remember: **Your job is NOT to execute code or perform heavy computation**. Your
 3. **Emitter:** Convert Universal AST → Source code in your language
 
 The **Interpreter** and **Translator** are already implemented and language-agnostic. You're not writing those.
-
----
 
 ## Step 1: Create the Directory
 
@@ -61,8 +57,6 @@ Optional (advanced):
 
 - `lezer.ts` — If using Lezer grammar for syntax highlighting
 - `<lang>.grammar` — Lezer grammar file (auto-compiles to `.grammar.js`)
-
----
 
 ## Step 2: Implement the Lexer
 
@@ -314,8 +308,6 @@ export class JavaScriptLexer {
 6. **Track start position** — Used for error messages and AST location info.
 
 7. **Throw meaningful errors** — Help developers debug lexing issues.
-
----
 
 ## Step 3: Implement the Parser
 
@@ -638,8 +630,6 @@ const node = {
 };
 ```
 
----
-
 ## Step 4: Implement the Emitter
 
 ### What an Emitter Does
@@ -890,8 +880,6 @@ export class JavaScriptEmitter extends ASTVisitor {
 
 6. **Handle operator precedence** — Different languages may have different precedence, but in most cases you can output expressions as-is since you're copying from a universal AST.
 
----
-
 ## Step 5: Register in the Translator
 
 The `Translator` class orchestrates code generation. You must register your emitter there.
@@ -944,8 +932,6 @@ translateWithMap(program: Program, targetLang: TargetLanguage): TranslationResul
   };
 }
 ```
-
----
 
 ## Step 6: Integrate with the UI
 
@@ -1106,8 +1092,6 @@ export function getCodeMirrorExtensions(lang: SupportedLang) {
 }
 ```
 
----
-
 ## Step 7: Testing
 
 ### Unit Test Your Lexer
@@ -1195,8 +1179,6 @@ Run tests:
 ```bash
 npm test
 ```
-
----
 
 ## Common Pitfalls & Solutions
 
@@ -1377,8 +1359,6 @@ const node = {
 };
 ```
 
----
-
 ## File Checklist
 
 Before considering your language "complete," ensure:
@@ -1419,8 +1399,6 @@ Before considering your language "complete," ensure:
   - [ ] Integration tests (lex → parse → interpret)
   - [ ] Translation tests (lex → parse → translate to other languages)
 
----
-
 ## Conclusion
 
 Adding a language to Praxly involves:
@@ -1434,8 +1412,6 @@ Adding a language to Praxly involves:
 The hard part is the Lexer and Parser. The Emitter is usually straightforward. Take your time getting the grammar right, and everything else follows naturally.
 
 Good luck! 🚀
-
----
 
 ## Non-Text Languages: the Blocks View
 

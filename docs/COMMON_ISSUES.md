@@ -12,8 +12,6 @@ This guide covers common problems, how to diagnose them, and how to fix them.
 6. [UI/Integration Issues](#uiintegration-issues)
 7. [Debugging Techniques](#debugging-techniques)
 
----
-
 ## Lexer Issues
 
 ### Issue: Parser throws "Unexpected token" immediately
@@ -63,8 +61,6 @@ if (char === '=' && input[pos + 1] === '=') {
 }
 ```
 
----
-
 ### Issue: Keywords not recognized as KEYWORD tokens
 
 **Symptom:**
@@ -100,8 +96,6 @@ if (keywords.includes(value)) {
 }
 ```
 
----
-
 ### Issue: String content is mangled
 
 **Symptom:**
@@ -136,8 +130,6 @@ if (char === '"') {
   continue;
 }
 ```
-
----
 
 ### Issue: Comments aren't skipped
 
@@ -178,8 +170,6 @@ if (char === '/' && input[pos + 1] === '*') {
 // NOW check for identifiers
 if (/[a-zA-Z_]/.test(char)) { ... }
 ```
-
----
 
 ## Parser Issues
 
@@ -234,8 +224,6 @@ private statement(): Statement {
 }
 ```
 
----
-
 ### Issue: Operator precedence is wrong
 
 **Symptom:**
@@ -267,8 +255,6 @@ postfix() → primary()          // literals, identifiers
 
 // If your precedences are different, reorder accordingly
 ```
-
----
 
 ### Issue: Parser hangs/infinite loop
 
@@ -313,8 +299,6 @@ while (this.match('KEYWORD', 'let')) {
 }
 ```
 
----
-
 ### Issue: "Cannot read property 'name' of undefined"
 
 **Symptom:**
@@ -356,8 +340,6 @@ if (this.match('KEYWORD', 'var')) {
 ```
 
 Compare against [src/language/ast.ts](../src/language/ast.ts) to see all required fields for each node type.
-
----
 
 ## AST Structure Issues
 
@@ -403,8 +385,6 @@ private assignment(): Statement | Expression {
 }
 ```
 
----
-
 ### Issue: AST nodes are missing location info
 
 **Symptom:**
@@ -440,8 +420,6 @@ private statement(): Statement {
   return stmt;
 }
 ```
-
----
 
 ## Interpreter Issues
 
@@ -494,8 +472,6 @@ if (x > 5) {
 print(y); // ← Error: y is out of scope
 ```
 
----
-
 ### Issue: "Undefined function" runtime error
 
 **Symptom:**
@@ -536,8 +512,6 @@ executeStatement(stmt: Statement) {
 }
 ```
 
----
-
 ### Issue: `this` is undefined in methods
 
 **Symptom:**
@@ -572,8 +546,6 @@ callMethod(methodName: string, args: any[], interpreter: Interpreter, env: Envir
   return null;
 }
 ```
-
----
 
 ## Translator / Emitter Issues
 
@@ -615,8 +587,6 @@ export class YourEmitter extends ASTVisitor {
 }
 ```
 
----
-
 ### Issue: Generated code has wrong indentation
 
 **Symptom:**
@@ -652,8 +622,6 @@ visitWhile(stmt: While): void {
 }
 ```
 
----
-
 ### Issue: String escaping broken in output
 
 **Symptom:**
@@ -683,8 +651,6 @@ case 'Literal': {
   return String(lit.value);
 }
 ```
-
----
 
 ### Issue: Type information lost in translation
 
@@ -716,8 +682,6 @@ export class YourEmitter extends ASTVisitor {
 }
 ```
 
----
-
 ## UI / Integration Issues
 
 ### Issue: Language dropdown doesn't show new language
@@ -747,8 +711,6 @@ export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'yourNewLang'
   <option value="yourNewLang">Your New Language</option>
 </select>
 ```
-
----
 
 ### Issue: Cannot add translation panel for new language
 
@@ -784,8 +746,6 @@ Find the "Add Panel" menu in [src/pages/EditorPage.tsx](../../src/pages/EditorPa
   );
 }
 ```
-
----
 
 ### Issue: Parsing works, but no output shown
 
@@ -829,8 +789,6 @@ useEffect(() => {
 }, [code, sourceLang]);
 ```
 
----
-
 ## Debugging Techniques
 
 ### Technique 1: Inspect the Token Stream
@@ -856,8 +814,6 @@ Output:
 └─────┴──────────┴────────┴───────┘
 ```
 
----
-
 ### Technique 2: Inspect the AST Structure
 
 ```typescript
@@ -867,8 +823,6 @@ console.log(JSON.stringify(ast, null, 2));
 ```
 
 This will show the entire AST in readable JSON format.
-
----
 
 ### Technique 3: Add Logging to Critical Methods
 
@@ -885,8 +839,6 @@ private statement(): Statement {
   // ...
 }
 ```
-
----
 
 ### Technique 4: Test Each Component Independently
 
@@ -911,8 +863,6 @@ const output = interpreter.interpret(ast);
 console.log('Output:', output);
 ```
 
----
-
 ### Technique 5: Use TypeScript Type Checking
 
 TypeScript can catch many errors before runtime:
@@ -928,8 +878,6 @@ if (stmt.type === 'Assignment') {
   const name = a.name;  // ← Safe
 }
 ```
-
----
 
 ## Still Stuck?
 
