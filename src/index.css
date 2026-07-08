@@ -44,3 +44,81 @@
 .code-font {
   font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 }
+
+/* ── Blockly (Blocks view) — keep every Blockly widget in the app theme ── */
+
+/* Block SVG text gets its font from the Blockly theme (see blockDefs.ts);
+   these rules cover the HTML parts Blockly styles with its own CSS. */
+
+/* Toolbox categories: app font + Settings text size */
+.blocklyToolboxCategoryLabel,
+.blocklyTreeLabel {
+  font-family: ui-sans-serif, system-ui, sans-serif !important;
+  font-size: var(--praxly-font-size, 14px) !important;
+}
+
+.blocklyToolboxCategoryContainer .blocklyToolboxCategory:hover {
+  @apply bg-slate-800;
+}
+
+/* "Create variable…" flyout button */
+.blocklyFlyoutButtonBackground {
+  fill: #4f46e5; /* indigo-600 */
+  stroke: #6366f1; /* indigo-500 */
+}
+.blocklyFlyoutButton:hover .blocklyFlyoutButtonBackground {
+  fill: #6366f1;
+}
+.blocklyFlyoutButton .blocklyText {
+  fill: #ffffff;
+}
+
+/* Context menus (right-click) and dropdown menus */
+.blocklyWidgetDiv .blocklyMenu,
+.blocklyDropDownDiv .blocklyMenu {
+  @apply bg-slate-800 border border-slate-700 rounded-md shadow-xl;
+  font-family: ui-sans-serif, system-ui, sans-serif !important;
+  font-size: var(--praxly-font-size, 14px) !important;
+}
+.blocklyWidgetDiv .blocklyMenuItem,
+.blocklyDropDownDiv .blocklyMenuItem {
+  @apply text-slate-200;
+}
+.blocklyWidgetDiv .blocklyMenuItemHighlight,
+.blocklyDropDownDiv .blocklyMenuItemHighlight {
+  @apply bg-slate-700;
+}
+.blocklyWidgetDiv .blocklyMenuItemDisabled .blocklyMenuItemContent {
+  @apply text-slate-500;
+}
+
+/* Field dropdown panel (e.g. variable pickers) */
+.blocklyDropDownDiv .blocklyDropDownContent {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Inline field editor (double-click a number/text on a block) */
+.blocklyWidgetDiv .blocklyHtmlInput {
+  @apply bg-slate-800 text-slate-100 border-slate-600 rounded;
+  font-family: ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* Tooltips */
+.blocklyTooltipDiv {
+  @apply bg-slate-800 text-slate-200 border border-slate-700 rounded-md shadow-xl;
+  font-family: ui-sans-serif, system-ui, sans-serif !important;
+  font-size: calc(var(--praxly-font-size, 14px) - 2px) !important;
+  opacity: 0.97 !important;
+}
+
+/* Workspace + flyout scrollbars: thin, slate, like the app's scrollbars */
+.blocklyScrollbarHandle {
+  fill: #334155; /* slate-700 */
+}
+.blocklyScrollbarHandle:hover,
+.blocklyScrollbarHandle:active {
+  fill: #475569; /* slate-600 */
+}
+.blocklyScrollbarBackground {
+  fill: transparent;
+}

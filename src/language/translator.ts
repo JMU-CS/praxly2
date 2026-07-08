@@ -17,6 +17,7 @@ import { CSPEmitter } from './csp/emitter';
 import { PythonEmitter } from './python/emitter';
 import { PraxisEmitter } from './praxis/emitter';
 import { JavaScriptEmitter } from './javascript/emitter';
+import { programToBlocksJson } from './blocks/fromAst';
 
 export interface TranslationResult {
   code: string;
@@ -36,6 +37,12 @@ export class Translator {
    * Translates code between supported languages.
    */
   translateWithMap(program: Program, targetLang: TargetLanguage): TranslationResult {
+    // Blocks isn't text — its "code" is Blockly workspace JSON, produced by
+    // a dedicated converter rather than a line-emitting ASTVisitor.
+    if (targetLang === 'blocks') {
+      return { code: programToBlocksJson(program), sourceMap: new Map() };
+    }
+
     const context = this.analyze(program);
 
     let emitter: ASTVisitor;

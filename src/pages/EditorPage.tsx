@@ -252,9 +252,15 @@ export default function EditorPage() {
 
       setPanels((prev) => {
         const next = prev.filter((panel) => panel.lang !== decoded.lang);
-        const isValidTarget = ['python', 'java', 'csp', 'praxis', 'ast'].includes(
-          targetLangParam ?? ''
-        );
+        const isValidTarget = [
+          'python',
+          'java',
+          'csp',
+          'praxis',
+          'javascript',
+          'blocks',
+          'ast',
+        ].includes(targetLangParam ?? '');
 
         if (!isValidTarget || !targetLangParam || targetLangParam === decoded.lang) {
           return next;
@@ -411,10 +417,20 @@ export default function EditorPage() {
   const aiPanelContext = useMemo<LlmPanel[]>(() => {
     const result: LlmPanel[] = [];
     if (code.trim()) {
-      result.push({ language: sourceLang, code });
+      if (sourceLang === 'blocks') {
+        // Blocks source is Blockly workspace JSON — meaningless to the LLM.
+        // Send the equivalent Praxis pseudocode string instead.
+        const readable = ast ? getTranslation(ast, 'praxis').code : '';
+        if (readable.trim()) result.push({ language: 'praxis', code: readable });
+      } else {
+        result.push({ language: sourceLang, code });
+      }
     }
     if (ast) {
       for (const panel of panels) {
+        // A blocks panel shows the same program the source already covers,
+        // and its JSON would only waste the model's context.
+        if (panel.lang === 'blocks') continue;
         try {
           const translated = getTranslation(ast, panel.lang).code;
           if (translated?.trim()) {
@@ -625,6 +641,21 @@ export default function EditorPage() {
   const handleToggleAiPanel = () => {
     setShowAiSidePanel((prev) => !prev);
   };
+
+  // Shared by both AI-panel resize handles (the panel's left edge and the
+  // left edge of the add-panel strip): they move in lockstep because the
+  // strip has a fixed width, so one drag math works for both.
+  const handleStartAiResize = useCallback(
+    (e: MouseEvent) => {
+      e.preventDefault();
+      aiResizeRef.current = {
+        startX: e.clientX,
+        startWidth: aiPanelWidth,
+      };
+      setIsResizingAiPanel(true);
+    },
+    [aiPanelWidth]
+  );
 
   const handleTextSizeChange = (size: TextSize) => {
     setTextSize(size);
@@ -953,7 +984,10 @@ export default function EditorPage() {
 
   const sourcePaneWidth = panels.length === 0 ? getContentAvailableWidth() : editorWidth;
 
-  const fontSize = `${10 + textSize * 2}px`;
+  // Settings → text size, in px. CodeMirror reads it via the CSS variable;
+  // Blockly panes take the numeric value to re-theme their SVG text.
+  const fontSizePx = 10 + textSize * 2;
+  const fontSize = `${fontSizePx}px`;
 
   return (
     <div
@@ -1016,6 +1050,7 @@ export default function EditorPage() {
                 currentVariables={currentVariables}
                 editorRef={editorRef}
                 extensions={getExtensions(sourceLang === 'ast' ? 'python' : sourceLang)}
+                fontSize={fontSizePx}
                 memDiaState={getMemDiaState('source')}
                 onToggleMemDiaCollapse={() => cycleMemDiaState('source')}
                 onToggleSourceLangDropdown={() => setShowSourceLangDropdown((prev) => !prev)}
@@ -1081,6 +1116,7 @@ export default function EditorPage() {
                             draggedPanelId={draggedPanelId}
                             dragOverPanelId={dragOverPanelId}
                             translationCode={getTranslation(ast, rootPanel.lang).code}
+                            fontSize={fontSizePx}
                             highlightedLines={panelHighlightedLines.get(rootPanel.id) || []}
                             showMemDia={showMemDia}
                             resizingMemDiaPaneId={resizingMemDiaPaneId}
@@ -1112,6 +1148,7 @@ export default function EditorPage() {
                               draggedPanelId={draggedPanelId}
                               dragOverPanelId={dragOverPanelId}
                               translationCode={getTranslation(ast, stackedPanel.lang).code}
+                              fontSize={fontSizePx}
                               highlightedLines={panelHighlightedLines.get(stackedPanel.id) || []}
                               showMemDia={showMemDia}
                               resizingMemDiaPaneId={resizingMemDiaPaneId}
@@ -1167,23 +1204,18 @@ export default function EditorPage() {
           sourceLang={sourceLang}
           panels={panels}
           showAiSidePanel={showAiSidePanel}
+          aiResizeActive={isResizingAiPanel}
           onToggleMenu={() => setShowAddMenu((prev) => !prev)}
           onTogglePanel={togglePanel}
           onToggleAiPanel={handleToggleAiPanel}
+          onStartAiResize={handleStartAiResize}
         />
 
         {showAiSidePanel && (
           <AiSidePanel
             width={aiPanelWidth}
             isResizing={isResizingAiPanel}
-            onStartResize={(e) => {
-              e.preventDefault();
-              aiResizeRef.current = {
-                startX: e.clientX,
-                startWidth: aiPanelWidth,
-              };
-              setIsResizingAiPanel(true);
-            }}
+            onStartResize={handleStartAiResize}
             onClose={() => setShowAiSidePanel(false)}
             panels={aiPanelContext}
             selection={aiSelection}

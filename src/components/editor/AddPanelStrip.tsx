@@ -1,4 +1,5 @@
 import { Plus, FileJson, Check, Bot } from 'lucide-react';
+import type { MouseEvent } from 'react';
 
 import type { SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
@@ -9,15 +10,28 @@ interface AddPanelStripProps {
   sourceLang: SupportedLang;
   panels: Panel[];
   showAiSidePanel: boolean;
+  /** True while the AI panel is being resized (highlights the handle). */
+  aiResizeActive: boolean;
   onToggleMenu: () => void;
   onTogglePanel: (lang: SupportedLang) => void;
   onToggleAiPanel: () => void;
+  /** Starts an AI-panel resize drag from this strip's left edge. */
+  onStartAiResize: (e: MouseEvent) => void;
 }
 
-const PANEL_LANGS: SupportedLang[] = ['ast', 'csp', 'java', 'javascript', 'praxis', 'python'];
+const PANEL_LANGS: SupportedLang[] = [
+  'ast',
+  'blocks',
+  'csp',
+  'java',
+  'javascript',
+  'praxis',
+  'python',
+];
 
 const LANG_LABELS: Record<SupportedLang, string> = {
   ast: 'AST',
+  blocks: 'Blocks',
   csp: 'CSP',
   java: 'Java',
   javascript: 'JavaScript',
@@ -30,12 +44,25 @@ export function AddPanelStrip({
   sourceLang,
   panels,
   showAiSidePanel,
+  aiResizeActive,
   onToggleMenu,
   onTogglePanel,
   onToggleAiPanel,
+  onStartAiResize,
 }: AddPanelStripProps) {
   return (
     <div className="add-panel-dropdown w-16 flex flex-col items-center gap-3 pt-4 bg-slate-900 border-l border-slate-800 shrink-0 relative z-[150] shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">
+      {/* The strip sits between the code panes and the AI panel, so its left
+          edge doubles as a second resize handle for the AI panel. */}
+      {showAiSidePanel && (
+        <div
+          className={`absolute top-0 left-0 w-1 h-full cursor-col-resize z-[200] transition-colors ${
+            aiResizeActive ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/40'
+          }`}
+          onMouseDown={onStartAiResize}
+          aria-hidden="true"
+        />
+      )}
       <div className="relative">
         <button
           onClick={onToggleMenu}

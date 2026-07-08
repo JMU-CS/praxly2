@@ -7,7 +7,7 @@ import type { Program, ASTNode } from './ast';
 import { Interpreter, InputPrompt } from './interpreter';
 import { Translator } from './translator';
 
-export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'ast';
+export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'blocks' | 'ast';
 
 /**
  * Represents a single execution step with all relevant debug information

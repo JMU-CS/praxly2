@@ -4,7 +4,7 @@ This is the fast-start guide for Claude agents. Read the full project guidelines
 
 ## What this project is
 
-An in-browser multi-language compiler and translator for CS education. Users write code in **Python, Java, CSP pseudocode, or Praxis pseudocode**. Every language shares one **Universal AST** — no language-specific AST nodes, ever. The AST can be interpreted directly or translated to any other supported language. No backend; everything runs client-side.
+An in-browser multi-language compiler and translator for CS education. Users write code in **Python, Java, JavaScript, CSP pseudocode, Praxis pseudocode, or Blocks (Blockly, `src/language/blocks/` — its "source text" is workspace JSON)**. Every language shares one **Universal AST** — no language-specific AST nodes, ever. The AST can be interpreted directly or translated to any other supported language. No backend; everything runs client-side.
 
 ## Architecture in 30 seconds
 

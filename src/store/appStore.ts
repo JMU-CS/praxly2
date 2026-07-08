@@ -49,13 +49,27 @@ export const useByokStore = create<ByokStore>()(
   )
 );
 
+/**
+ * Drops sessions whose id was already seen, keeping the first occurrence.
+ * The store must never hold two entries for one backend session — duplicates
+ * would be persisted to localStorage and survive refreshes.
+ */
+const dedupeSessions = (sessions: SessionMeta[]): SessionMeta[] => {
+  const seen = new Set<string>();
+  return sessions.filter((s) => (seen.has(s.id) ? false : (seen.add(s.id), true)));
+};
+
 export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => ({
       sessions: [],
       messageCache: {},
-      setSessions: (sessions) => set({ sessions }),
-      addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
+      setSessions: (sessions) => set({ sessions: dedupeSessions(sessions) }),
+      addSession: (session) =>
+        set((s) =>
+          // Idempotent: re-adding a known session must not create a duplicate.
+          s.sessions.some((c) => c.id === session.id) ? s : { sessions: [session, ...s.sessions] }
+        ),
       removeSession: (id) =>
         set((s) => {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -74,6 +88,13 @@ export const useChatStore = create<ChatStore>()(
       name: 'praxly-chat-store',
       // Only persist session metadata — message content is re-fetched on demand
       partialize: (s) => ({ sessions: s.sessions }),
+      // v1: scrub duplicate sessions that older builds persisted (they called
+      // addSession from inside a React state updater, which can run twice).
+      version: 1,
+      migrate: (persisted) => {
+        const state = persisted as { sessions?: SessionMeta[] } | undefined;
+        return { ...state, sessions: dedupeSessions(state?.sessions ?? []) };
+      },
     }
   )
 );
