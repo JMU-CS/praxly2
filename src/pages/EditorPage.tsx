@@ -5,7 +5,8 @@ import { Sparkles } from 'lucide-react';
 import type { EditorView, ViewUpdate } from '@codemirror/view';
 
 import type { Program } from '../language/ast';
-import type { SupportedLang } from '../components/LanguageSelector';
+import { LANG_LABELS, type SupportedLang } from '../components/LanguageSelector';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { OutputPanel } from '../components/OutputPanel';
 import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
 import { computeMultiplePanelHighlighting } from '../utils/debugHandlers';
@@ -70,6 +71,9 @@ export default function EditorPage() {
   const [memDiaStates, setMemDiaStates] = useState<Map<string, 'open' | 'closed'>>(new Map());
   const [aiPanelWidth, setAiPanelWidth] = useState(320);
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false);
+  // Language the user asked to switch to when the program couldn't be
+  // translated — non-null while the "start fresh?" dialog is open.
+  const [pendingLangSwitch, setPendingLangSwitch] = useState<SupportedLang | null>(null);
   // Highlight-to-chat: text selected in the source editor + where to float the button.
   const [aiSelection, setAiSelection] = useState('');
   const [aiSelectionCoords, setAiSelectionCoords] = useState<{ top: number; left: number } | null>(
@@ -169,72 +173,61 @@ export default function EditorPage() {
     setResizingMemDiaPaneId(paneId);
   };
 
-  const handleSourceLanguageChange = (lang: SupportedLang) => {
-    if (lang === sourceLang) {
-      setShowSourceLangDropdown(false);
-      return;
-    }
-
-    if (!code.trim()) {
+  /** Switches the source pane to `lang` with the given code and a clean slate. */
+  const applySourceLanguage = useCallback(
+    (lang: SupportedLang, newCode: string) => {
       setSourceLang(lang);
-      setPanels((prev) => prev.filter((panel) => panel.lang !== lang));
-      setIsDebugging(false);
-      setIsDebugComplete(false);
-      setHighlightedSourceLines([]);
-      setPanelHighlightedLines(new Map());
-      setShowSourceLangDropdown(false);
-      return;
-    }
-
-    try {
-      const sourceForTranslation = sourceLang === 'ast' ? 'python' : sourceLang;
-      const parsed = parseCode(sourceForTranslation, code);
-      const translated = getTranslation(parsed, lang).code;
-      let translatedCodeIssue: string | null = null;
-
-      if (!translated || translated.trim().length === 0) {
-        setError(`Translation to ${lang} produced empty code. Keeping current source.`);
-        setShowSourceLangDropdown(false);
-        return;
-      }
-
-      if (
-        translated.startsWith('// Translation to') ||
-        translated.startsWith('// Valid source code required')
-      ) {
-        translatedCodeIssue = `Unable to verify translated ${lang} source.`;
-      } else {
-        try {
-          parseCode(lang, translated);
-        } catch (validationError: any) {
-          translatedCodeIssue = validationError?.message || 'The translated code may not work.';
-        }
-      }
-
-      if (translatedCodeIssue) {
-        const shouldContinue = window.confirm(
-          `The translated code may not work. Continue?\n\n${translatedCodeIssue}`
-        );
-
-        if (!shouldContinue) {
-          setShowSourceLangDropdown(false);
-          return;
-        }
-      }
-
-      setSourceLang(lang);
-      setCode(translated);
+      setCode(newCode);
       setPanels((prev) => prev.filter((panel) => panel.lang !== lang));
       setIsDebugging(false);
       setIsDebugComplete(false);
       setHighlightedSourceLines([]);
       setPanelHighlightedLines(new Map());
       setError(null);
-    } catch (e: any) {
-      setError(e.message ?? `Unable to translate current ${sourceLang} source into ${lang}.`);
-    }
+    },
+    [setIsDebugging, setIsDebugComplete, setHighlightedSourceLines]
+  );
 
+  const handleSourceLanguageChange = (lang: SupportedLang) => {
     setShowSourceLangDropdown(false);
+    if (lang === sourceLang) return;
+
+    try {
+      const sourceForTranslation = sourceLang === 'ast' ? 'python' : sourceLang;
+      // An empty program — blank text, or e.g. a Blocks workspace whose JSON
+      // holds no blocks — has nothing to translate; switch straight away.
+      const parsed = code.trim() ? parseCode(sourceForTranslation, code) : null;
+      if (!parsed || parsed.body.length === 0) {
+        applySourceLanguage(lang, '');
+        return;
+      }
+
+      const translated = getTranslation(parsed, lang).code;
+      let translationFailed =
+        !translated?.trim() ||
+        translated.startsWith('// Translation to') ||
+        translated.startsWith('// Valid source code required');
+
+      if (!translationFailed) {
+        try {
+          parseCode(lang, translated);
+        } catch {
+          translationFailed = true;
+        }
+      }
+
+      if (translationFailed) {
+        // Can't produce a working translation — ask before discarding the
+        // program (the ConfirmModal rendered below handles the answer).
+        setPendingLangSwitch(lang);
+        return;
+      }
+
+      applySourceLanguage(lang, translated);
+    } catch {
+      // The current source doesn't parse, so it can't be translated either.
+      setPendingLangSwitch(lang);
+    }
   };
 
   useEffect(() => {
@@ -1220,6 +1213,21 @@ export default function EditorPage() {
             panels={aiPanelContext}
             selection={aiSelection}
             onClearSelection={clearAiSelection}
+          />
+        )}
+
+        {/* Asks before discarding a program that can't be translated. */}
+        {pendingLangSwitch && (
+          <ConfirmModal
+            title="Translation not available"
+            message={`This program can't be translated to ${LANG_LABELS[pendingLangSwitch]}. You can start fresh with an empty ${LANG_LABELS[pendingLangSwitch]} program instead — your current code will be discarded.`}
+            confirmLabel="Start fresh"
+            cancelLabel="Keep my code"
+            onConfirm={() => {
+              applySourceLanguage(pendingLangSwitch, '');
+              setPendingLangSwitch(null);
+            }}
+            onCancel={() => setPendingLangSwitch(null)}
           />
         )}
 

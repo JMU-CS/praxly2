@@ -6,7 +6,7 @@ import { EditorView } from '@codemirror/view';
 import type { ViewUpdate } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 
-import type { SupportedLang } from '../LanguageSelector';
+import { LANG_LABELS, type SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
 import { MemDia } from './MemDia';
 import { BlocklyPaneLazy } from './BlocklyPaneLazy';
@@ -37,15 +37,6 @@ interface SourcePaneProps {
 }
 
 const SOURCE_OPTIONS: SupportedLang[] = ['blocks', 'csp', 'java', 'javascript', 'praxis', 'python'];
-
-const SOURCE_LABELS: Record<string, string> = {
-  blocks: 'Blocks',
-  csp: 'CSP',
-  java: 'Java',
-  javascript: 'JavaScript',
-  praxis: 'Praxis',
-  python: 'Python',
-};
 
 const focusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-800';
@@ -104,7 +95,7 @@ export function SourcePane({
                     className={`flex items-center gap-2.5 w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${focusRing}`}
                   >
                     <LanguageLogo lang={lang} size={14} />
-                    {SOURCE_LABELS[lang] ?? lang}
+                    {LANG_LABELS[lang]}
                   </button>
                 ))}
               </div>

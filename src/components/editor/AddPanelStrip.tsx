@@ -1,7 +1,7 @@
 import { Plus, FileJson, Check, Bot } from 'lucide-react';
 import type { MouseEvent } from 'react';
 
-import type { SupportedLang } from '../LanguageSelector';
+import { LANG_LABELS, type SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
 import type { Panel } from './types';
 
@@ -28,16 +28,6 @@ const PANEL_LANGS: SupportedLang[] = [
   'praxis',
   'python',
 ];
-
-const LANG_LABELS: Record<SupportedLang, string> = {
-  ast: 'AST',
-  blocks: 'Blocks',
-  csp: 'CSP',
-  java: 'Java',
-  javascript: 'JavaScript',
-  praxis: 'Praxis',
-  python: 'Python',
-};
 
 export function AddPanelStrip({
   showAddMenu,

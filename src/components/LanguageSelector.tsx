@@ -8,6 +8,17 @@ import { ChevronDown } from 'lucide-react';
 
 export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'blocks' | 'ast';
 
+/** Display names shared by every language picker and dialog. */
+export const LANG_LABELS: Record<SupportedLang, string> = {
+  ast: 'AST',
+  blocks: 'Blocks',
+  csp: 'CSP',
+  java: 'Java',
+  javascript: 'JavaScript',
+  praxis: 'Praxis',
+  python: 'Python',
+};
+
 interface LanguageSelectorProps {
   value: SupportedLang;
   onChange: (lang: SupportedLang) => void;
