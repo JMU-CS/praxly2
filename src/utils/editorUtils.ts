@@ -31,6 +31,9 @@ export const getCodeMirrorExtensions = (lang: SupportedLang | 'json'): any[] => 
     case 'javascript':
       baseExtensions.push(javascript());
       break;
+    case 'blocks':
+      // Rendered by BlocklyPane, not CodeMirror — no extensions needed.
+      break;
   }
 
   return baseExtensions;

@@ -9,6 +9,7 @@ import type { Extension } from '@codemirror/state';
 import type { SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
 import { MemDia } from './MemDia';
+import { BlocklyPaneLazy } from './BlocklyPaneLazy';
 
 interface SourcePaneProps {
   width: number;
@@ -21,6 +22,8 @@ interface SourcePaneProps {
   currentVariables: Record<string, any>;
   editorRef: RefObject<HTMLDivElement | null>;
   extensions: Extension[];
+  /** Editor text size in px (Settings → text size) — sizes Blockly text. */
+  fontSize: number;
   memDiaState: 'open' | 'closed';
   onToggleMemDiaCollapse: () => void;
   onToggleSourceLangDropdown: () => void;
@@ -33,7 +36,16 @@ interface SourcePaneProps {
   editorResizeActive: boolean;
 }
 
-const SOURCE_OPTIONS: SupportedLang[] = ['csp', 'java', 'javascript', 'praxis', 'python'];
+const SOURCE_OPTIONS: SupportedLang[] = ['blocks', 'csp', 'java', 'javascript', 'praxis', 'python'];
+
+const SOURCE_LABELS: Record<string, string> = {
+  blocks: 'Blocks',
+  csp: 'CSP',
+  java: 'Java',
+  javascript: 'JavaScript',
+  praxis: 'Praxis',
+  python: 'Python',
+};
 
 const focusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-800';
@@ -49,6 +61,7 @@ export function SourcePane({
   currentVariables,
   editorRef,
   extensions,
+  fontSize,
   memDiaState,
   onToggleMemDiaCollapse,
   onToggleSourceLangDropdown,
@@ -91,15 +104,7 @@ export function SourcePane({
                     className={`flex items-center gap-2.5 w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${focusRing}`}
                   >
                     <LanguageLogo lang={lang} size={14} />
-                    {lang === 'csp'
-                      ? 'CSP'
-                      : lang === 'java'
-                        ? 'Java'
-                        : lang === 'javascript'
-                          ? 'JavaScript'
-                          : lang === 'praxis'
-                            ? 'Praxis'
-                            : 'Python'}
+                    {SOURCE_LABELS[lang] ?? lang}
                   </button>
                 ))}
               </div>
@@ -111,19 +116,23 @@ export function SourcePane({
         {/* Editor + MemDia */}
         <div className="flex-1 flex flex-col bg-slate-950 overflow-hidden" ref={editorRef}>
           <div className="flex-1 relative overflow-hidden">
-            <CodeMirror
-              value={code}
-              height="100%"
-              theme={vscodeDark}
-              extensions={[
-                ...extensions,
-                EditorView.contentAttributes.of({ 'aria-label': 'Source code editor' }),
-              ]}
-              onChange={onCodeChange}
-              onCreateEditor={onCreateEditor}
-              onUpdate={onEditorUpdate}
-              className="h-full font-mono"
-            />
+            {sourceLang === 'blocks' ? (
+              <BlocklyPaneLazy value={code} onChange={onCodeChange} fontSize={fontSize} />
+            ) : (
+              <CodeMirror
+                value={code}
+                height="100%"
+                theme={vscodeDark}
+                extensions={[
+                  ...extensions,
+                  EditorView.contentAttributes.of({ 'aria-label': 'Source code editor' }),
+                ]}
+                onChange={onCodeChange}
+                onCreateEditor={onCreateEditor}
+                onUpdate={onEditorUpdate}
+                className="h-full font-mono"
+              />
+            )}
           </div>
 
           {showMemDia && memDiaState === 'closed' && (

@@ -39,13 +39,13 @@ const NAV: Array<{ id: Section; label: string; icon: typeof User }> = [
   { id: 'data', label: 'Data & activity', icon: MessageSquare },
 ];
 
-const cardCls = 'rounded-2xl border border-gray-200 bg-white';
+const cardCls = 'rounded-2xl border border-slate-800 bg-slate-900';
 const inputCls =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition';
+  'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition';
 const primaryBtnCls =
-  'rounded-full bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors';
+  'rounded-full bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors';
 const textBtnCls =
-  'rounded-full px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors';
+  'rounded-full px-4 py-2 text-sm font-medium text-indigo-300 hover:bg-slate-800 transition-colors';
 
 function displayName(profile: AccountProfile | null): string {
   if (!profile) return '';
@@ -63,7 +63,7 @@ function Avatar({ profile, size }: { profile: AccountProfile | null; size: 'sm' 
   return (
     <div
       aria-hidden="true"
-      className={`${cls} flex items-center justify-center rounded-full bg-blue-600 font-semibold text-white select-none`}
+      className={`${cls} flex items-center justify-center rounded-full bg-indigo-600 font-semibold text-white select-none`}
     >
       {initialOf(profile)}
     </div>
@@ -83,8 +83,8 @@ function StatusBanner({
       role="status"
       className={`mb-4 flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm ${
         status.kind === 'success'
-          ? 'bg-green-50 text-green-800 border border-green-200'
-          : 'bg-red-50 text-red-800 border border-red-200'
+          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40'
+          : 'bg-red-500/10 text-red-300 border border-red-500/40'
       }`}
     >
       <span className="flex items-center gap-2">
@@ -127,10 +127,10 @@ export default function AccountPage() {
 
   if (!keycloak.authenticated) {
     return (
-      <div className="min-h-dvh bg-gray-50 flex items-center justify-center p-6">
+      <div className="min-h-dvh bg-slate-950 flex items-center justify-center p-6">
         <div className={`${cardCls} max-w-sm w-full p-8 text-center`}>
-          <h1 className="text-xl font-semibold text-gray-900">Praxly Account</h1>
-          <p className="mt-2 text-sm text-gray-600">Sign in to manage your account.</p>
+          <h1 className="text-xl font-semibold text-slate-100">Praxly Account</h1>
+          <p className="mt-2 text-sm text-slate-400">Sign in to manage your account.</p>
           <button onClick={() => keycloak.login()} className={`${primaryBtnCls} mt-6 w-full`}>
             Sign in
           </button>
@@ -143,27 +143,27 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-gray-50 text-gray-900 font-sans">
+    <div className="min-h-dvh bg-slate-950 text-slate-100 font-sans">
       {/* Top bar */}
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5 sm:px-6">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-2.5 sm:px-6">
         <div className="flex items-center gap-3">
           <Link
             to="/v2/editor"
-            className="flex items-center gap-2 rounded-full p-2 text-gray-600 hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-2 rounded-full p-2 text-slate-400 hover:bg-slate-800 transition-colors"
             aria-label="Back to editor"
             title="Back to editor"
           >
             <ArrowLeft size={18} />
           </Link>
           <img src="/v2/fallen-leaf_1f342.ico" alt="" className="h-6 w-6" aria-hidden="true" />
-          <span className="text-lg text-gray-700">
-            Praxly <span className="font-medium text-gray-500">Account</span>
+          <span className="text-lg text-slate-300">
+            Praxly <span className="font-medium text-slate-500">Account</span>
           </span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => keycloak.logout({ redirectUri: window.location.origin + '/v2/editor' })}
-            className="flex items-center gap-2 rounded-full border border-gray-300 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-2 rounded-full border border-slate-700 px-4 py-1.5 text-sm text-slate-300 hover:bg-slate-800 transition-colors"
           >
             <LogOut size={14} />
             Sign out
@@ -183,8 +183,8 @@ export default function AccountPage() {
                   aria-current={section === id ? 'page' : undefined}
                   className={`flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors ${
                     section === id
-                      ? 'bg-blue-50 font-medium text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-indigo-500/10 font-medium text-indigo-300'
+                      : 'text-slate-300 hover:bg-slate-800'
                   }`}
                 >
                   <Icon size={16} />
@@ -205,8 +205,8 @@ export default function AccountPage() {
                 onClick={() => setSection(id)}
                 className={`whitespace-nowrap rounded-full border px-4 py-1.5 text-sm ${
                   section === id
-                    ? 'border-blue-600 bg-blue-50 text-blue-700'
-                    : 'border-gray-300 text-gray-700'
+                    ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300'
+                    : 'border-slate-700 text-slate-300'
                 }`}
               >
                 {label}
@@ -217,7 +217,7 @@ export default function AccountPage() {
           <StatusBanner status={status} onDismiss={() => setStatus(null)} />
 
           {loading ? (
-            <div className={`${cardCls} p-10 text-center text-sm text-gray-500`}>Loading…</div>
+            <div className={`${cardCls} p-10 text-center text-sm text-slate-500`}>Loading…</div>
           ) : section === 'home' ? (
             <HomeSection profile={profile} usage={usage} onNavigate={setSection} />
           ) : section === 'personal' ? (
@@ -248,10 +248,10 @@ function HomeSection({
     <div className="space-y-6">
       <div className="flex flex-col items-center py-6 text-center">
         <Avatar profile={profile} size="lg" />
-        <h1 className="mt-4 text-2xl text-gray-900">
+        <h1 className="mt-4 text-2xl text-slate-100">
           Welcome, {displayName(profile) || 'student'}
         </h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="mt-1 text-sm text-slate-400">
           Manage your info, security, and chat activity to make Praxly work better for you.
         </p>
       </div>
@@ -259,32 +259,32 @@ function HomeSection({
       <div className="grid gap-4 sm:grid-cols-2">
         <button
           onClick={() => onNavigate('personal')}
-          className={`${cardCls} p-5 text-left hover:shadow-md transition-shadow`}
+          className={`${cardCls} p-5 text-left hover:border-slate-600 transition-colors`}
         >
-          <div className="flex items-center gap-2 text-gray-900 font-medium">
-            <Pencil size={16} className="text-blue-600" /> Personal info
+          <div className="flex items-center gap-2 text-slate-100 font-medium">
+            <Pencil size={16} className="text-indigo-400" /> Personal info
           </div>
-          <p className="mt-2 text-sm text-gray-600 break-all">
+          <p className="mt-2 text-sm text-slate-400 break-all">
             {profile?.email ?? 'No email set'} · @{profile?.username}
           </p>
         </button>
         <button
           onClick={() => onNavigate('security')}
-          className={`${cardCls} p-5 text-left hover:shadow-md transition-shadow`}
+          className={`${cardCls} p-5 text-left hover:border-slate-600 transition-colors`}
         >
-          <div className="flex items-center gap-2 text-gray-900 font-medium">
-            <KeyRound size={16} className="text-blue-600" /> Security
+          <div className="flex items-center gap-2 text-slate-100 font-medium">
+            <KeyRound size={16} className="text-indigo-400" /> Security
           </div>
-          <p className="mt-2 text-sm text-gray-600">Change the password you use to sign in.</p>
+          <p className="mt-2 text-sm text-slate-400">Change the password you use to sign in.</p>
         </button>
         <button
           onClick={() => onNavigate('data')}
-          className={`${cardCls} p-5 text-left hover:shadow-md transition-shadow sm:col-span-2`}
+          className={`${cardCls} p-5 text-left hover:border-slate-600 transition-colors sm:col-span-2`}
         >
-          <div className="flex items-center gap-2 text-gray-900 font-medium">
-            <MessageSquare size={16} className="text-blue-600" /> Data &amp; activity
+          <div className="flex items-center gap-2 text-slate-100 font-medium">
+            <MessageSquare size={16} className="text-indigo-400" /> Data &amp; activity
           </div>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-slate-400">
             {usage
               ? `${usage.sessions} chats · ${usage.messages} messages · last active ${
                   usage.lastActivity ? new Date(usage.lastActivity).toLocaleDateString() : 'never'
@@ -333,27 +333,27 @@ function PersonalSection({
   };
 
   return (
-    <div className={`${cardCls} divide-y divide-gray-100`}>
+    <div className={`${cardCls} divide-y divide-slate-800`}>
       <div className="p-6">
-        <h2 className="text-lg text-gray-900">Personal info</h2>
-        <p className="mt-1 text-sm text-gray-600">
+        <h2 className="text-lg text-slate-100">Personal info</h2>
+        <p className="mt-1 text-sm text-slate-400">
           The email and name attached to your school account.
         </p>
       </div>
       <div className="space-y-4 p-6">
         <div>
-          <label htmlFor="acct-username" className="mb-1 block text-xs font-medium text-gray-500">
+          <label htmlFor="acct-username" className="mb-1 block text-xs font-medium text-slate-500">
             Username
           </label>
           <input
             id="acct-username"
             value={profile?.username ?? ''}
             disabled
-            className={`${inputCls} bg-gray-50 text-gray-500`}
+            className={`${inputCls} text-slate-500 opacity-70`}
           />
         </div>
         <div>
-          <label htmlFor="acct-email" className="mb-1 block text-xs font-medium text-gray-500">
+          <label htmlFor="acct-email" className="mb-1 block text-xs font-medium text-slate-500">
             Email
           </label>
           <input
@@ -367,7 +367,7 @@ function PersonalSection({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="acct-first" className="mb-1 block text-xs font-medium text-gray-500">
+            <label htmlFor="acct-first" className="mb-1 block text-xs font-medium text-slate-500">
               First name
             </label>
             <input
@@ -378,7 +378,7 @@ function PersonalSection({
             />
           </div>
           <div>
-            <label htmlFor="acct-last" className="mb-1 block text-xs font-medium text-gray-500">
+            <label htmlFor="acct-last" className="mb-1 block text-xs font-medium text-slate-500">
               Last name
             </label>
             <input
@@ -429,16 +429,16 @@ function SecuritySection({
   };
 
   return (
-    <div className={`${cardCls} divide-y divide-gray-100`}>
+    <div className={`${cardCls} divide-y divide-slate-800`}>
       <div className="p-6">
-        <h2 className="text-lg text-gray-900">Security</h2>
-        <p className="mt-1 text-sm text-gray-600">
+        <h2 className="text-lg text-slate-100">Security</h2>
+        <p className="mt-1 text-sm text-slate-400">
           Change the password for your school account. It must be at least 8 characters.
         </p>
       </div>
       <div className="space-y-4 p-6 max-w-md">
         <div>
-          <label htmlFor="pw-current" className="mb-1 block text-xs font-medium text-gray-500">
+          <label htmlFor="pw-current" className="mb-1 block text-xs font-medium text-slate-500">
             Current password
           </label>
           <input
@@ -451,7 +451,7 @@ function SecuritySection({
           />
         </div>
         <div>
-          <label htmlFor="pw-new" className="mb-1 block text-xs font-medium text-gray-500">
+          <label htmlFor="pw-new" className="mb-1 block text-xs font-medium text-slate-500">
             New password
           </label>
           <input
@@ -464,7 +464,7 @@ function SecuritySection({
           />
         </div>
         <div>
-          <label htmlFor="pw-confirm" className="mb-1 block text-xs font-medium text-gray-500">
+          <label htmlFor="pw-confirm" className="mb-1 block text-xs font-medium text-slate-500">
             Confirm new password
           </label>
           <input
@@ -476,7 +476,7 @@ function SecuritySection({
             autoComplete="new-password"
           />
           {confirm.length > 0 && next !== confirm && (
-            <p className="mt-1 text-xs text-red-600">Passwords don't match.</p>
+            <p className="mt-1 text-xs text-red-400">Passwords don't match.</p>
           )}
         </div>
         <div className="pt-2">
@@ -550,7 +550,7 @@ function DataSection({
     <div className="space-y-6">
       {/* Usage */}
       <div className={`${cardCls} p-6`}>
-        <h2 className="text-lg text-gray-900">AI usage</h2>
+        <h2 className="text-lg text-slate-100">AI usage</h2>
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
             { label: 'Chats', value: usage?.sessions ?? 0 },
@@ -558,14 +558,14 @@ function DataSection({
             { label: 'Sent', value: usage?.sent ?? 0 },
             { label: 'Received', value: usage?.received ?? 0 },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-xl bg-gray-50 p-4 text-center">
-              <div className="text-2xl font-medium text-gray-900">{stat.value}</div>
-              <div className="mt-1 text-xs text-gray-500">{stat.label}</div>
+            <div key={stat.label} className="rounded-xl bg-slate-800/50 p-4 text-center">
+              <div className="text-2xl font-medium text-slate-100">{stat.value}</div>
+              <div className="mt-1 text-xs text-slate-500">{stat.label}</div>
             </div>
           ))}
         </div>
 
-        <h3 className="mt-6 text-xs font-medium uppercase tracking-wide text-gray-500">
+        <h3 className="mt-6 text-xs font-medium uppercase tracking-wide text-slate-500">
           Last 30 days
         </h3>
         <div
@@ -577,7 +577,7 @@ function DataSection({
             <div
               key={b.day}
               title={`${b.day}: ${b.count} message${b.count === 1 ? '' : 's'}`}
-              className={`flex-1 rounded-t ${b.count > 0 ? 'bg-blue-500' : 'bg-gray-100'}`}
+              className={`flex-1 rounded-t ${b.count > 0 ? 'bg-indigo-500/100' : 'bg-slate-800'}`}
               style={{ height: `${Math.max(4, (b.count / maxCount) * 100)}%` }}
             />
           ))}
@@ -585,20 +585,20 @@ function DataSection({
       </div>
 
       {/* Chat history */}
-      <div className={`${cardCls} divide-y divide-gray-100`}>
+      <div className={`${cardCls} divide-y divide-slate-800`}>
         <div className="p-6">
-          <h2 className="text-lg text-gray-900">Chat history</h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <h2 className="text-lg text-slate-100">Chat history</h2>
+          <p className="mt-1 text-sm text-slate-400">
             Rename or delete your saved conversations with the Praxly tutor.
           </p>
         </div>
         {chats.length === 0 ? (
-          <p className="p-6 text-sm text-gray-500">No chats yet.</p>
+          <p className="p-6 text-sm text-slate-500">No chats yet.</p>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-slate-800">
             {chats.map((chat) => (
               <li key={chat.id} className="flex items-center gap-3 px-6 py-3">
-                <MessageSquare size={16} className="shrink-0 text-gray-400" />
+                <MessageSquare size={16} className="shrink-0 text-slate-500" />
                 {renamingId === chat.id ? (
                   <input
                     autoFocus
@@ -612,11 +612,11 @@ function DataSection({
                     className={`${inputCls} max-w-xs py-1`}
                   />
                 ) : (
-                  <span className="min-w-0 flex-1 truncate text-sm text-gray-800">
+                  <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
                     {chat.title ?? 'Untitled chat'}
                   </span>
                 )}
-                <span className="hidden text-xs text-gray-400 sm:block">
+                <span className="hidden text-xs text-slate-500 sm:block">
                   {new Date(chat.updatedAt).toLocaleDateString()}
                 </span>
                 <button
@@ -624,14 +624,14 @@ function DataSection({
                     setRenamingId(chat.id);
                     setRenameValue(chat.title ?? '');
                   }}
-                  className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+                  className="rounded-full p-2 text-slate-500 hover:bg-slate-800 hover:text-slate-200 transition-colors"
                   title="Rename chat"
                 >
                   <Pencil size={14} />
                 </button>
                 <button
                   onClick={() => handleDelete(chat.id)}
-                  className="rounded-full p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  className="rounded-full p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                   title="Delete chat"
                 >
                   <Trash2 size={14} />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { History, KeyRound, LogIn, Plus, X } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import Fuse from 'fuse.js';
@@ -70,23 +70,30 @@ export function AiSidePanel({
   const [search, setSearch] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Load session list from backend (skipped if sessions already in persisted store).
+  // Load session list from backend (skipped if sessions already in persisted
+  // store). Always ends with at least one chat selected — a fresh local chat
+  // is created when the user has no history, so the panel is ready to type
+  // into without pressing "+" first.
   useEffect(() => {
     if (!keycloak.authenticated) return;
+
+    const showChats = (chats: Chat[]) => {
+      const withFallback = chats.length > 0 ? chats : [makeNewChat()];
+      setLocalChats(withFallback);
+      setActiveId(withFallback[0].id);
+    };
+
     if (sessions.length > 0) {
-      const chats = sessions.map((s) => sessionToChat(s, getCachedMessages(s.id)));
-      setLocalChats(chats);
-      if (chats.length > 0) setActiveId(chats[0].id);
+      showChats(sessions.map((s) => sessionToChat(s, getCachedMessages(s.id))));
       return;
     }
     listChats()
       .then((s) => {
         setSessions(s);
-        const chats = s.map((sess) => sessionToChat(sess));
-        setLocalChats(chats);
-        if (chats.length > 0) setActiveId(chats[0].id);
+        showChats(s.map((sess) => sessionToChat(sess)));
       })
-      .catch(() => {});
+      // Backend unreachable — still give the user an empty chat to type into.
+      .catch(() => showChats([]));
   }, [setSessions, getCachedMessages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load messages for the active chat — check cache first, fetch only if needed.
@@ -121,38 +128,46 @@ export function AiSidePanel({
 
   const activeChat = localChats.find((c) => c.id === activeId) ?? null;
 
+  // Latest chat list for event handlers. Side effects (API calls, store
+  // writes) must never run inside a setState updater — React is free to
+  // invoke updaters more than once (it does in StrictMode), which is exactly
+  // how duplicate sessions ended up persisted in the chat store.
+  const localChatsRef = useRef(localChats);
+  localChatsRef.current = localChats;
+
   const handleMessages = useCallback(
     (chatId: string, messages: SimpleMessage[]) => {
-      setLocalChats((prev) =>
-        prev.map((c) => {
-          if (c.id !== chatId) return c;
-          const firstUser = messages.find((m) => m.role === 'user');
-          const title = firstUser ? titleFrom(firstUser.text) : c.title;
-          if (c.sessionId && title !== c.title) {
-            renameChatApi(c.sessionId, title).catch(() => {});
-            updateSession(c.sessionId, { title });
-          }
-          if (c.sessionId) setMessages(c.sessionId, messages);
-          return { ...c, messages, title };
-        })
-      );
+      const chat = localChatsRef.current.find((c) => c.id === chatId);
+      if (!chat) return;
+
+      const firstUser = messages.find((m) => m.role === 'user');
+      const title = firstUser ? titleFrom(firstUser.text) : chat.title;
+      if (chat.sessionId) {
+        if (title !== chat.title) {
+          renameChatApi(chat.sessionId, title).catch(() => {});
+          updateSession(chat.sessionId, { title });
+        }
+        setMessages(chat.sessionId, messages);
+      }
+
+      setLocalChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, messages, title } : c)));
     },
     [updateSession, setMessages]
   );
 
   const handleSessionId = useCallback(
     (chatId: string, sessionId: string) => {
+      const chat = localChatsRef.current.find((c) => c.id === chatId);
+      if (!chat || chat.sessionId) return;
+
+      addSession({
+        id: sessionId,
+        title: null,
+        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      });
       setLocalChats((prev) =>
-        prev.map((c) => {
-          if (c.id !== chatId || c.sessionId) return c;
-          addSession({
-            id: sessionId,
-            title: null,
-            updatedAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-          });
-          return { ...c, sessionId };
-        })
+        prev.map((c) => (c.id === chatId && !c.sessionId ? { ...c, sessionId } : c))
       );
     },
     [addSession]
@@ -231,7 +246,7 @@ export function AiSidePanel({
         </span>
         <div className="flex items-center gap-0.5">
           <button onClick={newChat} className={iconBtn} title="New chat">
-            <Plus size={15} />
+            <Plus size={18} />
           </button>
           <button
             onClick={() => {
@@ -241,7 +256,7 @@ export function AiSidePanel({
             className={`${iconBtn} ${showHistory ? 'text-indigo-300 bg-slate-800' : ''}`}
             title="Chat history"
           >
-            <History size={15} />
+            <History size={18} />
           </button>
           <button
             onClick={() => {
@@ -251,7 +266,7 @@ export function AiSidePanel({
             className={`${iconBtn} relative ${showKeySettings ? 'text-indigo-300 bg-slate-800' : ''}`}
             title="AI model & API key"
           >
-            <KeyRound size={15} />
+            <KeyRound size={18} />
             {byokProvider && (
               <span
                 className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400"
@@ -260,7 +275,7 @@ export function AiSidePanel({
             )}
           </button>
           <button onClick={onClose} className={iconBtn} title="Close AI panel">
-            <X size={15} />
+            <X size={18} />
           </button>
         </div>
       </div>

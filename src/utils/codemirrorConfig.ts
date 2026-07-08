@@ -49,7 +49,9 @@ export const dispatchLineHighlighting = (
   editorViewRef: RefObject<EditorView | null>,
   lines: number[]
 ) => {
-  if (!editorViewRef.current) return;
+  // The ref can point at an unmounted editor (e.g. after switching the
+  // source pane to the Blocks view) — dispatching to it would throw.
+  if (!editorViewRef.current || !editorViewRef.current.dom.isConnected) return;
   editorViewRef.current.dispatch({
     effects: highlightLinesEffect.of(lines),
   });

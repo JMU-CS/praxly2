@@ -1,4 +1,4 @@
-export type LogoLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'ast';
+export type LogoLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'blocks' | 'ast';
 
 function PythonLogo({ size }: { size: number }) {
   return (
@@ -90,6 +90,24 @@ function JavaScriptLogo({ size }: { size: number }) {
   );
 }
 
+function BlocksLogo({ size }: { size: number }) {
+  // Two interlocking Scratch-style stacked blocks.
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 32 32">
+      <path
+        d="M4 6a2 2 0 0 1 2-2h8v2h6V4h6a2 2 0 0 1 2 2v7h-8v2h-6v-2H4V6z"
+        fill="#fbbf24"
+        transform="translate(0,1)"
+      />
+      <path
+        d="M4 16h10v2h6v-2h8v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9z"
+        fill="#818cf8"
+        transform="translate(0,1)"
+      />
+    </svg>
+  );
+}
+
 function PraxisLogo({ size }: { size: number }) {
   return (
     <svg
@@ -123,6 +141,8 @@ export function LanguageLogo({ lang, size = 14 }: { lang: LogoLang; size?: numbe
       return <JavaScriptLogo size={size} />;
     case 'praxis':
       return <PraxisLogo size={size} />;
+    case 'blocks':
+      return <BlocksLogo size={size} />;
     default:
       return null;
   }

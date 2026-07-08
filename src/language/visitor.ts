@@ -14,7 +14,7 @@ import type {
   Constructor,
 } from './ast';
 
-export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | 'javascript';
+export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | 'javascript' | 'blocks';
 
 export interface TranslationContext {
   symbolTable: SymbolTable;

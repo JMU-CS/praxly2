@@ -16,6 +16,7 @@ import { PraxisLexer } from '../language/praxis/lexer';
 import { PraxisParser } from '../language/praxis/parser';
 import { JavaScriptLexer } from '../language/javascript/lexer';
 import { JavaScriptParser } from '../language/javascript/parser';
+import { blocksToProgram } from '../language/blocks/toAst';
 import { Translator } from '../language/translator';
 
 export type SourceMap = Map<string, number>;
@@ -46,6 +47,9 @@ export const useCodeParsing = () => {
           tokens = new JavaScriptLexer(input).tokenize();
           parser = new JavaScriptParser(tokens);
           return parser.parse();
+        case 'blocks':
+          // Blocks "source" is Blockly workspace JSON, not text.
+          return blocksToProgram(input);
         case 'python':
         default:
           tokens = new PythonLexer(input).tokenize();
@@ -66,7 +70,13 @@ export const useCodeParsing = () => {
       try {
         return translator.translateWithMap(ast, target as any);
       } catch (e) {
-        return { code: `// Translation to ${target} not available.`, sourceMap: new Map() };
+        // Keep the emitter's reason — the Blocks pane (and curious students
+        // reading the comment) can then see *why* it isn't available.
+        const reason = e instanceof Error && e.message ? ` ${e.message}` : '';
+        return {
+          code: `// Translation to ${target} not available.${reason}`,
+          sourceMap: new Map(),
+        };
       }
     },
     []
