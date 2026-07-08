@@ -49,4 +49,4 @@ Every AST node type defined in [`src/language/ast.ts`](../src/language/ast.ts), 
 ## Notes
 
 - The **interpreter** (`src/language/interpreter.ts`) does not use `ASTVisitor` at all — it executes the AST directly via its own `executeBlock()`/`evaluate()` switch statements over `NodeType`, separate from the emitter visitor pattern described above.
-- Per [`.github/CLAUDE.md`](../.github/CLAUDE.md), adding a new `Statement` node type requires updating `ast.ts`, `visitor.ts` (new abstract method + `visitStatement` dispatch case), all emitters, `interpreter.ts`, and `translator.ts`.
+- Per [`CLAUDE.md`](../CLAUDE.md), adding a new `Statement` node type requires updating `ast.ts`, `visitor.ts` (new abstract method + `visitStatement` dispatch case), all emitters, `interpreter.ts`, and `translator.ts`.

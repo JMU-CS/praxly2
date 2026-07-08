@@ -2,7 +2,7 @@
 
 ## Overview
 
-Praxly2 is an in-browser multi-language compiler and translator for education. Users write code in **Python, Java, CSP pseudocode, or Praxis pseudocode**, and the system parses it to a **Universal AST**, which can be interpreted directly or translated to any other supported language. There is no backend—everything runs client-side.
+Praxly2 is an in-browser multi-language compiler and translator for education. Users write code in **Python, Java, JavaScript, CSP pseudocode, Praxis pseudocode, or Blocks**, and the system parses it to a **Universal AST**, which can be interpreted directly or translated to any other supported language. There is no backend—everything runs client-side.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ All languages share a 3-phase pipeline: **Lexer → Parser → Interpreter/Emitt
 - **Translator** (`src/language/translator.ts`): Orchestrates type inference via `SymbolTable`/`TranslationContext`, then dispatches to language-specific emitters.
 - **Debugger** (`src/language/debugger.ts`): Step-through execution with source mapping (AST node IDs → line numbers).
 
-See [docs/COMPILER_PIPELINE.md](docs/COMPILER_PIPELINE.md) for the full pipeline walkthrough with examples.
+See [docs/COMPILER_PIPELINE.md](../docs/COMPILER_PIPELINE.md) for the full pipeline walkthrough with examples.
 
 ## Language Module Structure
 
@@ -26,9 +26,9 @@ Each language lives under `src/language/<lang>/` with exactly 3 files:
 | `parser.ts`  | `<Lang>Parser`                     | `parse(): Program` — tokens to Universal AST          |
 | `emitter.ts` | `<Lang>Emitter extends ASTVisitor` | Visitor that generates target language code           |
 
-CSP and Praxis additionally have Lezer grammar files (`.grammar` → auto-compiled `.grammar.js`) and `lezer.ts` for CodeMirror syntax highlighting. Java and Python use hand-written lexers only.
+CSP and Praxis additionally have Lezer grammar files (`.grammar` → auto-compiled `.grammar.js`) and `lezer.ts` for CodeMirror syntax highlighting. Java, Python, and JavaScript use hand-written lexers only. Blocks (`src/language/blocks/`) is the exception to the 3-file pattern — its "source text" is Blockly workspace JSON, so it has `fromAst.ts`/`toAst.ts` (AST ⇄ Blockly conversion), `blockDefs.ts`, `blocklyDialogs.ts`, and `serialization.ts` instead of lexer/parser/emitter.
 
-When adding a new language, follow [docs/ADDING_A_LANGUAGE.md](docs/ADDING_A_LANGUAGE.md).
+When adding a new language, follow [docs/ADDING_A_LANGUAGE.md](../docs/ADDING_A_LANGUAGE.md).
 
 ## Build & Test
 
@@ -40,7 +40,7 @@ npx tsx csv/selenium.test.ts  # Selenium integration tests (requires Chrome)
 ```
 
 - **Base URL**: `/v2/` (configured in `vite.config.js`)
-- **Routes**: `/v2/` (landing), `/v2/editor` (main IDE), `/v2/embed` (embeddable)
+- **Routes**: `/v2/editor` (main IDE), `/v2/embed` (embeddable), `/v2/account` (account page); all other paths redirect to `/v2/editor` — there is no separate landing route
 
 ## Conventions
 
@@ -61,8 +61,8 @@ npx tsx csv/selenium.test.ts  # Selenium integration tests (requires Chrome)
 
 ## Troubleshooting
 
-See [docs/COMMON_ISSUES.md](docs/COMMON_ISSUES.md) for diagnosing lexer, parser, interpreter, and emitter problems.
+See [docs/COMMON_ISSUES.md](../docs/COMMON_ISSUES.md) for diagnosing lexer, parser, interpreter, and emitter problems.
 
 ## Component & API Reference
 
-See [docs/COMPONENT_REFERENCE.md](docs/COMPONENT_REFERENCE.md) for Lexer/Parser/Interpreter/Emitter API contracts and AST node definitions.
+See [docs/COMPONENT_REFERENCE.md](../docs/COMPONENT_REFERENCE.md) for Lexer/Parser/Interpreter/Emitter API contracts and AST node definitions.
