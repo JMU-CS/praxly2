@@ -2,9 +2,9 @@
 
 Welcome to the Praxly 2.0 codebase. Praxly is an **in-browser compiler and programming language translator** that allows users to:
 
-- Write code in **Python, Java, Praxis, or CSP (pseudocode)**
+- **Write code** in Python, Java, JavaScript, CSP pseudocode, Praxis pseudocode, or Blocks
 - **Instantly translate** code to other supported languages
-- **View the Abstract Syntax Tree (AST)** to understand how code is parsed
+- **View the Abstract Syntax Tree** (AST) to understand how code is parsed
 - **Execute code** safely entirely within the browser
 - **Debug code** with variable inspection and step-through execution
 
@@ -30,24 +30,22 @@ All of this happens **without a backend server** — everything is compiled and 
 
 - [Core Architecture](#core-architecture) - High-level overview
 - [Design Philosophy](#design-philosophy) - Key concepts and the Universal AST
-- [Component Overview](#component-overview) - What each part does and where files are
-- **[How the Compilation Pipeline Works](./COMPILER_PIPELINE.md)** - Detailed walkthrough of lexing, parsing, interpretation, and translation
-- **[Adding a New Language](./ADDING_A_LANGUAGE.md)** - Step-by-step guide with common pitfalls
-- **[Common Issues and Solutions](./COMMON_ISSUES.md)** - Troubleshooting and debugging tips
-- **[Component Reference](./COMPONENT_REFERENCE.md)** - Detailed documentation of key classes
-
----
+- [Component Overview](#component-overview) - What each part does and where files are, including the full directory structure
+- [The Compilation Pipeline at a Glance](#the-compilation-pipeline-at-a-glance) - Lexing, parsing, interpretation, and translation phases
+- [Key Files Deep Dive](#key-files-deep-dive) - What `ast.ts`, `lexer.ts`, `interpreter.ts`, `translator.ts`, and `visitor.ts` do
+- [How to Add a New Language](#how-to-add-a-new-language) - Quick summary of the steps
+- [Troubleshooting](#troubleshooting) - Where to look when something breaks
 
 ## Core Architecture
 
 Praxly implements a **three-phase compiler pipeline**:
 
 ```
-Source Code (Python/Java/CSP/Praxis)
+Source Code (Python/Java/JavaScript/CSP/Praxis/Blocks)
            ↓
-        LEXER ──→ Tokens
+        LEXER → Tokens
            ↓
-        PARSER ──→ Universal AST
+        PARSER → Universal AST
            ↓
     ┌─────┴─────────────────────┬─────────────────────┐
     ↓                           ↓                     ↓
@@ -76,8 +74,9 @@ Source Code (Python/Java/CSP/Praxis)
 ### The Universal AST — The Heart of Praxly
 
 The **single most important concept** in this codebase is the **Universal AST**. This is defined in [src/language/ast.ts](../src/language/ast.ts).
+See [AST_REFERENCE.md](AST_REFERENCE.md) for a reference of all the node types.
 
-**The key insight:** Regardless of whether you write Python, Java, CSP, or Praxis, your code is parsed into the **exact same AST structure**.
+**The key insight:** Regardless of whether you write Python, Java, JavaScript, CSP, Praxis, or Blocks, your code is parsed into the **exact same AST structure**.
 
 ```
 Python: x = 10 + 5    ──┐
@@ -98,9 +97,9 @@ This design has profound implications:
 - A bug fix in the interpreter benefits ALL languages
 - Type inference for translation happens once, at the AST level
 
----
-
 ## Component Overview
+
+See [COMPONENT_REFERENCE.md](COMPONENT_REFERENCE.md) for a detailed API reference for key classes.
 
 ### Directory Structure
 
@@ -112,24 +111,37 @@ src/
 ├─────────────────────────────────────────────────────────────
 ├── components/                  # Reusable React UI components
 │   ├── CodeEditorPanel.tsx      # Left-side editor (CodeMirror)
+│   ├── ConfirmModal.tsx         # Confirmation dialog
 │   ├── HighlightableCodeMirror.tsx
 │   ├── JSONTree.tsx             # Recursive AST viewer
+│   ├── LanguageLogo.tsx         # Per-language icon
 │   ├── LanguageSelector.tsx     # Dropdown for language selection
 │   ├── OutputPanel.tsx          # Shows console output + execution results
 │   ├── ResizeHandle.tsx         # Draggable column dividers
-│   └── TranslationPanel.tsx     # Right panels for translated code
+│   ├── TranslationPanel.tsx     # Right panels for translated code
+│   ├── ai/                      # AI chat assistant components
+│   └── editor/                  # Editor-specific sub-components
+│       ├── AddPanelStrip.tsx    # Strip for adding new language panels
+│       ├── AiSidePanel.tsx      # AI assistant side panel
+│       ├── BlocklyPane.tsx      # Blocks (Blockly) workspace panel
+│       ├── BlocklyPaneLazy.tsx  # Lazy-loaded wrapper for BlocklyPane
+│       ├── EditorHeader.tsx     # Toolbar, run/debug buttons
+│       ├── MemDia.tsx           # Memory diagram visualization
+│       ├── SourcePane.tsx       # Left source editor panel
+│       └── TranslationPaneItem.tsx # Right-side translation panels
 │─────────────────────────────────────────────────────────────
 ├── hooks/                       # React custom hooks
 │   ├── useCodeParsing.ts        # Handles parsing + translation
-│   └── useCodeDebugger.ts       # Manages debug state + stepping
+│   ├── useCodeDebugger.ts       # Manages debug state + stepping
+│   └── useClickOutside.ts       # Dismiss-on-outside-click helper
 │─────────────────────────────────────────────────────────────
 ├── pages/                       # Route page components
 │   ├── EditorPage.tsx           # Main editor IDE (the heart of the UI)
-│   ├── LandingPage.tsx          # Info/landing page
-│   └── EmbedPage.tsx            # Shareable code embed view
+│   ├── EmbedPage.tsx            # Shareable code embed view
+│   └── AccountPage.tsx          # Account page
 │─────────────────────────────────────────────────────────────
 ├── language/                    # CORE COMPILER LOGIC
-│   ├── ast.ts                   # ⭐ Universal AST node interfaces
+│   ├── ast.ts                   # Universal AST node interfaces
 │   ├── lexer.ts                 # Base Token types
 │   ├── interpreter.ts           # AST interpreter (execution engine)
 │   ├── translator.ts            # Main translation orchestrator
@@ -137,48 +149,62 @@ src/
 │   ├── debugger.ts              # Debugging support
 │   │
 │   ├── python/                  # Python language support
-│   │   ├── lexer.ts            # Tokenizes Python (handles indentation!)
-│   │   ├── parser.ts           # Parses tokens → AST (recursive descent)
-│   │   └── emitter.ts          # Converts AST → Python code
+│   │   ├── lexer.ts             # Tokenizes Python (handles indentation!)
+│   │   ├── parser.ts            # Parses tokens → AST (recursive descent)
+│   │   └── emitter.ts           # Converts AST → Python code
 │   │
 │   ├── java/                    # Java language support
-│   │   ├── lexer.ts            # Tokenizes Java
-│   │   ├── parser.ts           # Parses tokens → AST
-│   │   └── emitter.ts          # Converts AST → Java code
+│   │   ├── lexer.ts             # Tokenizes Java
+│   │   ├── parser.ts            # Parses tokens → AST
+│   │   └── emitter.ts           # Converts AST → Java code
+│   │
+│   ├── javascript/              # JavaScript language support
+│   │   ├── lexer.ts             # Tokenizes JavaScript
+│   │   ├── parser.ts            # Parses tokens → AST
+│   │   └── emitter.ts           # Converts AST → JavaScript code
 │   │
 │   ├── csp/                     # CSP (pseudocode) support
-│   │   ├── lexer.ts            # Tokenizes CSP
-│   │   ├── parser.ts           # Parses tokens → AST
-│   │   ├── emitter.ts          # Converts AST → CSP code
-│   │   ├── lezer.ts            # Lezer grammar support (for syntax highlighting)
+│   │   ├── lexer.ts             # Tokenizes CSP
+│   │   ├── parser.ts            # Parses tokens → AST
+│   │   ├── emitter.ts           # Converts AST → CSP code
+│   │   ├── lezer.ts             # Lezer grammar support (for syntax highlighting)
 │   │   ├── csp.grammar          # Lezer grammar definition
 │   │   └── csp.grammar.js       # Compiled grammar (auto-generated)
 │   │
-│   └── praxis/                  # Praxis language support
-│       ├── lexer.ts            # Tokenizes Praxis
-│       ├── parser.ts           # Parses tokens → AST
-│       ├── emitter.ts          # Converts AST → Praxis code
-│       ├── lezer.ts            # Lezer grammar support
-│       ├── praxis.grammar       # Lezer grammar definition
-│       └── praxis.grammar.js    # Compiled grammar (auto-generated)
+│   ├── praxis/                  # Praxis language support
+│   │   ├── lexer.ts             # Tokenizes Praxis
+│   │   ├── parser.ts            # Parses tokens → AST
+│   │   ├── emitter.ts           # Converts AST → Praxis code
+│   │   ├── lezer.ts             # Lezer grammar support
+│   │   ├── praxis.grammar       # Lezer grammar definition
+│   │   └── praxis.grammar.js    # Compiled grammar (auto-generated)
+│   │
+│   └── blocks/                  # Blocks (Blockly) support — no lexer/parser;
+│       │                        # "source text" is Blockly workspace JSON
+│       ├── fromAst.ts           # Universal AST → Blockly workspace
+│       ├── toAst.ts             # Blockly workspace → Universal AST
+│       ├── blockDefs.ts         # Custom Blockly block definitions
+│       ├── blocklyDialogs.ts    # Blockly dialog UI
+│       └── serialization.ts     # Workspace JSON serialization
 │─────────────────────────────────────────────────────────────
 └── utils/                       # Utilities and helpers
     ├── codemirrorConfig.ts      # CodeMirror extensions
     ├── debuggerUtils.ts         # Debugging helper functions
-    ├── editorUtils.ts           # Editor-specific utilities
+    ├── debugHandlers.ts         # Source map → line highlighting logic
+    ├── editorUtils.ts           # Editor-specific utilities (CodeMirror lang per SupportedLang)
     ├── embedCodec.ts            # URL embedding/sharing logic
+    ├── id.ts                    # ID generation helpers
+    ├── panelLayout.ts           # Translation panel layout logic
     └── sampleCodes.ts           # Default sample code for each language
 ```
 
----
-
 ## The Compilation Pipeline at a Glance
 
-For more details, see [COMPILER_PIPELINE.md](./COMPILER_PIPELINE.md).
+For more details, see [COMPILER_PIPELINE.md](COMPILER_PIPELINE.md).
 
 ### Phase 1: Lexing
 
-**Input:** Raw source code string (e.g., `"x = 10 + 5"`)  
+**Input:** Raw source code string (e.g., `"x = 10 + 5"`)
 **Output:** Array of Token objects
 
 ```typescript
@@ -194,7 +220,7 @@ Token { type: 'EOF', value: '', start: 10 }
 
 ### Phase 2: Parsing
 
-**Input:** Array of tokens  
+**Input:** Array of tokens
 **Output:** Abstract Syntax Tree (AST)
 
 The parser verifies tokens follow valid grammar and builds a tree:
@@ -239,8 +265,6 @@ emitter.getGeneratedCode(); // "int x = 10 + 5;"
 ```
 
 Each language has an **Emitter** (e.g., `PythonEmitter`, `JavaEmitter`) that extends `ASTVisitor` and implements methods for each AST node type.
-
----
 
 ## Key Files Deep Dive
 
@@ -302,17 +326,17 @@ Defines the abstract `ASTVisitor` base class. All Emitters extend this and imple
 
 ### Language-Specific Files
 
-For each supported language (Python, Java, CSP, Praxis), there are three files:
+For each text-based supported language (Python, Java, JavaScript, CSP, Praxis), there are three files:
 
 - **lexer.ts** — Converts source → tokens
 - **parser.ts** — Converts tokens → AST
 - **emitter.ts** — Converts AST → target language source code
 
----
+Blocks is the exception: its "source text" is Blockly workspace JSON, so it has `fromAst.ts`/`toAst.ts` (AST ⇄ Blockly conversion) instead of a lexer/parser.
 
 ## How to Add a New Language
 
-**See [ADDING_A_LANGUAGE.md](./ADDING_A_LANGUAGE.md) for a complete, step-by-step guide with code examples and common pitfalls.**
+See [ADDING_A_LANGUAGE.md](ADDING_A_LANGUAGE.md) for a complete, step-by-step guide with code examples and common pitfalls.
 
 Quick summary:
 
@@ -320,27 +344,16 @@ Quick summary:
 2. Implement `lexer.ts` (tokenize source code)
 3. Implement `parser.ts` (build Universal AST)
 4. Implement `emitter.ts` (generate code from AST)
-5. Update `src/language/translator.ts` to register your language
-6. Update `src/pages/EditorPage.tsx` to expose it in the UI
-7. Update hooks to integrate parsing/translation
-
----
+5. Update `src/language/visitor.ts` (`TargetLanguage` union) and `src/language/translator.ts` to register your language
+6. Update `src/hooks/useCodeParsing.ts` to route parsing/translation for the new language
+7. Update `src/components/LanguageSelector.tsx`, `src/components/editor/AddPanelStrip.tsx`, and `src/utils/editorUtils.ts` to expose it in the UI
 
 ## Troubleshooting
 
-**See [COMMON_ISSUES.md](./COMMON_ISSUES.md) for detailed solutions to:**
+See [COMMON_ISSUES.md](COMMON_ISSUES.md) for detailed solutions to:
 
 - Parse errors and how to debug them
 - Type mismatches in translation
 - Scoping and variable issues
 - OOP (classes/methods) problems
 - Missing or incorrect emitter methods
-
----
-
-## Further Reading
-
-- [COMPILER_PIPELINE.md](./COMPILER_PIPELINE.md) — Detailed walkthrough of how code flows through the system
-- [ADDING_A_LANGUAGE.md](./ADDING_A_LANGUAGE.md) — Complete guide to adding language #5
-- [COMMON_ISSUES.md](./COMMON_ISSUES.md) — Solutions to common problems
-- [COMPONENT_REFERENCE.md](./COMPONENT_REFERENCE.md) — Detailed API reference for key classes
