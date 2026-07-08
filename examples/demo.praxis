@@ -77,10 +77,10 @@ class Animal
     end describe
 end class
 
-// ClassDeclaration.superClass via `extends`. Inherited METHOD dispatch works
-// (see dog.kind() below). Note: the interpreter does not yet resolve a parent
-// field from a subclass instance, so Dog defines its own behavior rather than
-// reading Animal's fields.
+// ClassDeclaration.superClass via `extends`. Dog inherits every Animal member
+// (the name/legs/tag fields plus setTag/kind/describe) and adds its own
+// speak(). Both inherited method dispatch AND inherited field access work
+// (see dog.describe() below).
 class Dog extends Animal
     string speak()
         return "woof"
@@ -227,7 +227,9 @@ pet.setTag("pet")
 print(pet.describe()) // animal (pet) has 4 legs
 
 Dog dog <- new Dog()
+dog.setTag("puppy")   // inherited setter mutates this instance
 print(dog.speak())    // woof (Dog's own method)
 print(dog.kind())     // living thing (method inherited from Animal)
+print(dog.describe()) // animal (puppy) has 4 legs (inherited fields + method)
 
 banner("done")

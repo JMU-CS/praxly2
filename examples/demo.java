@@ -13,14 +13,11 @@
 //   NewExpression ........... `new X(...)` is encoded as a CallExpression.
 //   ThisExpression .......... `this` is encoded as an Identifier.
 //   ListComprehension ....... Python-only.
-//   Continue ................ `continue` is not in the Java lexer's keyword
-//                             set, so it never becomes a Continue node (the
-//                             Continue node is covered by the Python/JS demos).
 //
 // Interpreter notes honored below:
 //   * System.out.println takes exactly ONE argument -> concatenate with '+'.
-//   * A C-style for-loop update must be `i++`, never `i = i + 1` (an embedded
-//     assignment is a no-op) and not `i += 1` (see CompoundAssignment note).
+//   * A C-style for-loop update should be `i++` (an embedded plain assignment
+//     like `i = i + 1` is a no-op).
 //   * Compare Strings with `==` (String.equals is not implemented).
 //   * No Math / ArrayList / generics -> use plain arrays.
 // ===========================================================================
@@ -98,6 +95,15 @@ public class Main {
         System.out.println(a * b);      // 85
         System.out.println(a / b);      // 3
         System.out.println(a % b);      // 2
+
+        // ---- CompoundAssignment (+= -= *= /= %=) ---------------------------
+        int acc = 10;
+        acc += 5;                       // 15
+        acc -= 3;                       // 12
+        acc *= 2;                       // 24
+        acc /= 4;                       // 6
+        acc %= 4;                       // 2
+        System.out.println(acc);        // 2
 
         // ---- UpdateExpression (++ --), UnaryExpression (-, !) --------------
         int i = 5;
@@ -182,19 +188,11 @@ public class Main {
         // skipped, some run as no-ops -- none of them errors.
         // ===================================================================
 
-        // CompoundAssignment (+= -= *= /= %=) and ConditionalExpression (?:)
-        // parse and TRANSLATE, but the Java interpreter does not execute them
-        // (compound operands are not wired; a ternary produces no value, which
-        // fails an int assignment). Guarded by `if (false)` so the demo runs.
+        // ConditionalExpression (ternary ?:) parses and TRANSLATES, but the
+        // interpreter does not execute a ternary (it produces no value, which
+        // fails the int assignment). Guarded by `if (false)` so the demo runs.
         if (false) {
-            int acc = 10;
-            acc += 5;
-            acc -= 2;
-            acc *= 2;
-            acc /= 3;
-            acc %= 5;
-            System.out.println(acc);
-            int bigger = (a > b) ? a : b;   // ternary
+            int bigger = (a > b) ? a : b;
             System.out.println(bigger);
         }
 
@@ -207,9 +205,13 @@ public class Main {
                 System.out.println("other");
         }
 
-        // Break -- a valid Break node, treated as a no-op (loop still bounded)
-        for (int t = 0; t < 3; t++) {
-            if (t == 2) {
+        // Break / Continue -- valid AST nodes, treated as no-ops by the
+        // interpreter (the loop still completes over its own bound)
+        for (int t = 0; t < 4; t++) {
+            if (t == 1) {
+                continue;
+            }
+            if (t == 3) {
                 break;
             }
             System.out.println("flow " + t);

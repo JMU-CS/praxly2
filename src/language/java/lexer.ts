@@ -104,6 +104,7 @@ export class JavaLexer {
           'case',
           'default',
           'break',
+          'continue',
         ];
         const type = keywords.includes(value) ? 'KEYWORD' : 'IDENTIFIER';
         if (value === 'true' || value === 'false') tokens.push({ type: 'BOOLEAN', value, start });

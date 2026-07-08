@@ -129,8 +129,12 @@ class JavaInstance {
 
   getField(name: string): any {
     if (this.fields.has(name)) return this.fields.get(name);
-    // Check class fields
-    if (this.klass.fields.has(name)) return this.klass.fields.get(name);
+    // Check class fields, walking up the superclass chain for inherited fields
+    let klass: JavaClass | undefined = this.klass;
+    while (klass) {
+      if (klass.fields.has(name)) return klass.fields.get(name);
+      klass = klass.superClass;
+    }
     throw new Error(`Undefined field '${name}'`);
   }
 

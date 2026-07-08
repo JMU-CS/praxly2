@@ -29,10 +29,13 @@ export class Lexer {
       const indentMatch = line.match(/^\s*/);
       const indentLevel = indentMatch ? indentMatch[0].length : 0;
 
-      const trimmed = line.trim();
-      if (trimmed === '' || trimmed.startsWith('#')) {
+      // Strip any inline comment (respecting string literals) so a trailing
+      // `# ...` on a block-header line doesn't hide the closing colon.
+      const code = this.stripInlineComment(line);
+      const trimmed = code.trim();
+      if (trimmed === '') {
         this.pos += line.length + 1;
-        continue; // Skip empty lines and comments
+        continue; // Skip blank and comment-only lines
       }
 
       // Handle indentation (generates virtual curly braces for scope)
@@ -47,7 +50,7 @@ export class Lexer {
       }
 
       // Tokenize the visible characters of the line
-      this.tokenizeLine(trimmed, this.pos + (line.length - trimmed.length));
+      this.tokenizeLine(trimmed, this.pos + indentLevel);
       this.pos += line.length + 1; // advance pointer to next line start
 
       // End of statement marker (virtual semicolon)
@@ -65,6 +68,31 @@ export class Lexer {
 
     this.tokens.push({ type: 'EOF', value: '', start: this.pos });
     return this.tokens;
+  }
+
+  /**
+   * Returns the line with any inline `#` comment removed. A `#` inside a
+   * string literal is preserved; only a `#` in code position ends the line.
+   */
+  private stripInlineComment(line: string): string {
+    let inString = false;
+    let quote = '';
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inString) {
+        if (ch === '\\') {
+          i++; // skip the escaped character
+          continue;
+        }
+        if (ch === quote) inString = false;
+      } else if (ch === '"' || ch === "'") {
+        inString = true;
+        quote = ch;
+      } else if (ch === '#') {
+        return line.slice(0, i);
+      }
+    }
+    return line;
   }
 
   /**

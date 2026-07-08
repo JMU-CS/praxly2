@@ -743,6 +743,7 @@ export class PythonEmitter extends ASTVisitor {
           '/': { op: '/', prec: Precedence.Multiplicative },
           '%': { op: '%', prec: Precedence.Multiplicative },
           '**': { op: '**', prec: Precedence.Multiplicative },
+          '^': { op: '**', prec: Precedence.Multiplicative },
           // '..': { op: '..', prec: Precedence.Relational }
         };
         const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };

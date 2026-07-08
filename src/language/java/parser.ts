@@ -832,12 +832,15 @@ export class JavaParser {
         name = (left as any).name;
       }
 
-      // Return as CompoundAssignment node (or use Assignment with operator field)
+      // Return as CompoundAssignment node. `left`/`right` mirror the JS parser
+      // and are what the interpreter reads; `value` is kept for emitters.
       return {
         id: generateId(),
         type: 'CompoundAssignment',
         name,
         operator: binaryOp,
+        left,
+        right,
         value: right,
       } as any;
     }
