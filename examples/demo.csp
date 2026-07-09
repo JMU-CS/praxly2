@@ -1,13 +1,12 @@
 // ===========================================================================
-// Praxly2 feature demo -- CSP pseudocode (AP Computer Science Principles style)
+// Praxly2 feature demo -- CSP           (shared notes: examples/README.md)
 // ---------------------------------------------------------------------------
-// This program exercises every Universal-AST node the CSP parser can produce.
-// It runs top to bottom with no runtime error. CSP is a small procedural
-// language, so it reaches far fewer AST nodes than the other demos.
+// CSP is a small procedural language, so it reaches fewer AST nodes than the
+// other demos.
 //
 // AST nodes NOT reachable from CSP source (covered by the other demos):
 //   Classes (ClassDeclaration/Constructor/Method/Field), NewExpression,
-//   MemberExpression, ThisExpression ... CSP has no usable OOP.
+//   MemberExpression, ThisExpression .... CSP has no usable OOP.
 //   DoWhile / RepeatUntil node .......... `REPEAT UNTIL` maps to While(NOT c).
 //   Switch / Try / Break / Continue ..... no such keywords.
 //   ConditionalExpression (ternary) ..... not parsed.
@@ -25,32 +24,7 @@
 // ===========================================================================
 
 
-// ---- FunctionDeclaration (PROCEDURE) + Parameter + RETURN ------------------
-PROCEDURE add(x, y)
-{
-    RETURN x + y
-}
-
-PROCEDURE isEven(n)
-{
-    RETURN (n MOD 2) = 0        // `=` is equality; MOD is the modulo operator
-}
-
-PROCEDURE printEvens(limit)
-{
-    FOR i FROM 0 TO limit       // end-exclusive: 0 .. limit-1
-    {
-        IF (isEven(i))
-        {
-            DISPLAY(i)
-        }
-    }
-}
-
-
-// ===========================================================================
-// Top-level driver
-// ===========================================================================
+// ========================== EXPRESSIONS ====================================
 
 // ---- Literal (number, string, boolean) + Assignment + DISPLAY -------------
 name <- "csp"
@@ -92,6 +66,9 @@ INSERT(nums, 0, 5)              // [5, 10, 99, 30, 40]
 REMOVE(nums, 1)                 // [5, 99, 30, 40]
 DISPLAY(LENGTH(nums))           // 4
 DISPLAY(nums[0])                // 5
+
+
+// ========================== STATEMENTS =====================================
 
 // ---- IF / ELSE with a nested IF (CSP has no ELSE IF) -----------------------
 score <- 82
@@ -135,6 +112,31 @@ FOR j FROM 0 TO 6 STEP 2
 FOR EACH item IN nums
 {
     DISPLAY(item)              // 5 99 30 40
+}
+
+
+// ========================== FUNCTIONS ======================================
+
+// ---- FunctionDeclaration (PROCEDURE) + Parameter + RETURN ------------------
+PROCEDURE add(x, y)
+{
+    RETURN x + y
+}
+
+PROCEDURE isEven(n)
+{
+    RETURN (n MOD 2) = 0        // `=` is equality; MOD is the modulo operator
+}
+
+PROCEDURE printEvens(limit)
+{
+    FOR i FROM 0 TO limit       // end-exclusive: 0 .. limit-1
+    {
+        IF (isEven(i))
+        {
+            DISPLAY(i)
+        }
+    }
 }
 
 // ---- Procedure calls (CallExpression / ExpressionStatement) ----------------

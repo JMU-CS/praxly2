@@ -1,10 +1,6 @@
 # ===========================================================================
-# Praxly2 feature demo -- PYTHON
+# Praxly2 feature demo -- PYTHON        (shared notes: examples/README.md)
 # ---------------------------------------------------------------------------
-# Praxly2 supports a SUBSET of Python. This program exercises every
-# Universal-AST node the Python parser can produce, and every construct here
-# runs top to bottom with no runtime error.
-#
 # AST nodes NOT reachable from Python source (covered by the other demos):
 #   DoWhile / RepeatUntil ... no do-while / repeat syntax.
 #   Switch / SwitchCase ..... no match/switch parsing.
@@ -15,6 +11,8 @@
 #   ConditionalExpression ... `a if c else b` is not parsed.
 # ===========================================================================
 
+
+# ========================== EXPRESSIONS ====================================
 
 # ---- Literal (int, float, str, True, False, None) + multi-arg Print --------
 count = 7
@@ -36,6 +34,26 @@ print(7 % 3, 2 ** 8, 10 / 4)      # 1 256 2.5
 # ---- UnaryExpression (-, not) + comparison + logical (and/or) --------------
 print(-count, not active)                          # -7 false
 print(count > 3 and pi < 4, count == 7 or active)  # true true
+
+# ---- ArrayLiteral / IndexExpression / MemberExpression / CallExpression ----
+values = [5, 2, 9, 1]
+values[0] = 50                    # index Assignment
+values.append(7)                  # method call (MemberExpression + Call)
+values.sort()
+values.pop()
+print(values, len(values), values[0])   # {1, 2, 9, 50} 4 1
+
+# ---- ListComprehension -----------------------------------------------------
+squares = [x * x for x in range(5)]
+print(squares)                    # {0, 1, 4, 9, 16}
+
+# ---- IndexExpression slice (indexEnd / indexStep) --------------------------
+nums2 = [10, 20, 30, 40, 50]
+print(nums2[1:4])                 # {20, 30, 40}
+print(nums2[::2])                 # {10, 30, 50}
+
+
+# ========================== STATEMENTS =====================================
 
 # ---- If / elif / else (elif => nested If in elseBranch) --------------------
 score = 82
@@ -59,6 +77,37 @@ for item in [11, 22, 33]:
     print("list", item)
 for ch in "hi":
     print("char", ch)             # h i
+
+# ---- Break / Continue ------------------------------------------------------
+for n in range(5):
+    if n == 3:
+        break                     # stop the loop at 3
+    if n == 1:
+        continue                  # skip printing 1
+    print("flow", n)              # flow 0 / flow 2
+
+# ---- For ... else (elseBranch runs only if the loop finishes without break) -
+for i in range(3):
+    print("scan", i)
+else:
+    print("scanned all")          # runs (no break above)
+
+# ---- For.variables: multiple loop targets via enumerate --------------------
+for idx, item in enumerate([100, 200]):
+    print(idx, item)              # 0 100 / 1 200
+
+# ---- Try / ExceptionHandler / finally --------------------------------------
+# Reading an undefined name raises; the handler catches it (binding the message
+# to `err`) and the finally block always runs.
+try:
+    print(missingValue)           # raises: undefined variable
+except ValueError as err:
+    print("caught:", err)         # caught: ...
+finally:
+    print("cleanup")              # always runs
+
+
+# ========================== FUNCTIONS ======================================
 
 # ---- FunctionDeclaration / Parameter / Return ------------------------------
 # Parameter.defaultValue -- `punct` defaults to "!" when the caller omits it
@@ -89,14 +138,8 @@ announce("")                      # (prints nothing)
 announce("ready")                 # announce: ready
 print("fib", fib(7))              # fib 13
 
-# ---- ArrayLiteral / IndexExpression / MemberExpression / CallExpression ----
-values = [5, 2, 9, 1]
-values[0] = 50                    # index Assignment
-values.append(7)                  # method call (MemberExpression + Call)
-values.sort()
-values.pop()
-print(values, len(values), values[0])   # {1, 2, 9, 50} 4 1
 
+# ========================== CLASSES ========================================
 
 # ---- ClassDeclaration / Constructor / MethodDeclaration / FieldDeclaration -
 class Animal:
@@ -125,41 +168,3 @@ print(a.full())                   # Rex (animal)
 d = Dog("Fido")
 print(d.speak())                  # woof (Dog's own method)
 print(d.label())                  # name=Fido (method inherited from Animal)
-
-
-# ---- Try / ExceptionHandler / finally --------------------------------------
-# Reading an undefined name raises; the handler catches it (binding the message
-# to `err`) and the finally block always runs.
-try:
-    print(missingValue)           # raises: undefined variable
-except ValueError as err:
-    print("caught:", err)         # caught: ...
-finally:
-    print("cleanup")              # always runs
-
-# ---- Break / Continue ------------------------------------------------------
-for n in range(5):
-    if n == 3:
-        break                     # stop the loop at 3
-    if n == 1:
-        continue                  # skip printing 1
-    print("flow", n)              # flow 0 / flow 2
-
-# ---- For ... else (elseBranch runs only if the loop finishes without break) -
-for i in range(3):
-    print("scan", i)
-else:
-    print("scanned all")          # runs (no break above)
-
-# ---- For.variables: multiple loop targets via enumerate --------------------
-for idx, item in enumerate([100, 200]):
-    print(idx, item)              # 0 100 / 1 200
-
-# ---- ListComprehension -----------------------------------------------------
-squares = [x * x for x in range(5)]
-print(squares)                    # {0, 1, 4, 9, 16}
-
-# ---- IndexExpression slice (indexEnd / indexStep) --------------------------
-nums2 = [10, 20, 30, 40, 50]
-print(nums2[1:4])                 # {20, 30, 40}
-print(nums2[::2])                 # {10, 30, 50}

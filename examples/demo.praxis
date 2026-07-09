@@ -1,9 +1,8 @@
 // ===========================================================================
-// Praxly2 feature demo -- PRAXIS pseudocode
+// Praxly2 feature demo -- PRAXIS        (shared notes: examples/README.md)
 // ---------------------------------------------------------------------------
-// This program exercises every Universal-AST node that the Praxis parser can
-// produce, so it doubles as (a) documentation of what Praxis supports and
-// (b) a fixture for translating each AST node into the other languages.
+// Praxis maps most directly to the Universal AST, so it reaches the widest
+// set of nodes.
 //
 // AST nodes NOT reachable from Praxis source (covered by the other demos):
 //   Constructor .......... Praxis has no constructor syntax; use field
@@ -14,84 +13,13 @@
 //   ConditionalExpression  no ?: ternary operator.
 //   CompoundAssignment ... no +=/-=; write `x <- x + 1`.
 //   ListComprehension .... Python-only.
+//
+// (Functions and classes are hoisted, so the driver calls them before their
+// declarations appear further down the file.)
 // ===========================================================================
 
 
-// ---- FunctionDeclaration / Parameter / Return (with and without a value) ---
-
-int add(int a, int b)
-    return a + b               // Return with a value
-end add
-
-int fact(int n)
-    if (n <= 1)
-        return 1
-    else
-        return n * fact(n - 1) // recursion via CallExpression
-    end if
-end fact
-
-// `procedure` keyword => a void FunctionDeclaration
-procedure banner(string text)
-    print("== " + text + " ==")
-end banner
-
-procedure maybePrint(boolean show)
-    if (not show)
-        return                 // bare Return (Return.value omitted)
-    end if
-    print("shown")
-end maybePrint
-
-
-// ---- ClassDeclaration / FieldDeclaration / MethodDeclaration ---------------
-
-class Counter
-    public int count <- 0      // public FieldDeclaration with initializer
-    private int step <- 1      // private FieldDeclaration with initializer
-
-    void increment()
-        this.count <- this.count + this.step   // member Assignment via `this`
-    end increment
-
-    int getCount()
-        return this.count
-    end getCount
-end class
-
-class Animal
-    public string name <- "animal"
-    private int legs <- 4
-    string tag                 // bare field => declaredWithoutInitializer
-
-    void setTag(string t)
-        this.tag <- t
-    end setTag
-
-    string kind()
-        return "living thing"  // field-free method (safe to inherit)
-    end kind
-
-    string describe()
-        return this.name + " (" + this.tag + ") has " + str(this.legs) + " legs"
-    end describe
-end class
-
-// ClassDeclaration.superClass via `extends`. Dog inherits every Animal member
-// (the name/legs/tag fields plus setTag/kind/describe) and adds its own
-// speak(). Both inherited method dispatch AND inherited field access work
-// (see dog.describe() below).
-class Dog extends Animal
-    string speak()
-        return "woof"
-    end speak
-end class
-
-
-// ===========================================================================
-// Top-level driver (statements run top to bottom; declarations are hoisted)
-// ===========================================================================
-
+// ========================== EXPRESSIONS ====================================
 banner("literals and operators")
 
 // ---- Literal (int, float, string, boolean, null) + Assignment --------------
@@ -156,6 +84,8 @@ print("X", "Y") // no separator // "XY"
 print("joined: ") // no line feed
 print("tail")                  // -> "joined: tail" on one line
 
+
+// ========================== STATEMENTS =====================================
 banner("control flow")
 
 // ---- If / else with a nested If (Praxis has no `else if`) ------------------
@@ -208,13 +138,85 @@ repeat
     r <- r + 1
 until (r >= 3)
 
+
+// ========================== FUNCTIONS ======================================
 banner("functions and objects")
+
+// ---- FunctionDeclaration / Parameter / Return (with and without a value) ---
+int add(int a, int b)
+    return a + b               // Return with a value
+end add
+
+int fact(int n)
+    if (n <= 1)
+        return 1
+    else
+        return n * fact(n - 1) // recursion via CallExpression
+    end if
+end fact
+
+// `procedure` keyword => a void FunctionDeclaration
+procedure banner(string text)
+    print("== " + text + " ==")
+end banner
+
+procedure maybePrint(boolean show)
+    if (not show)
+        return                 // bare Return (Return.value omitted)
+    end if
+    print("shown")
+end maybePrint
 
 // ---- Calls, recursion, void procedures -------------------------------------
 print(add(3, 4))      // 7
 print(fact(5))        // 120
 maybePrint(false)     // (prints nothing)
 maybePrint(true)      // shown
+
+
+// ========================== CLASSES ========================================
+
+// ---- ClassDeclaration / FieldDeclaration / MethodDeclaration ---------------
+class Counter
+    public int count <- 0      // public FieldDeclaration with initializer
+    private int step <- 1      // private FieldDeclaration with initializer
+
+    void increment()
+        this.count <- this.count + this.step   // member Assignment via `this`
+    end increment
+
+    int getCount()
+        return this.count
+    end getCount
+end class
+
+class Animal
+    public string name <- "animal"
+    private int legs <- 4
+    string tag                 // bare field => declaredWithoutInitializer
+
+    void setTag(string t)
+        this.tag <- t
+    end setTag
+
+    string kind()
+        return "living thing"  // field-free method (safe to inherit)
+    end kind
+
+    string describe()
+        return this.name + " (" + this.tag + ") has " + str(this.legs) + " legs"
+    end describe
+end class
+
+// ClassDeclaration.superClass via `extends`. Dog inherits every Animal member
+// (the name/legs/tag fields plus setTag/kind/describe) and adds its own
+// speak(). Both inherited method dispatch AND inherited field access work
+// (see dog.describe() below).
+class Dog extends Animal
+    string speak()
+        return "woof"
+    end speak
+end class
 
 // ---- NewExpression / methods / fields / inheritance ------------------------
 Counter c <- new Counter()

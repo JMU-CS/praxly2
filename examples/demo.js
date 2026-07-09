@@ -1,10 +1,6 @@
 // ===========================================================================
-// Praxly2 feature demo -- JAVASCRIPT
+// Praxly2 feature demo -- JAVASCRIPT    (shared notes: examples/README.md)
 // ---------------------------------------------------------------------------
-// Praxly2 supports a SUBSET of JavaScript. This program exercises every
-// Universal-AST node the JS parser can produce, and every construct here runs
-// with no runtime error.
-//
 // AST nodes NOT reachable from JavaScript source (covered by the other demos):
 //   RepeatUntil ......... no repeat/until syntax.
 //   ListComprehension ... Python-only.
@@ -17,46 +13,7 @@
 // ===========================================================================
 
 
-// ---- FunctionDeclaration / Parameter / Return (with and without a value) ---
-function greet(name, punct = "!") {   // Parameter.defaultValue on `punct`
-    return "hi " + name + punct;
-}
-
-function fib(n) {                     // recursion via CallExpression
-    if (n <= 1) {
-        return n;
-    }
-    return fib(n - 1) + fib(n - 2);
-}
-
-function announce(msg) {
-    if (msg === "") {
-        return;                       // bare Return (Return.value omitted)
-    }
-    console.log("announce: " + msg);
-}
-
-
-// ---- ClassDeclaration / Constructor / MethodDeclaration / this / super -----
-class Animal {
-    constructor(name) {
-        this.name = name;             // ThisExpression + member Assignment
-    }
-    describe() {
-        return this.name + " the animal";
-    }
-}
-
-// ClassDeclaration.superClass via `extends`
-class Dog extends Animal {
-    constructor(name) {
-        super(name);                  // super() runs the parent constructor
-    }
-    speak() {
-        return "woof";
-    }
-}
-
+// ========================== EXPRESSIONS ====================================
 
 // ---- Literal (number, string, boolean, null) + Assignment + console.log ----
 let count = 7;
@@ -87,6 +44,18 @@ i++;
 --i;
 console.log(i, -a, !active);                 // 5 -17 false
 console.log(a > b && b > 0, a === 17 || active);   // true true
+
+// ---- ConditionalExpression (ternary) ---------------------------------------
+let bigger = (a > b) ? a : b;
+console.log(bigger);                    // 17
+
+// ---- Supported String methods + conversions --------------------------------
+let s = "Hello";
+console.log(s.length, s.toUpperCase(), s.substring(1, 3), s.charAt(0));  // 5 HELLO el H
+console.log(int("42"), str(7), float("1.5"));                            // 42 7 1.5
+
+
+// ========================== STATEMENTS =====================================
 
 // ---- If / else if / else ---------------------------------------------------
 let score = 82;
@@ -131,24 +100,6 @@ nums[0] = 99;
 nums.append(40);
 console.log(nums[0], nums.length, len(nums));   // 99 4 4
 
-// ---- Supported String methods + conversions --------------------------------
-let s = "Hello";
-console.log(s.length, s.toUpperCase(), s.substring(1, 3), s.charAt(0));  // 5 HELLO el H
-console.log(int("42"), str(7), float("1.5"));                            // 42 7 1.5
-
-// ---- Function calls --------------------------------------------------------
-console.log(greet("sam"));              // hi sam!  (uses the default punct)
-console.log(greet("sam", "?"));         // hi sam?  (overrides the default)
-announce("");                           // (prints nothing)
-announce("ready");                      // announce: ready
-console.log("fib", fib(7));             // fib 13
-
-// ---- Objects: new (NewExpression) + methods + this + extends + super -------
-let d = new Dog("Fido");
-console.log(d.speak());                 // woof (Dog's own method)
-console.log(d.describe());              // Fido the animal (inherited + super)
-
-
 // ---- Try / ExceptionHandler / finally --------------------------------------
 // Reading an undefined name throws; the catch clause handles it (binding the
 // message to `err`) and the finally block always runs.
@@ -184,6 +135,59 @@ for (let t = 0; t < 5; t++) {
     console.log("flow " + t);           // flow 0 / flow 2
 }
 
-// ---- ConditionalExpression (ternary) ---------------------------------------
-let bigger = (a > b) ? a : b;
-console.log(bigger);                    // 17
+
+// ========================== FUNCTIONS ======================================
+
+// ---- FunctionDeclaration / Parameter / Return (with and without a value) ---
+function greet(name, punct = "!") {   // Parameter.defaultValue on `punct`
+    return "hi " + name + punct;
+}
+
+function fib(n) {                     // recursion via CallExpression
+    if (n <= 1) {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+
+function announce(msg) {
+    if (msg === "") {
+        return;                       // bare Return (Return.value omitted)
+    }
+    console.log("announce: " + msg);
+}
+
+// ---- Function calls --------------------------------------------------------
+console.log(greet("sam"));              // hi sam!  (uses the default punct)
+console.log(greet("sam", "?"));         // hi sam?  (overrides the default)
+announce("");                           // (prints nothing)
+announce("ready");                      // announce: ready
+console.log("fib", fib(7));             // fib 13
+
+
+// ========================== CLASSES ========================================
+
+// ---- ClassDeclaration / Constructor / MethodDeclaration / this / super -----
+class Animal {
+    constructor(name) {
+        this.name = name;             // ThisExpression + member Assignment
+    }
+    describe() {
+        return this.name + " the animal";
+    }
+}
+
+// ClassDeclaration.superClass via `extends`
+class Dog extends Animal {
+    constructor(name) {
+        super(name);                  // super() runs the parent constructor
+    }
+    speak() {
+        return "woof";
+    }
+}
+
+// ---- Objects: new (NewExpression) + methods + this + extends + super -------
+let d = new Dog("Fido");
+console.log(d.speak());                 // woof (Dog's own method)
+console.log(d.describe());              // Fido the animal (inherited + super)

@@ -1,10 +1,6 @@
 // ===========================================================================
-// Praxly2 feature demo -- JAVA
+// Praxly2 feature demo -- JAVA          (shared notes: examples/README.md)
 // ---------------------------------------------------------------------------
-// Praxly2 supports a SUBSET of Java. This program exercises every
-// Universal-AST node the Java parser can produce, and every construct in
-// main() runs with no runtime error.
-//
 // AST nodes NOT reachable from Java source (covered by the other demos):
 //   FunctionDeclaration ..... Java has only methods, never free functions.
 //   RepeatUntil ............. no repeat/until syntax.
@@ -19,55 +15,16 @@
 //     like `i = i + 1` is a no-op).
 //   * Compare Strings with `==` (String.equals is not implemented).
 //   * No Math / ArrayList / generics -> use plain arrays.
+//
+// The executable code lives in Main.main (auto-invoked by the interpreter);
+// the helper classes it uses are declared afterwards.
 // ===========================================================================
 
 
-// ---- ClassDeclaration / FieldDeclaration / Constructor / MethodDeclaration -
-class Counter {
-    private int count;          // FieldDeclaration, declaredWithoutInitializer
-    private int step = 1;       // private FieldDeclaration with initializer
-    static int created = 0;     // static FieldDeclaration with initializer
-
-    public Counter(int start) { // Constructor + Parameter
-        this.count = start;     // member Assignment via `this`
-    }
-
-    public void increment() {   // void MethodDeclaration
-        this.count = this.count + this.step;
-    }
-
-    public int getCount() {     // non-void returnType + Return.value
-        return this.count;
-    }
-}
-
-// ---- Inheritance: ClassDeclaration.superClass via `extends`, plus super() ---
-class Animal {
-    public String name;
-
-    public Animal(String name) {
-        this.name = name;
-    }
-
-    public String describe() {
-        return this.name + " the animal";
-    }
-}
-
-class Dog extends Animal {
-    public Dog(String name) {
-        super(name);            // runs Animal's constructor on this instance
-    }
-
-    public String speak() {
-        return "woof";
-    }
-}
-
-
-// ---- Program entry point (static main is auto-invoked by the interpreter) ---
 public class Main {
     public static void main(String[] args) {
+
+        // ========================= EXPRESSIONS =========================
 
         // ---- Literal (int, double, String, boolean, null) + println --------
         int whole = 42;
@@ -116,6 +73,24 @@ public class Main {
         System.out.println(a > b && b > 0);    // true
         System.out.println(a == 17 || flag);   // true
 
+        // ---- ConditionalExpression (ternary ?:) ----------------------------
+        int bigger = (a > b) ? a : b;
+        System.out.println(bigger);          // 17
+
+        // ---- Supported String methods --------------------------------------
+        String s = "Hello";
+        System.out.println(s.length());        // 5
+        System.out.println(s.toUpperCase());   // HELLO
+        System.out.println(s.substring(1, 3)); // el
+        System.out.println(s.charAt(0));       // H
+
+        // ---- String equality uses == (String.equals is not implemented) ---
+        if (label == "java") {
+            System.out.println("match");
+        }
+
+        // ========================= STATEMENTS ==========================
+
         // ---- If / else if / else ------------------------------------------
         int score = 82;
         if (score >= 90) {
@@ -158,33 +133,6 @@ public class Main {
         System.out.println(nums[0]);    // 99
         System.out.println(nums.length);// 3
 
-        // ---- Supported String methods --------------------------------------
-        String s = "Hello";
-        System.out.println(s.length());        // 5
-        System.out.println(s.toUpperCase());   // HELLO
-        System.out.println(s.substring(1, 3)); // el
-        System.out.println(s.charAt(0));       // H
-
-        // ---- String equality uses == (String.equals is not implemented) ---
-        if (label == "java") {
-            System.out.println("match");
-        }
-
-        // ---- Objects: new, methods, fields, static read, extends + super ---
-        Counter c = new Counter(5);
-        c.increment();
-        c.increment();
-        System.out.println(c.getCount());   // 7
-        System.out.println(c.created);      // 0 (static field, read via instance)
-
-        Dog d = new Dog("Fido");
-        System.out.println(d.speak());      // woof (Dog's own method)
-        System.out.println(d.describe());   // Fido the animal (inherited + super)
-
-        // ---- ConditionalExpression (ternary ?:) ----------------------------
-        int bigger = (a > b) ? a : b;
-        System.out.println(bigger);          // 17
-
         // ---- Switch / SwitchCase (matching case, default, break) -----------
         int day = 3;
         switch (day) {
@@ -208,5 +156,63 @@ public class Main {
             }
             System.out.println("flow " + t); // flow 0 / flow 2
         }
+
+        // ========================= OBJECTS =============================
+
+        // ---- new, methods, fields, static read, extends + super -----------
+        Counter c = new Counter(5);
+        c.increment();
+        c.increment();
+        System.out.println(c.getCount());   // 7
+        System.out.println(c.created);      // 0 (static field, read via instance)
+
+        Dog d = new Dog("Fido");
+        System.out.println(d.speak());      // woof (Dog's own method)
+        System.out.println(d.describe());   // Fido the animal (inherited + super)
+    }
+}
+
+
+// ============================= CLASSES =====================================
+
+// ---- ClassDeclaration / FieldDeclaration / Constructor / MethodDeclaration -
+class Counter {
+    private int count;          // FieldDeclaration, declaredWithoutInitializer
+    private int step = 1;       // private FieldDeclaration with initializer
+    static int created = 0;     // static FieldDeclaration with initializer
+
+    public Counter(int start) { // Constructor + Parameter
+        this.count = start;     // member Assignment via `this`
+    }
+
+    public void increment() {   // void MethodDeclaration
+        this.count = this.count + this.step;
+    }
+
+    public int getCount() {     // non-void returnType + Return.value
+        return this.count;
+    }
+}
+
+// ---- Inheritance: ClassDeclaration.superClass via `extends`, plus super() ---
+class Animal {
+    public String name;
+
+    public Animal(String name) {
+        this.name = name;
+    }
+
+    public String describe() {
+        return this.name + " the animal";
+    }
+}
+
+class Dog extends Animal {
+    public Dog(String name) {
+        super(name);            // runs Animal's constructor on this instance
+    }
+
+    public String speak() {
+        return "woof";
     }
 }
