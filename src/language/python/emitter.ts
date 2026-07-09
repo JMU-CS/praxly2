@@ -24,6 +24,24 @@ import type {
 export class PythonEmitter extends ASTVisitor {
   // Tracks field names in current class scope for self. prefixing
   private currentClassFields = new Set<string>();
+  // Statements that must be emitted immediately before the statement currently
+  // being built — used to lower expression-position ++/-- (Python has neither).
+  private preludeLines: string[] = [];
+  private tempCounter = 0;
+  // Names explicitly declared with an integer type (drives `int(a / b)`), so we
+  // reproduce the source's integer-division semantics without touching untyped
+  // Python/JS/CSP variables.
+  private declaredIntVars = new Set<string>();
+
+  // Flush any hoisted prelude statements (at the current indent) before `line`.
+  protected emit(line: string, nodeId?: string): void {
+    if (this.preludeLines.length > 0) {
+      const pending = this.preludeLines;
+      this.preludeLines = [];
+      for (const p of pending) super.emit(p);
+    }
+    super.emit(line, nodeId);
+  }
   // Full field registry: class name → all fields (own + implicit + inherited)
   private classFieldRegistry = new Map<string, Set<string>>();
 
@@ -369,6 +387,9 @@ export class PythonEmitter extends ASTVisitor {
       }
 
       if (stmt.varType) {
+        if (this.isIntegerType(stmt.varType) && typeof stmt.name === 'string') {
+          this.declaredIntVars.add(stmt.name);
+        }
         const annotatedType = this.toPythonType(stmt.varType);
         if (stmt.declaredWithoutInitializer) {
           if (annotatedType) {
@@ -440,7 +461,10 @@ export class PythonEmitter extends ASTVisitor {
     this.emit(`while True:`);
     this.indent();
     this.visitBlock(stmt.body);
-    this.emit(`if not (${this.generateExpression(stmt.condition, 0)}): break`);
+    this.emit(`if not (${this.generateExpression(stmt.condition, 0)}):`);
+    this.indent();
+    this.emit('break');
+    this.dedent();
     this.dedent();
   }
 
@@ -452,7 +476,10 @@ export class PythonEmitter extends ASTVisitor {
     this.emit(`while True:`, stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
-    this.emit(`if ${this.generateExpression(stmt.condition, 0)}: break`);
+    this.emit(`if ${this.generateExpression(stmt.condition, 0)}:`);
+    this.indent();
+    this.emit('break');
+    this.dedent();
     this.dedent();
   }
 
@@ -461,20 +488,27 @@ export class PythonEmitter extends ASTVisitor {
    * Python lacks switch/case, so uses sequential equality checks.
    */
   visitSwitch(stmt: any): void {
-    // Python doesn't have switch, implement as if-elif-else
+    // Python has no switch: lower to if/elif/else. There is no fall-through,
+    // so a case's terminating `break` is dropped (and any statements after it),
+    // which would otherwise escape as a stray `break` outside a loop.
+    const discriminant = this.generateExpression(stmt.discriminant, 0);
     let first = true;
-    stmt.cases.forEach((caseStmt: any, _index: number) => {
+    stmt.cases.forEach((caseStmt: any) => {
       if (caseStmt.test) {
         const keyword = first ? 'if' : 'elif';
-        this.emit(
-          `${keyword} ${stmt.discriminant.name} == ${this.generateExpression(caseStmt.test, 0)}:`
-        );
+        this.emit(`${keyword} ${discriminant} == ${this.generateExpression(caseStmt.test, 0)}:`);
         first = false;
       } else {
         this.emit(`else:`);
       }
       this.indent();
-      caseStmt.consequent.forEach((s: any) => this.visitStatement(s));
+      let emittedBody = false;
+      for (const s of caseStmt.consequent) {
+        if (s.type === 'Break') break;
+        this.visitStatement(s);
+        emittedBody = true;
+      }
+      if (!emittedBody) this.emit('pass');
       this.dedent();
     });
   }
@@ -629,6 +663,13 @@ export class PythonEmitter extends ASTVisitor {
    * Emits a standalone expression statement.
    */
   visitExpressionStatement(stmt: any): void {
+    // A bare `i++;` / `i--;` becomes a clean augmenting assignment statement.
+    if (stmt.expression?.type === 'UpdateExpression') {
+      const argStr = this.generateExpression(stmt.expression.argument, Precedence.Unary);
+      const op = stmt.expression.operator === '++' ? '+' : '-';
+      this.emit(`${argStr} = ${argStr} ${op} 1`, stmt.id);
+      return;
+    }
     this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
   }
 
@@ -649,6 +690,9 @@ export class PythonEmitter extends ASTVisitor {
         } else {
           this.emit(`except ${handler.exceptionType}:`);
         }
+      } else if (handler.varName) {
+        // Binding a name requires a type in Python (`except as e:` is invalid).
+        this.emit(`except Exception as ${handler.varName}:`);
       } else {
         this.emit(`except:`);
       }
@@ -663,6 +707,21 @@ export class PythonEmitter extends ASTVisitor {
       this.visitBlock(stmt.finallyBlock);
       this.dedent();
     }
+  }
+
+  private isIntegerType(type?: string): boolean {
+    if (!type) return false;
+    return ['int', 'byte', 'short', 'long'].includes(type.replace(/\[\]/g, ''));
+  }
+
+  /**
+   * True when `/` should be integer division. Mirrors the interpreter: only
+   * operands that are *explicitly declared* integer variables count (Java/Praxis
+   * `int x`). Bare int literals and untyped vars (Python/JS/CSP) do NOT — those
+   * keep float division.
+   */
+  private isIntegerExpr(expr: any): boolean {
+    return expr.type === 'Identifier' && this.declaredIntVars.has(expr.name);
   }
 
   /**
@@ -715,8 +774,9 @@ export class PythonEmitter extends ASTVisitor {
         currentPrecedence = Precedence.Member;
         const objE = this.generateExpression(expr.object, currentPrecedence);
         const idxE = this.generateExpression(expr.index, 0);
-        if (expr.indexEnd) {
-          const endE = this.generateExpression(expr.indexEnd, 0);
+        if (expr.indexEnd || expr.indexStep) {
+          // Slice: a[start:end:step]; a missing end/step is left blank.
+          const endE = expr.indexEnd ? this.generateExpression(expr.indexEnd, 0) : '';
           const stepE = expr.indexStep ? `:${this.generateExpression(expr.indexStep, 0)}` : '';
           output = `${objE}[${idxE}:${endE}${stepE}]`;
         } else {
@@ -726,6 +786,13 @@ export class PythonEmitter extends ASTVisitor {
       case 'MemberExpression':
         currentPrecedence = Precedence.Member;
         output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
+        break;
+      case 'ConditionalExpression':
+        currentPrecedence = Precedence.Conditional;
+        output =
+          `${this.generateExpression((expr as any).consequent, currentPrecedence)} if ` +
+          `${this.generateExpression((expr as any).test, currentPrecedence)} else ` +
+          `${this.generateExpression((expr as any).alternate, currentPrecedence)}`;
         break;
       case 'BinaryExpression':
         const opMap: Record<string, { op: string; prec: number }> = {
@@ -748,22 +815,44 @@ export class PythonEmitter extends ASTVisitor {
         };
         const opData = opMap[expr.operator] || { op: expr.operator, prec: 0 };
         currentPrecedence = opData.prec;
-        output = `${this.generateExpression(expr.left, currentPrecedence)} ${opData.op} ${this.generateExpression(expr.right, currentPrecedence)}`;
+        const leftStr = this.generateExpression(expr.left, currentPrecedence);
+        const rightStr = this.generateExpression(expr.right, currentPrecedence);
+        if (
+          expr.operator === '/' &&
+          this.isIntegerExpr(expr.left) &&
+          this.isIntegerExpr(expr.right)
+        ) {
+          // Integer-typed operands: preserve the source's integer-division
+          // semantics (truncate toward zero) rather than Python float division.
+          output = `int(${leftStr} / ${rightStr})`;
+          currentPrecedence = Precedence.Call;
+        } else {
+          output = `${leftStr} ${opData.op} ${rightStr}`;
+        }
         break;
       case 'UnaryExpression':
         currentPrecedence = Precedence.Unary;
         let op = expr.operator === '!' || expr.operator === 'not' ? 'not ' : expr.operator;
         output = `${op}${this.generateExpression(expr.argument, currentPrecedence)}`;
         break;
-      case 'UpdateExpression':
-        // Python doesn't have ++ and --, convert to += and -=
+      case 'UpdateExpression': {
+        // Python has no ++/--, so lower an expression-position update to a
+        // hoisted statement and yield the appropriate value. (A standalone
+        // `i++;` statement is handled directly in visitExpressionStatement.)
         const argStr = this.generateExpression((expr as any).argument, Precedence.Unary);
-        if ((expr as any).operator === '++') {
-          output = `${argStr} = ${argStr} + 1`;
+        const op = (expr as any).operator === '++' ? '+' : '-';
+        if ((expr as any).prefix) {
+          this.preludeLines.push(`${argStr} = ${argStr} ${op} 1`);
+          output = argStr;
         } else {
-          output = `${argStr} = ${argStr} - 1`;
+          const tmp = `_upd${this.tempCounter++}`;
+          this.preludeLines.push(`${tmp} = ${argStr}`);
+          this.preludeLines.push(`${argStr} = ${argStr} ${op} 1`);
+          output = tmp;
         }
+        currentPrecedence = Precedence.Member;
         break;
+      }
       case 'CallExpression':
         currentPrecedence = Precedence.Call;
         let calleeStrPy = '';

@@ -1678,6 +1678,8 @@ export class Interpreter {
               return Math.trunc(l / r);
             }
             return l / r;
+          case '//':
+            return Math.floor(l / r);
           case '%':
             return l % r;
           case '**':
@@ -1739,6 +1741,46 @@ export class Interpreter {
       case 'CallExpression':
         if ((expr.callee as any).type === 'MemberExpression') {
           const memberExpr = expr.callee as any;
+
+          // Python-style `super().__init__(args)` / `super().method(args)`:
+          // the object is a `super()` call. Run it against the parent class.
+          if (
+            memberExpr.object?.type === 'CallExpression' &&
+            (memberExpr.object.callee as any)?.name === 'super'
+          ) {
+            let self: any;
+            try {
+              self = env.get('this');
+            } catch {
+              try {
+                self = env.get('self');
+              } catch {
+                /* none */
+              }
+            }
+            const superArgs = expr.arguments.map((a) => this.evaluate(a, env));
+            if (self instanceof JavaInstance && self.klass.superClass) {
+              const superClass = self.klass.superClass;
+              if (memberExpr.property.name === '__init__' && superClass.ctorDecl) {
+                const superEnv = new Environment(env);
+                superEnv.define('this', self);
+                superEnv.define('self', self);
+                superClass.ctorDecl.params.forEach((param: any, i: number) => {
+                  superEnv.define(param.name, superArgs[i] ?? null);
+                });
+                try {
+                  this.executeBlock(superClass.ctorDecl.body.body, superEnv);
+                } catch (e) {
+                  if (!(e instanceof ReturnException)) throw e;
+                }
+                return null;
+              }
+              const method = superClass.getMethod(memberExpr.property.name);
+              if (method) return self.callMethod(memberExpr.property.name, superArgs, this, env);
+            }
+            return null;
+          }
+
           const obj = this.evaluate(memberExpr.object, env);
           const methodName = memberExpr.property.name;
           const args = expr.arguments.map((a) => this.evaluate(a, env));
