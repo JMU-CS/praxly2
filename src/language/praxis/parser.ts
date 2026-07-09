@@ -31,11 +31,13 @@ export class PraxisParser {
   private consumedComments = new Set<number>();
 
   /**
-   * Creates a new instance.
+   * Creates a new instance. Source text (for print-metadata comment extraction)
+   * comes from the token stream the lexer produced, so the signature matches the
+   * other parsers.
    */
-  constructor(tokens: Token[], sourceCode: string = '') {
+  constructor(tokens: Token[]) {
     this.tokens = tokens;
-    this.sourceCode = sourceCode;
+    this.sourceCode = (tokens as any).source ?? '';
   }
 
   /**
@@ -68,12 +70,7 @@ export class PraxisParser {
       }
     }
     const program: Program = { id: generateId(), type: 'Program', body };
-    attachComments(
-      program,
-      (this.tokens as any).comments,
-      (this.tokens as any).source ?? this.sourceCode,
-      this.consumedComments
-    );
+    attachComments(program, (this.tokens as any).comments, this.sourceCode, this.consumedComments);
     return program;
   }
 

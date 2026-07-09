@@ -67,7 +67,7 @@ const DEMOS: Demo[] = [
   {
     name: 'praxis',
     src: praxisSrc,
-    parse: (src) => new PraxisParser(new PraxisLexer(src).tokenize(), src).parse(),
+    parse: (src) => new PraxisParser(new PraxisLexer(src).tokenize()).parse(),
   },
 ];
 

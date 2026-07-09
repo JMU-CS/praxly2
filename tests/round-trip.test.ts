@@ -56,7 +56,7 @@ const LANGS: Lang[] = [
   {
     name: 'praxis',
     src: praxisSrc,
-    parse: (s) => new PraxisParser(new PraxisLexer(s).tokenize(), s).parse(),
+    parse: (s) => new PraxisParser(new PraxisLexer(s).tokenize()).parse(),
   },
 ];
 

@@ -597,7 +597,7 @@ describe('Translation to JavaScript', () => {
   describe('from Praxis', () => {
     function praxisToJS(src: string): string {
       const tokens = new PraxisLexer(src).tokenize();
-      const ast = new PraxisParser(tokens, src).parse();
+      const ast = new PraxisParser(tokens).parse();
       return translateToJS(ast);
     }
 

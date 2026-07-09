@@ -527,7 +527,7 @@ first = arr[0]`;
 print(n) // print a space after the number`;
       const lexer = new PraxisLexer(source);
       const tokens = lexer.tokenize();
-      const parser = new PraxisParser(tokens, source);
+      const parser = new PraxisParser(tokens);
       const program = parser.parse();
       const translator = new Translator();
       const pythonResult = translator.translate(program, 'python');

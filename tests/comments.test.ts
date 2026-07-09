@@ -12,7 +12,7 @@ import { PraxisParser } from '../src/language/praxis/parser';
 import { Translator } from '../src/language/translator';
 
 const py = (src: string) => new PythonParser(new PythonLexer(src).tokenize()).parse();
-const px = (src: string) => new PraxisParser(new PraxisLexer(src).tokenize(), src).parse();
+const px = (src: string) => new PraxisParser(new PraxisLexer(src).tokenize()).parse();
 const to = (parse: () => any, target: any) => new Translator().translate(parse(), target);
 
 describe('comment translation', () => {

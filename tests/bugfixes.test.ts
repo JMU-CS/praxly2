@@ -18,7 +18,7 @@ const runJava = (src: string): string[] =>
 const runPython = (src: string): string[] =>
   new Interpreter().interpret(new PythonParser(new PythonLexer(src).tokenize()).parse(), src);
 const runPraxis = (src: string): string[] =>
-  new Interpreter().interpret(new PraxisParser(new PraxisLexer(src).tokenize(), src).parse(), src);
+  new Interpreter().interpret(new PraxisParser(new PraxisLexer(src).tokenize()).parse(), src);
 
 describe('bugs found while building the example demos', () => {
   // Bug 1: the Java parser built CompoundAssignment without `left`/`right`,
@@ -75,7 +75,7 @@ describe('bugs found while building the example demos', () => {
   // it emitted a literal `^`, which is not valid Python.
   it('Praxis exponent (^) translates to Python ** and runs', () => {
     const src = 'print(2 ^ 10)';
-    const program = new PraxisParser(new PraxisLexer(src).tokenize(), src).parse();
+    const program = new PraxisParser(new PraxisLexer(src).tokenize()).parse();
     const py = new Translator().translate(program, 'python');
     expect(py).toContain('**');
     expect(py).not.toContain('^');
