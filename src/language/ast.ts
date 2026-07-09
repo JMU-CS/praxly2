@@ -51,11 +51,18 @@ export interface ASTNode {
   id: string;
   type: NodeType;
   loc?: { start: number; end: number };
+  // Source comments carried through translation (delimiter stripped; the emitter
+  // re-adds the target language's `//` or `#`). Populated on statements only.
+  leadingComments?: string[]; // own-line comment lines directly above this statement
+  trailingComment?: string; // inline comment after this statement's code, same line
 }
 
 export interface Program extends ASTNode {
   type: 'Program';
   body: Statement[];
+  // File-top comment block, pinned to the program so it stays at the top even
+  // when an emitter hoists/reorders the first statement.
+  headerComments?: string[];
 }
 
 export interface Block extends ASTNode {

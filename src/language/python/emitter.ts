@@ -22,6 +22,7 @@ import type {
  * Tracks class fields to properly prefix them with self.
  */
 export class PythonEmitter extends ASTVisitor {
+  protected override commentPrefix = '#';
   // Tracks field names in current class scope for self. prefixing
   private currentClassFields = new Set<string>();
   // Statements that must be emitted immediately before the statement currently

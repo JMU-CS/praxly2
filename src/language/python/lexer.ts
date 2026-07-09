@@ -4,12 +4,14 @@
  */
 
 import type { Token } from '../lexer';
+import type { SourceComment } from '../comments';
 
 export class Lexer {
   private pos = 0;
   private input: string;
   private indentStack: number[] = [0];
   private tokens: Token[] = [];
+  private comments: SourceComment[] = [];
 
   /**
    * Creates a new instance.
@@ -32,6 +34,15 @@ export class Lexer {
       // Strip any inline comment (respecting string literals) so a trailing
       // `# ...` on a block-header line doesn't hide the closing colon.
       const code = this.stripInlineComment(line);
+      if (code.length < line.length) {
+        // A `#` in code position starts a comment running to end of line.
+        this.comments.push({
+          text: line.slice(code.length + 1).trim(),
+          start: this.pos + code.length,
+          end: this.pos + line.length,
+          ownLine: code.trim() === '',
+        });
+      }
       const trimmed = code.trim();
       if (trimmed === '') {
         this.pos += line.length + 1;
@@ -67,6 +78,8 @@ export class Lexer {
     }
 
     this.tokens.push({ type: 'EOF', value: '', start: this.pos });
+    (this.tokens as any).comments = this.comments;
+    (this.tokens as any).source = this.input;
     return this.tokens;
   }
 

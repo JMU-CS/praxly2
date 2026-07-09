@@ -85,6 +85,8 @@ export abstract class ASTVisitor {
   protected breakStr = 'break;';
   protected continueStr = 'continue;';
   protected sourceMap: SourceMap = new Map();
+  // Line-comment delimiter for this target (Python overrides to `#`).
+  protected commentPrefix = '//';
 
   /**
    * Creates a new instance.
@@ -95,6 +97,21 @@ export abstract class ASTVisitor {
 
   getGeneratedCode(): string {
     return this.output.join('\n');
+  }
+
+  /**
+   * Emits a program: the pinned file-header comments, then the body. The
+   * translator calls this rather than visitProgram directly.
+   */
+  emitProgram(program: Program): void {
+    this.emitComments(program.headerComments);
+    this.visitProgram(program);
+  }
+
+  /** Emits comment lines (delimiter re-added; a blank entry becomes a bare delimiter). */
+  protected emitComments(lines?: string[]): void {
+    if (!lines) return;
+    for (const c of lines) this.emit(c ? `${this.commentPrefix} ${c}` : this.commentPrefix);
   }
 
   getSourceMap(): SourceMap {
@@ -207,6 +224,17 @@ export abstract class ASTVisitor {
    * Visits statement and returns the result.
    */
   visitStatement(stmt: Statement) {
+    this.emitComments(stmt.leadingComments);
+    const lineCountBefore = this.output.length;
+    this.dispatchStatement(stmt);
+    // Append an inline trailing comment to the statement's last emitted line.
+    if (stmt.trailingComment !== undefined && this.output.length > lineCountBefore) {
+      this.output[this.output.length - 1] +=
+        `  ${this.commentPrefix} ${stmt.trailingComment}`.trimEnd();
+    }
+  }
+
+  private dispatchStatement(stmt: Statement) {
     switch (stmt.type) {
       case 'Print':
         this.visitPrint(stmt);

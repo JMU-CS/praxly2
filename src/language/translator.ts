@@ -66,7 +66,7 @@ export class Translator {
         throw new Error(`Unsupported target language: ${targetLang}`);
     }
 
-    emitter.visitProgram(program);
+    emitter.emitProgram(program);
     return {
       code: emitter.getGeneratedCode(),
       sourceMap: emitter.getSourceMap(),

@@ -23,6 +23,7 @@ import {
   type AccessModifier,
   generateId,
 } from '../ast';
+import { attachComments } from '../comments';
 
 export class JavaParser {
   private tokens: Token[];
@@ -79,7 +80,9 @@ export class JavaParser {
         continue;
       }
     }
-    return { id: generateId(), type: 'Program', body };
+    const program: Program = { id: generateId(), type: 'Program', body };
+    attachComments(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
+    return program;
   }
 
   private topLevelDeclaration(): Statement {

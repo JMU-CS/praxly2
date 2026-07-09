@@ -6,6 +6,7 @@
  */
 
 import type { Token } from '../lexer';
+import { ownLineAt, type SourceComment } from '../comments';
 
 const JS_KEYWORDS = new Set([
   'let',
@@ -60,6 +61,7 @@ export class JavaScriptLexer {
 
   tokenize(): Token[] {
     const tokens: Token[] = [];
+    const comments: SourceComment[] = [];
     while (this.pos < this.input.length) {
       const char = this.input[this.pos];
 
@@ -71,7 +73,14 @@ export class JavaScriptLexer {
 
       // Single-line comment
       if (char === '/' && this.input[this.pos + 1] === '/') {
+        const cStart = this.pos;
         while (this.pos < this.input.length && this.input[this.pos] !== '\n') this.pos++;
+        comments.push({
+          text: this.input.slice(cStart + 2, this.pos).trim(),
+          start: cStart,
+          end: this.pos,
+          ownLine: ownLineAt(this.input, cStart),
+        });
         continue;
       }
 
@@ -276,6 +285,8 @@ export class JavaScriptLexer {
     }
 
     tokens.push({ type: 'EOF', value: '', start: this.pos });
+    (tokens as any).comments = comments;
+    (tokens as any).source = this.input;
     return tokens;
   }
 }
