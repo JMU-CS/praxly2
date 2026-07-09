@@ -620,6 +620,9 @@ export class PraxisEmitter extends ASTVisitor {
       case 'ThisExpression':
         output = 'this';
         break;
+      case 'Placeholder':
+        output = `/* ${(expr as any).text} */`;
+        break;
 
       case 'NewExpression': {
         currentPrecedence = Precedence.Instantiation;

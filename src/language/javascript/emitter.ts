@@ -568,6 +568,9 @@ export class JavaScriptEmitter extends ASTVisitor {
       case 'ThisExpression':
         out = 'this';
         break;
+      case 'Placeholder':
+        out = '0'; // Praxis /* ... */ hole -> default value
+        break;
 
       case 'NewExpression':
         prec = Precedence.Instantiation;

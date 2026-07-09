@@ -84,18 +84,8 @@ export class JavaScriptLexer {
         continue;
       }
 
-      // Block comment
-      if (char === '/' && this.input[this.pos + 1] === '*') {
-        this.pos += 2;
-        while (this.pos < this.input.length - 1) {
-          if (this.input[this.pos] === '*' && this.input[this.pos + 1] === '/') {
-            this.pos += 2;
-            break;
-          }
-          this.pos++;
-        }
-        continue;
-      }
+      // Block comments (`/* */`) are intentionally unsupported — that syntax is
+      // reserved for the Praxis placeholder (see the Praxis lexer).
 
       // Numbers (including floats and hex)
       if (/\d/.test(char) || (char === '.' && /\d/.test(this.input[this.pos + 1] ?? ''))) {

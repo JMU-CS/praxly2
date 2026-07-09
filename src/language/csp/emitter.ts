@@ -406,6 +406,9 @@ export class CSPEmitter extends ASTVisitor {
       case 'ThisExpression':
         output = 'THIS';
         break;
+      case 'Placeholder':
+        output = '0'; // Praxis /* ... */ hole -> default value
+        break;
 
       case 'NewExpression': {
         currentPrecedence = Precedence.Instantiation;
