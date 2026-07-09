@@ -11,7 +11,7 @@ import { PraxisParser } from '../src/language/praxis/parser';
 import { Interpreter } from '../src/language/interpreter';
 import { Translator } from '../src/language/translator';
 
-const px = (src: string) => new PraxisParser(new PraxisLexer(src).tokenize(), src).parse();
+const px = (src: string) => new PraxisParser(new PraxisLexer(src).tokenize()).parse();
 const run = (src: string) => new Interpreter().interpret(px(src), src);
 const to = (src: string, target: any) => new Translator().translate(px(src), target);
 
