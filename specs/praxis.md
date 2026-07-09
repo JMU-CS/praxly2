@@ -162,20 +162,21 @@ In addition, the following Java language features are supported:
 - Trailing semicolons are allowed (ignored by Praxly)
 - Constructors (see example below)
 
-## Object-Oriented Example
+## Inheritance Example
 
 Classes use the following syntax.
 Notice that Praxis does not use `this` or `self`, so variable names must be unique.
+The keyword `super` is used only to call the superclass's constructor.
 
 ```
-class Animal
+public class Animal
 
     private String name
     private String sound
 
-    public Animal(String _name, String _sound)
-        name ← _name
-        sound ← _sound
+    public Animal(String n, String s)
+        name ← n
+        sound ← s
     end Animal
 
     public String speak()
@@ -186,8 +187,8 @@ end class Animal
 
 class Dog extends Animal
 
-    public Dog(String _name)
-        super(_name, "Woof")
+    public Dog(String n)
+        super(n, "Woof")
     end Dog
 
     public String fetch()
@@ -202,4 +203,28 @@ Dog d ← new Dog("Rex")
 print a.speak()  // Cat says Meow
 print d.speak()  // Rex says Woof
 print d.fetch()  // Rex fetches the ball
+```
+
+## Composition Example
+
+The following snippet shows that `public`/`private` modifiers are optional, and that fields can be initialized when declared.
+If no constructor is defined, a default constructor is generated.
+
+```
+class A
+    String word ← "friend"
+    String add()
+        return "Hello " + name
+    end add
+end class A
+
+class B
+    A temp ← new A()
+    void greet()
+        print temp.add()
+    end greet
+end class B
+
+B b ← new B()
+b.greet()
 ```
