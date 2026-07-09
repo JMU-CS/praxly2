@@ -110,11 +110,11 @@ describe('JavaScript Lexer', () => {
       expect(ids).not.toContain('this');
     });
 
-    it('skips block comments', () => {
+    it('does not support block comments (/* */ is reserved for Praxis placeholders)', () => {
+      // `/* */` is intentionally unsupported in JavaScript; the `/` lexes as an
+      // operator rather than starting a comment.
       const toks = jsLex('/* ignored */ let z = 3;');
-      const ids = toks.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
-      expect(ids).toContain('z');
-      expect(ids).not.toContain('ignored');
+      expect(toks.some((t) => t.type === 'OPERATOR' && t.value === '/')).toBe(true);
     });
   });
 

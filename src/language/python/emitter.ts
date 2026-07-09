@@ -766,6 +766,9 @@ export class PythonEmitter extends ASTVisitor {
       case 'ThisExpression':
         output = 'self';
         break;
+      case 'Placeholder':
+        output = '0'; // Praxis /* ... */ hole -> default value
+        break;
       case 'NewExpression':
         currentPrecedence = Precedence.Instantiation;
         const args = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');

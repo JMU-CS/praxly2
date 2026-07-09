@@ -1188,6 +1188,9 @@ export class JavaEmitter extends ASTVisitor {
         // Reference to current object instance
         output = 'this';
         break;
+      case 'Placeholder':
+        output = '0'; // Praxis /* ... */ hole -> default value
+        break;
       case 'NewExpression':
         // Object instantiation with constructor call
         currentPrecedence = Precedence.Instantiation;

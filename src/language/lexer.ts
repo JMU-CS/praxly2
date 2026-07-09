@@ -12,6 +12,7 @@ export type TokenType =
   | 'BOOLEAN'
   | 'OPERATOR'
   | 'PUNCTUATION'
+  | 'PLACEHOLDER'
   | 'NEWLINE'
   | 'INDENT'
   | 'DEDENT'

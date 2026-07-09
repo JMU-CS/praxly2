@@ -45,6 +45,7 @@ export type NodeType =
   | 'ArrayLiteral'
   | 'Identifier'
   | 'ThisExpression'
+  | 'Placeholder'
   | 'Literal';
 
 export interface ASTNode {
@@ -278,6 +279,7 @@ export type Expression =
   | ArrayLiteral
   | Identifier
   | ThisExpression
+  | Placeholder
   | Literal;
 
 export interface ConditionalExpression extends ASTNode {
@@ -365,6 +367,13 @@ export interface Identifier extends ASTNode {
 
 export interface ThisExpression extends ASTNode {
   type: 'ThisExpression';
+}
+
+// A Praxis `/* ... */` placeholder for missing exam-question code. It evaluates
+// to a default value (0) so a program with holes still compiles and runs.
+export interface Placeholder extends ASTNode {
+  type: 'Placeholder';
+  text: string;
 }
 
 export interface Literal extends ASTNode {

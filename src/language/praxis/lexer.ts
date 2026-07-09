@@ -45,16 +45,21 @@ export class PraxisLexer {
         continue;
       }
 
-      // Multi-line Comments (useful for the '/* missing code */' found in Praxis examples)
+      // `/* ... */` is a placeholder for missing exam-question code, not a
+      // comment — emit a PLACEHOLDER token carrying the inner text.
       if (char === '/' && this.input[this.pos + 1] === '*') {
+        const start = this.pos;
         this.pos += 2;
+        const textStart = this.pos;
         while (
           this.pos < this.input.length &&
           !(this.input[this.pos] === '*' && this.input[this.pos + 1] === '/')
         ) {
           this.pos++;
         }
+        const text = this.input.slice(textStart, this.pos).trim();
         this.pos += 2; // skip */
+        tokens.push({ type: 'PLACEHOLDER', value: text, start });
         continue;
       }
 

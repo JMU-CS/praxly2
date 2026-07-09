@@ -138,6 +138,8 @@ export class Translator {
 
     const inferType = (expr: Expression): string => {
       switch (expr.type) {
+        case 'Placeholder':
+          return 'int'; // hole defaults to 0
         case 'Literal':
           if (typeof expr.value === 'boolean') return 'boolean';
           if (typeof expr.value === 'string') return 'String';

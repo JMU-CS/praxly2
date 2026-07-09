@@ -985,6 +985,8 @@ export class PraxisParser {
   }
 
   private primary(): Expression {
+    if (this.match('PLACEHOLDER'))
+      return { id: generateId(), type: 'Placeholder', text: this.previous().value } as any;
     if (this.match('NUMBER'))
       return {
         id: generateId(),

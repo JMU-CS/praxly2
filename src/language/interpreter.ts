@@ -1565,6 +1565,9 @@ export class Interpreter {
       return value;
     }
     switch (expr.type) {
+      case 'Placeholder':
+        // A `/* ... */` hole defaults to 0 so programs with placeholders run.
+        return 0;
       case 'Literal':
         return expr.value;
       case 'ArrayLiteral':
