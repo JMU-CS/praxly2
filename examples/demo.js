@@ -2,9 +2,8 @@
 // Praxly2 feature demo -- JAVASCRIPT
 // ---------------------------------------------------------------------------
 // Praxly2 supports a SUBSET of JavaScript. This program exercises every
-// Universal-AST node the JS parser can produce. The main body runs with no
-// runtime error; the tail holds constructs that PARSE and TRANSLATE but are
-// no-ops in the interpreter (clearly labeled).
+// Universal-AST node the JS parser can produce, and every construct here runs
+// with no runtime error.
 //
 // AST nodes NOT reachable from JavaScript source (covered by the other demos):
 //   RepeatUntil ......... no repeat/until syntax.
@@ -19,7 +18,7 @@
 
 
 // ---- FunctionDeclaration / Parameter / Return (with and without a value) ---
-function greet(name, punct = "!") {   // Parameter.defaultValue (call w/ all args)
+function greet(name, punct = "!") {   // Parameter.defaultValue on `punct`
     return "hi " + name + punct;
 }
 
@@ -138,7 +137,8 @@ console.log(s.length, s.toUpperCase(), s.substring(1, 3), s.charAt(0));  // 5 HE
 console.log(int("42"), str(7), float("1.5"));                            // 42 7 1.5
 
 // ---- Function calls --------------------------------------------------------
-console.log(greet("sam", "?"));         // hi sam?
+console.log(greet("sam"));              // hi sam!  (uses the default punct)
+console.log(greet("sam", "?"));         // hi sam?  (overrides the default)
 announce("");                           // (prints nothing)
 announce("ready");                      // announce: ready
 console.log("fib", fib(7));             // fib 13
@@ -149,36 +149,41 @@ console.log(d.speak());                 // woof (Dog's own method)
 console.log(d.describe());              // Fido the animal (inherited + super)
 
 
-// ===========================================================================
-// Parsed & translated, but NOT run to completion by the interpreter.
-// Valid AST nodes (useful for translation tests); none of them errors.
-// ===========================================================================
-
-// Try / ExceptionHandler / finally -- the whole construct is skipped
+// ---- Try / ExceptionHandler / finally --------------------------------------
+// Reading an undefined name throws; the catch clause handles it (binding the
+// message to `err`) and the finally block always runs.
 try {
-    console.log("inside try");          // not actually printed
+    console.log(missingValue);          // throws: undefined variable
 } catch (err) {
-    console.log("handled " + err);
+    console.log("caught: " + err);      // caught: ...
 } finally {
-    console.log("cleanup");
+    console.log("cleanup");             // always runs
 }
 
-// Switch / SwitchCase (default + break) -- skipped by the interpreter
-switch (score) {
-    case 80:
-        console.log("eighty");
+// ---- Switch / SwitchCase (matching case, default, break) -------------------
+let day = 3;
+switch (day) {
+    case 1:
+        console.log("Mon");
+        break;
+    case 3:
+        console.log("Wed");             // this runs
         break;
     default:
-        console.log("other");
+        console.log("other day");
 }
 
-// Break / Continue -- valid AST, treated as no-ops (loop still bounded)
-for (let t = 0; t < 3; t++) {
+// ---- Break / Continue ------------------------------------------------------
+for (let t = 0; t < 5; t++) {
     if (t === 1) {
-        continue;
+        continue;                       // skip printing 1
     }
-    console.log("flow " + t);
+    if (t === 3) {
+        break;                          // stop the loop at 3
+    }
+    console.log("flow " + t);           // flow 0 / flow 2
 }
 
-// ConditionalExpression (ternary) -- parses; evaluates to no value (unused)
+// ---- ConditionalExpression (ternary) ---------------------------------------
 let bigger = (a > b) ? a : b;
+console.log(bigger);                    // 17

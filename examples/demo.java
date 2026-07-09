@@ -2,9 +2,8 @@
 // Praxly2 feature demo -- JAVA
 // ---------------------------------------------------------------------------
 // Praxly2 supports a SUBSET of Java. This program exercises every
-// Universal-AST node the Java parser can produce. Everything in main() runs
-// with no runtime error; the tail of main() holds constructs that PARSE and
-// TRANSLATE but are no-ops in the interpreter (clearly labeled).
+// Universal-AST node the Java parser can produce, and every construct in
+// main() runs with no runtime error.
 //
 // AST nodes NOT reachable from Java source (covered by the other demos):
 //   FunctionDeclaration ..... Java has only methods, never free functions.
@@ -182,39 +181,32 @@ public class Main {
         System.out.println(d.speak());      // woof (Dog's own method)
         System.out.println(d.describe());   // Fido the animal (inherited + super)
 
-        // ===================================================================
-        // Parsed & translated, but NOT run to completion by the interpreter.
-        // These are valid AST nodes (useful for translation tests). Some are
-        // skipped, some run as no-ops -- none of them errors.
-        // ===================================================================
+        // ---- ConditionalExpression (ternary ?:) ----------------------------
+        int bigger = (a > b) ? a : b;
+        System.out.println(bigger);          // 17
 
-        // ConditionalExpression (ternary ?:) parses and TRANSLATES, but the
-        // interpreter does not execute a ternary (it produces no value, which
-        // fails the int assignment). Guarded by `if (false)` so the demo runs.
-        if (false) {
-            int bigger = (a > b) ? a : b;
-            System.out.println(bigger);
-        }
-
-        // Switch / SwitchCase (default + break) -- skipped by the interpreter
-        switch (score) {
-            case 80:
-                System.out.println("eighty");
+        // ---- Switch / SwitchCase (matching case, default, break) -----------
+        int day = 3;
+        switch (day) {
+            case 1:
+                System.out.println("Mon");
+                break;
+            case 3:
+                System.out.println("Wed");   // this runs
                 break;
             default:
-                System.out.println("other");
+                System.out.println("other day");
         }
 
-        // Break / Continue -- valid AST nodes, treated as no-ops by the
-        // interpreter (the loop still completes over its own bound)
-        for (int t = 0; t < 4; t++) {
+        // ---- Break / Continue ----------------------------------------------
+        for (int t = 0; t < 5; t++) {
             if (t == 1) {
-                continue;
+                continue;                    // skip printing 1
             }
             if (t == 3) {
-                break;
+                break;                       // stop the loop at 3
             }
-            System.out.println("flow " + t);
+            System.out.println("flow " + t); // flow 0 / flow 2
         }
     }
 }

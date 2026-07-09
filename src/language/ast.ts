@@ -151,7 +151,6 @@ export interface While extends ASTNode {
   condition: Expression;
   body: Block;
   // Python's for/while...else: runs when the loop finishes without a `break`.
-  // Parsed and emitted for Python, but not yet evaluated by the interpreter.
   elseBranch?: Block;
 }
 
@@ -334,8 +333,8 @@ export interface IndexExpression extends ASTNode {
   type: 'IndexExpression';
   object: Expression;
   index: Expression;
-  // indexEnd/indexStep model Python slice syntax `a[start:end:step]`; emitters use them to
-  // re-emit slices, but the interpreter currently only evaluates plain single-index access.
+  // indexEnd/indexStep model Python slice syntax `a[start:end:step]`; both the emitters and
+  // the interpreter honor them (a plain single-index access leaves both unset).
   indexEnd?: Expression;
   indexStep?: Expression;
 }

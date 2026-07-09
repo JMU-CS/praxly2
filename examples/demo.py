@@ -2,11 +2,8 @@
 # Praxly2 feature demo -- PYTHON
 # ---------------------------------------------------------------------------
 # Praxly2 supports a SUBSET of Python. This program exercises every
-# Universal-AST node the Python parser can produce. It runs top to bottom
-# with no runtime error.
-#
-# The final section contains constructs that PARSE and TRANSLATE but are
-# treated as no-ops by the interpreter (clearly labeled).
+# Universal-AST node the Python parser can produce, and every construct here
+# runs top to bottom with no runtime error.
 #
 # AST nodes NOT reachable from Python source (covered by the other demos):
 #   DoWhile / RepeatUntil ... no do-while / repeat syntax.
@@ -64,7 +61,7 @@ for ch in "hi":
     print("char", ch)             # h i
 
 # ---- FunctionDeclaration / Parameter / Return ------------------------------
-# Parameter.defaultValue (call with all args); Return with a value
+# Parameter.defaultValue -- `punct` defaults to "!" when the caller omits it
 def greet(name, punct="!"):
     return "hi " + name + punct
 
@@ -85,7 +82,8 @@ def fib(n):
         return n
     return fib(n - 1) + fib(n - 2)
 
-print(greet("sam", "?"))          # hi sam?
+print(greet("sam"))               # hi sam!  (uses the default punct)
+print(greet("sam", "?"))          # hi sam?  (overrides the default)
 print(clamp(-5), clamp(9))        # 0 9
 announce("")                      # (prints nothing)
 announce("ready")                 # announce: ready
@@ -129,40 +127,39 @@ print(d.speak())                  # woof (Dog's own method)
 print(d.label())                  # name=Fido (method inherited from Animal)
 
 
-# ===========================================================================
-# Parsed & translated, but NOT executed by the Praxly2 interpreter.
-# Each produces a valid AST node (useful for translation tests) yet is a
-# runtime no-op, so nothing here errors.
-# ===========================================================================
-
-# Try / ExceptionHandler / finally -- the whole construct is skipped at runtime
+# ---- Try / ExceptionHandler / finally --------------------------------------
+# Reading an undefined name raises; the handler catches it (binding the message
+# to `err`) and the finally block always runs.
 try:
-    print("inside try")           # not actually printed
+    print(missingValue)           # raises: undefined variable
 except ValueError as err:
-    print("handled", err)
+    print("caught:", err)         # caught: ...
 finally:
-    print("cleanup")
+    print("cleanup")              # always runs
 
-# Break / Continue -- no-ops here; the loop still completes over its range
-for n in range(3):
+# ---- Break / Continue ------------------------------------------------------
+for n in range(5):
+    if n == 3:
+        break                     # stop the loop at 3
     if n == 1:
-        continue                  # in real Python this would skip n == 1
-    if n == 2:
-        break                     # in real Python this would stop the loop
-    print("flow", n)
+        continue                  # skip printing 1
+    print("flow", n)              # flow 0 / flow 2
 
-# ListComprehension -- evaluates to an unused value at runtime
-squares = [x * x for x in range(5)]
-
-# IndexExpression slice (indexEnd / indexStep) -- parses; interpreter reads one
-part = values[0:2]
-
-# For.variables (multiple loop targets) + enumerate -- only the first is bound
-for idx, val in enumerate([100, 200]):
-    pass
-
-# While.elseBranch / For.elseBranch (loop `else`) -- parsed, never executed
-while False:
-    print("never")
+# ---- For ... else (elseBranch runs only if the loop finishes without break) -
+for i in range(3):
+    print("scan", i)
 else:
-    pass
+    print("scanned all")          # runs (no break above)
+
+# ---- For.variables: multiple loop targets via enumerate --------------------
+for idx, item in enumerate([100, 200]):
+    print(idx, item)              # 0 100 / 1 200
+
+# ---- ListComprehension -----------------------------------------------------
+squares = [x * x for x in range(5)]
+print(squares)                    # {0, 1, 4, 9, 16}
+
+# ---- IndexExpression slice (indexEnd / indexStep) --------------------------
+nums2 = [10, 20, 30, 40, 50]
+print(nums2[1:4])                 # {20, 30, 40}
+print(nums2[::2])                 # {10, 30, 50}

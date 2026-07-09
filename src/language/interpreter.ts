@@ -74,6 +74,20 @@ class ReturnException extends Error {
   }
 }
 
+// Loop control-flow signals, thrown by `break`/`continue` and caught by the
+// nearest enclosing loop (or, for break, an enclosing switch).
+class BreakException extends Error {
+  constructor() {
+    super('Break');
+  }
+}
+
+class ContinueException extends Error {
+  constructor() {
+    super('Continue');
+  }
+}
+
 export class InputPrompt extends Error {
   prompt: string;
   /**
@@ -150,10 +164,8 @@ class JavaInstance {
     methodEnv.define('this', this);
     methodEnv.define('self', this); // Python compatibility
 
-    // Bind parameters
-    method.params.forEach((param, i) => {
-      methodEnv.define(param.name, args[i] || null);
-    });
+    // Bind parameters (supports default values)
+    interpreter.bindParams(method.params, args, methodEnv);
 
     try {
       interpreter.executeBlock(method.body.body, methodEnv);
@@ -231,6 +243,33 @@ export class Interpreter {
     if (!typeName) return false;
     const baseType = typeName.replace(/\[\]/g, '');
     return ['int', 'byte', 'short', 'long'].includes(baseType);
+  }
+
+  // Python-style slice for arrays and strings: `seq[start:end:step]`, with
+  // support for negative indices and a negative step.
+  private sliceSequence(seq: any, start?: any, end?: any, step?: any): any {
+    const isString = typeof seq === 'string';
+    const items: any[] = isString ? (seq as string).split('') : seq;
+    const len = items.length;
+    let s = step === undefined || step === null ? 1 : step;
+    if (s === 0) s = 1;
+
+    const clamp = (i: number) => {
+      if (i < 0) i += len;
+      if (s > 0) return Math.max(0, Math.min(i, len));
+      return Math.max(-1, Math.min(i, len - 1));
+    };
+
+    const from = start === undefined || start === null ? (s > 0 ? 0 : len - 1) : clamp(start);
+    const to = end === undefined || end === null ? (s > 0 ? len : -1) : clamp(end);
+
+    const out: any[] = [];
+    if (s > 0) {
+      for (let i = from; i < to; i += s) out.push(items[i]);
+    } else {
+      for (let i = from; i > to; i += s) out.push(items[i]);
+    }
+    return isString ? out.join('') : out;
   }
 
   private isFloatType(typeName?: string): boolean {
@@ -362,7 +401,9 @@ export class Interpreter {
         const mainMethod = mainClass.getMethod('main');
         if (mainMethod) {
           const mainInstance = new JavaInstance(mainClass);
-          mainInstance.callMethod('main', [], this, this.globalEnv);
+          // Java's `main(String[] args)` receives an empty argument array.
+          const mainArgs = mainMethod.params.length > 0 ? [[]] : [];
+          mainInstance.callMethod('main', mainArgs, this, this.globalEnv);
         }
       }
     } catch (e: any) {
@@ -1130,6 +1171,37 @@ export class Interpreter {
     }
   }
 
+  // Runs one loop-body iteration, translating break/continue signals into a
+  // return code so each loop can react (continue → next iteration, break → stop).
+  private runIteration(body: Statement[], env: Environment): 'normal' | 'continue' | 'break' {
+    try {
+      this.executeBlock(body, env);
+      return 'normal';
+    } catch (e) {
+      if (e instanceof ContinueException) return 'continue';
+      if (e instanceof BreakException) return 'break';
+      throw e;
+    }
+  }
+
+  // Binds call arguments to parameters, applying a parameter's defaultValue when
+  // the matching argument is omitted. Throws only when the count is truly invalid.
+  bindParams(params: any[], args: any[], targetEnv: Environment) {
+    const required = params.filter((p) => !p.defaultValue).length;
+    if (args.length < required || args.length > params.length) {
+      throw new Error(`Expected ${params.length} arguments but got ${args.length}`);
+    }
+    params.forEach((param, i) => {
+      const value =
+        i < args.length
+          ? args[i]
+          : param.defaultValue
+            ? this.evaluate(param.defaultValue, targetEnv)
+            : null;
+      targetEnv.define(param.name, value);
+    });
+  }
+
   private instantiateClass(klass: JavaClass, args: any[], env: Environment): JavaInstance {
     const instance = new JavaInstance(klass);
 
@@ -1137,9 +1209,7 @@ export class Interpreter {
       const ctorEnv = new Environment(env);
       ctorEnv.define('this', instance);
       ctorEnv.define('self', instance);
-      klass.ctorDecl.params.forEach((param, i) => {
-        ctorEnv.define(param.name, args[i] || null);
-      });
+      this.bindParams(klass.ctorDecl.params, args, ctorEnv);
 
       try {
         this.executeBlock(klass.ctorDecl.body.body, ctorEnv);
@@ -1259,6 +1329,7 @@ export class Interpreter {
       case 'While': {
         let isFirstIteration = true;
         let iterationCount = 0;
+        let didBreak = false;
         const MAX_ITERATIONS = 10000; // Safety limit to prevent truly infinite loops
 
         while (this.evaluate(stmt.condition, env)) {
@@ -1289,29 +1360,41 @@ export class Interpreter {
             }
 
             // Execute one iteration
-            this.executeBlock(stmt.body.body, env);
+            const signal = this.runIteration(stmt.body.body, env);
+            if (signal === 'break') {
+              didBreak = true;
+              break;
+            }
 
-            // Check if condition is still true and no variables changed
-            const conditionStillTrue = this.evaluate(stmt.condition, env);
-            const varsChanged = this.hasVariablesChanged(conditionVars, oldValues, env);
-
-            // If condition is still true, variables haven't changed, and the body doesn't modify condition vars
-            if (conditionStillTrue && !varsChanged && conditionVars.size > 0) {
-              // Additional check: does the loop body modify any of these variables?
-              if (!this.blockModifiesVariables(stmt.body.body, conditionVars, env)) {
-                const lineNum = this.getLineFromLocation(stmt.loc);
-                throw new Error(
-                  `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
-                );
+            // Run the infinite-loop heuristic only when the body ran to
+            // completion (a continue/break iteration is inconclusive).
+            if (signal === 'normal') {
+              const conditionStillTrue = this.evaluate(stmt.condition, env);
+              const varsChanged = this.hasVariablesChanged(conditionVars, oldValues, env);
+              if (conditionStillTrue && !varsChanged && conditionVars.size > 0) {
+                if (!this.blockModifiesVariables(stmt.body.body, conditionVars, env)) {
+                  const lineNum = this.getLineFromLocation(stmt.loc);
+                  throw new Error(
+                    `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
+                  );
+                }
               }
             }
           } else {
-            this.executeBlock(stmt.body.body, env);
+            if (this.runIteration(stmt.body.body, env) === 'break') {
+              didBreak = true;
+              break;
+            }
           }
+        }
+        // Python-style loop `else`: runs only if the loop finished without break.
+        if (!didBreak && (stmt as any).elseBranch) {
+          this.executeBlock((stmt as any).elseBranch.body, env);
         }
         break;
       }
-      case 'For':
+      case 'For': {
+        let didBreak = false;
         if (stmt.init && stmt.condition && stmt.update) {
           // C-Style evaluation mappings
           this.execute(stmt.init, env);
@@ -1325,19 +1408,39 @@ export class Interpreter {
                 `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
               );
             }
-            this.executeBlock(stmt.body.body, env);
+            const signal = this.runIteration(stmt.body.body, env);
+            if (signal === 'break') {
+              didBreak = true;
+              break;
+            }
+            // `continue` still runs the update clause (C semantics).
             this.execute(stmt.update, env);
           }
         } else {
           const iterable = this.evaluate(stmt.iterable, env);
           if (!Array.isArray(iterable) && typeof iterable !== 'string')
             throw new Error('For loop requires array or string');
+          const variables = (stmt as any).variables as string[] | undefined;
           for (const item of iterable) {
-            env.define(stmt.variable, item);
-            this.executeBlock(stmt.body.body, env);
+            // Multiple loop targets (e.g. `for i, v in enumerate(xs)`) destructure
+            // each element; a single target binds the element directly.
+            if (variables && variables.length > 1 && Array.isArray(item)) {
+              variables.forEach((name, idx) => env.define(name, item[idx]));
+            } else {
+              env.define(stmt.variable, item);
+            }
+            if (this.runIteration(stmt.body.body, env) === 'break') {
+              didBreak = true;
+              break;
+            }
           }
         }
+        // Python-style loop `else`: runs only if the loop finished without break.
+        if (!didBreak && (stmt as any).elseBranch) {
+          this.executeBlock((stmt as any).elseBranch.body, env);
+        }
         break;
+      }
       case 'DoWhile': {
         let iterationCount = 0;
         const MAX_ITERATIONS = 10000;
@@ -1349,7 +1452,7 @@ export class Interpreter {
               `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
             );
           }
-          this.executeBlock(stmt.body.body, env);
+          if (this.runIteration(stmt.body.body, env) === 'break') break;
         } while (this.evaluate(stmt.condition, env));
         break;
       }
@@ -1365,7 +1468,7 @@ export class Interpreter {
               `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
             );
           }
-          this.executeBlock(stmt.body.body, env);
+          if (this.runIteration(stmt.body.body, env) === 'break') break;
         } while (!this.evaluate(stmt.condition, env));
         break;
       }
@@ -1378,6 +1481,65 @@ export class Interpreter {
       case 'ExpressionStatement':
         this.evaluate(stmt.expression, env);
         break;
+      case 'Break':
+        throw new BreakException();
+      case 'Continue':
+        throw new ContinueException();
+      case 'Switch': {
+        const disc = this.evaluate((stmt as any).discriminant, env);
+        const cases = (stmt as any).cases as any[];
+        try {
+          // Find the first matching case, then fall through executing every
+          // case body from there until a `break` (C-style semantics).
+          let matched = false;
+          for (const c of cases) {
+            if (!matched && c.test !== undefined && this.evaluate(c.test, env) === disc) {
+              matched = true;
+            }
+            if (matched) this.executeBlock(c.consequent, env);
+          }
+          // No case matched: start at `default` (if any) and fall through.
+          if (!matched) {
+            let inDefault = false;
+            for (const c of cases) {
+              if (c.test === undefined) inDefault = true;
+              if (inDefault) this.executeBlock(c.consequent, env);
+            }
+          }
+        } catch (e) {
+          if (!(e instanceof BreakException)) throw e;
+        }
+        break;
+      }
+      case 'Try': {
+        const handlers = (stmt as any).handlers as any[] | undefined;
+        const finallyBlock = (stmt as any).finallyBlock;
+        try {
+          try {
+            this.executeBlock(stmt.body.body, env);
+          } catch (e) {
+            // Never intercept control-flow / input signals with a catch clause.
+            if (
+              e instanceof ReturnException ||
+              e instanceof BreakException ||
+              e instanceof ContinueException ||
+              e instanceof InputPrompt
+            ) {
+              throw e;
+            }
+            const handler = handlers && handlers.length > 0 ? handlers[0] : undefined;
+            if (!handler) throw e;
+            const handlerEnv = new Environment(env);
+            if (handler.varName) {
+              handlerEnv.define(handler.varName, (e as any).message ?? String(e));
+            }
+            this.executeBlock(handler.body.body, handlerEnv);
+          }
+        } finally {
+          if (finallyBlock) this.executeBlock(finallyBlock.body, env);
+        }
+        break;
+      }
     }
   }
 
@@ -1387,6 +1549,19 @@ export class Interpreter {
         return expr.value;
       case 'ArrayLiteral':
         return expr.elements.map((e) => this.evaluate(e, env));
+      case 'ListComprehension': {
+        const iter = this.evaluate((expr as any).iterable, env);
+        if (!Array.isArray(iter) && typeof iter !== 'string') {
+          throw new Error('List comprehension requires an array or string');
+        }
+        const result: any[] = [];
+        for (const item of iter) {
+          const compEnv = new Environment(env);
+          compEnv.define((expr as any).variable, item);
+          result.push(this.evaluate((expr as any).element, compEnv));
+        }
+        return result;
+      }
       case 'Identifier': {
         try {
           return env.get(expr.name);
@@ -1444,7 +1619,11 @@ export class Interpreter {
             compResult = compLeft * compRight;
             break;
           case '/':
-            compResult = compLeft / compRight;
+            // Match the `/` operator: an integer-typed target uses integer division.
+            compResult =
+              this.isIntegerType(env.getType(compName)) && compRight !== 0
+                ? Math.trunc(compLeft / compRight)
+                : compLeft / compRight;
             break;
           case '%':
             compResult = compLeft % compRight;
@@ -1455,6 +1634,10 @@ export class Interpreter {
         env.assign(compName, compResult);
         return compResult;
       }
+      case 'ConditionalExpression':
+        return this.evaluate((expr as any).test, env)
+          ? this.evaluate((expr as any).consequent, env)
+          : this.evaluate((expr as any).alternate, env);
       case 'UnaryExpression':
         const right = this.evaluate(expr.argument, env, expectedType);
         if (expr.operator === '-') return -right;
@@ -1529,10 +1712,19 @@ export class Interpreter {
         const args = expr.arguments.map((a) => this.evaluate(a, env));
         return this.instantiateClass(klass, args, env);
 
-      case 'IndexExpression':
+      case 'IndexExpression': {
         const indexObj = this.evaluate(expr.object, env);
+        const hasEnd = (expr as any).indexEnd !== undefined;
+        const hasStep = (expr as any).indexStep !== undefined;
+        if (hasEnd || hasStep) {
+          const start = expr.index != null ? this.evaluate(expr.index, env) : undefined;
+          const end = hasEnd ? this.evaluate((expr as any).indexEnd, env) : undefined;
+          const step = hasStep ? this.evaluate((expr as any).indexStep, env) : undefined;
+          return this.sliceSequence(indexObj, start, end, step);
+        }
         const idxValue = this.evaluate(expr.index, env);
         return indexObj[idxValue];
+      }
 
       case 'MemberExpression':
         const obj = this.evaluate(expr.object, env);
@@ -1796,10 +1988,8 @@ export class Interpreter {
         if (callee && callee.type === 'FunctionDeclaration') {
           const func = callee as FunctionDeclaration;
           const args = expr.arguments.map((a) => this.evaluate(a, env));
-          if (args.length !== func.params.length)
-            throw new Error(`Expected ${func.params.length} arguments but got ${args.length}`);
           const fnEnv = new Environment(env);
-          func.params.forEach((param, i) => fnEnv.define(param.name, args[i]));
+          this.bindParams(func.params, args, fnEnv);
           try {
             this.executeBlock(func.body.body, fnEnv);
           } catch (e) {
