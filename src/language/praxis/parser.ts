@@ -20,11 +20,15 @@ import {
   type ClassDeclaration,
   generateId,
 } from '../ast';
+import { attachComments } from '../comments';
 
 export class PraxisParser {
   private tokens: Token[];
   private current = 0;
   private sourceCode: string;
+  // Comments the parser claimed as print separator/newline metadata, so the
+  // comment-attachment pass doesn't also emit them as ordinary comments.
+  private consumedComments = new Set<number>();
 
   /**
    * Creates a new instance.
@@ -63,7 +67,14 @@ export class PraxisParser {
         continue;
       }
     }
-    return { id: generateId(), type: 'Program', body };
+    const program: Program = { id: generateId(), type: 'Program', body };
+    attachComments(
+      program,
+      (this.tokens as any).comments,
+      (this.tokens as any).source ?? this.sourceCode,
+      this.consumedComments
+    );
+    return program;
   }
 
   private topLevelDeclaration(): Statement {
@@ -471,17 +482,29 @@ export class PraxisParser {
     }
 
     const stmt: any = { id: generateId(), type: 'Print', expressions };
-    const trailingComment = this.extractTrailingLineComment(printToken.start);
-    if (trailingComment) {
-      const metadata = this.parsePrintCommentMetadata(trailingComment);
-      if (metadata.separator !== undefined) stmt.separator = metadata.separator;
-      if (metadata.appendLineFeed !== undefined) stmt.appendLineFeed = metadata.appendLineFeed;
+    const trailing = this.extractTrailingLineComment(printToken.start);
+    if (trailing) {
+      const metadata = this.parsePrintCommentMetadata(trailing.text);
+      let consumed = false;
+      if (metadata.separator !== undefined) {
+        stmt.separator = metadata.separator;
+        consumed = true;
+      }
+      if (metadata.appendLineFeed !== undefined) {
+        stmt.appendLineFeed = metadata.appendLineFeed;
+        consumed = true;
+      }
+      // Metadata comments are regenerated from the fields on emit, so mark them
+      // consumed to keep the comment-attachment pass from duplicating them.
+      if (consumed) this.consumedComments.add(trailing.start);
     }
 
     return stmt;
   }
 
-  private extractTrailingLineComment(lineStartPos: number): string | undefined {
+  private extractTrailingLineComment(
+    lineStartPos: number
+  ): { text: string; start: number } | undefined {
     if (!this.sourceCode) return undefined;
 
     const lineEndPos = this.sourceCode.indexOf('\n', lineStartPos);
@@ -490,7 +513,7 @@ export class PraxisParser {
     const commentStart = this.findSingleLineCommentStart(lineText);
 
     if (commentStart === -1) return undefined;
-    return lineText.slice(commentStart + 2).trim();
+    return { text: lineText.slice(commentStart + 2).trim(), start: lineStartPos + commentStart };
   }
 
   private findSingleLineCommentStart(lineText: string): number {

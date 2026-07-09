@@ -4,6 +4,7 @@
  */
 
 import type { Token } from '../lexer';
+import { ownLineAt, type SourceComment } from '../comments';
 
 export class JavaLexer {
   private pos = 0;
@@ -21,6 +22,7 @@ export class JavaLexer {
    */
   tokenize(): Token[] {
     const tokens: Token[] = [];
+    const comments: SourceComment[] = [];
     while (this.pos < this.input.length) {
       const char = this.input[this.pos];
 
@@ -31,7 +33,14 @@ export class JavaLexer {
 
       // Comments
       if (char === '/' && this.input[this.pos + 1] === '/') {
+        const cStart = this.pos;
         while (this.pos < this.input.length && this.input[this.pos] !== '\n') this.pos++;
+        comments.push({
+          text: this.input.slice(cStart + 2, this.pos).trim(),
+          start: cStart,
+          end: this.pos,
+          ownLine: ownLineAt(this.input, cStart),
+        });
         continue;
       }
 
@@ -247,6 +256,8 @@ export class JavaLexer {
       throw new Error(`Unexpected character: ${char} at position ${this.pos}`);
     }
     tokens.push({ type: 'EOF', value: '', start: this.pos });
+    (tokens as any).comments = comments;
+    (tokens as any).source = this.input;
     return tokens;
   }
 }
