@@ -25,6 +25,89 @@ import type {
 } from '../ast';
 
 export class PraxisEmitter extends ASTVisitor {
+  // Statements hoisted ahead of the current one (Praxis has no expression-level
+  // ternary/slice/list-comprehension, so each lowers to a temp + preceding block).
+  private preludeLines: string[] = [];
+  private tempCounter = 0;
+  // One entry per enclosing loop (innermost last): the loop's "no break yet"
+  // flag name if it has a Python-style `else`, otherwise null. Praxis has no
+  // loop-else, so it lowers to a flag set false at each break plus a trailing
+  // `if (flag) ... end if`.
+  private loopElseFlags: (string | null)[] = [];
+  // Declared class names — used to render a bare constructor call (e.g. Python's
+  // `Animal("Rex")`) as a Praxis `new Animal("Rex")` and to type the target.
+  private classNames = new Set<string>();
+
+  // If `expr` is a call whose callee is a known class name, returns that name.
+  private classConstructorName(expr: any): string | null {
+    if (expr?.type === 'CallExpression' && expr.callee?.type === 'Identifier') {
+      return this.classNames.has(expr.callee.name) ? expr.callee.name : null;
+    }
+    return null;
+  }
+
+  // Flush hoisted prelude statements (at the current indent) before `line`.
+  protected emit(line: string, nodeId?: string): void {
+    if (this.preludeLines.length > 0) {
+      const pending = this.preludeLines;
+      this.preludeLines = [];
+      for (const p of pending) super.emit(p);
+    }
+    super.emit(line, nodeId);
+  }
+
+  // Builds a Praxis `for` header for a comprehension/loop over `iterable`.
+  // A range(...) call becomes a C-style counter loop; anything else a for-in.
+  private comprehensionForHeader(variable: string, iterable: any): string {
+    if (iterable?.type === 'CallExpression' && iterable.callee?.name === 'range') {
+      const args = iterable.arguments;
+      let start = '0',
+        end = '0',
+        step = '1';
+      if (args.length === 1) end = this.generateExpression(args[0], 0);
+      else if (args.length >= 2) {
+        start = this.generateExpression(args[0], 0);
+        end = this.generateExpression(args[1], 0);
+      }
+      if (args.length === 3) step = this.generateExpression(args[2], 0);
+      return `for (int ${variable} <- ${start}; ${variable} < ${end}; ${variable} <- ${variable} + ${step})`;
+    }
+    return `for ${variable} in ${this.generateExpression(iterable, 0)}`;
+  }
+
+  protected inferType(expr: Expression): string {
+    // A comprehension yields a list; type it by its element so the assignment
+    // doesn't fall back to a scalar `int`.
+    if ((expr as any).type === 'ListComprehension') {
+      return this.inferType((expr as any).element) + '[]';
+    }
+    const ctor = this.classConstructorName(expr);
+    if (ctor) return ctor;
+    return super.inferType(expr);
+  }
+
+  // Emits a loop's `no-break` flag init (if it has an `else`) and pushes the
+  // loop onto the stack. Call before emitting the loop header.
+  private openLoopElse(stmt: any): string | null {
+    const hasElse = stmt.elseBranch && stmt.elseBranch.body && stmt.elseBranch.body.length > 0;
+    const flag = hasElse ? `_noBreak${this.tempCounter++}` : null;
+    if (flag) this.emit(`boolean ${flag} <- true`);
+    this.loopElseFlags.push(flag);
+    return flag;
+  }
+
+  // Pops the loop and, if it had an `else`, emits `if (flag) <else> end if`.
+  private closeLoopElse(stmt: any, flag: string | null): void {
+    this.loopElseFlags.pop();
+    if (flag) {
+      this.emit(`if (${flag})`);
+      this.indent();
+      this.visitBlock(stmt.elseBranch);
+      this.dedent();
+      this.emit('end if');
+    }
+  }
+
   private isJavaMainClass(classDecl: ClassDeclaration): boolean {
     if (classDecl.name !== 'Main') return false;
     return classDecl.body.some(
@@ -41,6 +124,8 @@ export class PraxisEmitter extends ASTVisitor {
     const mainBody = program.body.filter(
       (s) => s.type !== 'ClassDeclaration' && s.type !== 'FunctionDeclaration'
     );
+
+    this.classNames = new Set(classes.map((c) => (c as ClassDeclaration).name));
 
     const mainClass = classes.find((c) => this.isJavaMainClass(c as ClassDeclaration));
     const otherClasses = classes.filter((c) => !this.isJavaMainClass(c as ClassDeclaration));
@@ -147,11 +232,17 @@ export class PraxisEmitter extends ASTVisitor {
 
   visitPrint(stmt: any): void {
     const args = stmt.expressions.map((e: any) => this.generateExpression(e, 0));
+    // Separator / newline control has no dedicated syntax in Praxis; it is carried
+    // in a trailing comment that the parser reads back (see parsePrintCommentMetadata).
+    const notes: string[] = [];
+    if (stmt.separator === '') notes.push('no separator');
+    if (stmt.appendLineFeed === false) notes.push('no line feed');
+    const comment = notes.length ? `  // ${notes.join(', ')}` : '';
     if (args.length === 1) {
-      this.emit(`print ${args[0]}`, stmt.id);
+      this.emit(`print ${args[0]}${comment}`, stmt.id);
     } else {
       // Texas dialect: print(arg1, arg2, ...)
-      this.emit(`print (${args.join(', ')})`, stmt.id);
+      this.emit(`print (${args.join(', ')})${comment}`, stmt.id);
     }
   }
 
@@ -197,6 +288,10 @@ export class PraxisEmitter extends ASTVisitor {
       if (type === 'auto' || type === 'var') {
         type = this.inferType(stmt.value);
         if (type === 'var') type = 'int';
+        // A dynamically-typed source (JS `let`/`const`/`var` all lower to
+        // `auto`) has float numbers, so an inferred `int` becomes `double` to
+        // keep `/` as float division after translation.
+        if (type === 'int') type = 'double';
       }
       this.emit(`${type} ${targetStr} <- ${initVal}`, stmt.id);
       this.context.symbolTable.set(stmt.name, type);
@@ -220,23 +315,14 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
 
-    let currentElse = stmt.elseBranch;
-    while (currentElse?.body.length === 1 && currentElse.body[0].type === 'If') {
-      const elifStmt = currentElse.body[0];
-      this.emit(`else if (${this.generateExpression(elifStmt.condition, 0)})`);
-      this.indent();
-      this.context.symbolTable.enterScope();
-      this.visitBlock(elifStmt.thenBranch);
-      this.context.symbolTable.exitScope();
-      this.dedent();
-      currentElse = elifStmt.elseBranch;
-    }
-
-    if (currentElse) {
+    // Praxis has no `else if`; an else-if chain is written as a nested `if`
+    // inside the `else` block (each with its own `end if`). Emitting the
+    // elseBranch as an ordinary block yields exactly that nesting.
+    if (stmt.elseBranch) {
       this.emit('else');
       this.indent();
       this.context.symbolTable.enterScope();
-      this.visitBlock(currentElse);
+      this.visitBlock(stmt.elseBranch);
       this.context.symbolTable.exitScope();
       this.dedent();
     }
@@ -244,6 +330,7 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitWhile(stmt: any): void {
+    const flag = this.openLoopElse(stmt);
     this.emit(`while (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
     this.indent();
     this.context.symbolTable.enterScope();
@@ -251,9 +338,11 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit('end while');
+    this.closeLoopElse(stmt, flag);
   }
 
   visitDoWhile(stmt: any): void {
+    this.loopElseFlags.push(null);
     this.emit(`do`);
     this.indent();
     this.context.symbolTable.enterScope();
@@ -261,9 +350,11 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit(`while (${this.generateExpression(stmt.condition, 0)})`);
+    this.loopElseFlags.pop();
   }
 
   visitRepeatUntil(stmt: any): void {
+    this.loopElseFlags.push(null);
     this.emit('repeat', stmt.id);
     this.indent();
     this.context.symbolTable.enterScope();
@@ -271,22 +362,57 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit(`until (${this.generateExpression(stmt.condition, 0)})`);
+    this.loopElseFlags.pop();
   }
 
   visitSwitch(stmt: any): void {
-    this.emit(`switch (${this.generateExpression(stmt.discriminant, 0)})`);
-    this.indent();
-    stmt.cases.forEach((c: any) => {
-      this.emit(c.test ? `case ${this.generateExpression(c.test, 0)}:` : 'default:');
+    // Praxis has no switch/case; lower a (break-terminated) switch to a nested
+    // if / else { if ... } chain comparing the discriminant to each case's test.
+    // A `default` case becomes the innermost `else`.
+    const disc = this.generateExpression(stmt.discriminant, 0);
+    const cases: any[] = stmt.cases;
+    const stripBreak = (body: any[]): any[] => body.filter((s) => s.type !== 'Break');
+    const testable = cases.filter((c) => c.test);
+    const defaultCase = cases.find((c) => !c.test);
+
+    if (testable.length === 0) {
+      if (defaultCase) stripBreak(defaultCase.consequent).forEach((s) => this.visitStatement(s));
+      return;
+    }
+
+    testable.forEach((c, i) => {
+      const cond = `${disc} == ${this.generateExpression(c.test, 0)}`;
+      if (i === 0) {
+        this.emit(`if (${cond})`, stmt.id);
+      } else {
+        this.emit('else');
+        this.indent();
+        this.emit(`if (${cond})`);
+      }
       this.indent();
-      c.consequent.forEach((s: any) => this.visitStatement(s));
+      stripBreak(c.consequent).forEach((s) => this.visitStatement(s));
       this.dedent();
     });
-    this.dedent();
-    this.emit('end switch');
+
+    if (defaultCase) {
+      this.emit('else');
+      this.indent();
+      stripBreak(defaultCase.consequent).forEach((s) => this.visitStatement(s));
+      this.dedent();
+    }
+
+    this.emit('end if');
+    for (let i = 1; i < testable.length; i++) {
+      this.dedent();
+      this.emit('end if');
+    }
   }
 
   visitBreak(_stmt: any): void {
+    // Clear the enclosing loop's no-break flag (if it has an `else`) so the
+    // lowered else block is skipped on break.
+    const flag = this.loopElseFlags[this.loopElseFlags.length - 1];
+    if (flag) this.emit(`${flag} <- false`);
     this.emit('break');
   }
   visitContinue(_stmt: any): void {
@@ -294,6 +420,7 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitFor(stmt: any): void {
+    const loopFlag = this.openLoopElse(stmt);
     if (stmt.init && stmt.condition && stmt.update) {
       this.context.symbolTable.enterScope();
       let initCode = '';
@@ -350,7 +477,9 @@ export class PraxisEmitter extends ASTVisitor {
       const [idx, val] = stmt.variables;
       this.emit(`for (int ${idx} <- 0; ${idx} < ${arr}.length; ${idx} <- ${idx} + 1)`, stmt.id);
       this.indent();
-      this.emit(`var ${val} <- ${arr}[${idx}]`);
+      // Bare assignment (no `var`) so reusing an element name across loops
+      // doesn't trip the interpreter's re-declaration check.
+      this.emit(`${val} <- ${arr}[${idx}]`);
       this.visitBlock(stmt.body);
       this.dedent();
       this.emit('end for');
@@ -364,6 +493,7 @@ export class PraxisEmitter extends ASTVisitor {
       this.dedent();
       this.emit('end for');
     }
+    this.closeLoopElse(stmt, loopFlag);
   }
 
   visitFunctionDeclaration(stmt: any): void {
@@ -397,6 +527,15 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitExpressionStatement(stmt: any): void {
+    // A bare `i++` / `--i` statement is ambiguous in Praxis (no statement
+    // terminators, so `i++\n--j` would re-associate); lower it to `i <- i ± 1`.
+    const e = stmt.expression;
+    if (e?.type === 'UpdateExpression') {
+      const target = this.generateExpression(e.argument, 0);
+      const op = e.operator === '++' ? '+' : '-';
+      this.emit(`${target} <- ${target} ${op} 1`, stmt.id);
+      return;
+    }
     this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
   }
 
@@ -406,9 +545,10 @@ export class PraxisEmitter extends ASTVisitor {
     this.visitBlock(stmt.body);
     this.dedent();
     stmt.handlers.forEach((h: any) => {
-      this.emit(
-        h.exceptionType ? `catch ${h.exceptionType}${h.varName ? ` as ${h.varName}` : ''}` : 'catch'
-      );
+      let head = 'catch';
+      if (h.exceptionType) head += ` ${h.exceptionType}`;
+      if (h.varName) head += ` as ${h.varName}`;
+      this.emit(head);
       this.indent();
       this.visitBlock(h.body);
       this.dedent();
@@ -503,8 +643,21 @@ export class PraxisEmitter extends ASTVisitor {
             return `${objExpr}.length - ${idx.argument.value}`;
           return this.generateExpression(idx, 0);
         };
-        if (expr.indexEnd) {
-          output = `${objExpr}.SLICE(${convertIdx(expr.index)}, ${convertIdx(expr.indexEnd)})`;
+        if (expr.indexEnd || expr.indexStep) {
+          // Praxis has no slice syntax; hoist `obj[start:end:step]` into a loop
+          // that appends into a fresh list, and yield that list variable.
+          const tmp = `_slice${this.tempCounter++}`;
+          const iv = `_i${this.tempCounter++}`;
+          const start = expr.index ? convertIdx(expr.index) : '0';
+          const end = expr.indexEnd ? convertIdx(expr.indexEnd) : `${objExpr}.length`;
+          const step = expr.indexStep ? this.generateExpression(expr.indexStep, 0) : '1';
+          this.preludeLines.push(`${tmp} <- {}`);
+          this.preludeLines.push(
+            `for (int ${iv} <- ${start}; ${iv} < ${end}; ${iv} <- ${iv} + ${step})`
+          );
+          this.preludeLines.push(`  ${tmp}.append(${objExpr}[${iv}])`);
+          this.preludeLines.push(`end for`);
+          output = tmp;
         } else {
           output = `${objExpr}[${convertIdx(expr.index)}]`;
         }
@@ -555,6 +708,45 @@ export class PraxisEmitter extends ASTVisitor {
         break;
       }
 
+      case 'CompoundAssignment': {
+        // Praxis has no `+=`; expand to `target <- target op right`.
+        const target = (expr as any).left
+          ? this.generateExpression((expr as any).left, 0)
+          : (expr as any).name;
+        const op = (expr as any).operator;
+        output = `${target} <- ${target} ${op} ${this.generateExpression((expr as any).right, 0)}`;
+        break;
+      }
+
+      case 'ConditionalExpression': {
+        // Praxis has no ternary; hoist into an if/else that assigns a temp.
+        const tmp = `_tern${this.tempCounter++}`;
+        this.preludeLines.push(`if (${this.generateExpression((expr as any).test, 0)})`);
+        this.preludeLines.push(
+          `  ${tmp} <- ${this.generateExpression((expr as any).consequent, 0)}`
+        );
+        this.preludeLines.push(`else`);
+        this.preludeLines.push(
+          `  ${tmp} <- ${this.generateExpression((expr as any).alternate, 0)}`
+        );
+        this.preludeLines.push(`end if`);
+        output = tmp;
+        break;
+      }
+
+      case 'ListComprehension': {
+        // Praxis has no comprehension; hoist into a loop that appends into a list.
+        const comp = expr as any;
+        const tmp = `_comp${this.tempCounter++}`;
+        this.preludeLines.push(`${tmp} <- {}`);
+        const header = this.comprehensionForHeader(comp.variable, comp.iterable);
+        this.preludeLines.push(header);
+        this.preludeLines.push(`  ${tmp}.append(${this.generateExpression(comp.element, 0)})`);
+        this.preludeLines.push(`end for`);
+        output = tmp;
+        break;
+      }
+
       case 'CallExpression': {
         currentPrecedence = Precedence.Call;
         const calleeStr =
@@ -567,7 +759,11 @@ export class PraxisEmitter extends ASTVisitor {
           break;
         }
         const argsStr = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
-        output = `${calleeStr}(${argsStr})`;
+        // A bare call to a class name (e.g. Python's `Animal("Rex")`) is an
+        // instantiation; Praxis requires the explicit `new`.
+        output = this.classConstructorName(expr)
+          ? `new ${calleeStr}(${argsStr})`
+          : `${calleeStr}(${argsStr})`;
         break;
       }
 

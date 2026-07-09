@@ -126,7 +126,14 @@ export class PraxisParser {
       if (this.match('KEYWORD', 'public')) access = 'public';
       else if (this.match('KEYWORD', 'private')) access = 'private';
 
-      if (this.isFunctionDeclaration()) {
+      // A constructor is written `procedure new(...) ... end new` (Praxis has no
+      // dedicated ctor keyword; `new` is otherwise reserved for instantiation).
+      if (
+        (this.check('KEYWORD', 'procedure') || this.check('KEYWORD', 'function')) &&
+        this.checkPeekAhead('KEYWORD', 'new', 1)
+      ) {
+        classBody.push(this.constructorDeclaration(access));
+      } else if (this.isFunctionDeclaration()) {
         const func = this.functionDeclaration();
         classBody.push({
           id: generateId(),
@@ -230,13 +237,27 @@ export class PraxisParser {
     }
 
     const name = this.consume('IDENTIFIER').value;
-    this.consume('PUNCTUATION', '(');
+    const params = this.parseParamList();
 
+    const body = this.block();
+
+    this.consume('KEYWORD', 'end');
+    this.match('IDENTIFIER', name); // Practice 'end procedureName' structure
+
+    return { id: generateId(), type: 'FunctionDeclaration', name, params, body, returnType } as any;
+  }
+
+  /** Parses a parenthesized `(Type? name, ...)` parameter list, consuming the parens. */
+  private parseParamList(): any[] {
+    this.consume('PUNCTUATION', '(');
     const params: any[] = [];
     if (!this.check('PUNCTUATION', ')')) {
       do {
         let paramType = 'auto';
-        if (this.isTypeStart() || this.check('IDENTIFIER')) {
+        // A type precedes the name only when it's a type keyword, or a custom
+        // class name (an identifier immediately followed by another identifier).
+        // A lone identifier before `,`/`)` is a bare, untyped parameter name.
+        if (this.isTypeStart() || (this.check('IDENTIFIER') && this.checkPeekAhead('IDENTIFIER'))) {
           paramType = this.peek().value;
           this.advance();
           while (this.check('PUNCTUATION', '[')) {
@@ -250,13 +271,18 @@ export class PraxisParser {
       } while (this.match('PUNCTUATION', ','));
     }
     this.consume('PUNCTUATION', ')');
+    return params;
+  }
 
+  /** Parses `procedure new(...) ... end new` as a Constructor class member. */
+  private constructorDeclaration(access: 'public' | 'private'): any {
+    this.advance(); // 'procedure' | 'function'
+    this.consume('KEYWORD', 'new');
+    const params = this.parseParamList();
     const body = this.block();
-
     this.consume('KEYWORD', 'end');
-    this.match('IDENTIFIER', name); // Practice 'end procedureName' structure
-
-    return { id: generateId(), type: 'FunctionDeclaration', name, params, body, returnType } as any;
+    this.consume('KEYWORD', 'new');
+    return { id: generateId(), type: 'Constructor', access, params, body };
   }
 
   private variableDeclaration(): Statement {
@@ -317,6 +343,13 @@ export class PraxisParser {
     else if (this.check('KEYWORD', 'repeat')) stmt = this.repeatUntilStatement();
     else if (this.check('KEYWORD', 'for')) stmt = this.forStatement();
     else if (this.check('KEYWORD', 'return')) stmt = this.returnStatement();
+    else if (this.check('KEYWORD', 'break')) {
+      this.advance();
+      stmt = { id: generateId(), type: 'Break' } as any;
+    } else if (this.check('KEYWORD', 'continue')) {
+      this.advance();
+      stmt = { id: generateId(), type: 'Continue' } as any;
+    } else if (this.check('KEYWORD', 'try')) stmt = this.tryStatement();
     // Check for 'Type Identifier <- value'
     else if (this.isVariableDeclaration()) {
       stmt = this.variableDeclaration();
@@ -705,6 +738,51 @@ export class PraxisParser {
       value = this.expression();
     }
     return { id: generateId(), type: 'Return', value };
+  }
+
+  /**
+   * Parses a Praxis `try ... catch [Type] [as var] ... finally ... end try`.
+   * The catch head is emitted as `catch [ExceptionType] [as varName]`, where
+   * both the type and the `as var` binding are optional.
+   */
+  private tryStatement(): Statement {
+    const bodyBreaks = ['end', 'catch', 'finally'];
+    this.consume('KEYWORD', 'try');
+    const body = this.block(bodyBreaks);
+
+    const handlers: any[] = [];
+    while (this.check('KEYWORD', 'catch')) {
+      this.consume('KEYWORD', 'catch');
+      let exceptionType: string | undefined;
+      let varName: string | undefined;
+      // Optional exception type (any identifier that is not the `as` marker).
+      if (this.check('IDENTIFIER') && this.peek().value !== 'as') {
+        exceptionType = this.advance().value;
+      }
+      // Optional `as varName` binding.
+      if (this.check('IDENTIFIER', 'as')) {
+        this.advance();
+        varName = this.consume('IDENTIFIER').value;
+      }
+      const handlerBody = this.block(bodyBreaks);
+      handlers.push({
+        id: generateId(),
+        type: 'ExceptionHandler',
+        exceptionType,
+        varName,
+        body: handlerBody,
+      });
+    }
+
+    let finallyBlock: Block | undefined;
+    if (this.match('KEYWORD', 'finally')) {
+      finallyBlock = this.block(bodyBreaks);
+    }
+
+    this.consume('KEYWORD', 'end');
+    this.consume('KEYWORD', 'try');
+
+    return { id: generateId(), type: 'Try', body, handlers, finallyBlock } as any;
   }
 
   // --- Expressions (Standard Precedence) ---
