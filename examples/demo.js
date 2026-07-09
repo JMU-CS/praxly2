@@ -139,7 +139,7 @@ for (let t = 0; t < 5; t++) {
 // ========================== FUNCTIONS ======================================
 
 // ---- FunctionDeclaration / Parameter / Return (with and without a value) ---
-function greet(name, punct = "!") {   // Parameter.defaultValue on `punct`
+function greet(name, punct) {
     return "hi " + name + punct;
 }
 
@@ -158,8 +158,8 @@ function announce(msg) {
 }
 
 // ---- Function calls --------------------------------------------------------
-console.log(greet("sam"));              // hi sam!  (uses the default punct)
-console.log(greet("sam", "?"));         // hi sam?  (overrides the default)
+console.log(greet("sam", "!"));         // hi sam!
+console.log(greet("sam", "?"));         // hi sam?
 announce("");                           // (prints nothing)
 announce("ready");                      // announce: ready
 console.log("fib", fib(7));             // fib 13

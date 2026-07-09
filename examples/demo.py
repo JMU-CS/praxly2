@@ -110,8 +110,7 @@ finally:
 # ========================== FUNCTIONS ======================================
 
 # ---- FunctionDeclaration / Parameter / Return ------------------------------
-# Parameter.defaultValue -- `punct` defaults to "!" when the caller omits it
-def greet(name, punct="!"):
+def greet(name, punct):
     return "hi " + name + punct
 
 # Parameter annotation => paramType
@@ -131,8 +130,8 @@ def fib(n):
         return n
     return fib(n - 1) + fib(n - 2)
 
-print(greet("sam"))               # hi sam!  (uses the default punct)
-print(greet("sam", "?"))          # hi sam?  (overrides the default)
+print(greet("sam", "!"))          # hi sam!
+print(greet("sam", "?"))          # hi sam?
 print(clamp(-5), clamp(9))        # 0 9
 announce("")                      # (prints nothing)
 announce("ready")                 # announce: ready

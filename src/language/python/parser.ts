@@ -183,16 +183,11 @@ export class Parser {
         if (this.match('PUNCTUATION', ':')) {
           paramType = this.parseParameterTypeAnnotation();
         }
-        let defaultValue: Expression | undefined = undefined;
-        if (this.match('OPERATOR', '=')) {
-          defaultValue = this.expression();
-        }
         params.push({
           id: generateId(),
           type: 'Parameter',
           name: paramName,
           paramType,
-          defaultValue,
         });
       } while (this.match('PUNCTUATION', ','));
     }

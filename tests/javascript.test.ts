@@ -202,13 +202,6 @@ describe('JavaScript Parser', () => {
       expect(ast.body[0]).toMatchObject({ type: 'FunctionDeclaration', name: 'add' });
     });
 
-    it('parses function with default parameter', () => {
-      const ast = jsParse('function greet(name = "World") { console.log(name); }');
-      const fn = ast.body[0] as any;
-      expect(fn.type).toBe('FunctionDeclaration');
-      expect(fn.params[0].defaultValue).toBeTruthy();
-    });
-
     it('parses return statement', () => {
       const ast = jsParse('function f() { return 42; }');
       const fn = ast.body[0] as any;

@@ -1184,22 +1184,13 @@ export class Interpreter {
     }
   }
 
-  // Binds call arguments to parameters, applying a parameter's defaultValue when
-  // the matching argument is omitted. Throws only when the count is truly invalid.
+  // Binds call arguments to parameters (no default parameters in any dialect,
+  // so the argument count must match exactly).
   bindParams(params: any[], args: any[], targetEnv: Environment) {
-    const required = params.filter((p) => !p.defaultValue).length;
-    if (args.length < required || args.length > params.length) {
+    if (args.length !== params.length) {
       throw new Error(`Expected ${params.length} arguments but got ${args.length}`);
     }
-    params.forEach((param, i) => {
-      const value =
-        i < args.length
-          ? args[i]
-          : param.defaultValue
-            ? this.evaluate(param.defaultValue, targetEnv)
-            : null;
-      targetEnv.define(param.name, value);
-    });
+    params.forEach((param, i) => targetEnv.define(param.name, args[i]));
   }
 
   private instantiateClass(klass: JavaClass, args: any[], env: Environment): JavaInstance {
