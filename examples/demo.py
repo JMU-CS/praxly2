@@ -39,9 +39,8 @@ print(count > 3 and pi < 4, count == 7 or active)  # true true
 values = [5, 2, 9, 1]
 values[0] = 50                    # index Assignment
 values.append(7)                  # method call (MemberExpression + Call)
-values.sort()
-values.pop()
-print(values, len(values), values[0])   # {1, 2, 9, 50} 4 1
+values.pop()                      # remove the last element
+print(values, len(values), values[0])   # {50, 2, 9, 1} 4 50
 
 # ---- ListComprehension -----------------------------------------------------
 squares = [x * x for x in range(5)]

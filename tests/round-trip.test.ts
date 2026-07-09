@@ -63,7 +63,7 @@ const LANGS: Lang[] = [
 const byName = (name: TargetLanguage): Lang => LANGS.find((l) => l.name === name)!;
 
 // Targets whose emitter has been verified faithful. Expand one at a time.
-const DONE_TARGETS = new Set<TargetLanguage>(['python', 'javascript']);
+const DONE_TARGETS = new Set<TargetLanguage>(['python', 'javascript', 'java']);
 
 // (source->target) pairs that are genuinely inexpressible in the target and are
 // therefore not required to match. Each entry needs a documented reason.

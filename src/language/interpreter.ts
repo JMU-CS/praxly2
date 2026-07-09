@@ -1149,17 +1149,23 @@ export class Interpreter {
       }
     }
 
-    // Other types (custom classes)
+    // Other types (custom classes, Object, ArrayList/List, boxed types)
     if (baseType && baseType[0] === baseType[0].toUpperCase()) {
-      // Custom class type
-      if (value === null) {
-        return null; // null can be assigned to object types
+      if (value === null) return null; // null assignable to any reference type
+      if (baseType === 'Object') return null; // everything is an Object
+      // Collections (ArrayList/List) hold array values.
+      if (Array.isArray(value)) return null;
+      if (value instanceof JavaInstance) {
+        // Accept an exact match or any subclass (walk the superclass chain).
+        let k: JavaClass | undefined = value.klass;
+        while (k) {
+          if (k.name === baseType) return null;
+          k = k.superClass;
+        }
+        return `incompatible types: ${value.klass.name} cannot be converted to ${baseType}`;
       }
-      if (value instanceof JavaInstance && value.klass.name === baseType) {
-        return null; // Compatible
-      }
-      const valueType = value instanceof JavaInstance ? value.klass.name : typeof value;
-      return `incompatible types: ${valueType} cannot be converted to ${baseType}`;
+      // Primitives assigned to a boxed/reference type (Integer, Double, ...).
+      return null;
     }
 
     return null; // Default compatible
@@ -1535,6 +1541,29 @@ export class Interpreter {
   }
 
   evaluate(expr: Expression, env: Environment, expectedType?: string): any {
+    // Assignment used in expression position (e.g. a C-style `for` update
+    // `j = j + 1`, or `x = y = 0`). Mutates the target and yields the value.
+    // Handled before the switch because Assignment is a Statement, not an
+    // Expression, in the AST type union.
+    if ((expr as any).type === 'Assignment') {
+      const a = expr as any;
+      const value = this.evaluate(a.value, env);
+      const target = a.target || a.memberExpr;
+      if (target && target.type === 'MemberExpression') {
+        const obj = this.evaluate(target.object, env);
+        const fieldName = target.property.name;
+        if (obj instanceof JavaInstance) obj.setField(fieldName, value);
+        else obj[fieldName] = value;
+      } else if (target && target.type === 'IndexExpression') {
+        const obj = this.evaluate(target.object, env);
+        const idx = this.evaluate(target.index, env);
+        obj[idx] = value;
+      } else {
+        const name = target && target.type === 'Identifier' ? target.name : a.name;
+        env.assign(name, value);
+      }
+      return value;
+    }
     switch (expr.type) {
       case 'Literal':
         return expr.value;
@@ -1652,6 +1681,11 @@ export class Interpreter {
 
         switch (expr.operator) {
           case '+':
+            // String concatenation uses the interpreter's own formatting so it
+            // matches print output (null -> None, lists -> {..}, true/false).
+            if (typeof l === 'string' || typeof r === 'string') {
+              return this.stringify(l) + this.stringify(r);
+            }
             return l + r;
           case '-':
             return l - r;
@@ -1697,13 +1731,21 @@ export class Interpreter {
             throw new Error(`Unknown operator ${expr.operator}`);
         }
         break;
-      case 'NewExpression':
+      case 'NewExpression': {
+        // Java ArrayList: `new ArrayList<>()` / `new ArrayList<>(Arrays.asList(...))`.
+        // Lists are represented as plain arrays.
+        if (expr.className === 'ArrayList' || expr.className === 'List') {
+          if (expr.arguments.length === 0) return [];
+          const init = this.evaluate(expr.arguments[0], env);
+          return Array.isArray(init) ? [...init] : [];
+        }
         const klass = env.get(expr.className);
         if (!klass || !(klass instanceof JavaClass)) {
           throw new Error(`Undefined class '${expr.className}'`);
         }
         const args = expr.arguments.map((a) => this.evaluate(a, env));
         return this.instantiateClass(klass, args, env);
+      }
 
       case 'IndexExpression': {
         const indexObj = this.evaluate(expr.object, env);
@@ -1720,6 +1762,11 @@ export class Interpreter {
       }
 
       case 'MemberExpression':
+        // Java constants: Integer.MIN_VALUE / Integer.MAX_VALUE.
+        if ((expr.object as any).type === 'Identifier' && (expr.object as any).name === 'Integer') {
+          if (expr.property.name === 'MIN_VALUE') return -2147483648;
+          if (expr.property.name === 'MAX_VALUE') return 2147483647;
+        }
         const obj = this.evaluate(expr.object, env);
         if (obj instanceof JavaInstance) {
           return obj.getField(expr.property.name);
@@ -1750,6 +1797,35 @@ export class Interpreter {
             };
             if (mathFns[fn]) return mathFns[fn](...mathArgs);
             throw new Error(`Unknown Math function '${fn}'`);
+          }
+
+          // Arrays.asList(...) / Arrays.copyOfRange(arr, from, to) — Java arrays helper.
+          if (memberExpr.object?.type === 'Identifier' && memberExpr.object.name === 'Arrays') {
+            const a = expr.arguments.map((x) => this.evaluate(x, env));
+            if (memberExpr.property.name === 'asList') return [...a];
+            if (memberExpr.property.name === 'copyOfRange') {
+              return (a[0] as any[]).slice(Number(a[1]), Number(a[2]));
+            }
+            throw new Error(`Unknown Arrays function '${memberExpr.property.name}'`);
+          }
+
+          // Integer.parseInt(s) / Double.parseDouble(s).
+          if (
+            memberExpr.object?.type === 'Identifier' &&
+            (memberExpr.object.name === 'Integer' || memberExpr.object.name === 'Double')
+          ) {
+            const val = this.evaluate(expr.arguments[0], env);
+            if (memberExpr.property.name === 'parseInt') return parseInt(String(val), 10);
+            if (memberExpr.property.name === 'parseDouble') return parseFloat(String(val));
+          }
+
+          // String.valueOf(x) — string conversion.
+          if (
+            memberExpr.object?.type === 'Identifier' &&
+            memberExpr.object.name === 'String' &&
+            memberExpr.property.name === 'valueOf'
+          ) {
+            return this.stringify(this.evaluate(expr.arguments[0], env));
           }
 
           // process.stdout.write(x) — print without a trailing newline.
@@ -1825,6 +1901,17 @@ export class Interpreter {
                 return obj.charAt(Number(args[0] ?? 0));
               case 'length':
                 return obj.length;
+              // AP CS A String methods
+              case 'indexOf':
+                return obj.indexOf(String(args[0]));
+              case 'equals':
+                return obj === args[0];
+              case 'compareTo': {
+                const other = String(args[0]);
+                return obj < other ? -1 : obj > other ? 1 : 0;
+              }
+              case 'split':
+                return obj.split(String(args[0]));
             }
           }
 
@@ -1874,18 +1961,32 @@ export class Interpreter {
                 return obj.splice(normalized, 1)[0];
               }
               case 'remove': {
-                const index = obj.indexOf(args[0]);
-                if (index < 0) throw new Error('list.remove(x): x not in list');
-                obj.splice(index, 1);
-                return null;
-              }
-              case 'sort':
-                if (obj.every((item) => typeof item === 'number')) {
-                  obj.sort((a, b) => (a as number) - (b as number));
-                } else {
-                  obj.sort((a, b) => this.stringify(a).localeCompare(this.stringify(b)));
+                // Java/AP ArrayList.remove(int index): remove by index.
+                const i = Number(args[0]);
+                const normalized = i < 0 ? obj.length + i : i;
+                if (normalized < 0 || normalized >= obj.length) {
+                  throw new Error('remove index out of range');
                 }
-                return null;
+                return obj.splice(normalized, 1)[0];
+              }
+              // Java/AP ArrayList methods (lists are represented as arrays).
+              case 'add': {
+                if (args.length >= 2) {
+                  obj.splice(Number(args[0]), 0, args[1]); // add(index, obj)
+                  return true;
+                }
+                obj.push(args[0]); // add(obj)
+                return true;
+              }
+              case 'get':
+                return obj[Number(args[0])];
+              case 'set': {
+                const i = Number(args[0]);
+                const old = obj[i];
+                obj[i] = args[1];
+                return old;
+              }
+              case 'size':
               case 'length':
                 return obj.length;
             }
@@ -2069,7 +2170,20 @@ export class Interpreter {
           return null;
         }
 
-        const callee = env.get(calleeName);
+        // Java `new ArrayList<>(...)` parses as a call to `ArrayList` — a list
+        // is a plain array (optionally seeded from an Arrays.asList argument).
+        if (calleeName === 'ArrayList' || calleeName === 'List') {
+          if (expr.arguments.length === 0) return [];
+          const init = this.evaluate(expr.arguments[0], env);
+          return Array.isArray(init) ? [...init] : [];
+        }
+
+        let callee: any;
+        try {
+          callee = env.get(calleeName);
+        } catch {
+          callee = undefined; // fall through to sibling-method / undefined handling
+        }
 
         // Class constructor call (e.g., Meow(10) in translated Python)
         if (callee instanceof JavaClass) {
@@ -2090,6 +2204,24 @@ export class Interpreter {
           }
           return null;
         }
+
+        // Bare call to a sibling method: e.g. a free function translated to a
+        // Main static method and called unqualified from within main().
+        let selfInstance: any;
+        try {
+          selfInstance = env.get('this');
+        } catch {
+          try {
+            selfInstance = env.get('self');
+          } catch {
+            /* none */
+          }
+        }
+        if (selfInstance instanceof JavaInstance && selfInstance.klass.getMethod(calleeName)) {
+          const args = expr.arguments.map((a) => this.evaluate(a, env));
+          return selfInstance.callMethod(calleeName, args, this, env);
+        }
+
         throw new Error(`Undefined function ${calleeName}`);
     }
   }
@@ -2100,12 +2232,9 @@ export class Interpreter {
     if (val === false) return 'false';
     if (val instanceof JavaInstance) return `${val.klass.name} instance`;
 
-    if (typeof val === 'number') {
-      const isFloatType = type === 'double' || type === 'float';
-      if (isFloatType && Number.isInteger(val)) {
-        return `${val}.0`;
-      }
-    }
+    // Integer-valued numbers print without a decimal, regardless of declared
+    // type, so a value formats the same whether a source calls it int or double
+    // (keeps cross-language output parity, e.g. untyped `6` vs Java `double` 6).
 
     if (Array.isArray(val)) {
       // Arrays use braces and comma separation
