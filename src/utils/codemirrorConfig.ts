@@ -4,7 +4,10 @@
  */
 
 import { Decoration, EditorView } from '@codemirror/view';
+import type { DecorationSet } from '@codemirror/view';
 import { StateField, StateEffect, RangeSetBuilder } from '@codemirror/state';
+import type { Transaction } from '@codemirror/state';
+import type { RefObject } from 'react';
 
 // CodeMirror decoration helper for line highlighting
 export const highlightLineDecoration = Decoration.line({
@@ -15,11 +18,11 @@ export const highlightLineDecoration = Decoration.line({
 
 export const highlightLinesEffect = StateEffect.define<number[]>();
 
-export const highlightedLinesField = StateField.define({
+export const highlightedLinesField = StateField.define<DecorationSet>({
   create() {
     return Decoration.none;
   },
-  update(decorations: any, tr: any) {
+  update(decorations: DecorationSet, tr: Transaction) {
     for (const effect of tr.effects) {
       if (effect.is(highlightLinesEffect)) {
         const ranges = effect.value;
@@ -36,14 +39,19 @@ export const highlightedLinesField = StateField.define({
     }
     return decorations.map(tr.changes);
   },
-  provide: (f: any) => EditorView.decorations.from(f),
+  provide: (f) => EditorView.decorations.from(f),
 });
 
 /**
  * Dispatch line highlighting effect to CodeMirror editor
  */
-export const dispatchLineHighlighting = (editorViewRef: any, lines: number[]) => {
-  if (!editorViewRef?.current) return;
+export const dispatchLineHighlighting = (
+  editorViewRef: RefObject<EditorView | null>,
+  lines: number[]
+) => {
+  // The ref can point at an unmounted editor (e.g. after switching the
+  // source pane to the Blocks view) — dispatching to it would throw.
+  if (!editorViewRef.current || !editorViewRef.current.dom.isConnected) return;
   editorViewRef.current.dispatch({
     effects: highlightLinesEffect.of(lines),
   });

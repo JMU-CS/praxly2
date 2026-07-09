@@ -93,9 +93,6 @@ export class PythonEmitter extends ASTVisitor {
     });
   }
 
-  /**
-   * Runs to python type.
-   */
   private toPythonType(typeName?: string): string | undefined {
     if (!typeName) return undefined;
 
@@ -147,9 +144,6 @@ export class PythonEmitter extends ASTVisitor {
     return mappedType;
   }
 
-  /**
-   * Runs format parameter.
-   */
   private formatParameter(param: any): string {
     const annotatedType = this.toPythonType(param.paramType);
     let output = annotatedType ? `${param.name}: ${annotatedType}` : param.name;

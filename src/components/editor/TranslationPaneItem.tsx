@@ -13,6 +13,7 @@ import type { Program } from '../../language/ast';
 import { JSONTree } from '../JSONTree';
 import { HighlightableCodeMirror } from '../HighlightableCodeMirror';
 import { MemDia } from './MemDia';
+import { BlocklyPaneLazy } from './BlocklyPaneLazy';
 import type { Panel } from './types';
 
 interface TranslationPaneItemProps {
@@ -21,6 +22,8 @@ interface TranslationPaneItemProps {
   draggedPanelId: string | null;
   dragOverPanelId: string | null;
   translationCode: string;
+  /** Editor text size in px (Settings → text size) — sizes Blockly text. */
+  fontSize: number;
   highlightedLines: number[];
   showMemDia: boolean;
   resizingMemDiaPaneId: string | null;
@@ -49,6 +52,7 @@ export function TranslationPaneItem({
   draggedPanelId,
   dragOverPanelId,
   translationCode,
+  fontSize,
   highlightedLines,
   showMemDia,
   resizingMemDiaPaneId,
@@ -139,6 +143,8 @@ export function TranslationPaneItem({
                   </div>
                 )}
               </div>
+            ) : panel.lang === 'blocks' ? (
+              <BlocklyPaneLazy value={translationCode} readOnly fontSize={fontSize} />
             ) : (
               <HighlightableCodeMirror
                 value={translationCode}

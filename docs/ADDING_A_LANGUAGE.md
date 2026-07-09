@@ -1434,3 +1434,18 @@ Adding a language to Praxly involves:
 The hard part is the Lexer and Parser. The Emitter is usually straightforward. Take your time getting the grammar right, and everything else follows naturally.
 
 Good luck! 🚀
+
+---
+
+## Non-Text Languages: the Blocks View
+
+The Blocks language (`src/language/blocks/`) is the one language that isn't text. Its "source code" is a **Blockly workspace serialization (JSON string)**, which flows through the app in place of source text:
+
+- `toAst.ts` (`blocksToProgram`) plays the role of lexer + parser: workspace JSON → Universal AST.
+- `fromAst.ts` (`programToBlocksJson`) plays the role of emitter: Universal AST → workspace JSON. It is dispatched directly from `Translator.translateWithMap` (early return) because it doesn't extend the line-oriented `ASTVisitor`.
+- `blockDefs.ts` defines the custom `praxly_*` blocks, the category toolbox, and the dark theme.
+- The UI renders it with `src/components/editor/BlocklyPane.tsx` (lazy-loaded via `BlocklyPaneLazy.tsx` to keep Blockly out of the main bundle).
+
+Blocks deliberately exposes **only constructs supported by every text language** (variables, expressions, if/else, while / repeat-until / counted loops, print/input, functions). Programs using anything else fail to translate with a descriptive error, which the pane shows in place of the workspace.
+
+Note: Blockly validates connection type checks when _loading_ JSON, so `fromAst.ts` must emit type-correct connections (e.g. string concatenation uses `text_join`, never `math_arithmetic`). `tests/blocks.test.ts` round-trips programs through a headless Blockly workspace to enforce this.

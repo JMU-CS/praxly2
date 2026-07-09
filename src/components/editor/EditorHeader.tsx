@@ -11,9 +11,11 @@ import {
   Check,
   Settings,
   Type,
+  UserCircle,
 } from 'lucide-react';
 import type { ExampleProgram } from '../../utils/sampleCodes';
 import { EXAMPLE_CATEGORIES } from '../../utils/sampleCodes';
+import keycloak from '../../api/keycloak';
 
 /** 1–5 integer controlling editor-wide font size (maps to 12–20 px). */
 export type TextSize = number;
@@ -22,7 +24,6 @@ interface EditorHeaderProps {
   embedCopied: boolean;
   showExamplesMenu: boolean;
   showSettingsMenu: boolean;
-  showAiSidePanel: boolean;
   showMemDia: boolean;
   isDebugging: boolean;
   isDebugComplete: boolean;
@@ -33,7 +34,6 @@ interface EditorHeaderProps {
   onLoadExample: (exampleId: string) => void;
   onToggleExamplesMenu: () => void;
   onToggleSettingsMenu: () => void;
-  onToggleAiPanel: () => void;
   onToggleMemDia: () => void;
   onDebugStart: () => void;
   onRun: () => void;
@@ -49,7 +49,6 @@ export function EditorHeader({
   embedCopied,
   showExamplesMenu,
   showSettingsMenu,
-  showAiSidePanel,
   showMemDia,
   isDebugging,
   isDebugComplete,
@@ -60,7 +59,6 @@ export function EditorHeader({
   onLoadExample,
   onToggleExamplesMenu,
   onToggleSettingsMenu,
-  onToggleAiPanel,
   onToggleMemDia,
   onDebugStart,
   onRun,
@@ -195,21 +193,6 @@ export function EditorHeader({
               </div>
               <div className="p-2">
                 <button
-                  onClick={onToggleAiPanel}
-                  role="switch"
-                  aria-checked={showAiSidePanel}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-left hover:bg-slate-800 transition-colors ${focusRing}`}
-                >
-                  <span className="text-sm text-slate-200">AI Side Panel</span>
-                  <span
-                    className={`text-[11px] font-bold uppercase tracking-wide ${showAiSidePanel ? 'text-emerald-400' : 'text-slate-500'}`}
-                    aria-hidden="true"
-                  >
-                    {showAiSidePanel ? 'On' : 'Off'}
-                  </span>
-                </button>
-
-                <button
                   onClick={onToggleMemDia}
                   role="switch"
                   aria-checked={showMemDia}
@@ -263,6 +246,27 @@ export function EditorHeader({
             </div>
           )}
         </div>
+
+        {/* Account — Google-style account manager (sign-in required) */}
+        {keycloak.authenticated ? (
+          <Link
+            to="/v2/account"
+            aria-label="Manage your account"
+            title="Manage your account"
+            className={`p-1.5 rounded-full text-slate-300 hover:text-white hover:bg-slate-800 transition-colors ${focusRing}`}
+          >
+            <UserCircle size={22} aria-hidden="true" />
+          </Link>
+        ) : (
+          <button
+            onClick={() => keycloak.login()}
+            aria-label="Sign in"
+            title="Sign in"
+            className={`p-1.5 rounded-full text-slate-500 hover:text-white hover:bg-slate-800 transition-colors ${focusRing}`}
+          >
+            <UserCircle size={22} aria-hidden="true" />
+          </button>
+        )}
 
         {/* Debug / Run controls */}
         {!isDebugging ? (

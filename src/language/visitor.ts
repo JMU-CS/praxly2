@@ -14,7 +14,7 @@ import type {
   Constructor,
 } from './ast';
 
-export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | 'javascript';
+export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | 'javascript' | 'blocks';
 
 export interface TranslationContext {
   symbolTable: SymbolTable;
@@ -30,30 +30,18 @@ export type SourceMap = Map<string, number>; // AST Node ID -> Line Number
 export class SymbolTable {
   private scopes: Map<string, string>[] = [new Map()];
 
-  /**
-   * Runs enter scope.
-   */
   enterScope() {
     this.scopes.push(new Map());
   }
 
-  /**
-   * Runs exit scope.
-   */
   exitScope() {
     this.scopes.pop();
   }
 
-  /**
-   * Runs set.
-   */
   set(name: string, type: string) {
     this.scopes[this.scopes.length - 1].set(name, type);
   }
 
-  /**
-   * Runs get.
-   */
   get(name: string): string | undefined {
     for (let i = this.scopes.length - 1; i >= 0; i--) {
       if (this.scopes[i].has(name)) {
@@ -63,9 +51,6 @@ export class SymbolTable {
     return undefined;
   }
 
-  /**
-   * Runs has in current scope.
-   */
   hasInCurrentScope(name: string): boolean {
     return this.scopes[this.scopes.length - 1].has(name);
   }
@@ -108,16 +93,10 @@ export abstract class ASTVisitor {
     this.context = context;
   }
 
-  /**
-   * Runs get generated code.
-   */
   getGeneratedCode(): string {
     return this.output.join('\n');
   }
 
-  /**
-   * Runs get source map.
-   */
   getSourceMap(): SourceMap {
     return this.sourceMap;
   }
@@ -133,15 +112,9 @@ export abstract class ASTVisitor {
     }
   }
 
-  /**
-   * Runs indent.
-   */
   protected indent() {
     this.indentLevel++;
   }
-  /**
-   * Runs dedent.
-   */
   protected dedent() {
     this.indentLevel--;
   }
@@ -292,14 +265,8 @@ export abstract class ASTVisitor {
     }
   }
 
-  /**
-   * Runs generate expression.
-   */
   abstract generateExpression(expr: Expression, parentPrecedence: number): string;
 
-  /**
-   * Runs infer type.
-   */
   protected inferType(expr: Expression): string {
     switch (expr.type) {
       case 'Literal':

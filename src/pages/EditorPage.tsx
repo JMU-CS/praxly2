@@ -1,9 +1,12 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { DragEvent, MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
+import type { EditorView, ViewUpdate } from '@codemirror/view';
 
 import type { Program } from '../language/ast';
-import type { SupportedLang } from '../components/LanguageSelector';
+import { LANG_LABELS, type SupportedLang } from '../components/LanguageSelector';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { OutputPanel } from '../components/OutputPanel';
 import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
 import { computeMultiplePanelHighlighting } from '../utils/debugHandlers';
@@ -12,6 +15,15 @@ import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import { EXAMPLE_PROGRAMS, getExampleById } from '../utils/sampleCodes';
 import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
+import { useClickOutside } from '../hooks/useClickOutside';
+import { randomId } from '../utils/id';
+import {
+  inSameColumn,
+  removePanelById,
+  reorderPanel,
+  swapStacked,
+  toggleStack,
+} from '../utils/panelLayout';
 import { Debugger } from '../language/debugger';
 
 import { EditorHeader } from '../components/editor/EditorHeader';
@@ -20,6 +32,7 @@ import { SourcePane } from '../components/editor/SourcePane';
 import { TranslationPaneItem } from '../components/editor/TranslationPaneItem';
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
 import { AiSidePanel } from '../components/editor/AiSidePanel';
+import type { LlmPanel } from '../api/llm';
 import type { Panel } from '../components/editor/types';
 
 const MIN_SOURCE_WIDTH = 280;
@@ -32,21 +45,9 @@ const MAX_AI_PANEL_WIDTH = 560;
 const ADD_STRIP_WIDTH = 64;
 const MOBILE_BREAKPOINT = 1024;
 
-/**
- * Runs clamp.
- */
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
-/**
- * Runs create panel id.
- */
-const createPanelId = (): string =>
-  window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(7);
-
-/**
- * Runs editor page.
- */
 export default function EditorPage() {
   const [searchParams] = useSearchParams();
   const [code, setCode] = useState('');
@@ -70,6 +71,14 @@ export default function EditorPage() {
   const [memDiaStates, setMemDiaStates] = useState<Map<string, 'open' | 'closed'>>(new Map());
   const [aiPanelWidth, setAiPanelWidth] = useState(320);
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false);
+  // Language the user asked to switch to when the program couldn't be
+  // translated — non-null while the "start fresh?" dialog is open.
+  const [pendingLangSwitch, setPendingLangSwitch] = useState<SupportedLang | null>(null);
+  // Highlight-to-chat: text selected in the source editor + where to float the button.
+  const [aiSelection, setAiSelection] = useState('');
+  const [aiSelectionCoords, setAiSelectionCoords] = useState<{ top: number; left: number } | null>(
+    null
+  );
   const [resizingMemDiaPaneId, setResizingMemDiaPaneId] = useState<string | null>(null);
   const [memDiaHeights, setMemDiaHeights] = useState<Record<string, number>>({});
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
@@ -81,7 +90,8 @@ export default function EditorPage() {
 
   const [waitingForNormalInput, setWaitingForNormalInput] = useState(false);
   const [normalModeInputPrompt, setNormalModeInputPrompt] = useState<string>('');
-  const [currentInterpreter, setCurrentInterpreter] = useState<any>(null);
+  // The Debugger instance driving a non-debug run that paused for input().
+  const [currentInterpreter, setCurrentInterpreter] = useState<Debugger | null>(null);
 
   const { parseCode, getTranslation } = useCodeParsing();
   const {
@@ -119,7 +129,7 @@ export default function EditorPage() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
-  const editorViewRef = useRef<any>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
   const resizeDragRef = useRef<ResizeDragSnapshot | null>(null);
   const memDiaResizeRef = useRef<{ paneId: string; startY: number; startHeight: number } | null>(
     null
@@ -128,9 +138,6 @@ export default function EditorPage() {
 
   const isMobile = viewportWidth < MOBILE_BREAKPOINT;
 
-  /**
-   * Runs get mem dia height.
-   */
   const getMemDiaHeight = (paneId: string) => memDiaHeights[paneId] ?? 160;
 
   const getDefaultPanelWidth = useCallback(() => {
@@ -156,9 +163,6 @@ export default function EditorPage() {
     );
   }, [aiPanelWidth, showAiSidePanel, viewportWidth]);
 
-  /**
-   * Handles mem dia resize mouse down.
-   */
   const onMemDiaResizeMouseDown = (e: MouseEvent, paneId: string) => {
     e.preventDefault();
     memDiaResizeRef.current = {
@@ -169,75 +173,61 @@ export default function EditorPage() {
     setResizingMemDiaPaneId(paneId);
   };
 
-  /**
-   * Handles source language change.
-   */
-  const handleSourceLanguageChange = (lang: SupportedLang) => {
-    if (lang === sourceLang) {
-      setShowSourceLangDropdown(false);
-      return;
-    }
-
-    if (!code.trim()) {
+  /** Switches the source pane to `lang` with the given code and a clean slate. */
+  const applySourceLanguage = useCallback(
+    (lang: SupportedLang, newCode: string) => {
       setSourceLang(lang);
-      setPanels((prev) => prev.filter((panel) => panel.lang !== lang));
-      setIsDebugging(false);
-      setIsDebugComplete(false);
-      setHighlightedSourceLines([]);
-      setPanelHighlightedLines(new Map());
-      setShowSourceLangDropdown(false);
-      return;
-    }
-
-    try {
-      const sourceForTranslation = sourceLang === 'ast' ? 'python' : sourceLang;
-      const parsed = parseCode(sourceForTranslation, code);
-      const translated = getTranslation(parsed, lang).code;
-      let translatedCodeIssue: string | null = null;
-
-      if (!translated || translated.trim().length === 0) {
-        setError(`Translation to ${lang} produced empty code. Keeping current source.`);
-        setShowSourceLangDropdown(false);
-        return;
-      }
-
-      if (
-        translated.startsWith('// Translation to') ||
-        translated.startsWith('// Valid source code required')
-      ) {
-        translatedCodeIssue = `Unable to verify translated ${lang} source.`;
-      } else {
-        try {
-          parseCode(lang, translated);
-        } catch (validationError: any) {
-          translatedCodeIssue = validationError?.message || 'The translated code may not work.';
-        }
-      }
-
-      if (translatedCodeIssue) {
-        const shouldContinue = window.confirm(
-          `The translated code may not work. Continue?\n\n${translatedCodeIssue}`
-        );
-
-        if (!shouldContinue) {
-          setShowSourceLangDropdown(false);
-          return;
-        }
-      }
-
-      setSourceLang(lang);
-      setCode(translated);
+      setCode(newCode);
       setPanels((prev) => prev.filter((panel) => panel.lang !== lang));
       setIsDebugging(false);
       setIsDebugComplete(false);
       setHighlightedSourceLines([]);
       setPanelHighlightedLines(new Map());
       setError(null);
-    } catch (e: any) {
-      setError(e.message ?? `Unable to translate current ${sourceLang} source into ${lang}.`);
-    }
+    },
+    [setIsDebugging, setIsDebugComplete, setHighlightedSourceLines]
+  );
 
+  const handleSourceLanguageChange = (lang: SupportedLang) => {
     setShowSourceLangDropdown(false);
+    if (lang === sourceLang) return;
+
+    try {
+      const sourceForTranslation = sourceLang === 'ast' ? 'python' : sourceLang;
+      // An empty program — blank text, or e.g. a Blocks workspace whose JSON
+      // holds no blocks — has nothing to translate; switch straight away.
+      const parsed = code.trim() ? parseCode(sourceForTranslation, code) : null;
+      if (!parsed || parsed.body.length === 0) {
+        applySourceLanguage(lang, '');
+        return;
+      }
+
+      const translated = getTranslation(parsed, lang).code;
+      let translationFailed =
+        !translated?.trim() ||
+        translated.startsWith('// Translation to') ||
+        translated.startsWith('// Valid source code required');
+
+      if (!translationFailed) {
+        try {
+          parseCode(lang, translated);
+        } catch {
+          translationFailed = true;
+        }
+      }
+
+      if (translationFailed) {
+        // Can't produce a working translation — ask before discarding the
+        // program (the ConfirmModal rendered below handles the answer).
+        setPendingLangSwitch(lang);
+        return;
+      }
+
+      applySourceLanguage(lang, translated);
+    } catch {
+      // The current source doesn't parse, so it can't be translated either.
+      setPendingLangSwitch(lang);
+    }
   };
 
   useEffect(() => {
@@ -255,9 +245,15 @@ export default function EditorPage() {
 
       setPanels((prev) => {
         const next = prev.filter((panel) => panel.lang !== decoded.lang);
-        const isValidTarget = ['python', 'java', 'csp', 'praxis', 'ast'].includes(
-          targetLangParam ?? ''
-        );
+        const isValidTarget = [
+          'python',
+          'java',
+          'csp',
+          'praxis',
+          'javascript',
+          'blocks',
+          'ast',
+        ].includes(targetLangParam ?? '');
 
         if (!isValidTarget || !targetLangParam || targetLangParam === decoded.lang) {
           return next;
@@ -275,7 +271,7 @@ export default function EditorPage() {
         return [
           ...next,
           {
-            id: createPanelId(),
+            id: randomId(),
             lang: targetLangParam as SupportedLang,
             width: defaultPanelWidth,
             sourceMap: new Map(),
@@ -288,9 +284,6 @@ export default function EditorPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    /**
-     * Handles resize.
-     */
     const handleResize = () => {
       setViewportWidth(window.innerWidth);
     };
@@ -361,8 +354,27 @@ export default function EditorPage() {
     });
   }, [getContentAvailableWidth, panels]);
 
-  const handleCreateEditor = useCallback((view: any) => {
+  const handleCreateEditor = useCallback((view: EditorView) => {
     editorViewRef.current = view;
+  }, []);
+
+  // Track the current source-editor selection so the user can chat about it.
+  const handleEditorUpdate = useCallback((update: ViewUpdate) => {
+    if (!update.selectionSet && !update.docChanged && !update.geometryChanged) return;
+    const sel = update.state.selection.main;
+    if (sel.empty) {
+      setAiSelection('');
+      setAiSelectionCoords(null);
+      return;
+    }
+    setAiSelection(update.state.sliceDoc(sel.from, sel.to));
+    const coords = update.view.coordsAtPos(sel.to);
+    setAiSelectionCoords(coords ? { top: coords.bottom + 4, left: coords.left } : null);
+  }, []);
+
+  const clearAiSelection = useCallback(() => {
+    setAiSelection('');
+    setAiSelectionCoords(null);
   }, []);
 
   useEffect(() => {
@@ -393,9 +405,38 @@ export default function EditorPage() {
     );
   }, [ast, getTranslation]);
 
-  /**
-   * Handles run.
-   */
+  // Gather every open code panel (source + translations) so the AI panel can
+  // send all of them as context, not just the source.
+  const aiPanelContext = useMemo<LlmPanel[]>(() => {
+    const result: LlmPanel[] = [];
+    if (code.trim()) {
+      if (sourceLang === 'blocks') {
+        // Blocks source is Blockly workspace JSON — meaningless to the LLM.
+        // Send the equivalent Praxis pseudocode string instead.
+        const readable = ast ? getTranslation(ast, 'praxis').code : '';
+        if (readable.trim()) result.push({ language: 'praxis', code: readable });
+      } else {
+        result.push({ language: sourceLang, code });
+      }
+    }
+    if (ast) {
+      for (const panel of panels) {
+        // A blocks panel shows the same program the source already covers,
+        // and its JSON would only waste the model's context.
+        if (panel.lang === 'blocks') continue;
+        try {
+          const translated = getTranslation(ast, panel.lang).code;
+          if (translated?.trim()) {
+            result.push({ language: panel.lang, code: translated });
+          }
+        } catch {
+          // Skip panels that can't currently be translated.
+        }
+      }
+    }
+    return result;
+  }, [code, sourceLang, ast, panels, getTranslation]);
+
   const handleRun = () => {
     setError(null);
     setOutput([]);
@@ -437,9 +478,6 @@ export default function EditorPage() {
     }
   };
 
-  /**
-   * Handles debug start.
-   */
   const handleDebugStart = () => {
     setError(null);
     setOutput([]);
@@ -460,9 +498,6 @@ export default function EditorPage() {
     }
   };
 
-  /**
-   * Handles debug step.
-   */
   const handleDebugStep = () => {
     if (!ast) return;
 
@@ -493,9 +528,6 @@ export default function EditorPage() {
     }
   };
 
-  /**
-   * Handles debug stop.
-   */
   const handleDebugStop = () => {
     stopDebugger();
     setIsDebugging(false);
@@ -504,9 +536,6 @@ export default function EditorPage() {
     setOutput((prev) => [...prev, 'Debugger stopped.']);
   };
 
-  /**
-   * Handles submit input.
-   */
   const handleSubmitInput = (input: string) => {
     provideInput(input);
 
@@ -534,18 +563,13 @@ export default function EditorPage() {
     }, 0);
   };
 
-  /**
-   * Handles normal mode input submit.
-   */
   const handleNormalModeInputSubmit = (input: string) => {
     if (!currentInterpreter) return;
 
     try {
-      if (currentInterpreter.provideInput) {
-        currentInterpreter.provideInput(input);
-      }
+      currentInterpreter.provideInput(input);
 
-      let steps = (currentInterpreter as any).step?.();
+      let steps = currentInterpreter.step();
       let cumulativeOutput: string[] = steps?.output || [];
 
       while (steps && !steps.isComplete) {
@@ -558,7 +582,7 @@ export default function EditorPage() {
 
         cumulativeOutput = [...(steps?.output || [])];
         setOutput(cumulativeOutput);
-        steps = (currentInterpreter as any).step?.();
+        steps = currentInterpreter.step();
       }
 
       if (steps) {
@@ -578,9 +602,6 @@ export default function EditorPage() {
     }
   };
 
-  /**
-   * Handles clear.
-   */
   const handleClear = () => {
     setCode('');
     setAst(null);
@@ -588,9 +609,6 @@ export default function EditorPage() {
     setError(null);
   };
 
-  /**
-   * Handles load example.
-   */
   const handleLoadExample = (exampleId: string) => {
     const example = getExampleById(exampleId);
     if (!example) {
@@ -613,12 +631,24 @@ export default function EditorPage() {
     setShowExamplesMenu(false);
   };
 
-  /**
-   * Handles toggle ai panel.
-   */
   const handleToggleAiPanel = () => {
     setShowAiSidePanel((prev) => !prev);
   };
+
+  // Shared by both AI-panel resize handles (the panel's left edge and the
+  // left edge of the add-panel strip): they move in lockstep because the
+  // strip has a fixed width, so one drag math works for both.
+  const handleStartAiResize = useCallback(
+    (e: MouseEvent) => {
+      e.preventDefault();
+      aiResizeRef.current = {
+        startX: e.clientX,
+        startWidth: aiPanelWidth,
+      };
+      setIsResizingAiPanel(true);
+    },
+    [aiPanelWidth]
+  );
 
   const handleTextSizeChange = (size: TextSize) => {
     setTextSize(size);
@@ -639,9 +669,6 @@ export default function EditorPage() {
     setOutputState((prev) => (prev === 'open' ? 'closed' : 'open'));
   };
 
-  /**
-   * Handles share.
-   */
   const handleShare = async () => {
     const encoded = encodeEmbed({
       code,
@@ -656,18 +683,12 @@ export default function EditorPage() {
     }
   };
 
-  /**
-   * Runs get extensions.
-   */
   const getExtensions = (lang: SupportedLang) => {
     const baseExtensions = getCodeMirrorExtensions(lang);
     baseExtensions.push(highlightedLinesField);
     return baseExtensions;
   };
 
-  /**
-   * Runs add panel.
-   */
   const addPanel = (lang: SupportedLang) => {
     setPanels((prev) => {
       if (lang === sourceLang || prev.some((panel) => panel.lang === lang)) {
@@ -679,7 +700,7 @@ export default function EditorPage() {
       return [
         ...prev,
         {
-          id: createPanelId(),
+          id: randomId(),
           lang,
           width: getDefaultPanelWidth(),
           sourceMap: translation.sourceMap,
@@ -688,15 +709,8 @@ export default function EditorPage() {
     });
   };
 
-  /**
-   * Runs remove panel.
-   */
   const removePanel = (id: string) => {
-    setPanels((prev) => {
-      const filtered = prev.filter((panel) => panel.id !== id);
-      // Unstack any panel that was stacked under the removed panel
-      return filtered.map((p) => (p.stackedUnder === id ? { ...p, stackedUnder: undefined } : p));
-    });
+    setPanels((prev) => removePanelById(prev, id));
   };
 
   /**
@@ -712,99 +726,15 @@ export default function EditorPage() {
   };
 
   const togglePanelStack = (id: string) => {
-    setPanels((prev) => {
-      const panel = prev.find((p) => p.id === id);
-      if (!panel) return prev;
-
-      if (panel.stackedUnder) {
-        // Unstack: move back to standalone
-        return prev.map((p) => (p.id === id ? { ...p, stackedUnder: undefined } : p));
-      }
-
-      // Stack under the nearest root panel to the left
-      const rootPanels = prev.filter((p) => !p.stackedUnder && p.id !== id);
-      if (rootPanels.length === 0) return prev;
-
-      // Find the root panel immediately to the left of this panel in order
-      const panelIndex = prev.indexOf(panel);
-      let targetRoot: Panel | undefined;
-      for (let i = panelIndex - 1; i >= 0; i--) {
-        if (!prev[i].stackedUnder) {
-          targetRoot = prev[i];
-          break;
-        }
-      }
-      // Fallback to last root panel
-      if (!targetRoot) targetRoot = rootPanels[rootPanels.length - 1];
-
-      // If targetRoot already has a stacked panel, can't stack again (only 2 per column)
-      const alreadyStacked = prev.some((p) => p.stackedUnder === targetRoot!.id);
-      if (alreadyStacked) return prev;
-
-      return prev.map((p) => (p.id === id ? { ...p, stackedUnder: targetRoot!.id } : p));
-    });
+    setPanels((prev) => toggleStack(prev, id));
   };
 
-  /**
-   * Swaps which panel is root and which is stacked within the same column.
-   */
-  const swapStackedPanels = (sourceId: string, targetId: string) => {
-    setPanels((prev) => {
-      const source = prev.find((p) => p.id === sourceId);
-      const target = prev.find((p) => p.id === targetId);
-      if (!source || !target) return prev;
-
-      // source is stacked under target → source becomes root, target stacks under source
-      if (source.stackedUnder === targetId) {
-        return prev.map((p) => {
-          if (p.id === sourceId) return { ...p, stackedUnder: undefined };
-          if (p.id === targetId) return { ...p, stackedUnder: sourceId };
-          return p;
-        });
-      }
-      // target is stacked under source → target becomes root, source stacks under target
-      if (target.stackedUnder === sourceId) {
-        return prev.map((p) => {
-          if (p.id === targetId) return { ...p, stackedUnder: undefined };
-          if (p.id === sourceId) return { ...p, stackedUnder: targetId };
-          return p;
-        });
-      }
-      return prev;
-    });
-  };
-
-  /**
-   * Runs reorder panels.
-   */
-  const reorderPanels = (sourceId: string, targetId: string) => {
-    if (sourceId === targetId) return;
-
-    setPanels((prev) => {
-      const sourceIndex = prev.findIndex((panel) => panel.id === sourceId);
-      const targetIndex = prev.findIndex((panel) => panel.id === targetId);
-      if (sourceIndex === -1 || targetIndex === -1) return prev;
-
-      const reordered = [...prev];
-      const [moved] = reordered.splice(sourceIndex, 1);
-      // Dragging always unstacks — the panel becomes a new standalone column at its drop position
-      reordered.splice(targetIndex, 0, { ...moved, stackedUnder: undefined });
-      return reordered;
-    });
-  };
-
-  /**
-   * Handles panel drag start.
-   */
   const handlePanelDragStart = (e: DragEvent<HTMLDivElement>, panelId: string) => {
     setDraggedPanelId(panelId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', panelId);
   };
 
-  /**
-   * Handles panel drag over.
-   */
   const handlePanelDragOver = (e: DragEvent<HTMLDivElement>, panelId: string) => {
     if (!draggedPanelId || draggedPanelId === panelId) return;
     e.preventDefault();
@@ -814,9 +744,6 @@ export default function EditorPage() {
     }
   };
 
-  /**
-   * Handles panel drop.
-   */
   const handlePanelDrop = (e: DragEvent<HTMLDivElement>, panelId: string) => {
     e.preventDefault();
     const sourceId = draggedPanelId || e.dataTransfer.getData('text/plain');
@@ -827,32 +754,21 @@ export default function EditorPage() {
       return;
     }
 
-    const source = panels.find((p) => p.id === sourceId);
-    const target = panels.find((p) => p.id === panelId);
-    const inSameColumn =
-      source && target && (source.stackedUnder === panelId || target.stackedUnder === sourceId);
-
-    if (inSameColumn) {
-      swapStackedPanels(sourceId, panelId);
-    } else {
-      reorderPanels(sourceId, panelId);
-    }
+    setPanels((prev) =>
+      inSameColumn(prev, sourceId, panelId)
+        ? swapStacked(prev, sourceId, panelId)
+        : reorderPanel(prev, sourceId, panelId)
+    );
 
     setDragOverPanelId(null);
     setDraggedPanelId(null);
   };
 
-  /**
-   * Handles panel drag end.
-   */
   const handlePanelDragEnd = () => {
     setDraggedPanelId(null);
     setDragOverPanelId(null);
   };
 
-  /**
-   * Handles mouse down.
-   */
   const onMouseDown = (e: MouseEvent, index: number | 'editor' | 'output') => {
     e.preventDefault();
 
@@ -877,9 +793,6 @@ export default function EditorPage() {
   };
 
   useEffect(() => {
-    /**
-     * Handles mouse move.
-     */
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       const drag = resizeDragRef.current;
       if (!drag || resizingIdx === null) return;
@@ -923,9 +836,6 @@ export default function EditorPage() {
       }
     };
 
-    /**
-     * Handles mouse up.
-     */
     const handleMouseUp = () => {
       setResizingIdx(null);
       resizeDragRef.current = null;
@@ -943,9 +853,6 @@ export default function EditorPage() {
   }, [getMaxSourceWidth, resizingIdx]);
 
   useEffect(() => {
-    /**
-     * Handles mouse move.
-     */
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       const drag = memDiaResizeRef.current;
       if (!drag) return;
@@ -973,9 +880,6 @@ export default function EditorPage() {
       }
     };
 
-    /**
-     * Handles mouse up.
-     */
     const handleMouseUp = () => {
       memDiaResizeRef.current = null;
       setResizingMemDiaPaneId(null);
@@ -993,9 +897,6 @@ export default function EditorPage() {
   }, [resizingMemDiaPaneId]);
 
   useEffect(() => {
-    /**
-     * Handles mouse move.
-     */
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       const drag = aiResizeRef.current;
       if (!isResizingAiPanel || !drag) return;
@@ -1010,9 +911,6 @@ export default function EditorPage() {
       setAiPanelWidth(nextWidth);
     };
 
-    /**
-     * Handles mouse up.
-     */
     const handleMouseUp = () => {
       aiResizeRef.current = null;
       setIsResizingAiPanel(false);
@@ -1029,115 +927,60 @@ export default function EditorPage() {
     };
   }, [isResizingAiPanel, viewportWidth]);
 
-  useEffect(() => {
-    /**
-     * Handles click outside.
-     */
-    const handleClickOutside = (e: globalThis.MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.source-lang-dropdown')) {
-        setShowSourceLangDropdown(false);
-      }
-    };
+  // Close each dropdown when the user clicks anywhere outside it.
+  useClickOutside(showSourceLangDropdown, '.source-lang-dropdown', () =>
+    setShowSourceLangDropdown(false)
+  );
+  useClickOutside(showSettingsMenu, '.settings-dropdown', () => setShowSettingsMenu(false));
+  useClickOutside(showExamplesMenu, '.examples-dropdown', () => setShowExamplesMenu(false));
+  useClickOutside(showAddMenu, '.add-panel-dropdown', () => setShowAddMenu(false));
 
-    if (showSourceLangDropdown) {
-      document.addEventListener('click', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [showSourceLangDropdown]);
-
-  useEffect(() => {
-    /**
-     * Handles click outside.
-     */
-    const handleClickOutside = (e: globalThis.MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.settings-dropdown')) {
-        setShowSettingsMenu(false);
-      }
-    };
-
-    if (showSettingsMenu) {
-      document.addEventListener('click', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [showSettingsMenu]);
+  // F5/F10 shortcuts. The handlers close over fresh state each render, so we
+  // read them through a ref — the listener itself is registered only once.
+  const keyActionsRef = useRef({
+    handleRun,
+    handleDebugStart,
+    handleDebugStep,
+    handleDebugStop,
+    isDebugging,
+    isDebugComplete,
+  });
+  keyActionsRef.current = {
+    handleRun,
+    handleDebugStart,
+    handleDebugStep,
+    handleDebugStop,
+    isDebugging,
+    isDebugComplete,
+  };
 
   useEffect(() => {
-    /**
-     * Handles click outside.
-     */
-    const handleClickOutside = (e: globalThis.MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.examples-dropdown')) {
-        setShowExamplesMenu(false);
-      }
-    };
-
-    if (showExamplesMenu) {
-      document.addEventListener('click', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [showExamplesMenu]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: globalThis.MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.add-panel-dropdown')) {
-        setShowAddMenu(false);
-      }
-    };
-
-    if (showAddMenu) {
-      document.addEventListener('click', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [showAddMenu]);
-
-  useEffect(() => {
-    const actionsRef = {
-      handleRun,
-      handleDebugStart,
-      handleDebugStep,
-      handleDebugStop,
-      isDebugging,
-      isDebugComplete,
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
+      const actions = keyActionsRef.current;
       if (e.key === 'F5') {
         e.preventDefault();
         if (e.shiftKey) {
-          if (actionsRef.isDebugging) actionsRef.handleDebugStop();
-          else actionsRef.handleDebugStart();
+          if (actions.isDebugging) actions.handleDebugStop();
+          else actions.handleDebugStart();
         } else {
-          if (!actionsRef.isDebugging) actionsRef.handleRun();
+          if (!actions.isDebugging) actions.handleRun();
         }
-      } else if (e.key === 'F10' && actionsRef.isDebugging && !actionsRef.isDebugComplete) {
+      } else if (e.key === 'F10' && actions.isDebugging && !actions.isDebugComplete) {
         e.preventDefault();
-        actionsRef.handleDebugStep();
+        actions.handleDebugStep();
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isDebugging, isDebugComplete, handleRun, handleDebugStart, handleDebugStep, handleDebugStop]);
+  }, []);
 
   const sourcePaneWidth = panels.length === 0 ? getContentAvailableWidth() : editorWidth;
 
-  const fontSize = `${10 + textSize * 2}px`;
+  // Settings → text size, in px. CodeMirror reads it via the CSS variable;
+  // Blockly panes take the numeric value to re-theme their SVG text.
+  const fontSizePx = 10 + textSize * 2;
+  const fontSize = `${fontSizePx}px`;
 
   return (
     <div
@@ -1156,7 +999,6 @@ export default function EditorPage() {
         embedCopied={embedCopied}
         showExamplesMenu={showExamplesMenu}
         showSettingsMenu={showSettingsMenu}
-        showAiSidePanel={showAiSidePanel}
         showMemDia={showMemDia}
         isDebugging={isDebugging}
         isDebugComplete={isDebugComplete}
@@ -1173,7 +1015,6 @@ export default function EditorPage() {
           setShowSettingsMenu((prev) => !prev);
           setShowExamplesMenu(false);
         }}
-        onToggleAiPanel={handleToggleAiPanel}
         onToggleMemDia={() => {
           setShowMemDia((prev) => {
             if (!prev) setMemDiaStates(new Map()); // Reset all closed panes when enabling
@@ -1202,6 +1043,7 @@ export default function EditorPage() {
                 currentVariables={currentVariables}
                 editorRef={editorRef}
                 extensions={getExtensions(sourceLang === 'ast' ? 'python' : sourceLang)}
+                fontSize={fontSizePx}
                 memDiaState={getMemDiaState('source')}
                 onToggleMemDiaCollapse={() => cycleMemDiaState('source')}
                 onToggleSourceLangDropdown={() => setShowSourceLangDropdown((prev) => !prev)}
@@ -1214,6 +1056,7 @@ export default function EditorPage() {
                   }
                 }}
                 onCreateEditor={handleCreateEditor}
+                onEditorUpdate={handleEditorUpdate}
                 onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
                 onResizeEditor={(e) => {
                   if (panels.length === 0) {
@@ -1266,6 +1109,7 @@ export default function EditorPage() {
                             draggedPanelId={draggedPanelId}
                             dragOverPanelId={dragOverPanelId}
                             translationCode={getTranslation(ast, rootPanel.lang).code}
+                            fontSize={fontSizePx}
                             highlightedLines={panelHighlightedLines.get(rootPanel.id) || []}
                             showMemDia={showMemDia}
                             resizingMemDiaPaneId={resizingMemDiaPaneId}
@@ -1297,6 +1141,7 @@ export default function EditorPage() {
                               draggedPanelId={draggedPanelId}
                               dragOverPanelId={dragOverPanelId}
                               translationCode={getTranslation(ast, stackedPanel.lang).code}
+                              fontSize={fontSizePx}
                               highlightedLines={panelHighlightedLines.get(stackedPanel.id) || []}
                               showMemDia={showMemDia}
                               resizingMemDiaPaneId={resizingMemDiaPaneId}
@@ -1351,24 +1196,58 @@ export default function EditorPage() {
           showAddMenu={showAddMenu}
           sourceLang={sourceLang}
           panels={panels}
+          showAiSidePanel={showAiSidePanel}
+          aiResizeActive={isResizingAiPanel}
           onToggleMenu={() => setShowAddMenu((prev) => !prev)}
           onTogglePanel={togglePanel}
+          onToggleAiPanel={handleToggleAiPanel}
+          onStartAiResize={handleStartAiResize}
         />
 
         {showAiSidePanel && (
           <AiSidePanel
             width={aiPanelWidth}
             isResizing={isResizingAiPanel}
-            onStartResize={(e) => {
-              e.preventDefault();
-              aiResizeRef.current = {
-                startX: e.clientX,
-                startWidth: aiPanelWidth,
-              };
-              setIsResizingAiPanel(true);
-            }}
+            onStartResize={handleStartAiResize}
             onClose={() => setShowAiSidePanel(false)}
+            panels={aiPanelContext}
+            selection={aiSelection}
+            onClearSelection={clearAiSelection}
           />
+        )}
+
+        {/* Asks before discarding a program that can't be translated. */}
+        {pendingLangSwitch && (
+          <ConfirmModal
+            title="Translation not available"
+            message={`This program can't be translated to ${LANG_LABELS[pendingLangSwitch]}. You can start fresh with an empty ${LANG_LABELS[pendingLangSwitch]} program instead — your current code will be discarded.`}
+            confirmLabel="Start fresh"
+            cancelLabel="Keep my code"
+            onConfirm={() => {
+              applySourceLanguage(pendingLangSwitch, '');
+              setPendingLangSwitch(null);
+            }}
+            onCancel={() => setPendingLangSwitch(null)}
+          />
+        )}
+
+        {/* Highlight-to-chat: floating button near the editor selection. */}
+        {aiSelection && aiSelectionCoords && (
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShowAiSidePanel(true)}
+            style={{
+              position: 'fixed',
+              top: aiSelectionCoords.top,
+              left: aiSelectionCoords.left,
+              zIndex: 300,
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-600 text-white text-xs font-medium shadow-lg hover:bg-indigo-500 transition-colors"
+            title="Ask the AI about the selected code"
+          >
+            <Sparkles size={12} />
+            Ask AI
+          </button>
         )}
       </main>
     </div>

@@ -1,6 +1,7 @@
-import { Plus, FileJson, Check } from 'lucide-react';
+import { Plus, FileJson, Check, Bot } from 'lucide-react';
+import type { MouseEvent } from 'react';
 
-import type { SupportedLang } from '../LanguageSelector';
+import { LANG_LABELS, type SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
 import type { Panel } from './types';
 
@@ -8,30 +9,50 @@ interface AddPanelStripProps {
   showAddMenu: boolean;
   sourceLang: SupportedLang;
   panels: Panel[];
+  showAiSidePanel: boolean;
+  /** True while the AI panel is being resized (highlights the handle). */
+  aiResizeActive: boolean;
   onToggleMenu: () => void;
   onTogglePanel: (lang: SupportedLang) => void;
+  onToggleAiPanel: () => void;
+  /** Starts an AI-panel resize drag from this strip's left edge. */
+  onStartAiResize: (e: MouseEvent) => void;
 }
 
-const PANEL_LANGS: SupportedLang[] = ['ast', 'csp', 'java', 'javascript', 'praxis', 'python'];
-
-const LANG_LABELS: Record<SupportedLang, string> = {
-  ast: 'AST',
-  csp: 'CSP',
-  java: 'Java',
-  javascript: 'JavaScript',
-  praxis: 'Praxis',
-  python: 'Python',
-};
+const PANEL_LANGS: SupportedLang[] = [
+  'ast',
+  'blocks',
+  'csp',
+  'java',
+  'javascript',
+  'praxis',
+  'python',
+];
 
 export function AddPanelStrip({
   showAddMenu,
   sourceLang,
   panels,
+  showAiSidePanel,
+  aiResizeActive,
   onToggleMenu,
   onTogglePanel,
+  onToggleAiPanel,
+  onStartAiResize,
 }: AddPanelStripProps) {
   return (
-    <div className="add-panel-dropdown w-16 flex flex-col items-center pt-4 bg-slate-900 border-l border-slate-800 shrink-0 relative z-[150] shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">
+    <div className="add-panel-dropdown w-16 flex flex-col items-center gap-3 pt-4 bg-slate-900 border-l border-slate-800 shrink-0 relative z-[150] shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">
+      {/* The strip sits between the code panes and the AI panel, so its left
+          edge doubles as a second resize handle for the AI panel. */}
+      {showAiSidePanel && (
+        <div
+          className={`absolute top-0 left-0 w-1 h-full cursor-col-resize z-[200] transition-colors ${
+            aiResizeActive ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/40'
+          }`}
+          onMouseDown={onStartAiResize}
+          aria-hidden="true"
+        />
+      )}
       <div className="relative">
         <button
           onClick={onToggleMenu}
@@ -95,6 +116,20 @@ export function AddPanelStrip({
           </div>
         )}
       </div>
+
+      {/* AI assistant — opens the side chat */}
+      <button
+        onClick={onToggleAiPanel}
+        aria-pressed={showAiSidePanel}
+        className={`p-3 rounded-xl transition-all shadow-lg active:scale-90 border ${
+          showAiSidePanel
+            ? 'bg-indigo-600 text-white border-indigo-500'
+            : 'bg-slate-800 hover:bg-indigo-600 text-indigo-400 hover:text-white border-slate-700'
+        }`}
+        title={showAiSidePanel ? 'Close AI Assistant' : 'Open AI Assistant'}
+      >
+        <Bot size={24} />
+      </button>
     </div>
   );
 }

@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Environment / secrets (LiteLLM URL + key live here, never commit)
+.env
+.env.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -25,3 +29,4 @@ dist-ssr
 *.sw?
 build
 test-results.json
+.claude

@@ -23,9 +23,6 @@ import { Debugger } from '../language/debugger';
 
 const VALID_TO_LANGS = ['python', 'java', 'csp', 'praxis', 'javascript', 'ast'];
 
-/**
- * Runs embed page.
- */
 export default function EmbedPage() {
   const [searchParams] = useSearchParams();
 
@@ -72,9 +69,10 @@ export default function EmbedPage() {
   // Normal mode input handling
   const [waitingForNormalInput, setWaitingForNormalInput] = useState(false);
   const [normalModeInputPrompt, setNormalModeInputPrompt] = useState<string>('');
-  const [currentInterpreter, setCurrentInterpreter] = useState<any>(null);
+  // The Debugger instance driving a non-debug run that paused for input().
+  const [currentInterpreter, setCurrentInterpreter] = useState<Debugger | null>(null);
 
-  const editorViewRef = useRef<any>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
   const stdinInputId = useId();
 
   // Decode the embed data on mount
@@ -121,22 +119,16 @@ export default function EmbedPage() {
     dispatchLineHighlighting(editorViewRef, highlightedSourceLines);
   }, [highlightedSourceLines]);
 
-  const handleCreateEditor = useCallback((view: any) => {
+  const handleCreateEditor = useCallback((view: EditorView) => {
     editorViewRef.current = view;
   }, []);
 
-  /**
-   * Runs get extensions.
-   */
   const getExtensions = (lang: SupportedLang) => {
     const baseExtensions = getCodeMirrorExtensions(lang);
     baseExtensions.push(highlightedLinesField);
     return baseExtensions;
   };
 
-  /**
-   * Handles run.
-   */
   const handleRun = () => {
     setError(null);
     setOutput([]);
@@ -184,9 +176,6 @@ export default function EmbedPage() {
     }
   };
 
-  /**
-   * Handles debug start.
-   */
   const handleDebugStart = () => {
     setError(null);
     setOutput([]);
@@ -202,9 +191,6 @@ export default function EmbedPage() {
     }
   };
 
-  /**
-   * Handles debug step.
-   */
   const handleDebugStep = () => {
     if (!ast || !embedData?.code) return;
 
@@ -228,18 +214,12 @@ export default function EmbedPage() {
     }
   };
 
-  /**
-   * Handles debug stop.
-   */
   const handleDebugStop = () => {
     stopDebugger();
     setIsDebugging(false);
     setOutput((prev) => [...prev, 'Debugger stopped.']);
   };
 
-  /**
-   * Handles submit input.
-   */
   const handleSubmitInput = (input: string) => {
     provideInput(input);
     // Echo removed, handled by interpreter
@@ -262,20 +242,15 @@ export default function EmbedPage() {
     }
   };
 
-  /**
-   * Handles normal mode input submit.
-   */
   const handleNormalModeInputSubmit = (input: string) => {
     if (!currentInterpreter) return;
 
     try {
       // Provide input to the debugger FIRST, before stepping
-      if (currentInterpreter.provideInput) {
-        currentInterpreter.provideInput(input);
-      }
+      currentInterpreter.provideInput(input);
 
       // Continue stepping until all remaining statements are executed
-      let steps = (currentInterpreter as any).step?.();
+      let steps = currentInterpreter.step();
       let cumulativeOutput: string[] = steps?.output || [];
 
       while (steps && !steps.isComplete) {
@@ -294,7 +269,7 @@ export default function EmbedPage() {
         setOutput(cumulativeOutput);
 
         // Step to next
-        steps = (currentInterpreter as any).step?.();
+        steps = currentInterpreter.step();
       }
 
       // Final output when complete
@@ -316,9 +291,6 @@ export default function EmbedPage() {
     }
   };
 
-  /**
-   * Handles open in editor.
-   */
   const handleOpenInEditor = () => {
     if (!embedData) return;
     const encoded = encodeEmbed({
@@ -334,26 +306,17 @@ export default function EmbedPage() {
   };
 
   // Resize handler
-  /**
-   * Handles mouse down.
-   */
   const onMouseDown = (e: React.MouseEvent) => {
     setResizingIdx('source');
     e.preventDefault();
   };
 
   useEffect(() => {
-    /**
-     * Handles mouse move.
-     */
     const handleMouseMove = (e: MouseEvent) => {
       if (resizingIdx === null) return;
       setSourceWidth((prev) => Math.max(150, prev + e.movementX));
     };
 
-    /**
-     * Handles mouse up.
-     */
     const handleMouseUp = () => setResizingIdx(null);
 
     if (resizingIdx !== null) {

@@ -7,7 +7,7 @@ import type { Program, ASTNode } from './ast';
 import { Interpreter, InputPrompt } from './interpreter';
 import { Translator } from './translator';
 
-export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'ast';
+export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'blocks' | 'ast';
 
 /**
  * Represents a single execution step with all relevant debug information
@@ -291,9 +291,6 @@ export class Debugger {
       // Parse the translated code to build line mappings
       let currentLine = 1;
 
-      /**
-       * Runs walk ast.
-       */
       const walkAST = (node: ASTNode) => {
         if (node?.loc) {
           // Map this node to the corresponding line in translated code
