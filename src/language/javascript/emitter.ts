@@ -730,11 +730,11 @@ export class JavaScriptEmitter extends ASTVisitor {
           break;
         }
         if (callee === 'INSERT' && expr.arguments.length === 3) {
-          out = `${this.generateExpression(expr.arguments[0], 0)}.splice(${this.generateExpression(expr.arguments[1], 0)} - 1, 0, ${this.generateExpression(expr.arguments[2], 0)})`;
+          out = `${this.generateExpression(expr.arguments[0], 0)}.splice(${this.generateExpression(expr.arguments[1], 0)}, 0, ${this.generateExpression(expr.arguments[2], 0)})`;
           break;
         }
         if (callee === 'REMOVE' && expr.arguments.length === 2) {
-          out = `${this.generateExpression(expr.arguments[0], 0)}.splice(${this.generateExpression(expr.arguments[1], 0)} - 1, 1)`;
+          out = `${this.generateExpression(expr.arguments[0], 0)}.splice(${this.generateExpression(expr.arguments[1], 0)}, 1)`;
           break;
         }
         if (callee === 'super') {

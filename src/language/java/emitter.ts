@@ -1427,11 +1427,11 @@ export class JavaEmitter extends ASTVisitor {
           break;
         }
         if (calleeStr === 'INSERT' && argsF.length === 3) {
-          output = `${argsF[0]}.add(${argsF[1]} - 1, ${argsF[2]})`;
+          output = `${argsF[0]}.add(${argsF[1]}, ${argsF[2]})`;
           break;
         }
         if (calleeStr === 'REMOVE' && argsF.length === 2) {
-          output = `${argsF[0]}.remove(${argsF[1]} - 1)`;
+          output = `${argsF[0]}.remove(${argsF[1]})`;
           break;
         }
 

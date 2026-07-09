@@ -63,22 +63,21 @@ const LANGS: Lang[] = [
 const byName = (name: TargetLanguage): Lang => LANGS.find((l) => l.name === name)!;
 
 // Targets whose emitter has been verified faithful. Expand one at a time.
-const DONE_TARGETS = new Set<TargetLanguage>(['python', 'javascript', 'java', 'praxis']);
+const DONE_TARGETS = new Set<TargetLanguage>(['python', 'javascript', 'java', 'praxis', 'csp']);
 
 // (source->target) pairs that are genuinely inexpressible in the target and are
 // therefore not required to match. Each entry needs a documented reason.
-const EXPECTED_UNSUPPORTED: Record<string, string> = {};
+const EXPECTED_UNSUPPORTED: Record<string, string> = {
+  // CSP has no classes/OOP, and every non-CSP demo defines classes, so an
+  // equivalent CSP program cannot be produced. (csp->* and csp->csp work.)
+  'python->csp': 'CSP has no classes/OOP',
+  'java->csp': 'CSP has no classes/OOP',
+  'javascript->csp': 'CSP has no classes/OOP',
+  'praxis->csp': 'CSP has no classes/OOP',
+};
 
 // (source->target) pairs deferred to a later phase (skipped for now).
-const DEFERRED: Record<string, string> = {
-  // CSP list indexing is 0-based in the interpreter but AP CSP is 1-based;
-  // reworking that (and the demo) is scheduled for the CSP phase, so every
-  // csp-> pair is deferred until then.
-  'csp->python': 'CSP 1-based index rework pending CSP phase',
-  'csp->java': 'CSP 1-based index rework pending CSP phase',
-  'csp->javascript': 'CSP 1-based index rework pending CSP phase',
-  'csp->praxis': 'CSP 1-based index rework pending CSP phase',
-};
+const DEFERRED: Record<string, string> = {};
 
 const run = (program: Program, source: string): string[] =>
   new Interpreter().interpret(program, source);

@@ -494,6 +494,23 @@ export class CSPParser {
     return this.call();
   }
 
+  // CSP lists are 1-based; the universal AST is 0-based. Convert a 1-based
+  // position expression to 0-based: a numeric literal is decremented directly,
+  // anything else becomes `expr - 1`.
+  private toZeroBased(e: Expression): Expression {
+    if (e.type === 'Literal' && typeof (e as any).value === 'number') {
+      const v = (e as any).value - 1;
+      return { id: generateId(), type: 'Literal', value: v, raw: String(v) };
+    }
+    return {
+      id: generateId(),
+      type: 'BinaryExpression',
+      operator: '-',
+      left: e,
+      right: { id: generateId(), type: 'Literal', value: 1, raw: '1' },
+    } as any;
+  }
+
   private call(): Expression {
     let expr = this.primary();
     while (true) {
@@ -506,7 +523,7 @@ export class CSPParser {
           id: generateId(),
           type: 'IndexExpression',
           object: expr,
-          index,
+          index: this.toZeroBased(index),
         };
       } else {
         break;
@@ -524,6 +541,10 @@ export class CSPParser {
       } while (this.match('PUNCTUATION', ','));
     }
     this.consume('PUNCTUATION', ')');
+    // INSERT(list, pos, value) / REMOVE(list, pos) take 1-based positions in CSP.
+    const name = (callee as Identifier).name;
+    if (name === 'INSERT' && args.length === 3) args[1] = this.toZeroBased(args[1]);
+    else if (name === 'REMOVE' && args.length === 2) args[1] = this.toZeroBased(args[1]);
     return {
       id: generateId(),
       type: 'CallExpression',

@@ -882,11 +882,11 @@ export class PythonEmitter extends ASTVisitor {
           break;
         }
         if (calleeStrPy === 'INSERT' && expr.arguments.length === 3) {
-          output = `${this.generateExpression(expr.arguments[0], 0)}.insert(${this.generateExpression(expr.arguments[1], 0)} - 1, ${this.generateExpression(expr.arguments[2], 0)})`;
+          output = `${this.generateExpression(expr.arguments[0], 0)}.insert(${this.generateExpression(expr.arguments[1], 0)}, ${this.generateExpression(expr.arguments[2], 0)})`;
           break;
         }
         if (calleeStrPy === 'REMOVE' && expr.arguments.length === 2) {
-          output = `${this.generateExpression(expr.arguments[0], 0)}.pop(${this.generateExpression(expr.arguments[1], 0)} - 1)`;
+          output = `${this.generateExpression(expr.arguments[0], 0)}.pop(${this.generateExpression(expr.arguments[1], 0)})`;
           break;
         }
 
