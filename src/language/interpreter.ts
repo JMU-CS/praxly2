@@ -1742,6 +1742,37 @@ export class Interpreter {
         if ((expr.callee as any).type === 'MemberExpression') {
           const memberExpr = expr.callee as any;
 
+          // Math.<fn>(args) — standard-JS math (also usable from any language).
+          if (memberExpr.object?.type === 'Identifier' && memberExpr.object.name === 'Math') {
+            const mathArgs = expr.arguments.map((a) => Number(this.evaluate(a, env)));
+            const fn = memberExpr.property.name;
+            const mathFns: Record<string, (...n: number[]) => number> = {
+              trunc: Math.trunc,
+              floor: Math.floor,
+              ceil: Math.ceil,
+              round: Math.round,
+              abs: Math.abs,
+              sqrt: Math.sqrt,
+              pow: Math.pow,
+              max: Math.max,
+              min: Math.min,
+            };
+            if (mathFns[fn]) return mathFns[fn](...mathArgs);
+            throw new Error(`Unknown Math function '${fn}'`);
+          }
+
+          // process.stdout.write(x) — print without a trailing newline.
+          if (
+            memberExpr.property.name === 'write' &&
+            memberExpr.object?.type === 'MemberExpression' &&
+            memberExpr.object.property?.name === 'stdout' &&
+            memberExpr.object.object?.name === 'process'
+          ) {
+            const text = this.stringify(this.evaluate(expr.arguments[0], env), false);
+            this.appendOutputText(text, false);
+            return null;
+          }
+
           // Python-style `super().__init__(args)` / `super().method(args)`:
           // the object is a `super()` call. Run it against the parent class.
           if (
@@ -1809,8 +1840,22 @@ export class Interpreter {
           if (Array.isArray(obj)) {
             switch (methodName) {
               case 'append':
+              case 'push':
                 obj.push(args[0]);
                 return null;
+              case 'splice': {
+                const start = Number(args[0] ?? 0);
+                const deleteCount = args.length >= 2 ? Number(args[1]) : obj.length - start;
+                const inserted = args.slice(2);
+                return obj.splice(start, deleteCount, ...inserted);
+              }
+              case 'slice': {
+                const s = args.length >= 1 ? Number(args[0]) : undefined;
+                const e = args.length >= 2 ? Number(args[1]) : undefined;
+                return obj.slice(s, e);
+              }
+              case 'indexOf':
+                return obj.indexOf(args[0]);
               case 'insert': {
                 const idx = Number(args[0] ?? 0);
                 const normalized = Number.isFinite(idx)
@@ -2003,6 +2048,20 @@ export class Interpreter {
         if (calleeName === 'bool' || calleeName === 'BOOL' || calleeName === 'boolean') {
           const val = this.evaluate(expr.arguments[0], env);
           return Boolean(val);
+        }
+
+        // Standard JavaScript conversions
+        if (calleeName === 'parseInt') {
+          return parseInt(String(this.evaluate(expr.arguments[0], env)), 10);
+        }
+        if (calleeName === 'parseFloat') {
+          return parseFloat(String(this.evaluate(expr.arguments[0], env)));
+        }
+        if (calleeName === 'Number') {
+          return Number(this.evaluate(expr.arguments[0], env));
+        }
+        if (calleeName === 'Boolean') {
+          return Boolean(this.evaluate(expr.arguments[0], env));
         }
 
         // Random functions

@@ -63,7 +63,7 @@ const LANGS: Lang[] = [
 const byName = (name: TargetLanguage): Lang => LANGS.find((l) => l.name === name)!;
 
 // Targets whose emitter has been verified faithful. Expand one at a time.
-const DONE_TARGETS = new Set<TargetLanguage>(['python']);
+const DONE_TARGETS = new Set<TargetLanguage>(['python', 'javascript']);
 
 // (source->target) pairs that are genuinely inexpressible in the target and are
 // therefore not required to match. Each entry needs a documented reason.
@@ -72,8 +72,12 @@ const EXPECTED_UNSUPPORTED: Record<string, string> = {};
 // (source->target) pairs deferred to a later phase (skipped for now).
 const DEFERRED: Record<string, string> = {
   // CSP list indexing is 0-based in the interpreter but AP CSP is 1-based;
-  // reworking that (and the demo) is scheduled for the CSP phase.
+  // reworking that (and the demo) is scheduled for the CSP phase, so every
+  // csp-> pair is deferred until then.
   'csp->python': 'CSP 1-based index rework pending CSP phase',
+  'csp->java': 'CSP 1-based index rework pending CSP phase',
+  'csp->javascript': 'CSP 1-based index rework pending CSP phase',
+  'csp->praxis': 'CSP 1-based index rework pending CSP phase',
 };
 
 const run = (program: Program, source: string): string[] =>

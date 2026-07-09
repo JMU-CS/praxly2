@@ -22,6 +22,59 @@ export class JavaScriptEmitter extends ASTVisitor {
   private declaredVars = new Set<string>();
   private inClass = false;
   private currentClassFields = new Set<string>();
+  // Names declared with an integer type (drives Math.trunc integer division).
+  private declaredIntVars = new Set<string>();
+  // Statements hoisted before the statement currently being built (list
+  // comprehensions and step slices lower to a temp array + loop).
+  private preludeLines: string[] = [];
+  private tempCounter = 0;
+  // When emitting the body of a loop that has a Python-style `else`, this holds
+  // the "no break happened" flag name so a `break` can clear it. null inside
+  // loops/switches without an else (a break there is scoped to them).
+  private loopElseFlag: string | null = null;
+
+  // Flush hoisted prelude statements (at the current indent) before `line`.
+  protected emit(line: string, nodeId?: string): void {
+    if (this.preludeLines.length > 0) {
+      const pending = this.preludeLines;
+      this.preludeLines = [];
+      for (const p of pending) super.emit(p);
+    }
+    super.emit(line, nodeId);
+  }
+
+  private isIntegerType(type?: string): boolean {
+    if (!type) return false;
+    return ['int', 'byte', 'short', 'long'].includes(type.replace(/\[\]/g, ''));
+  }
+
+  private isIntegerExpr(expr: any): boolean {
+    return expr.type === 'Identifier' && this.declaredIntVars.has(expr.name);
+  }
+
+  // If `iterable` is a range(...) call, return a C-style `for (...)` header for
+  // `variable`; otherwise null (caller falls back to for-of).
+  private rangeForHeader(variable: string, iterable: any): string | null {
+    if (iterable?.type !== 'CallExpression' || (iterable.callee as any)?.name !== 'range') {
+      return null;
+    }
+    const a = iterable.arguments;
+    let start = '0';
+    let end = '0';
+    let step = '1';
+    if (a.length === 1) {
+      end = this.generateExpression(a[0], 0);
+    } else if (a.length === 2) {
+      start = this.generateExpression(a[0], 0);
+      end = this.generateExpression(a[1], 0);
+    } else if (a.length >= 3) {
+      start = this.generateExpression(a[0], 0);
+      end = this.generateExpression(a[1], 0);
+      step = this.generateExpression(a[2], 0);
+    }
+    const update = step === '1' ? `${variable}++` : `${variable} += ${step}`;
+    return `for (let ${variable} = ${start}; ${variable} < ${end}; ${update})`;
+  }
 
   visitProgram(program: Program): void {
     const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
@@ -133,17 +186,53 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitPrint(stmt: any): void {
-    const args = stmt.expressions.map((e: Expression) => this.generateExpression(e, 0)).join(', ');
-    this.emit(`console.log(${args});`, stmt.id);
+    const hasSep = typeof stmt.separator === 'string';
+    const sep = hasSep ? stmt.separator : ' ';
+    const suppressNewline = stmt.appendLineFeed === false;
+
+    // Default separator + newline: idiomatic console.log with comma args.
+    if (!hasSep && !suppressNewline) {
+      const args = stmt.expressions
+        .map((e: Expression) => this.generateExpression(e, 0))
+        .join(', ');
+      this.emit(`console.log(${args});`, stmt.id);
+      return;
+    }
+
+    // Custom separator and/or newline suppression: build one joined string
+    // (console.log has no sep=/end=). Newline suppression uses stdout.write.
+    const parts = stmt.expressions.map((e: Expression) =>
+      this.generateExpression(e, Precedence.Additive)
+    );
+    let joined = parts.length === 0 ? '""' : parts.join(` + ${JSON.stringify(sep)} + `);
+    if (suppressNewline) {
+      // A single argument with an explicit separator emits it as trailing text.
+      if (hasSep && parts.length === 1) joined = `${joined} + ${JSON.stringify(sep)}`;
+      this.emit(`process.stdout.write(${joined});`, stmt.id);
+    } else {
+      this.emit(`console.log(${joined});`, stmt.id);
+    }
   }
 
   visitAssignment(stmt: any): void {
     let target: string;
 
+    if (this.isIntegerType(stmt.varType) && typeof stmt.name === 'string') {
+      this.declaredIntVars.add(stmt.name);
+    }
+
     if (stmt.isMemberAssignment && stmt.memberExpr) {
       target = this.generateExpression(stmt.memberExpr, 0);
       const value = this.generateExpression(stmt.value, 0);
       this.emit(`${target} = ${value};`, stmt.id);
+      return;
+    }
+
+    // Index/member targets (e.g. `arr[i] = v`) are assignments, never `let`
+    // declarations.
+    if (stmt.target && stmt.target.type !== 'Identifier') {
+      const t = this.generateExpression(stmt.target, 0);
+      this.emit(`${t} = ${this.generateExpression(stmt.value, 0)};`, stmt.id);
       return;
     }
 
@@ -207,31 +296,66 @@ export class JavaScriptEmitter extends ASTVisitor {
     this.emit('}');
   }
 
+  // Emit a Python-style loop `else` (runs unless a break occurred) after a loop.
+  // Sets up the no-break flag, returns it so the loop body can be emitted with
+  // it active, and `finishLoopElse` closes it out.
+  private beginLoopElse(stmt: any): { flag: string | null; saved: string | null } {
+    const saved = this.loopElseFlag;
+    let flag: string | null = null;
+    if (stmt.elseBranch) {
+      flag = `_noBreak${this.tempCounter++}`;
+      this.emit(`let ${flag} = true;`);
+    }
+    this.loopElseFlag = flag;
+    return { flag, saved };
+  }
+
+  private finishLoopElse(stmt: any, state: { flag: string | null; saved: string | null }): void {
+    this.loopElseFlag = state.saved;
+    if (state.flag) {
+      this.emit(`if (${state.flag}) {`);
+      this.indent();
+      this.visitBlock(stmt.elseBranch);
+      this.dedent();
+      this.emit('}');
+    }
+  }
+
   visitWhile(stmt: any): void {
+    const state = this.beginLoopElse(stmt);
     this.emit(`while (${this.generateExpression(stmt.condition, 0)}) {`, stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
     this.emit('}');
+    this.finishLoopElse(stmt, state);
   }
 
   visitDoWhile(stmt: any): void {
+    const saved = this.loopElseFlag;
+    this.loopElseFlag = null;
     this.emit('do {');
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
     this.emit(`} while (${this.generateExpression(stmt.condition, 0)});`);
+    this.loopElseFlag = saved;
   }
 
   visitRepeatUntil(stmt: any): void {
+    const saved = this.loopElseFlag;
+    this.loopElseFlag = null;
     this.emit('do {', stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
     this.emit(`} while (!(${this.generateExpression(stmt.condition, 0)}));`);
+    this.loopElseFlag = saved;
   }
 
   visitSwitch(stmt: any): void {
+    const saved = this.loopElseFlag;
+    this.loopElseFlag = null;
     this.emit(`switch (${this.generateExpression(stmt.discriminant, 0)}) {`, stmt.id);
     this.indent();
     stmt.cases.forEach((c: any) => {
@@ -246,9 +370,11 @@ export class JavaScriptEmitter extends ASTVisitor {
     });
     this.dedent();
     this.emit('}');
+    this.loopElseFlag = saved;
   }
 
   visitBreak(_stmt: any): void {
+    if (this.loopElseFlag) this.emit(`${this.loopElseFlag} = false;`);
     this.emit('break;');
   }
   visitContinue(_stmt: any): void {
@@ -256,6 +382,7 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitFor(stmt: For): void {
+    const elseState = this.beginLoopElse(stmt);
     if (stmt.init && stmt.condition && stmt.update) {
       // C-style for
       const savedDeclared = new Set(this.declaredVars);
@@ -274,9 +401,28 @@ export class JavaScriptEmitter extends ASTVisitor {
       collectInit(stmt.init);
 
       const cond = stmt.condition ? this.generateExpression(stmt.condition, 0) : '';
-      const upd = stmt.update
-        ? this.generateExpression((stmt.update as any).expression ?? stmt.update, 0)
-        : '';
+      const renderUpdate = (s: any): string => {
+        if (!s) return '';
+        if (s.type === 'ExpressionStatement') return this.generateExpression(s.expression, 0);
+        if (s.type === 'Assignment') {
+          const name = s.target?.name ?? s.name;
+          const t = s.target ? this.generateExpression(s.target, 0) : s.name;
+          const v = s.value;
+          // `j = j + 1` -> `j += 1`, because a bare assignment used as a for-update
+          // is evaluated (not executed) and would be a no-op.
+          if (
+            v?.type === 'BinaryExpression' &&
+            v.left?.type === 'Identifier' &&
+            v.left.name === name &&
+            ['+', '-', '*', '/', '%'].includes(v.operator)
+          ) {
+            return `${t} ${v.operator}= ${this.generateExpression(v.right, 0)}`;
+          }
+          return `${t} = ${this.generateExpression(v, 0)}`;
+        }
+        return this.generateExpression(s, 0);
+      };
+      const upd = renderUpdate(stmt.update);
 
       this.emit(`for (${initParts.join(', ')}; ${cond}; ${upd}) {`, stmt.id);
       this.indent();
@@ -302,19 +448,41 @@ export class JavaScriptEmitter extends ASTVisitor {
       this.dedent();
       this.emit('}');
     } else {
-      // for-of
-      const iter = this.generateExpression(stmt.iterable, 0);
-      const vars =
-        stmt.variables && stmt.variables.length > 1
-          ? `[${stmt.variables.join(', ')}]`
-          : stmt.variable;
+      // foreach: a range(...) iterable lowers to a C-style for; otherwise for-of
+      const rangeHeader = this.rangeForHeader(stmt.variable, stmt.iterable);
       this.declaredVars.add(stmt.variable);
-      this.emit(`for (const ${vars} of ${iter}) {`, stmt.id);
-      this.indent();
-      this.visitBlock(stmt.body);
-      this.dedent();
-      this.emit('}');
+      if (rangeHeader) {
+        this.emit(`${rangeHeader} {`, stmt.id);
+        this.indent();
+        this.visitBlock(stmt.body);
+        this.dedent();
+        this.emit('}');
+      } else {
+        const iter = this.generateExpression(stmt.iterable, 0);
+        if (stmt.variables && stmt.variables.length > 1) {
+          // Multiple targets (e.g. `for i, v in enumerate(...)`): the JS parser
+          // has no array destructuring, so bind from an indexed pair variable.
+          const pair = `_pair${this.tempCounter++}`;
+          this.emit(`for (const ${pair} of ${iter}) {`, stmt.id);
+          this.indent();
+          stmt.variables.forEach((v: string, idx: number) => {
+            const decl = this.declaredVars.has(v) ? '' : 'let ';
+            this.declaredVars.add(v);
+            this.emit(`${decl}${v} = ${pair}[${idx}];`);
+          });
+          this.visitBlock(stmt.body);
+          this.dedent();
+          this.emit('}');
+        } else {
+          this.emit(`for (const ${stmt.variable} of ${iter}) {`, stmt.id);
+          this.indent();
+          this.visitBlock(stmt.body);
+          this.dedent();
+          this.emit('}');
+        }
+      }
     }
+    this.finishLoopElse(stmt, elseState);
   }
 
   visitFunctionDeclaration(stmt: any): void {
@@ -406,10 +574,35 @@ export class JavaScriptEmitter extends ASTVisitor {
         out = `new ${expr.className}(${expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ')})`;
         break;
 
-      case 'IndexExpression':
+      case 'IndexExpression': {
         prec = Precedence.Member;
-        out = `${this.generateExpression(expr.object, prec)}[${this.generateExpression(expr.index, 0)}]`;
+        const objStr = this.generateExpression(expr.object, prec);
+        const hasEnd = (expr as any).indexEnd !== undefined;
+        const hasStep = (expr as any).indexStep !== undefined;
+        if (hasStep) {
+          // Step slice a[start:end:step] -> hoisted temp array + loop.
+          const tmp = `_slice${this.tempCounter++}`;
+          const iv = `_i${this.tempCounter++}`;
+          const start = expr.index != null ? this.generateExpression(expr.index, 0) : '0';
+          const end = hasEnd
+            ? this.generateExpression((expr as any).indexEnd, 0)
+            : `${objStr}.length`;
+          const step = this.generateExpression((expr as any).indexStep, 0);
+          this.preludeLines.push(`let ${tmp} = [];`);
+          this.preludeLines.push(`for (let ${iv} = ${start}; ${iv} < ${end}; ${iv} += ${step}) {`);
+          this.preludeLines.push(`  ${tmp}.push(${objStr}[${iv}]);`);
+          this.preludeLines.push(`}`);
+          out = tmp;
+        } else if (hasEnd) {
+          const start = this.generateExpression(expr.index, 0);
+          const end = this.generateExpression((expr as any).indexEnd, 0);
+          out = `${objStr}.slice(${start}, ${end})`;
+          prec = Precedence.Call;
+        } else {
+          out = `${objStr}[${this.generateExpression(expr.index, 0)}]`;
+        }
         break;
+      }
 
       case 'MemberExpression':
         prec = Precedence.Member;
@@ -432,10 +625,23 @@ export class JavaScriptEmitter extends ASTVisitor {
           '/': { op: '/', prec: Precedence.Multiplicative },
           '%': { op: '%', prec: Precedence.Multiplicative },
           '**': { op: '**', prec: Precedence.Exponential },
+          '^': { op: '**', prec: Precedence.Exponential },
         };
         const d = opMap[expr.operator] ?? { op: expr.operator, prec: 0 };
         prec = d.prec;
-        out = `${this.generateExpression(expr.left, prec)} ${d.op} ${this.generateExpression(expr.right, prec)}`;
+        const lft = this.generateExpression(expr.left, prec);
+        const rgt = this.generateExpression(expr.right, prec);
+        if (
+          expr.operator === '/' &&
+          this.isIntegerExpr(expr.left) &&
+          this.isIntegerExpr(expr.right)
+        ) {
+          // Declared-int operands: integer division via Math.trunc.
+          out = `Math.trunc(${lft} / ${rgt})`;
+          prec = Precedence.Call;
+        } else {
+          out = `${lft} ${d.op} ${rgt}`;
+        }
         break;
       }
 
@@ -455,16 +661,60 @@ export class JavaScriptEmitter extends ASTVisitor {
 
       case 'CallExpression': {
         prec = Precedence.Call;
-        let callee: string;
-        if ((expr.callee as any).type === 'MemberExpression') {
-          callee = this.generateExpression(expr.callee as any, 0);
-        } else {
-          callee = (expr.callee as any).name;
+        const calleeNode = expr.callee as any;
+        const argList = () => expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
+
+        // Method calls: map Praxly list methods to standard JS; pass the rest
+        // (string methods, user methods, sort, push, slice, ...) through.
+        if (calleeNode.type === 'MemberExpression') {
+          const objStr = this.generateExpression(calleeNode.object, Precedence.Member);
+          const method = calleeNode.property.name;
+          const arg = (i: number) => this.generateExpression(expr.arguments[i], 0);
+          switch (method) {
+            case 'append':
+              out = `${objStr}.push(${arg(0)})`;
+              break;
+            case 'insert':
+              out = `${objStr}.splice(${arg(0)}, 0, ${arg(1)})`;
+              break;
+            case 'remove':
+              out = `${objStr}.splice(${objStr}.indexOf(${arg(0)}), 1)`;
+              break;
+            case 'pop':
+              out =
+                expr.arguments.length >= 1
+                  ? `${objStr}.splice(${arg(0)}, 1)[0]`
+                  : `${objStr}.pop()`;
+              break;
+            default:
+              out = `${objStr}.${method}(${argList()})`;
+          }
+          break;
+        }
+
+        const callee = calleeNode.name;
+
+        // Conversions -> standard JavaScript
+        if (callee === 'int' || callee === 'INT') {
+          out = `parseInt(${argList()})`;
+          break;
+        }
+        if (callee === 'float' || callee === 'FLOAT') {
+          out = `parseFloat(${argList()})`;
+          break;
+        }
+        if (callee === 'str' || callee === 'STRING') {
+          out = `String(${argList()})`;
+          break;
+        }
+        if (callee === 'bool' || callee === 'BOOL') {
+          out = `Boolean(${argList()})`;
+          break;
         }
 
         // Builtins mapping
         if (callee === 'print' || callee === 'DISPLAY') {
-          out = `console.log(${expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ')})`;
+          out = `console.log(${argList()})`;
           break;
         }
         if ((callee === 'len' || callee === 'LENGTH') && expr.arguments.length === 1) {
@@ -472,7 +722,7 @@ export class JavaScriptEmitter extends ASTVisitor {
           break;
         }
         if (callee === 'input' || callee === 'INPUT') {
-          out = `prompt(${expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ')})`;
+          out = `prompt(${argList()})`;
           break;
         }
         if (callee === 'APPEND' && expr.arguments.length === 2) {
@@ -488,12 +738,11 @@ export class JavaScriptEmitter extends ASTVisitor {
           break;
         }
         if (callee === 'super') {
-          out = `super(${expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ')})`;
+          out = `super(${argList()})`;
           break;
         }
 
-        const args = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
-        out = `${callee}(${args})`;
+        out = `${callee}(${argList()})`;
         break;
       }
 
@@ -514,9 +763,20 @@ export class JavaScriptEmitter extends ASTVisitor {
         break;
 
       case 'ListComprehension': {
+        // No arrow functions: lower to a temp array + for loop, hoisted before
+        // the current statement.
+        const tmp = `_comp${this.tempCounter++}`;
+        const variable = (expr as any).variable;
+        const iterable = (expr as any).iterable;
         const elem = this.generateExpression((expr as any).element, 0);
-        const iter = this.generateExpression((expr as any).iterable, 0);
-        out = `Array.from(${iter}, ${(expr as any).variable} => ${elem})`;
+        const header =
+          this.rangeForHeader(variable, iterable) ??
+          `for (const ${variable} of ${this.generateExpression(iterable, 0)})`;
+        this.preludeLines.push(`let ${tmp} = [];`);
+        this.preludeLines.push(`${header} {`);
+        this.preludeLines.push(`  ${tmp}.push(${elem});`);
+        this.preludeLines.push(`}`);
+        out = tmp;
         break;
       }
 

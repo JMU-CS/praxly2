@@ -7,8 +7,8 @@
 //
 // Interpreter notes honored below:
 //   * Output is console.log(...) (multiple args are space-joined).
-//   * Arrays use .append(x) -- .push(x) is not implemented.
-//   * No Math / parseInt -- use int(), float(), str(), len(), range().
+//   * Standard JS: arrays use .push, conversions use parseInt/parseFloat/String,
+//     integer division uses Math.trunc, .length gives length.
 //   * `let`/`const`/`var` all behave identically (no block scoping enforced).
 // ===========================================================================
 
@@ -52,7 +52,7 @@ console.log(bigger);                    // 17
 // ---- Supported String methods + conversions --------------------------------
 let s = "Hello";
 console.log(s.length, s.toUpperCase(), s.substring(1, 3), s.charAt(0));  // 5 HELLO el H
-console.log(int("42"), str(7), float("1.5"));                            // 42 7 1.5
+console.log(parseInt("42"), String(7), parseFloat("1.5"));               // 42 7 1.5
 
 
 // ========================== STATEMENTS =====================================
@@ -95,10 +95,10 @@ for (const ch of "hi") {
     console.log("char " + ch);          // char h / char i
 }
 
-// ---- IndexExpression write + array method (.append) + len() ----------------
+// ---- IndexExpression write + array method (.push) + .length ----------------
 nums[0] = 99;
-nums.append(40);
-console.log(nums[0], nums.length, len(nums));   // 99 4 4
+nums.push(40);
+console.log(nums[0], nums.length);   // 99 4
 
 // ---- Try / ExceptionHandler / finally --------------------------------------
 // Reading an undefined name throws; the catch clause handles it (binding the
