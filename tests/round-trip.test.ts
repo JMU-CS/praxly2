@@ -100,3 +100,152 @@ describe('round-trip: translated output matches source output', () => {
     });
   }
 });
+
+// The full demos can't round-trip to CSP (no OOP — see EXPECTED_UNSUPPORTED),
+// but the features CSP *does* support should still translate faithfully from
+// every language. Each probe below is a self-contained program restricted to
+// CSP's expressible subset — arithmetic/MOD, string concat, comparison/logic,
+// list literals + indexing (exercising the 1-based<->0-based conversion),
+// if/else, while, for, and functions — round-tripped to CSP with exact match.
+const CSP_SUBSET_PROBES: Partial<Record<TargetLanguage, string>> = {
+  python: `s = "hi " + "csp"
+print(s)
+a = 20
+b = 6
+print(a + b)
+print(a * b)
+print(a % b)
+print(a > b and b > 0)
+print(a == 20 or b == 0)
+print(not (a == b))
+xs = [10, 20, 30]
+print(xs[0])
+xs[1] = 99
+print(xs[1])
+print(len(xs))
+for i in range(3):
+    print(xs[i])
+total = 0
+n = 1
+while n <= 3:
+    total = total + n
+    n = n + 1
+print(total)
+if a >= 100:
+    print("big")
+else:
+    if a >= 10:
+        print("med")
+    else:
+        print("small")
+def add(x, y):
+    return x + y
+print(add(4, 5))`,
+  java: `String s = "hi " + "csp";
+System.out.println(s);
+int a = 20;
+int b = 6;
+System.out.println(a + b);
+System.out.println(a * b);
+System.out.println(a % b);
+System.out.println(a > b && b > 0);
+System.out.println(a == 20 || b == 0);
+System.out.println(!(a == b));
+int[] xs = {10, 20, 30};
+System.out.println(xs[0]);
+xs[1] = 99;
+System.out.println(xs[1]);
+for (int i = 0; i < 3; i++) {
+    System.out.println(xs[i]);
+}
+int total = 0;
+int n = 1;
+while (n <= 3) {
+    total = total + n;
+    n = n + 1;
+}
+System.out.println(total);
+if (a >= 100) {
+    System.out.println("big");
+} else if (a >= 10) {
+    System.out.println("med");
+} else {
+    System.out.println("small");
+}`,
+  javascript: `let s = "hi " + "csp";
+console.log(s);
+let a = 20;
+let b = 6;
+console.log(a + b);
+console.log(a * b);
+console.log(a % b);
+console.log(a > b && b > 0);
+console.log(a === 20 || b === 0);
+console.log(!(a === b));
+let xs = [10, 20, 30];
+console.log(xs[0]);
+xs[1] = 99;
+console.log(xs[1]);
+for (let i = 0; i < 3; i = i + 1) {
+    console.log(xs[i]);
+}
+let total = 0;
+let n = 1;
+while (n <= 3) {
+    total = total + n;
+    n = n + 1;
+}
+console.log(total);
+if (a >= 100) {
+    console.log("big");
+} else if (a >= 10) {
+    console.log("med");
+} else {
+    console.log("small");
+}`,
+  praxis: `string s <- "hi " + "csp"
+print(s)
+int a <- 20
+int b <- 6
+print(a + b)
+print(a * b)
+print(a mod b)
+print(a > b and b > 0)
+print(a == 20 or b == 0)
+print(not (a == b))
+int[] xs <- {10, 20, 30}
+print(xs[0])
+xs[1] <- 99
+print(xs[1])
+for (int i <- 0; i < 3; i <- i + 1)
+    print(xs[i])
+end for
+int total <- 0
+int n <- 1
+while (n <= 3)
+    total <- total + n
+    n <- n + 1
+end while
+print(total)
+if (a >= 100)
+    print("big")
+else
+    if (a >= 10)
+        print("med")
+    else
+        print("small")
+    end if
+end if`,
+};
+
+describe('round-trip: CSP-supported subset translates from each language', () => {
+  for (const source of Object.keys(CSP_SUBSET_PROBES) as TargetLanguage[]) {
+    it(`${source} -> csp (supported subset)`, () => {
+      const code = CSP_SUBSET_PROBES[source]!;
+      const expected = run(byName(source).parse(code), code);
+      const translated = new Translator().translate(byName(source).parse(code), 'csp');
+      const actual = run(byName('csp').parse(translated), translated);
+      expect(actual).toEqual(expected);
+    });
+  }
+});

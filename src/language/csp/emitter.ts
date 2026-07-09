@@ -344,6 +344,12 @@ export class CSPEmitter extends ASTVisitor {
   }
 
   visitExpressionStatement(stmt: any): void {
+    // A bare assignment expression (e.g. a C-style `for` update `i = i + 1`)
+    // has no expression form in CSP — emit it as an assignment statement.
+    if (stmt.expression?.type === 'Assignment') {
+      this.visitAssignment(stmt.expression);
+      return;
+    }
     this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
   }
 
