@@ -3,7 +3,7 @@
 The _AP Computer Science Principles_ exam uses the pseudocode notation described below.
 
 Notice that:
-- Assigment uses `←`, not `=`
+- Assignment uses `←`, not `=`
 - Indexes start at `1`, not `0`
 - Output uses `DISPLAY`, not `print`
 - Comparison uses `=`, not `==`
@@ -291,4 +291,6 @@ DISPLAY(checkValue(-3))
 
 ## Extensions for Praxly
 
-TBD
+Unlike the other languages supported by Praxly, CSP does not support classes or other object-oriented features. All operations, including list operations, are performed procedurally or through built-in functions.
+
+Most of the Praxly standard library is available as built-in functions. String operations are implemented as functions rather than methods; for example, `CHARAT("Alan", 1)` returns `'A'`, the first character of the string. Because CSP is not statically typed, all functions use type inference.

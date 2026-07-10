@@ -1,6 +1,6 @@
 # Java
 
-The _AP Computer Science A_ exam uses the following methods from the Java library.
+The _AP Computer Science A_ exam may use the following methods from the Java library.
 
 ## String Class
 
@@ -62,5 +62,8 @@ The _AP Computer Science A_ exam uses the following methods from the Java librar
 
 ## Extensions for Praxly
 
-Praxly suports all methods above except for the `File` class.
-`Scanner` is used by Praxly only to read input from `System.in`.
+- Praxly supports all methods above except for the `File` class.
+- `Scanner` is used by Praxly only to read input from `System.in`.
+- Additional String methods: `charAt()`, `contains()`, `toUpperCase()`, `toLowerCase()`.
+- Additional Math methods: `log()`, `max()`, `min()`
+- Random class with methods: `randomInt()`, `setSeed()`
