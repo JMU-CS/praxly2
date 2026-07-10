@@ -479,21 +479,6 @@ export class PraxisEmitter extends ASTVisitor {
       this.visitBlock(stmt.body);
       this.dedent();
       this.emit('end for');
-    } else if (
-      stmt.variables?.length > 1 &&
-      stmt.iterable?.type === 'CallExpression' &&
-      stmt.iterable.callee?.name === 'enumerate'
-    ) {
-      const arr = this.generateExpression(stmt.iterable.arguments[0], 0);
-      const [idx, val] = stmt.variables;
-      this.emit(`for (int ${idx} <- 0; ${idx} < ${arr}.length; ${idx} <- ${idx} + 1)`, stmt.id);
-      this.indent();
-      // Bare assignment (no `var`) so reusing an element name across loops
-      // doesn't trip the interpreter's re-declaration check.
-      this.emit(`${val} <- ${arr}[${idx}]`);
-      this.visitBlock(stmt.body);
-      this.dedent();
-      this.emit('end for');
     } else {
       this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}`, stmt.id);
       this.indent();

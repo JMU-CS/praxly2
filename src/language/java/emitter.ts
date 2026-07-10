@@ -29,10 +29,6 @@ export class JavaEmitter extends ASTVisitor {
   private currentClassName: string | null = null;
   private instanceContextDepth = 0;
   private classNames = new Set<string>();
-  // Statements hoisted before the statement currently being built (list
-  // comprehensions lower to a temp ArrayList + loop).
-  private preludeLines: string[] = [];
-  private tempCounter = 0;
   // Every variable name ever declared (flat, matching the interpreter's scoping).
   // Used to drop the type on a re-declaration so translated code doesn't trip the
   // interpreter's "already declared" error when loop vars are reused.
@@ -43,16 +39,6 @@ export class JavaEmitter extends ASTVisitor {
     if (this.declaredNames.has(name)) return '';
     this.declaredNames.add(name);
     return `${type} `;
-  }
-
-  // Flush hoisted prelude statements (at the current indent) before `line`.
-  protected emit(line: string, nodeId?: string): void {
-    if (this.preludeLines.length > 0) {
-      const pending = this.preludeLines;
-      this.preludeLines = [];
-      for (const p of pending) super.emit(p);
-    }
-    super.emit(line, nodeId);
   }
 
   private normalizeInstanceParams<T extends { name: string }>(params: T[]): T[] {
@@ -841,9 +827,7 @@ export class JavaEmitter extends ASTVisitor {
    * Translates for loops in multiple formats:
    * 1. C-style: for(init; condition; update)
    * 2. Range-based: handles range(start, end, step) calls
-   * 3. Enumerate-style: for(idx, val) in enumerate(arr)
-   * 4. Iterator-based: for(item : collection)
-   * Also handles optional for-else fallback.
+   * 3. Iterator-based: for(item : collection)
    */
   visitFor(stmt: For): void {
     // Handle C-style for loop: for(type var = init; condition; update)
@@ -961,38 +945,6 @@ export class JavaEmitter extends ASTVisitor {
         stmt.id
       );
       this.indent();
-      this.visitBlock(stmt.body);
-      this.dedent();
-      this.emit('}');
-    } else if (
-      stmt.variables &&
-      stmt.variables.length > 1 &&
-      stmt.iterable.type === 'CallExpression' &&
-      (stmt.iterable as any).callee.name === 'enumerate'
-    ) {
-      // Handle enumerate(arr) - converts to indexed loop with values
-      const arrExpr = (stmt.iterable as any).arguments[0];
-      const arrCode = this.generateExpression(arrExpr, 0);
-      const arrType = this.getExpressionType(arrExpr);
-      const isArrayList = this.isArrayListType(arrType);
-      const idx = stmt.variables[0];
-      const val = stmt.variables[1];
-      // Hoist the sequence to a temp so it isn't rebuilt on each access.
-      const seq = `_seq${this.tempCounter++}`;
-      const seqType =
-        arrType && arrType !== 'var' ? arrType : isArrayList ? 'ArrayList<Object>' : 'Object[]';
-      this.emit(`${seqType} ${seq} = ${arrCode};`);
-      const lengthExpr = isArrayList ? `${seq}.size()` : `${seq}.length`;
-      this.emit(`for (${this.declType(idx, 'int')}${idx} = 0; ${idx} < ${lengthExpr}; ${idx}++) {`);
-      this.indent();
-      // Infer array element type from the array itself
-      let varType = arrType;
-      if (varType.endsWith('[]')) varType = varType.slice(0, -2);
-      else if (this.isArrayListType(varType)) varType = this.getArrayListElementType(varType);
-      else varType = 'var';
-      // Declare loop variable and assign current element
-      const valueAccess = isArrayList ? `${seq}.get(${idx})` : `${seq}[${idx}]`;
-      this.emit(`${this.declType(val, varType)}${val} = ${valueAccess};`);
       this.visitBlock(stmt.body);
       this.dedent();
       this.emit('}');

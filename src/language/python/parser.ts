@@ -568,10 +568,14 @@ export class Parser {
 
   private forStatement(): For {
     this.consume('KEYWORD', 'for');
-    const vars: string[] = [];
-    do {
-      vars.push(this.consume('IDENTIFIER').value);
-    } while (this.match('PUNCTUATION', ','));
+    const variable = this.consume('IDENTIFIER').value;
+    // Multiple loop targets (`for i, x in enumerate(...)`) are not supported —
+    // no other Praxly target has destructuring loops.
+    if (this.check('PUNCTUATION', ',')) {
+      throw new UnsupportedFeatureError(
+        'multiple loop variables (destructuring) are not supported'
+      );
+    }
 
     this.consume('KEYWORD', 'in');
     const iterable = this.expression();
@@ -585,8 +589,7 @@ export class Parser {
     return {
       id: generateId(),
       type: 'For',
-      variable: vars[0],
-      variables: vars.length > 1 ? vars : undefined,
+      variable,
       iterable,
       body,
     };

@@ -1437,15 +1437,8 @@ export class Interpreter {
           const iterable = this.evaluate(stmt.iterable, env);
           if (!Array.isArray(iterable) && typeof iterable !== 'string')
             throw new Error('For loop requires array or string');
-          const variables = (stmt as any).variables as string[] | undefined;
           for (const item of iterable) {
-            // Multiple loop targets (e.g. `for i, v in enumerate(xs)`) destructure
-            // each element; a single target binds the element directly.
-            if (variables && variables.length > 1 && Array.isArray(item)) {
-              variables.forEach((name, idx) => env.define(name, item[idx]));
-            } else {
-              env.define(stmt.variable, item);
-            }
+            env.define(stmt.variable, item);
             if (this.runIteration(stmt.body.body, env) === 'break') {
               break;
             }
@@ -2087,13 +2080,6 @@ export class Interpreter {
             for (let i = start; i > end; i += step) result.push(i);
           }
           return result;
-        }
-        if (calleeName === 'enumerate') {
-          const iterable = this.evaluate(expr.arguments[0], env);
-          if (Array.isArray(iterable)) {
-            return iterable.map((val, idx) => [idx, val]);
-          }
-          return [];
         }
         if (calleeName === 'APPEND') {
           const list = this.evaluate(expr.arguments[0], env);

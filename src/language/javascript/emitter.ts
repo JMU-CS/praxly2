@@ -24,20 +24,6 @@ export class JavaScriptEmitter extends ASTVisitor {
   private currentClassFields = new Set<string>();
   // Names declared with an integer type (drives Math.trunc integer division).
   private declaredIntVars = new Set<string>();
-  // Statements hoisted before the statement currently being built (the
-  // multi-target for-loop lowers to a temp pair + loop).
-  private preludeLines: string[] = [];
-  private tempCounter = 0;
-
-  // Flush hoisted prelude statements (at the current indent) before `line`.
-  protected emit(line: string, nodeId?: string): void {
-    if (this.preludeLines.length > 0) {
-      const pending = this.preludeLines;
-      this.preludeLines = [];
-      for (const p of pending) super.emit(p);
-    }
-    super.emit(line, nodeId);
-  }
 
   private isIntegerType(type?: string): boolean {
     if (!type) return false;
@@ -417,27 +403,11 @@ export class JavaScriptEmitter extends ASTVisitor {
         this.emit('}');
       } else {
         const iter = this.generateExpression(stmt.iterable, 0);
-        if (stmt.variables && stmt.variables.length > 1) {
-          // Multiple targets (e.g. `for i, v in enumerate(...)`): the JS parser
-          // has no array destructuring, so bind from an indexed pair variable.
-          const pair = `_pair${this.tempCounter++}`;
-          this.emit(`for (const ${pair} of ${iter}) {`, stmt.id);
-          this.indent();
-          stmt.variables.forEach((v: string, idx: number) => {
-            const decl = this.declaredVars.has(v) ? '' : 'let ';
-            this.declaredVars.add(v);
-            this.emit(`${decl}${v} = ${pair}[${idx}];`);
-          });
-          this.visitBlock(stmt.body);
-          this.dedent();
-          this.emit('}');
-        } else {
-          this.emit(`for (const ${stmt.variable} of ${iter}) {`, stmt.id);
-          this.indent();
-          this.visitBlock(stmt.body);
-          this.dedent();
-          this.emit('}');
-        }
+        this.emit(`for (const ${stmt.variable} of ${iter}) {`, stmt.id);
+        this.indent();
+        this.visitBlock(stmt.body);
+        this.dedent();
+        this.emit('}');
       }
     }
   }
