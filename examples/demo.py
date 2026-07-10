@@ -144,8 +144,8 @@ class Animal:
     kind = "animal"               # class attribute => FieldDeclaration
 
     # Constructor (__init__); member Assignment via self
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, n):        # param differs from field (Praxis needs unique names)
+        self.name = n
 
     def full(self):
         return self.name + " (" + self.kind + ")"
@@ -155,8 +155,8 @@ class Animal:
 
 # ClassDeclaration.superClass via `class Dog(Animal)`
 class Dog(Animal):
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, n):
+        self.name = n
 
     def speak(self):
         return "woof"

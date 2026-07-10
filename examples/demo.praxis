@@ -5,11 +5,7 @@
 // set of nodes.
 //
 // AST nodes NOT reachable from Praxis source (covered by the other demos):
-//   Constructor .......... Praxis has no constructor syntax; use field
-//                          initializers (see class bodies below).
 //   Switch / SwitchCase .. no switch/case keywords.
-//   Try / ExceptionHandler no try/catch keywords.
-//   Break / Continue ..... no break/continue keywords.
 //   ConditionalExpression  no ?: ternary operator.
 //   CompoundAssignment ... no +=/-=; write `x <- x + 1`.
 //   ListComprehension .... Python-only.
@@ -174,63 +170,75 @@ maybePrint(true)      // shown
 
 
 // ========================== CLASSES ========================================
+// Praxis has no `this`/`self`: fields are accessed by their bare names, so
+// field and parameter names must be unique. A constructor is named after its
+// class; `super` calls the superclass constructor. `public`/`private` are
+// optional, and fields may be initialized where they are declared.
 
-// ---- ClassDeclaration / FieldDeclaration / MethodDeclaration ---------------
+// ---- ClassDeclaration / FieldDeclaration / Constructor / MethodDeclaration -
 class Counter
-    public int count <- 0      // public FieldDeclaration with initializer
-    private int step <- 1      // private FieldDeclaration with initializer
+    private int count
+    private int step
 
-    void increment()
-        this.count <- this.count + this.step   // member Assignment via `this`
+    public Counter(int start)          // constructor named after the class
+        count <- start                 // bare field assignment (no `this`)
+        step <- 1
+    end Counter
+
+    public void increment()
+        count <- count + step
     end increment
 
-    int getCount()
-        return this.count
+    public int getCount()
+        return count
     end getCount
-end class
+end class Counter
 
+// ---- Inheritance: `extends` + `super` --------------------------------------
 class Animal
-    public string name <- "animal"
-    private int legs <- 4
-    string tag                 // bare field => declaredWithoutInitializer
+    private string name
+    private int legs
 
-    void setTag(string t)
-        this.tag <- t
-    end setTag
+    public Animal(string n)            // param `n` differs from field `name`
+        name <- n
+        legs <- 4
+    end Animal
 
-    string kind()
-        return "living thing"  // field-free method (safe to inherit)
-    end kind
-
-    string describe()
-        return this.name + " (" + this.tag + ") has " + str(this.legs) + " legs"
+    public string describe()
+        return name + " has " + str(legs) + " legs"
     end describe
-end class
+end class Animal
 
-// ClassDeclaration.superClass via `extends`. Dog inherits every Animal member
-// (the name/legs/tag fields plus setTag/kind/describe) and adds its own
-// speak(). Both inherited method dispatch AND inherited field access work
-// (see dog.describe() below).
 class Dog extends Animal
-    string speak()
+    public Dog(string n)
+        super(n)                       // runs Animal's constructor on this instance
+    end Dog
+
+    public string speak()
         return "woof"
     end speak
-end class
+end class Dog
+
+// ---- Default constructor + field initializer (no constructor defined) ------
+class Box
+    string contents <- "gift"          // field initialized at declaration
+
+    public string open()
+        return "opened " + contents
+    end open
+end class Box
 
 // ---- NewExpression / methods / fields / inheritance ------------------------
-Counter c <- new Counter()
+Counter c <- new Counter(5)
 c.increment()
 c.increment()
-print(c.getCount())   // 2
+print(c.getCount())    // 7
 
-Animal pet <- new Animal()
-pet.setTag("pet")
-print(pet.describe()) // animal (pet) has 4 legs
+Dog dog <- new Dog("Rex")
+print(dog.speak())     // woof (Dog's own method)
+print(dog.describe())  // Rex has 4 legs (inherited field + method via super)
 
-Dog dog <- new Dog()
-dog.setTag("puppy")   // inherited setter mutates this instance
-print(dog.speak())    // woof (Dog's own method)
-print(dog.kind())     // living thing (method inherited from Animal)
-print(dog.describe()) // animal (puppy) has 4 legs (inherited fields + method)
+Box box <- new Box()   // default constructor
+print(box.open())      // opened gift
 
 banner("done")

@@ -75,7 +75,12 @@ export class PraxisParser {
   }
 
   private topLevelDeclaration(): Statement {
-    if (this.check('KEYWORD', 'class')) {
+    // A class may carry an optional `public`/`private` modifier: `public class C`.
+    if (
+      this.check('KEYWORD', 'class') ||
+      ((this.check('KEYWORD', 'public') || this.check('KEYWORD', 'private')) &&
+        this.checkPeekAhead('KEYWORD', 'class', 1))
+    ) {
       return this.classDeclaration();
     }
     if (this.isFunctionDeclaration()) {
@@ -120,6 +125,7 @@ export class PraxisParser {
   }
 
   private classDeclaration(): ClassDeclaration {
+    this.match('KEYWORD', 'public') || this.match('KEYWORD', 'private'); // optional modifier
     this.consume('KEYWORD', 'class');
     const name = this.consume('IDENTIFIER').value;
     let superClass: Identifier | undefined = undefined;
@@ -134,13 +140,10 @@ export class PraxisParser {
       if (this.match('KEYWORD', 'public')) access = 'public';
       else if (this.match('KEYWORD', 'private')) access = 'private';
 
-      // A constructor is written `procedure new(...) ... end new` (Praxis has no
-      // dedicated ctor keyword; `new` is otherwise reserved for instantiation).
-      if (
-        (this.check('KEYWORD', 'procedure') || this.check('KEYWORD', 'function')) &&
-        this.checkPeekAhead('KEYWORD', 'new', 1)
-      ) {
-        classBody.push(this.constructorDeclaration(access));
+      // A constructor is named after the class with no return type, i.e. the
+      // class name immediately followed by `(`.
+      if (this.check('IDENTIFIER', name) && this.checkPeekAhead('PUNCTUATION', '(', 1)) {
+        classBody.push(this.constructorDeclaration(access, name));
       } else if (this.isFunctionDeclaration()) {
         const func = this.functionDeclaration();
         classBody.push({
@@ -282,14 +285,13 @@ export class PraxisParser {
     return params;
   }
 
-  /** Parses `procedure new(...) ... end new` as a Constructor class member. */
-  private constructorDeclaration(access: 'public' | 'private'): any {
-    this.advance(); // 'procedure' | 'function'
-    this.consume('KEYWORD', 'new');
+  /** Parses `[modifier] ClassName(...) ... end ClassName` as a Constructor. */
+  private constructorDeclaration(access: 'public' | 'private', className: string): any {
+    this.consume('IDENTIFIER'); // the class name
     const params = this.parseParamList();
     const body = this.block();
     this.consume('KEYWORD', 'end');
-    this.consume('KEYWORD', 'new');
+    this.match('IDENTIFIER', className); // optional `end ClassName`
     return { id: generateId(), type: 'Constructor', access, params, body };
   }
 

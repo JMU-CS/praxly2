@@ -29,6 +29,8 @@ export class PraxisEmitter extends ASTVisitor {
   // ternary/slice/list-comprehension, so each lowers to a temp + preceding block).
   private preludeLines: string[] = [];
   private tempCounter = 0;
+  // Name of the class currently being emitted — a constructor is named after it.
+  private currentClassName = '';
   // One entry per enclosing loop (innermost last): the loop's "no break yet"
   // flag name if it has a Python-style `else`, otherwise null. Praxis has no
   // loop-else, so it lowers to a flag set false at each break plus a trailing
@@ -151,6 +153,8 @@ export class PraxisEmitter extends ASTVisitor {
   visitClassDeclaration(classDecl: ClassDeclaration): void {
     const superClass = classDecl.superClass ? ` extends ${classDecl.superClass.name}` : '';
     this.emit(`class ${classDecl.name}${superClass}`);
+    const prevClassName = this.currentClassName;
+    this.currentClassName = classDecl.name;
     this.indent();
     this.context.symbolTable.enterScope();
 
@@ -163,6 +167,15 @@ export class PraxisEmitter extends ASTVisitor {
       }
     });
 
+    // Praxis fields must be declared. Sources like Python/JS create fields
+    // implicitly via `self.x`/`this.x` assignments, so declare those up front.
+    const implicit = this.collectImplicitFields(classDecl);
+    implicit.forEach((f) => {
+      this.context.symbolTable.set(f.name, f.type);
+      this.emit(`private ${f.type} ${f.name}`);
+    });
+    if (implicit.length > 0) this.emit('');
+
     classDecl.body.forEach((m) => {
       this.visitStatement(m);
       this.emit('');
@@ -170,6 +183,57 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit(`end class ${classDecl.name}`);
+    this.currentClassName = prevClassName;
+  }
+
+  /**
+   * Finds fields assigned via the receiver (`this.x`/`self.x`) in constructors
+   * and methods but not explicitly declared, so the Praxis output can declare
+   * them (Praxis has no implicit fields).
+   */
+  private collectImplicitFields(classDecl: ClassDeclaration): { name: string; type: string }[] {
+    const declared = new Set(
+      classDecl.body.filter((m) => m.type === 'FieldDeclaration').map((m: any) => m.name)
+    );
+    const found = new Map<string, string>();
+    const isReceiver = (o: any) =>
+      o?.type === 'ThisExpression' ||
+      (o?.type === 'Identifier' && (o.name === 'this' || o.name === 'self'));
+
+    const scan = (node: any, paramTypes: Map<string, string>): void => {
+      if (!node || typeof node !== 'object') return;
+      if (node.type === 'Assignment') {
+        const me =
+          node.target?.type === 'MemberExpression'
+            ? node.target
+            : node.memberExpr?.type === 'MemberExpression'
+              ? node.memberExpr
+              : undefined;
+        const fieldName = me && isReceiver(me.object) ? me.property?.name : undefined;
+        if (fieldName && !declared.has(fieldName) && !found.has(fieldName)) {
+          // Prefer the type of a parameter the field is assigned from.
+          let type =
+            node.value?.type === 'Identifier' && paramTypes.get(node.value.name)
+              ? paramTypes.get(node.value.name)!
+              : this.inferType(node.value);
+          if (type === 'var' || type === 'auto') type = 'Object';
+          found.set(fieldName, type);
+        }
+      }
+      for (const v of Object.values(node)) {
+        if (Array.isArray(v)) v.forEach((x) => scan(x, paramTypes));
+        else if (v && typeof v === 'object') scan(v, paramTypes);
+      }
+    };
+
+    classDecl.body.forEach((m: any) => {
+      if (m.type !== 'Constructor' && m.type !== 'MethodDeclaration') return;
+      const paramTypes = new Map<string, string>();
+      (m.params || []).forEach((p: any) => paramTypes.set(p.name, p.paramType || 'Object'));
+      scan(m.body, paramTypes);
+    });
+
+    return Array.from(found, ([name, type]) => ({ name, type }));
   }
 
   visitFieldDeclaration(field: FieldDeclaration): void {
@@ -179,7 +243,7 @@ export class PraxisEmitter extends ASTVisitor {
         : field.fieldType;
     if (type === 'auto') type = 'var';
 
-    let line = `${type} ${field.name}`;
+    let line = `${field.access} ${type} ${field.name}`;
     if (field.initializer) line += ` <- ${this.generateExpression(field.initializer, 0)}`;
     this.emit(line);
   }
@@ -188,25 +252,24 @@ export class PraxisEmitter extends ASTVisitor {
     const params = ctor.params
       .map((p) => `${p.paramType !== 'auto' ? p.paramType + ' ' : ''}${p.name}`)
       .join(', ');
-    this.emit(`procedure new(${params})`);
+    // A constructor is named after its class, with no return type.
+    this.emit(`${ctor.access} ${this.currentClassName}(${params})`);
     this.indent();
     this.context.symbolTable.enterScope();
     ctor.params.forEach((p) => this.context.symbolTable.set(p.name, p.paramType || 'auto'));
     this.visitBlock(ctor.body);
     this.context.symbolTable.exitScope();
     this.dedent();
-    this.emit(`end new`);
+    this.emit(`end ${this.currentClassName}`);
   }
 
   visitMethodDeclaration(method: MethodDeclaration): void {
-    let returnType = method.returnType === 'auto' ? 'procedure' : method.returnType;
-    if (returnType === 'void') returnType = 'procedure';
+    let returnType = method.returnType === 'auto' ? '' : method.returnType;
 
-    // Attempt to infer return type from body if still unknown
-    if (returnType === 'auto' || returnType === 'procedure') {
+    // Attempt to infer return type from body if still unknown.
+    if (returnType === '' || returnType === 'var') {
       const inferred = this.inferBodyReturnType(method.body);
-      if (inferred && inferred !== 'void' && inferred !== 'var') returnType = inferred;
-      else returnType = 'procedure';
+      returnType = inferred && inferred !== 'var' ? inferred : 'void';
     }
 
     const params = method.params
@@ -216,7 +279,7 @@ export class PraxisEmitter extends ASTVisitor {
       })
       .join(', ');
 
-    this.emit(`${returnType} ${method.name}(${params})`);
+    this.emit(`${method.access} ${returnType} ${method.name}(${params})`);
     this.indent();
     this.context.symbolTable.enterScope();
     method.params.forEach((p) => this.context.symbolTable.set(p.name, p.paramType || 'auto'));
@@ -667,10 +730,19 @@ export class PraxisEmitter extends ASTVisitor {
         break;
       }
 
-      case 'MemberExpression':
+      case 'MemberExpression': {
         currentPrecedence = Precedence.Member;
-        output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
+        // Praxis has no `this`/`self`: a field access on the receiver is written
+        // as the bare field name.
+        const obj = expr.object as any;
+        const isReceiver =
+          obj.type === 'ThisExpression' ||
+          (obj.type === 'Identifier' && (obj.name === 'this' || obj.name === 'self'));
+        output = isReceiver
+          ? expr.property.name
+          : `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
         break;
+      }
 
       case 'BinaryExpression': {
         const opMap: Record<string, { op: string; prec: number }> = {
