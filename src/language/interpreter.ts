@@ -245,33 +245,6 @@ export class Interpreter {
     return ['int', 'byte', 'short', 'long'].includes(baseType);
   }
 
-  // Python-style slice for arrays and strings: `seq[start:end:step]`, with
-  // support for negative indices and a negative step.
-  private sliceSequence(seq: any, start?: any, end?: any, step?: any): any {
-    const isString = typeof seq === 'string';
-    const items: any[] = isString ? (seq as string).split('') : seq;
-    const len = items.length;
-    let s = step === undefined || step === null ? 1 : step;
-    if (s === 0) s = 1;
-
-    const clamp = (i: number) => {
-      if (i < 0) i += len;
-      if (s > 0) return Math.max(0, Math.min(i, len));
-      return Math.max(-1, Math.min(i, len - 1));
-    };
-
-    const from = start === undefined || start === null ? (s > 0 ? 0 : len - 1) : clamp(start);
-    const to = end === undefined || end === null ? (s > 0 ? len : -1) : clamp(end);
-
-    const out: any[] = [];
-    if (s > 0) {
-      for (let i = from; i < to; i += s) out.push(items[i]);
-    } else {
-      for (let i = from; i > to; i += s) out.push(items[i]);
-    }
-    return isString ? out.join('') : out;
-  }
-
   private isFloatType(typeName?: string): boolean {
     if (!typeName) return false;
     const baseType = typeName.replace(/\[\]/g, '');
@@ -1781,14 +1754,6 @@ export class Interpreter {
 
       case 'IndexExpression': {
         const indexObj = this.evaluate(expr.object, env);
-        const hasEnd = (expr as any).indexEnd !== undefined;
-        const hasStep = (expr as any).indexStep !== undefined;
-        if (hasEnd || hasStep) {
-          const start = expr.index != null ? this.evaluate(expr.index, env) : undefined;
-          const end = hasEnd ? this.evaluate((expr as any).indexEnd, env) : undefined;
-          const step = hasStep ? this.evaluate((expr as any).indexStep, env) : undefined;
-          return this.sliceSequence(indexObj, start, end, step);
-        }
         const idxValue = this.evaluate(expr.index, env);
         return indexObj[idxValue];
       }

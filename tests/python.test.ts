@@ -1008,69 +1008,13 @@ print(lst[3])`;
       expect(javaCode).toContain('nums.length - 2');
     });
 
-    it('should parse array slicing with start and end', () => {
-      const source = `middle = nums[1:3]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      expect(program.body.length).toBe(1);
-      const assignment = program.body[0] as any;
-      expect(assignment.type).toBe('Assignment');
-      expect(assignment.value.type).toBe('IndexExpression');
-      expect(assignment.value.indexEnd).toBeDefined();
-    });
-
-    it('should translate array slicing to Arrays.copyOfRange in Java', () => {
-      const source = `middle = nums[1:3]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const javaCode = translator.translate(program, 'java');
-      expect(javaCode).toContain('Arrays.copyOfRange');
-      expect(javaCode).toContain('1');
-      expect(javaCode).toContain('3');
-    });
-
-    it('should handle array slicing with no start index', () => {
-      const source = `start_slice = nums[:2]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      expect(program.body.length).toBe(1);
-      const assignment = program.body[0] as any;
-      expect(assignment.value.type).toBe('IndexExpression');
-    });
-
-    it('should handle array slicing with step', () => {
-      const source = `every_other = nums[0:4:2]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      expect(program.body.length).toBe(1);
-      const assignment = program.body[0] as any;
-      expect(assignment.value.type).toBe('IndexExpression');
-      expect(assignment.value.indexStep).toBeDefined();
-    });
-
-    it('should emit array slicing correctly in Python', () => {
-      const source = `slice_result = items[1:3]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const pythonEmitter = new PythonEmitter({
-        symbolTable: new SymbolTable(),
-        functionReturnTypes: new Map(),
-        functionParamTypes: new Map(),
-      });
-      pythonEmitter.visitProgram(program);
-      const code = pythonEmitter.getGeneratedCode();
-      expect(code).toContain('items[1:3]');
+    it('should reject list slicing as unsupported', () => {
+      for (const source of ['middle = nums[1:3]', 'start = nums[:2]', 'every = nums[0:4:2]']) {
+        const lexer = new PythonLexer(source);
+        const tokens = lexer.tokenize();
+        const parser = new PythonParser(tokens);
+        expect(() => parser.parse()).toThrow(/not supported/);
+      }
     });
 
     it('should handle negative indices in Python emission', () => {
@@ -1094,15 +1038,14 @@ print(lst[3])`;
     it('should handle complete array indexing scenario from user', () => {
       const source = `nums = [1, 3, 5, 7]
 first = nums[0]
-last = nums[-1]
-middle_slice = nums[1:3]`;
+last = nums[-1]`;
       const lexer = new PythonLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
 
-      // All 4 statements should be parsed
-      expect(program.body.length).toBe(4);
+      // All 3 statements should be parsed
+      expect(program.body.length).toBe(3);
 
       // First statement: array literal assignment
       const numsAssign = program.body[0] as any;
@@ -1120,19 +1063,12 @@ middle_slice = nums[1:3]`;
       const lastAssign = program.body[2] as any;
       expect(lastAssign.type).toBe('Assignment');
       expect(lastAssign.value.type).toBe('IndexExpression');
-
-      // Fourth statement: slice
-      const sliceAssign = program.body[3] as any;
-      expect(sliceAssign.type).toBe('Assignment');
-      expect(sliceAssign.value.type).toBe('IndexExpression');
-      expect(sliceAssign.value.indexEnd).toBeDefined();
     });
 
     it('should translate complete array scenario to valid Java', () => {
       const source = `nums = [1, 3, 5, 7]
 first = nums[0]
-last = nums[-1]
-middle_slice = nums[1:3]`;
+last = nums[-1]`;
       const lexer = new PythonLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
@@ -1140,11 +1076,11 @@ middle_slice = nums[1:3]`;
       const translator = new Translator();
       const javaCode = translator.translate(program, 'java');
 
-      // Should have all 4 assignments
+      // Should have all 3 assignments
       const lines = javaCode
         .split('\n')
         .filter((l) => l.includes('=') && !l.trim().startsWith('//'));
-      expect(lines.length).toBeGreaterThanOrEqual(4);
+      expect(lines.length).toBeGreaterThanOrEqual(3);
 
       // Should have positive index: nums[0]
       expect(javaCode).toContain('nums[0]');
@@ -1153,9 +1089,6 @@ middle_slice = nums[1:3]`;
       expect(javaCode).toContain('nums.length - 1');
       expect(javaCode).not.toContain('nums[-1]');
       expect(javaCode).not.toContain('nums[11]');
-
-      // Should have array slice: Arrays.copyOfRange
-      expect(javaCode).toContain('Arrays.copyOfRange');
 
       // Should be valid Java
       expect(javaCode).toContain('public class Main');
@@ -1293,19 +1226,6 @@ result = foo(1, 2, 3)`;
       expect(cspCode).not.toContain('[-1]');
     });
 
-    it('should translate array slicing to CSP', () => {
-      const source = `slice_result = nums[1:3]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const cspCode = translator.translate(program, 'csp');
-      // CSP should have valid output
-      expect(cspCode).toBeDefined();
-      expect(cspCode.length).toBeGreaterThan(0);
-    });
-
     it('should translate negative index to Praxis correctly', () => {
       const source = `x = nums[-2]`;
       const lexer = new PythonLexer(source);
@@ -1318,31 +1238,16 @@ result = foo(1, 2, 3)`;
       expect(praxisCode).not.toContain('[-2]');
     });
 
-    it('should translate array slicing to Praxis', () => {
-      const source = `result = items[0:2]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const praxisCode = translator.translate(program, 'praxis');
-      // Praxis should have valid output
-      expect(praxisCode).toBeDefined();
-      expect(praxisCode.length).toBeGreaterThan(0);
-    });
-
-    it('should handle mixed operations: positive index, negative index, and slice', () => {
+    it('should handle mixed operations: positive index and negative index', () => {
       const source = `data = [10, 20, 30, 40, 50]
 a = data[0]
-b = data[-1]
-c = data[1:4]
-d = data[-3:-1]`;
+b = data[-1]`;
       const lexer = new PythonLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
 
-      expect(program.body.length).toBe(5);
+      expect(program.body.length).toBe(3);
 
       const translator = new Translator();
       const javaCode = translator.translate(program, 'java');
@@ -1350,15 +1255,12 @@ d = data[-3:-1]`;
       // Verify all statements translated
       expect(javaCode).toContain('data[0]');
       expect(javaCode).toContain('data.length - 1');
-      expect(javaCode).toContain('Arrays.copyOfRange');
       expect(javaCode).not.toContain('data[-1]');
-      expect(javaCode).not.toContain('data[-3]');
     });
 
     it('should maintain Python semantics in Python translation', () => {
       const source = `nums = [1, 2, 3, 4, 5]
-last = nums[-1]
-slice_val = nums[1:3]`;
+last = nums[-1]`;
       const lexer = new PythonLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
@@ -1371,9 +1273,8 @@ slice_val = nums[1:3]`;
       pythonEmitter.visitProgram(program);
       const pythonCode = pythonEmitter.getGeneratedCode();
 
-      // Python should keep negative indices and slicing
+      // Python should keep negative indices
       expect(pythonCode).toContain('[-1]');
-      expect(pythonCode).toContain('[1:3]');
     });
   });
 

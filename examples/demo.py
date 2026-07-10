@@ -42,12 +42,6 @@ values.append(7)                  # method call (MemberExpression + Call)
 values.pop()                      # remove the last element
 print(values, len(values), values[0])   # {50, 2, 9, 1} 4 50
 
-# ---- IndexExpression slice (indexEnd / indexStep) --------------------------
-nums2 = [10, 20, 30, 40, 50]
-print(nums2[1:4])                 # {20, 30, 40}
-print(nums2[::2])                 # {10, 30, 50}
-
-
 # ========================== STATEMENTS =====================================
 
 # ---- If / elif / else (elif => nested If in elseBranch) --------------------

@@ -24,8 +24,8 @@ export class JavaScriptEmitter extends ASTVisitor {
   private currentClassFields = new Set<string>();
   // Names declared with an integer type (drives Math.trunc integer division).
   private declaredIntVars = new Set<string>();
-  // Statements hoisted before the statement currently being built (list
-  // comprehensions and step slices lower to a temp array + loop).
+  // Statements hoisted before the statement currently being built (the
+  // multi-target for-loop lowers to a temp pair + loop).
   private preludeLines: string[] = [];
   private tempCounter = 0;
 
@@ -532,30 +532,7 @@ export class JavaScriptEmitter extends ASTVisitor {
       case 'IndexExpression': {
         prec = Precedence.Member;
         const objStr = this.generateExpression(expr.object, prec);
-        const hasEnd = (expr as any).indexEnd !== undefined;
-        const hasStep = (expr as any).indexStep !== undefined;
-        if (hasStep) {
-          // Step slice a[start:end:step] -> hoisted temp array + loop.
-          const tmp = `_slice${this.tempCounter++}`;
-          const iv = `_i${this.tempCounter++}`;
-          const start = expr.index != null ? this.generateExpression(expr.index, 0) : '0';
-          const end = hasEnd
-            ? this.generateExpression((expr as any).indexEnd, 0)
-            : `${objStr}.length`;
-          const step = this.generateExpression((expr as any).indexStep, 0);
-          this.preludeLines.push(`let ${tmp} = [];`);
-          this.preludeLines.push(`for (let ${iv} = ${start}; ${iv} < ${end}; ${iv} += ${step}) {`);
-          this.preludeLines.push(`  ${tmp}.push(${objStr}[${iv}]);`);
-          this.preludeLines.push(`}`);
-          out = tmp;
-        } else if (hasEnd) {
-          const start = this.generateExpression(expr.index, 0);
-          const end = this.generateExpression((expr as any).indexEnd, 0);
-          out = `${objStr}.slice(${start}, ${end})`;
-          prec = Precedence.Call;
-        } else {
-          out = `${objStr}[${this.generateExpression(expr.index, 0)}]`;
-        }
+        out = `${objStr}[${this.generateExpression(expr.index, 0)}]`;
         break;
       }
 

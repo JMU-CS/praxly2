@@ -757,14 +757,7 @@ export class PythonEmitter extends ASTVisitor {
         currentPrecedence = Precedence.Member;
         const objE = this.generateExpression(expr.object, currentPrecedence);
         const idxE = this.generateExpression(expr.index, 0);
-        if (expr.indexEnd || expr.indexStep) {
-          // Slice: a[start:end:step]; a missing end/step is left blank.
-          const endE = expr.indexEnd ? this.generateExpression(expr.indexEnd, 0) : '';
-          const stepE = expr.indexStep ? `:${this.generateExpression(expr.indexStep, 0)}` : '';
-          output = `${objE}[${idxE}:${endE}${stepE}]`;
-        } else {
-          output = `${objE}[${idxE}]`;
-        }
+        output = `${objE}[${idxE}]`;
         break;
       case 'MemberExpression':
         currentPrecedence = Precedence.Member;

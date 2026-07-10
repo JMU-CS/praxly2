@@ -420,11 +420,7 @@ export class CSPEmitter extends ASTVisitor {
       case 'IndexExpression': {
         currentPrecedence = Precedence.Member;
         const objStr = this.generateExpression(expr.object, currentPrecedence);
-        if (expr.indexEnd) {
-          output = `${objStr}.SLICE(${this.toOneBased(expr.index, objStr)}, ${this.toOneBased(expr.indexEnd, objStr)})`;
-        } else {
-          output = `${objStr}[${this.toOneBased(expr.index, objStr)}]`;
-        }
+        output = `${objStr}[${this.toOneBased(expr.index, objStr)}]`;
         break;
       }
 
