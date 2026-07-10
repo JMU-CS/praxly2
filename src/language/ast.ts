@@ -144,7 +144,6 @@ export interface Parameter extends ASTNode {
   type: 'Parameter';
   name: string;
   paramType: string;
-  defaultValue?: Expression;
 }
 
 export interface If extends ASTNode {
