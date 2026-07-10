@@ -25,6 +25,14 @@ import {
 } from '../ast';
 import { attachComments } from '../comments';
 
+/**
+ * Thrown when the source uses a feature Praxly deliberately does not support
+ * (e.g. Python's `for...else`/`while...else`). Unlike an ordinary syntax error,
+ * this is NOT swallowed by `parse()`'s error recovery — it propagates so the
+ * user gets a clear "not supported" message instead of silently-dropped code.
+ */
+export class UnsupportedFeatureError extends Error {}
+
 export class Parser {
   private tokens: Token[];
   private current = 0;
@@ -62,6 +70,9 @@ export class Parser {
       try {
         body.push(this.topLevelDeclaration());
       } catch (e) {
+        // An unsupported-feature error is intentional and must reach the user —
+        // don't recover from it.
+        if (e instanceof UnsupportedFeatureError) throw e;
         // Error recovery: skip to next valid statement and continue
         this.synchronize();
         continue;
@@ -518,13 +529,12 @@ export class Parser {
     const condition = this.expression();
     const body = this.block();
 
-    let elseBranch: Block | undefined = undefined;
     while (this.match('PUNCTUATION', ';')) {}
-    if (this.match('KEYWORD', 'else')) {
-      elseBranch = this.block();
+    if (this.check('KEYWORD', 'else')) {
+      throw new UnsupportedFeatureError("'while ... else' is not supported");
     }
 
-    return { id: generateId(), type: 'While', condition, body, elseBranch };
+    return { id: generateId(), type: 'While', condition, body };
   }
 
   private tryStatement(): any {
@@ -567,10 +577,9 @@ export class Parser {
     const iterable = this.expression();
     const body = this.block();
 
-    let elseBranch: Block | undefined = undefined;
     while (this.match('PUNCTUATION', ';')) {}
-    if (this.match('KEYWORD', 'else')) {
-      elseBranch = this.block();
+    if (this.check('KEYWORD', 'else')) {
+      throw new UnsupportedFeatureError("'for ... else' is not supported");
     }
 
     return {
@@ -580,7 +589,6 @@ export class Parser {
       variables: vars.length > 1 ? vars : undefined,
       iterable,
       body,
-      elseBranch,
     };
   }
 

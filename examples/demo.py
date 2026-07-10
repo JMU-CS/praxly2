@@ -85,12 +85,6 @@ for n in range(5):
         continue                  # skip printing 1
     print("flow", n)              # flow 0 / flow 2
 
-# ---- For ... else (elseBranch runs only if the loop finishes without break) -
-for i in range(3):
-    print("scan", i)
-else:
-    print("scanned all")          # runs (no break above)
-
 # ---- For.variables: multiple loop targets via enumerate --------------------
 for idx, item in enumerate([100, 200]):
     print(idx, item)              # 0 100 / 1 200

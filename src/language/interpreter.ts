@@ -1382,7 +1382,6 @@ export class Interpreter {
       case 'While': {
         let isFirstIteration = true;
         let iterationCount = 0;
-        let didBreak = false;
         const MAX_ITERATIONS = 10000; // Safety limit to prevent truly infinite loops
 
         while (this.evaluate(stmt.condition, env)) {
@@ -1415,7 +1414,6 @@ export class Interpreter {
             // Execute one iteration
             const signal = this.runIteration(stmt.body.body, env);
             if (signal === 'break') {
-              didBreak = true;
               break;
             }
 
@@ -1435,19 +1433,13 @@ export class Interpreter {
             }
           } else {
             if (this.runIteration(stmt.body.body, env) === 'break') {
-              didBreak = true;
               break;
             }
           }
         }
-        // Python-style loop `else`: runs only if the loop finished without break.
-        if (!didBreak && (stmt as any).elseBranch) {
-          this.executeBlock((stmt as any).elseBranch.body, env);
-        }
         break;
       }
       case 'For': {
-        let didBreak = false;
         if (stmt.init && stmt.condition && stmt.update) {
           // C-Style evaluation mappings
           this.execute(stmt.init, env);
@@ -1463,7 +1455,6 @@ export class Interpreter {
             }
             const signal = this.runIteration(stmt.body.body, env);
             if (signal === 'break') {
-              didBreak = true;
               break;
             }
             // `continue` still runs the update clause (C semantics).
@@ -1483,14 +1474,9 @@ export class Interpreter {
               env.define(stmt.variable, item);
             }
             if (this.runIteration(stmt.body.body, env) === 'break') {
-              didBreak = true;
               break;
             }
           }
-        }
-        // Python-style loop `else`: runs only if the loop finished without break.
-        if (!didBreak && (stmt as any).elseBranch) {
-          this.executeBlock((stmt as any).elseBranch.body, env);
         }
         break;
       }

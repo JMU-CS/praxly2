@@ -35,11 +35,6 @@ export class PraxisEmitter extends ASTVisitor {
   // access is qualified with `this.` only when the field name is shadowed by one
   // of these (e.g. `this.name <- name`); otherwise the bare field name is used.
   private currentParams = new Set<string>();
-  // One entry per enclosing loop (innermost last): the loop's "no break yet"
-  // flag name if it has a Python-style `else`, otherwise null. Praxis has no
-  // loop-else, so it lowers to a flag set false at each break plus a trailing
-  // `if (flag) ... end if`.
-  private loopElseFlags: (string | null)[] = [];
   // Declared class names — used to render a bare constructor call (e.g. Python's
   // `Animal("Rex")`) as a Praxis `new Animal("Rex")` and to type the target.
   private classNames = new Set<string>();
@@ -90,28 +85,6 @@ export class PraxisEmitter extends ASTVisitor {
     const ctor = this.classConstructorName(expr);
     if (ctor) return ctor;
     return super.inferType(expr);
-  }
-
-  // Emits a loop's `no-break` flag init (if it has an `else`) and pushes the
-  // loop onto the stack. Call before emitting the loop header.
-  private openLoopElse(stmt: any): string | null {
-    const hasElse = stmt.elseBranch && stmt.elseBranch.body && stmt.elseBranch.body.length > 0;
-    const flag = hasElse ? `_noBreak${this.tempCounter++}` : null;
-    if (flag) this.emit(`boolean ${flag} <- true`);
-    this.loopElseFlags.push(flag);
-    return flag;
-  }
-
-  // Pops the loop and, if it had an `else`, emits `if (flag) <else> end if`.
-  private closeLoopElse(stmt: any, flag: string | null): void {
-    this.loopElseFlags.pop();
-    if (flag) {
-      this.emit(`if (${flag})`);
-      this.indent();
-      this.visitBlock(stmt.elseBranch);
-      this.dedent();
-      this.emit('end if');
-    }
   }
 
   private isJavaMainClass(classDecl: ClassDeclaration): boolean {
@@ -403,7 +376,6 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitWhile(stmt: any): void {
-    const flag = this.openLoopElse(stmt);
     this.emit(`while (${this.generateExpression(stmt.condition, 0)})`, stmt.id);
     this.indent();
     this.context.symbolTable.enterScope();
@@ -411,11 +383,9 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit('end while');
-    this.closeLoopElse(stmt, flag);
   }
 
   visitDoWhile(stmt: any): void {
-    this.loopElseFlags.push(null);
     this.emit(`do`);
     this.indent();
     this.context.symbolTable.enterScope();
@@ -423,11 +393,9 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit(`while (${this.generateExpression(stmt.condition, 0)})`);
-    this.loopElseFlags.pop();
   }
 
   visitRepeatUntil(stmt: any): void {
-    this.loopElseFlags.push(null);
     this.emit('repeat', stmt.id);
     this.indent();
     this.context.symbolTable.enterScope();
@@ -435,7 +403,6 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit(`until (${this.generateExpression(stmt.condition, 0)})`);
-    this.loopElseFlags.pop();
   }
 
   visitSwitch(stmt: any): void {
@@ -482,10 +449,6 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitBreak(_stmt: any): void {
-    // Clear the enclosing loop's no-break flag (if it has an `else`) so the
-    // lowered else block is skipped on break.
-    const flag = this.loopElseFlags[this.loopElseFlags.length - 1];
-    if (flag) this.emit(`${flag} <- false`);
     this.emit('break');
   }
   visitContinue(_stmt: any): void {
@@ -493,7 +456,6 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitFor(stmt: any): void {
-    const loopFlag = this.openLoopElse(stmt);
     if (stmt.init && stmt.condition && stmt.update) {
       this.context.symbolTable.enterScope();
       let initCode = '';
@@ -566,7 +528,6 @@ export class PraxisEmitter extends ASTVisitor {
       this.dedent();
       this.emit('end for');
     }
-    this.closeLoopElse(stmt, loopFlag);
   }
 
   visitFunctionDeclaration(stmt: any): void {
