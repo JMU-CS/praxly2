@@ -31,6 +31,10 @@ export class PraxisEmitter extends ASTVisitor {
   private tempCounter = 0;
   // Name of the class currently being emitted — a constructor is named after it.
   private currentClassName = '';
+  // Parameter names of the constructor/method currently being emitted. A field
+  // access is qualified with `this.` only when the field name is shadowed by one
+  // of these (e.g. `this.name <- name`); otherwise the bare field name is used.
+  private currentParams = new Set<string>();
   // One entry per enclosing loop (innermost last): the loop's "no break yet"
   // flag name if it has a Python-style `else`, otherwise null. Praxis has no
   // loop-else, so it lowers to a flag set false at each break plus a trailing
@@ -256,8 +260,11 @@ export class PraxisEmitter extends ASTVisitor {
     this.emit(`${ctor.access} ${this.currentClassName}(${params})`);
     this.indent();
     this.context.symbolTable.enterScope();
+    const prevParams = this.currentParams;
+    this.currentParams = new Set(ctor.params.map((p) => p.name));
     ctor.params.forEach((p) => this.context.symbolTable.set(p.name, p.paramType || 'auto'));
     this.visitBlock(ctor.body);
+    this.currentParams = prevParams;
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit(`end ${this.currentClassName}`);
@@ -282,8 +289,11 @@ export class PraxisEmitter extends ASTVisitor {
     this.emit(`${method.access} ${returnType} ${method.name}(${params})`);
     this.indent();
     this.context.symbolTable.enterScope();
+    const prevParams = this.currentParams;
+    this.currentParams = new Set(method.params.map((p) => p.name));
     method.params.forEach((p) => this.context.symbolTable.set(p.name, p.paramType || 'auto'));
     this.visitBlock(method.body);
+    this.currentParams = prevParams;
     this.context.symbolTable.exitScope();
     this.dedent();
     this.emit(`end ${method.name}`);
@@ -732,15 +742,20 @@ export class PraxisEmitter extends ASTVisitor {
 
       case 'MemberExpression': {
         currentPrecedence = Precedence.Member;
-        // Praxis has no `this`/`self`: a field access on the receiver is written
-        // as the bare field name.
+        // A field access on the receiver is normally written as the bare field
+        // name (Praxis has no `this`). The optional `this.` prefix — a Praxly
+        // extension — is emitted only when a parameter shadows the field name.
         const obj = expr.object as any;
         const isReceiver =
           obj.type === 'ThisExpression' ||
           (obj.type === 'Identifier' && (obj.name === 'this' || obj.name === 'self'));
-        output = isReceiver
-          ? expr.property.name
-          : `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
+        if (isReceiver) {
+          output = this.currentParams.has(expr.property.name)
+            ? `this.${expr.property.name}`
+            : expr.property.name;
+        } else {
+          output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
+        }
         break;
       }
 
