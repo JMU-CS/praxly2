@@ -28,10 +28,6 @@ export class JavaScriptEmitter extends ASTVisitor {
   // comprehensions and step slices lower to a temp array + loop).
   private preludeLines: string[] = [];
   private tempCounter = 0;
-  // When emitting the body of a loop that has a Python-style `else`, this holds
-  // the "no break happened" flag name so a `break` can clear it. null inside
-  // loops/switches without an else (a break there is scoped to them).
-  private loopElseFlag: string | null = null;
 
   // Flush hoisted prelude statements (at the current indent) before `line`.
   protected emit(line: string, nodeId?: string): void {
@@ -296,66 +292,31 @@ export class JavaScriptEmitter extends ASTVisitor {
     this.emit('}');
   }
 
-  // Emit a Python-style loop `else` (runs unless a break occurred) after a loop.
-  // Sets up the no-break flag, returns it so the loop body can be emitted with
-  // it active, and `finishLoopElse` closes it out.
-  private beginLoopElse(stmt: any): { flag: string | null; saved: string | null } {
-    const saved = this.loopElseFlag;
-    let flag: string | null = null;
-    if (stmt.elseBranch) {
-      flag = `_noBreak${this.tempCounter++}`;
-      this.emit(`let ${flag} = true;`);
-    }
-    this.loopElseFlag = flag;
-    return { flag, saved };
-  }
-
-  private finishLoopElse(stmt: any, state: { flag: string | null; saved: string | null }): void {
-    this.loopElseFlag = state.saved;
-    if (state.flag) {
-      this.emit(`if (${state.flag}) {`);
-      this.indent();
-      this.visitBlock(stmt.elseBranch);
-      this.dedent();
-      this.emit('}');
-    }
-  }
-
   visitWhile(stmt: any): void {
-    const state = this.beginLoopElse(stmt);
     this.emit(`while (${this.generateExpression(stmt.condition, 0)}) {`, stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
     this.emit('}');
-    this.finishLoopElse(stmt, state);
   }
 
   visitDoWhile(stmt: any): void {
-    const saved = this.loopElseFlag;
-    this.loopElseFlag = null;
     this.emit('do {');
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
     this.emit(`} while (${this.generateExpression(stmt.condition, 0)});`);
-    this.loopElseFlag = saved;
   }
 
   visitRepeatUntil(stmt: any): void {
-    const saved = this.loopElseFlag;
-    this.loopElseFlag = null;
     this.emit('do {', stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
     this.emit(`} while (!(${this.generateExpression(stmt.condition, 0)}));`);
-    this.loopElseFlag = saved;
   }
 
   visitSwitch(stmt: any): void {
-    const saved = this.loopElseFlag;
-    this.loopElseFlag = null;
     this.emit(`switch (${this.generateExpression(stmt.discriminant, 0)}) {`, stmt.id);
     this.indent();
     stmt.cases.forEach((c: any) => {
@@ -370,11 +331,9 @@ export class JavaScriptEmitter extends ASTVisitor {
     });
     this.dedent();
     this.emit('}');
-    this.loopElseFlag = saved;
   }
 
   visitBreak(_stmt: any): void {
-    if (this.loopElseFlag) this.emit(`${this.loopElseFlag} = false;`);
     this.emit('break;');
   }
   visitContinue(_stmt: any): void {
@@ -382,7 +341,6 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitFor(stmt: For): void {
-    const elseState = this.beginLoopElse(stmt);
     if (stmt.init && stmt.condition && stmt.update) {
       // C-style for
       const savedDeclared = new Set(this.declaredVars);
@@ -482,7 +440,6 @@ export class JavaScriptEmitter extends ASTVisitor {
         }
       }
     }
-    this.finishLoopElse(stmt, elseState);
   }
 
   visitFunctionDeclaration(stmt: any): void {

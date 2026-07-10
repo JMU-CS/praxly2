@@ -487,26 +487,6 @@ finally:
       const code = emitter.getGeneratedCode();
       expect(code).toContain('for');
     });
-
-    it('should emit while-else block', () => {
-      const source = `while x < 10:
-  x = x + 1
-else:
-  print("Done")`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const emitter = new PythonEmitter({
-        symbolTable: new SymbolTable(),
-        functionReturnTypes: new Map(),
-        functionParamTypes: new Map(),
-      });
-      emitter.visitProgram(program);
-      const code = emitter.getGeneratedCode();
-      expect(code).toContain('while');
-      expect(code).toContain('else');
-    });
   });
 });
 
@@ -722,21 +702,6 @@ finally:
       expect(result).toContain('in');
     });
 
-    it('should translate while-else', () => {
-      const source = `while x < 10:
-  x = x + 1
-else:
-  print("Done")`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'python');
-      expect(result).toContain('while');
-      expect(result).toContain('else');
-    });
-
     it('should translate tuple unpacking', () => {
       const source = `a, b = 1, 2`;
       const lexer = new PythonLexer(source);
@@ -773,22 +738,6 @@ else:
       const result = translator.translate(program, 'python');
       expect(result).toContain('for');
       expect(result).toContain('in');
-    });
-
-    it('should support while-else constructs', () => {
-      const source = `x = 0
-while x < 5:
-  x = x + 1
-else:
-  print("done")`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'python');
-      expect(result).toContain('while');
-      expect(result).toContain('else');
     });
 
     it('should support list comprehensions', () => {

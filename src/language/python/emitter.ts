@@ -432,20 +432,13 @@ export class PythonEmitter extends ASTVisitor {
   }
 
   /**
-   * Translates while loop with optional else clause.
-   * Python supports while-else executed when condition becomes false.
+   * Translates while loop.
    */
   visitWhile(stmt: any): void {
     this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
-    if (stmt.elseBranch) {
-      this.emit(`else:`);
-      this.indent();
-      this.visitBlock(stmt.elseBranch);
-      this.dedent();
-    }
   }
 
   /**
@@ -570,7 +563,6 @@ export class PythonEmitter extends ASTVisitor {
    * Translates for loops in multiple formats:
    * 1. C-style: converts to for-in-range when the pattern matches, falls back to while loop
    * 2. Iterator-based: for var in iterable with optional tuple unpacking
-   * Supports optional else clause executed if loop completes without break.
    */
   visitFor(stmt: For): void {
     if (stmt.init && stmt.condition && stmt.update) {
@@ -625,13 +617,6 @@ export class PythonEmitter extends ASTVisitor {
       }
       this.indent();
       this.visitBlock(stmt.body);
-      this.dedent();
-    }
-
-    if (stmt.elseBranch) {
-      this.emit('else:');
-      this.indent();
-      this.visitBlock(stmt.elseBranch);
       this.dedent();
     }
   }

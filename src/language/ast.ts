@@ -157,8 +157,6 @@ export interface While extends ASTNode {
   type: 'While';
   condition: Expression;
   body: Block;
-  // Python's for/while...else: runs when the loop finishes without a `break`.
-  elseBranch?: Block;
 }
 
 export interface DoWhile extends ASTNode {
@@ -190,7 +188,6 @@ export interface For extends ASTNode {
   condition?: Expression;
   update?: Statement;
   body: Block;
-  elseBranch?: Block;
 }
 
 export interface Switch extends ASTNode {

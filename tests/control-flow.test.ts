@@ -1,7 +1,7 @@
 /**
  * Regression tests for control-flow constructs and optional AST fields that the
  * interpreter previously parsed/translated but did not execute: break, continue,
- * switch, try/catch/finally, the ternary operator, loop-`else`, multi-target
+ * switch, try/catch/finally, the ternary operator, multi-target
  * `for`, slicing, list comprehension, and integer `/=`.
  */
 import { describe, it, expect } from 'vitest';
@@ -80,17 +80,13 @@ describe('control flow and optional fields now execute', () => {
     ).toEqual(['caught', 'fin']);
   });
 
-  it('loop else runs only when the loop finishes without break', () => {
-    expect(python('for i in range(2):\n    print(i)\nelse:\n    print("done")')).toEqual([
-      '0',
-      '1',
-      'done',
-    ]);
-    expect(
-      python(
-        'i = 0\nwhile i < 5:\n    if i == 2:\n        break\n    print(i)\n    i += 1\nelse:\n    print("noBreak")'
-      )
-    ).toEqual(['0', '1']);
+  it('loop else is unsupported and raises a parse error', () => {
+    expect(() => python('for i in range(2):\n    print(i)\nelse:\n    print("done")')).toThrow(
+      "'for ... else' is not supported"
+    );
+    expect(() =>
+      python('i = 0\nwhile i < 3:\n    print(i)\n    i += 1\nelse:\n    print("done")')
+    ).toThrow("'while ... else' is not supported");
   });
 
   it('multi-target for destructures each element', () => {

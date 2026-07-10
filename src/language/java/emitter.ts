@@ -1062,12 +1062,6 @@ export class JavaEmitter extends ASTVisitor {
       this.dedent();
       this.emit('}');
     }
-
-    // Handle Python for-else (executes if loop completes without break)
-    if (stmt.elseBranch) {
-      this.emit('// for-else fallback');
-      this.visitBlock(stmt.elseBranch);
-    }
   }
 
   /**
