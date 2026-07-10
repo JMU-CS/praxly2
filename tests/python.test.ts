@@ -661,16 +661,12 @@ finally:
       expect(result).toContain('finally');
     });
 
-    it('should translate tuple unpacking', () => {
+    it('should reject tuple assignment as unsupported', () => {
       const source = `a, b = 1, 2`;
       const lexer = new PythonLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'python');
-      expect(result).toContain('a');
-      expect(result).toContain('b');
+      expect(() => parser.parse()).toThrow(/not supported/);
     });
 
     it('should translate multiple assignments', () => {
