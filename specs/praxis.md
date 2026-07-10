@@ -1,7 +1,7 @@
 # Praxis
 
-The _Praxis Computer Science (5652_) test uses the pseudocode notation described below.
-Many details are not provided by the spec, especially for classes and object-oriented programming.
+The _Praxis Computer Science (5652)_ test uses the pseudocode notation described below.
+Many details were not provided in the original spec, especially for classes and object-oriented programming.
 Assume Java semantics unless stated otherwise.
 
 ## Basics
@@ -29,6 +29,7 @@ Assume Java semantics unless stated otherwise.
 
 - Boolean values: `true`, `false`
 - Null: `null`
+    - Used only for strings, arrays, and objects
 - Data types: `boolean`, `char`, `double`, `float`, `int`, `int[]`, `int[][]`, `short`, `String`
 - Array initialization
     - `int[] a ← {1, 2, 3}`
@@ -147,26 +148,37 @@ print numbers
 
 ## Extensions for Praxly
 
-The Praxly interpreter also supports the following features:
-
-- Python built-ins: `input()`, `int()`, `float()`
-- Fixed-size array creation: `int[] array ← new int[10]`
-- Java Math methods: `random()`, `randomInt()`, `randomSeed()`, `min()`, `max()`, `abs()`, `log()`, `sqrt()`
-- Java String methods: `.charAt()`, `.contains()`, `.indexOf()`, `.length()`, `.substring()`, `.toLowerCase()`, `.toUpperCase()`
-
-In addition, the following Java language features are supported:
+In addition to the official Praxis specification, the Praxly interpreter supports the following language features:
 
 - Increment/decrement: `++i`, `i++`, `--i`, `i--`
 - `break` and `continue` statements
 - `try`, `catch`, and `finally` (ending with `end try`)
-- Trailing semicolons are allowed (ignored by Praxly)
-- Constructors (see example below)
+- Constructors (optional; see examples below)
+- Fixed-size array creation: `int[] array ← new int[10]`
+- Trailing semicolons are allowed (they are ignored by Praxly)
+
+Praxly also supports `if ... else if ... else` statements.
+This syntax provides a more concise alternative to nesting `if` statements inside successive `else` blocks.
+
+For compatibility with the other languages supported by Praxly, arrays also support the following list operations:
+
+- `append()`
+- `insert()`
+- `length()`
+- `remove()`
+
+The following built-in functions are also available:
+
+- Python built-ins: `input()`, `int()`, `float()`
+- Java Math methods: `random()`, `randomInt()`, `randomSeed()`, `min()`, `max()`, `abs()`, `log()`, `sqrt()`
+- Java String methods: `.charAt()`, `.contains()`, `.indexOf()`, `.length()`, `.substring()`, `.toLowerCase()`, `.toUpperCase()`
 
 ## Inheritance Example
 
 Classes use the following syntax.
-Notice that Praxis does not use `this` or `self`, so variable names must be unique.
-The keyword `super` is used only to call the superclass's constructor.
+The Praxis test does not use `this` or `self`, so all variable names must be unique.
+Praxly allows optional use of `this` to make translating from other language easier.
+The keyword `super` is used to call the superclass's constructor.
 
 ```
 public class Animal
@@ -185,7 +197,7 @@ public class Animal
 
 end class Animal
 
-class Dog extends Animal
+public class Dog extends Animal
 
     public Dog(String n)
         super(n, "Woof")
