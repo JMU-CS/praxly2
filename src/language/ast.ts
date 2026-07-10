@@ -336,10 +336,6 @@ export interface IndexExpression extends ASTNode {
   type: 'IndexExpression';
   object: Expression;
   index: Expression;
-  // indexEnd/indexStep model Python slice syntax `a[start:end:step]`; both the emitters and
-  // the interpreter honor them (a plain single-index access leaves both unset).
-  indexEnd?: Expression;
-  indexStep?: Expression;
 }
 
 export interface ArrayLiteral extends ASTNode {

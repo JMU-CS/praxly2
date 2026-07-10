@@ -1165,7 +1165,7 @@ export class JavaEmitter extends ASTVisitor {
         output = `new ${expr.className}(${args})`;
         break;
       case 'IndexExpression':
-        // Array/list element access and slicing
+        // Array/list element access
         currentPrecedence = Precedence.Member;
         const objE = this.generateExpression(expr.object, currentPrecedence);
         const objType = this.getExpressionType(expr.object);
@@ -1193,44 +1193,8 @@ export class JavaEmitter extends ASTVisitor {
           }
         };
 
-        // Handle array slicing vs single element access
-        if ((expr as any).indexStep) {
-          // Step slice a[start:end:step] -> hoisted loop into a temp ArrayList.
-          this.usesArrayList = true;
-          const elemType = objType.endsWith('[]')
-            ? this.toBoxedJavaType(objType.slice(0, -2))
-            : isArrayListObject
-              ? this.getArrayListElementType(objType)
-              : 'Object';
-          const tmp = `_slice${this.tempCounter++}`;
-          const iv = `_i${this.tempCounter++}`;
-          const startE = expr.index ? convertIndex(expr.index) : '0';
-          const endE = expr.indexEnd ? convertIndex(expr.indexEnd) : lengthAccessor;
-          const stepE = this.generateExpression((expr as any).indexStep, 0);
-          const access = isArrayListObject ? `${objE}.get(${iv})` : `${objE}[${iv}]`;
-          this.preludeLines.push(`ArrayList<${elemType}> ${tmp} = new ArrayList<${elemType}>();`);
-          this.preludeLines.push(
-            `for (int ${iv} = ${startE}; ${iv} < ${endE}; ${iv} += ${stepE}) {`
-          );
-          this.preludeLines.push(`  ${tmp}.add(${access});`);
-          this.preludeLines.push(`}`);
-          output = tmp;
-        } else if (expr.indexEnd) {
-          // Array slicing: Arrays.copyOfRange(array, start, end)
-          const startE = convertIndex(expr.index);
-          const endE = convertIndex(expr.indexEnd);
-          if (isArrayListObject) {
-            this.usesArrayList = true;
-            output = `new ArrayList<>(${objE}.subList(${startE}, ${endE}))`;
-          } else {
-            this.usesArrays = true;
-            output = `Arrays.copyOfRange(${objE}, ${startE}, ${endE})`;
-          }
-        } else {
-          // Single element access
-          const indexExpr = convertIndex(expr.index);
-          output = isArrayListObject ? `${objE}.get(${indexExpr})` : `${objE}[${indexExpr}]`;
-        }
+        const indexExpr = convertIndex(expr.index);
+        output = isArrayListObject ? `${objE}.get(${indexExpr})` : `${objE}[${indexExpr}]`;
         break;
       case 'MemberExpression':
         // Object property/method access (obj.property)

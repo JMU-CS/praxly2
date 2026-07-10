@@ -729,39 +729,17 @@ export class Parser {
           isMethod: false,
         };
       } else if (this.match('PUNCTUATION', '[')) {
-        let index: Expression | undefined = undefined;
-        let indexEnd: Expression | undefined = undefined;
-        let indexStep: Expression | undefined = undefined;
-
-        if (!this.check('PUNCTUATION', ':')) {
-          index = this.expression();
-        } else {
-          // Implied slice zero bound (e.g. [:3])
-          index = { id: generateId(), type: 'Literal', value: 0, raw: '0' };
+        // List slicing (`a[start:end:step]`) is not supported — no other Praxly
+        // target has it. A `:` inside the subscript signals a slice.
+        if (this.check('PUNCTUATION', ':')) {
+          throw new UnsupportedFeatureError('list slicing is not supported');
         }
-
-        if (this.match('PUNCTUATION', ':')) {
-          if (!this.check('PUNCTUATION', ':') && !this.check('PUNCTUATION', ']')) {
-            indexEnd = this.expression();
-          }
-          if (this.match('PUNCTUATION', ':')) {
-            if (!this.check('PUNCTUATION', ']')) {
-              indexStep = this.expression();
-            }
-          }
-          this.consume('PUNCTUATION', ']');
-          expr = {
-            id: generateId(),
-            type: 'IndexExpression',
-            object: expr,
-            index,
-            indexEnd,
-            indexStep,
-          };
-        } else {
-          this.consume('PUNCTUATION', ']');
-          expr = { id: generateId(), type: 'IndexExpression', object: expr, index };
+        const index = this.expression();
+        if (this.check('PUNCTUATION', ':')) {
+          throw new UnsupportedFeatureError('list slicing is not supported');
         }
+        this.consume('PUNCTUATION', ']');
+        expr = { id: generateId(), type: 'IndexExpression', object: expr, index };
       } else {
         break;
       }

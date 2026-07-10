@@ -26,7 +26,7 @@ import type {
 
 export class PraxisEmitter extends ASTVisitor {
   // Statements hoisted ahead of the current one (Praxis has no expression-level
-  // ternary/slice/list-comprehension, so each lowers to a temp + preceding block).
+  // ternary, so it lowers to a temp + preceding block).
   private preludeLines: string[] = [];
   private tempCounter = 0;
   // Name of the class currently being emitted — a constructor is named after it.
@@ -656,24 +656,7 @@ export class PraxisEmitter extends ASTVisitor {
             return `${objExpr}.length - ${idx.argument.value}`;
           return this.generateExpression(idx, 0);
         };
-        if (expr.indexEnd || expr.indexStep) {
-          // Praxis has no slice syntax; hoist `obj[start:end:step]` into a loop
-          // that appends into a fresh list, and yield that list variable.
-          const tmp = `_slice${this.tempCounter++}`;
-          const iv = `_i${this.tempCounter++}`;
-          const start = expr.index ? convertIdx(expr.index) : '0';
-          const end = expr.indexEnd ? convertIdx(expr.indexEnd) : `${objExpr}.length`;
-          const step = expr.indexStep ? this.generateExpression(expr.indexStep, 0) : '1';
-          this.preludeLines.push(`${tmp} <- {}`);
-          this.preludeLines.push(
-            `for (int ${iv} <- ${start}; ${iv} < ${end}; ${iv} <- ${iv} + ${step})`
-          );
-          this.preludeLines.push(`  ${tmp}.append(${objExpr}[${iv}])`);
-          this.preludeLines.push(`end for`);
-          output = tmp;
-        } else {
-          output = `${objExpr}[${convertIdx(expr.index)}]`;
-        }
+        output = `${objExpr}[${convertIdx(expr.index)}]`;
         break;
       }
 
