@@ -181,7 +181,6 @@ export interface RepeatUntil extends ASTNode {
 export interface For extends ASTNode {
   type: 'For';
   variable: string;
-  variables?: string[];
   iterable: Expression;
   init?: Statement;
   condition?: Expression;

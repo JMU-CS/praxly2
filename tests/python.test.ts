@@ -640,19 +640,6 @@ print(xs[0])`;
       const result = translator.translate(program, 'python');
       expect(result).toContain('xs[0]');
     });
-
-    it('should translate enumerate in for loop', () => {
-      const source = `for i, v in enumerate(items):
-  print(i, v)`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'python');
-      expect(result).toContain('for');
-      expect(result).toContain('in');
-    });
   });
 
   describe('Advanced Features', () => {
@@ -867,18 +854,14 @@ describe('Python Bug Fixes', () => {
     });
   });
 
-  describe('enumerate() Function', () => {
-    it('should parse enumerate function call', () => {
+  describe('Multi-target for loops', () => {
+    it('should reject multiple loop variables as unsupported', () => {
       const source = `for i, v in enumerate(items):
   print(i, v)`;
       const lexer = new PythonLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const forStmt = program.body[0] as any;
-      expect(forStmt.type).toBe('For');
-      expect(forStmt.variables).toBeDefined();
-      expect(forStmt.variables.length).toBe(2);
+      expect(() => parser.parse()).toThrow(/not supported/);
     });
   });
 

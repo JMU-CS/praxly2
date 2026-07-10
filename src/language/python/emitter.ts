@@ -607,14 +607,7 @@ export class PythonEmitter extends ASTVisitor {
       this.visitBlock(stmt.body);
       this.dedent();
     } else {
-      if (stmt.variables && stmt.variables.length > 1) {
-        this.emit(
-          `for ${stmt.variables.join(', ')} in ${this.generateExpression(stmt.iterable, 0)}:`,
-          stmt.id
-        );
-      } else {
-        this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}:`, stmt.id);
-      }
+      this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}:`, stmt.id);
       this.indent();
       this.visitBlock(stmt.body);
       this.dedent();

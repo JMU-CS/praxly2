@@ -1,8 +1,7 @@
 /**
  * Regression tests for control-flow constructs and optional AST fields that the
  * interpreter previously parsed/translated but did not execute: break, continue,
- * switch, try/catch/finally, the ternary operator, multi-target
- * `for`, and integer `/=`.
+ * switch, try/catch/finally, the ternary operator, and integer `/=`.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -87,9 +86,5 @@ describe('control flow and optional fields now execute', () => {
     expect(() =>
       python('i = 0\nwhile i < 3:\n    print(i)\n    i += 1\nelse:\n    print("done")')
     ).toThrow("'while ... else' is not supported");
-  });
-
-  it('multi-target for destructures each element', () => {
-    expect(python('for i, v in enumerate([10, 20]):\n    print(i, v)')).toEqual(['0 10', '1 20']);
   });
 });

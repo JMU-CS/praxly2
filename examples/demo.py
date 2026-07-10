@@ -75,10 +75,6 @@ for n in range(5):
         continue                  # skip printing 1
     print("flow", n)              # flow 0 / flow 2
 
-# ---- For.variables: multiple loop targets via enumerate --------------------
-for idx, item in enumerate([100, 200]):
-    print(idx, item)              # 0 100 / 1 200
-
 # ---- Try / ExceptionHandler / finally --------------------------------------
 # Reading an undefined name raises; the handler catches it (binding the message
 # to `err`) and the finally block always runs.
