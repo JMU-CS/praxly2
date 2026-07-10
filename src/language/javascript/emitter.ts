@@ -486,12 +486,7 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitFunctionDeclaration(stmt: any): void {
-    const params = stmt.params
-      .map((p: any) => {
-        if (p.defaultValue) return `${p.name} = ${this.generateExpression(p.defaultValue, 0)}`;
-        return p.name;
-      })
-      .join(', ');
+    const params = stmt.params.map((p: any) => p.name).join(', ');
     this.emit(`function ${stmt.name}(${params}) {`);
     this.indent();
     // function body has its own scope for declared vars

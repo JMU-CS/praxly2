@@ -165,13 +165,7 @@ export class PythonEmitter extends ASTVisitor {
 
   private formatParameter(param: any): string {
     const annotatedType = this.toPythonType(param.paramType);
-    let output = annotatedType ? `${param.name}: ${annotatedType}` : param.name;
-
-    if (param.defaultValue) {
-      output += ` = ${this.generateExpression(param.defaultValue, 0)}`;
-    }
-
-    return output;
+    return annotatedType ? `${param.name}: ${annotatedType}` : param.name;
   }
 
   /**

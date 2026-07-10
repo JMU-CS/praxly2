@@ -164,7 +164,7 @@ class JavaInstance {
     methodEnv.define('this', this);
     methodEnv.define('self', this); // Python compatibility
 
-    // Bind parameters (supports default values)
+    // Bind parameters (no default values; argument count must match exactly)
     interpreter.bindParams(method.params, args, methodEnv);
 
     try {
