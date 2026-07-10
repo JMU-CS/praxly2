@@ -2,7 +2,7 @@
  * Regression tests for control-flow constructs and optional AST fields that the
  * interpreter previously parsed/translated but did not execute: break, continue,
  * switch, try/catch/finally, the ternary operator, multi-target
- * `for`, slicing, list comprehension, and integer `/=`.
+ * `for`, slicing, and integer `/=`.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -97,9 +97,5 @@ describe('control flow and optional fields now execute', () => {
     // Praxly renders lists with braces.
     expect(python('xs = [10, 20, 30, 40, 50]\nprint(xs[1:4])')).toEqual(['{20, 30, 40}']);
     expect(python('xs = [10, 20, 30, 40, 50]\nprint(xs[::2])')).toEqual(['{10, 30, 50}']);
-  });
-
-  it('list comprehension builds a list', () => {
-    expect(python('print([x * x for x in range(4)])')).toEqual(['{0, 1, 4, 9}']);
   });
 });

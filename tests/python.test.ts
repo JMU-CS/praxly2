@@ -471,22 +471,6 @@ finally:
       const code = emitter.getGeneratedCode();
       expect(code).toContain('try');
     });
-
-    it('should emit list comprehension', () => {
-      const source = `squares = [x * x for x in items]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const emitter = new PythonEmitter({
-        symbolTable: new SymbolTable(),
-        functionReturnTypes: new Map(),
-        functionParamTypes: new Map(),
-      });
-      emitter.visitProgram(program);
-      const code = emitter.getGeneratedCode();
-      expect(code).toContain('for');
-    });
   });
 });
 
@@ -690,18 +674,6 @@ finally:
       expect(result).toContain('finally');
     });
 
-    it('should translate list comprehensions', () => {
-      const source = `squares = [x * x for x in range(10)]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'python');
-      expect(result).toContain('for');
-      expect(result).toContain('in');
-    });
-
     it('should translate tuple unpacking', () => {
       const source = `a, b = 1, 2`;
       const lexer = new PythonLexer(source);
@@ -736,19 +708,6 @@ finally:
       const program = parser.parse();
       const translator = new Translator();
       const result = translator.translate(program, 'python');
-      expect(result).toContain('for');
-      expect(result).toContain('in');
-    });
-
-    it('should support list comprehensions', () => {
-      const source = `squares = [x * x for x in range(10)]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'python');
-      expect(result).toContain('[');
       expect(result).toContain('for');
       expect(result).toContain('in');
     });
@@ -1266,40 +1225,12 @@ result = foo(1, 2, 3)`;
   });
 
   describe('List Comprehensions', () => {
-    it('should parse list comprehension', () => {
+    it('should reject list comprehensions as unsupported', () => {
       const source = `squares = [x * x for x in range(10)]`;
       const lexer = new PythonLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const assignment = program.body[0] as any;
-      expect(assignment.value.type).toBe('ListComprehension');
-    });
-
-    it('should emit list comprehension in Python', () => {
-      const source = `squares = [x * x for x in range(10)]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const pythonCode = translator.translate(program, 'python');
-      expect(pythonCode).toContain('for');
-      expect(pythonCode).toContain('in');
-      expect(pythonCode).toContain('[');
-    });
-
-    it('should translate list comprehension to Java', () => {
-      const source = `result = [x * x for x in items]`;
-      const lexer = new PythonLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PythonParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const javaCode = translator.translate(program, 'java');
-      // Should generate some kind of loop or stream operation
-      expect(javaCode).toBeDefined();
-      expect(javaCode.length).toBeGreaterThan(0);
+      expect(() => parser.parse()).toThrow(/not supported/);
     });
   });
 

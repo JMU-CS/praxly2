@@ -55,30 +55,6 @@ export class JavaEmitter extends ASTVisitor {
     super.emit(line, nodeId);
   }
 
-  // If `iterable` is a range(...) call, return a C-style `for (...)` header for
-  // `variable` (int loop var); otherwise null.
-  private rangeForHeader(variable: string, iterable: any): string | null {
-    if (iterable?.type !== 'CallExpression' || (iterable.callee as any)?.name !== 'range') {
-      return null;
-    }
-    const a = iterable.arguments;
-    let start = '0';
-    let end = '0';
-    let step = '1';
-    if (a.length === 1) {
-      end = this.generateExpression(a[0], 0);
-    } else if (a.length === 2) {
-      start = this.generateExpression(a[0], 0);
-      end = this.generateExpression(a[1], 0);
-    } else if (a.length >= 3) {
-      start = this.generateExpression(a[0], 0);
-      end = this.generateExpression(a[1], 0);
-      step = this.generateExpression(a[2], 0);
-    }
-    const update = step === '1' ? `${variable}++` : `${variable} += ${step}`;
-    return `for (int ${variable} = ${start}; ${variable} < ${end}; ${update})`;
-  }
-
   private normalizeInstanceParams<T extends { name: string }>(params: T[]): T[] {
     if (params.length === 0) return params;
     return params[0].name === 'self' ? params.slice(1) : params;
@@ -328,9 +304,6 @@ export class JavaEmitter extends ASTVisitor {
   }
 
   protected inferType(expr: Expression): string {
-    if ((expr as any).type === 'ListComprehension') {
-      return `ArrayList<${this.toBoxedJavaType(super.inferType((expr as any).element))}>`;
-    }
     const classCtorName = this.getClassConstructorName(expr);
     if (classCtorName) return classCtorName;
     return super.inferType(expr);
@@ -1468,25 +1441,6 @@ export class JavaEmitter extends ASTVisitor {
         const value = this.generateExpression((expr as any).value, 0);
         output = `${target} ${(expr as any).operator}= ${value}`;
         break;
-      case 'ListComprehension': {
-        // No comprehensions in Java: hoist a temp ArrayList + loop that adds.
-        this.usesArrayList = true;
-        const elemType = this.toBoxedJavaType(this.inferType((expr as any).element));
-        const tmp = `_comp${this.tempCounter++}`;
-        const variable = (expr as any).variable;
-        const iterable = (expr as any).iterable;
-        const elem = this.generateExpression((expr as any).element, 0);
-        const header =
-          this.rangeForHeader(variable, iterable) ??
-          `for (var ${variable} : ${this.generateExpression(iterable, 0)})`;
-        this.preludeLines.push(`ArrayList<${elemType}> ${tmp} = new ArrayList<${elemType}>();`);
-        this.preludeLines.push(`${header} {`);
-        this.preludeLines.push(`  ${tmp}.add(${elem});`);
-        this.preludeLines.push(`}`);
-        output = tmp;
-        currentPrecedence = Precedence.Member;
-        break;
-      }
     }
     // Wrap in parentheses if precedence is lower than parent to ensure correct evaluation order
     return currentPrecedence < parentPrecedence ? `(${output})` : output;

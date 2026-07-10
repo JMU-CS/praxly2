@@ -42,10 +42,6 @@ values.append(7)                  # method call (MemberExpression + Call)
 values.pop()                      # remove the last element
 print(values, len(values), values[0])   # {50, 2, 9, 1} 4 50
 
-# ---- ListComprehension -----------------------------------------------------
-squares = [x * x for x in range(5)]
-print(squares)                    # {0, 1, 4, 9, 16}
-
 # ---- IndexExpression slice (indexEnd / indexStep) --------------------------
 nums2 = [10, 20, 30, 40, 50]
 print(nums2[1:4])                 # {20, 30, 40}

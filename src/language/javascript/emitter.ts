@@ -717,24 +717,6 @@ export class JavaScriptEmitter extends ASTVisitor {
         out = `${this.generateExpression((expr as any).test, Precedence.Conditional)} ? ${this.generateExpression((expr as any).consequent, Precedence.Conditional)} : ${this.generateExpression((expr as any).alternate, Precedence.Conditional)}`;
         break;
 
-      case 'ListComprehension': {
-        // No arrow functions: lower to a temp array + for loop, hoisted before
-        // the current statement.
-        const tmp = `_comp${this.tempCounter++}`;
-        const variable = (expr as any).variable;
-        const iterable = (expr as any).iterable;
-        const elem = this.generateExpression((expr as any).element, 0);
-        const header =
-          this.rangeForHeader(variable, iterable) ??
-          `for (const ${variable} of ${this.generateExpression(iterable, 0)})`;
-        this.preludeLines.push(`let ${tmp} = [];`);
-        this.preludeLines.push(`${header} {`);
-        this.preludeLines.push(`  ${tmp}.push(${elem});`);
-        this.preludeLines.push(`}`);
-        out = tmp;
-        break;
-      }
-
       default:
         out = '';
     }
