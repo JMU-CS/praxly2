@@ -352,15 +352,7 @@ export class PythonEmitter extends ASTVisitor {
     if (stmt.isMemberAssignment && stmt.memberExpr) {
       target = this.generateExpression(stmt.memberExpr, 0);
     } else if (stmt.target) {
-      // Special handling for tuple unpacking targets (ArrayLiteral on left side)
-      if (stmt.target.type === 'ArrayLiteral') {
-        const elements = stmt.target.elements
-          .map((e: any) => this.generateExpression(e, 0))
-          .join(', ');
-        target = elements; // Render as tuple without brackets
-      } else {
-        target = this.generateExpression(stmt.target, 0);
-      }
+      target = this.generateExpression(stmt.target, 0);
     } else if (this.currentClassFields.has(target)) {
       target = `self.${target}`;
     }
@@ -372,14 +364,7 @@ export class PythonEmitter extends ASTVisitor {
       // Also emit the current assignment
       this.emit(`${target} = ${this.generateExpression(stmt.value.target, 0)}`, stmt.id);
     } else {
-      // Special handling for tuple unpacking on right side
-      let value: string;
-      if (stmt.target?.type === 'ArrayLiteral' && stmt.value?.type === 'ArrayLiteral') {
-        // Both sides are tuples, render right side without brackets
-        value = stmt.value.elements.map((e: any) => this.generateExpression(e, 0)).join(', ');
-      } else {
-        value = this.generateExpression(stmt.value, 0);
-      }
+      const value = this.generateExpression(stmt.value, 0);
 
       if (stmt.varType) {
         if (this.isIntegerType(stmt.varType) && typeof stmt.name === 'string') {

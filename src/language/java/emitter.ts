@@ -542,36 +542,6 @@ export class JavaEmitter extends ASTVisitor {
    * Generates proper Java variable declarations with type information.
    */
   visitAssignment(stmt: any): void {
-    // Handle tuple unpacking: y, z = 4, 5
-    if (stmt.target && stmt.target.type === 'ArrayLiteral') {
-      const targets = stmt.target.elements;
-      const valueExpr = stmt.value;
-
-      if (valueExpr.type === 'ArrayLiteral') {
-        // Both sides are arrays - unpack each element to corresponding target
-        const values = valueExpr.elements;
-        for (let i = 0; i < targets.length; i++) {
-          const target = targets[i];
-          const value = values[i];
-
-          if (target.type === 'Identifier') {
-            const varName = target.name;
-            const valStr = this.generateExpression(value, 0);
-            let type = this.inferType(value);
-            if (type === 'var') type = 'Object';
-
-            if (this.context.symbolTable.get(varName) === undefined) {
-              this.emit(`${type} ${varName} = ${valStr};`, stmt.id);
-              this.context.symbolTable.set(varName, type);
-            } else {
-              this.emit(`${varName} = ${valStr};`, stmt.id);
-            }
-          }
-        }
-      }
-      return;
-    }
-
     const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
     const analyzedTypeHint = stmt.name
       ? this.context.inferredVariableTypes?.get(stmt.name)

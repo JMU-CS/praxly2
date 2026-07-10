@@ -608,32 +608,18 @@ export class Parser {
   // --- Expressions ---
 
   private expression(): Expression {
-    // Handle tuple/sequence (comma-separated expressions)
-    const first = this.logicOr();
+    const expr = this.logicOr();
+    // Tuple expressions / tuple assignment (`a, b = 1, 2`) are not supported —
+    // no other Praxly target has tuples. A top-level comma signals a tuple.
     if (
       this.check('PUNCTUATION', ',') &&
       !this.checkNext('PUNCTUATION', ';') &&
       !this.checkNext('PUNCTUATION', ')') &&
       !this.checkNext('PUNCTUATION', ']')
     ) {
-      const elements: Expression[] = [first];
-      while (this.match('PUNCTUATION', ',')) {
-        // Stop if we hit end of tuple (semicolon, paren, etc)
-        if (
-          this.check('PUNCTUATION', ';') ||
-          this.check('PUNCTUATION', ')') ||
-          this.check('PUNCTUATION', ']') ||
-          this.isAtEnd()
-        ) {
-          break;
-        }
-        elements.push(this.logicOr());
-      }
-      if (elements.length > 1) {
-        return { id: generateId(), type: 'ArrayLiteral', elements } as any;
-      }
+      throw new UnsupportedFeatureError('tuple assignment / tuple expressions are not supported');
     }
-    return first;
+    return expr;
   }
 
   private logicOr(): Expression {
