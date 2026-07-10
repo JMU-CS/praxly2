@@ -1614,19 +1614,6 @@ export class Interpreter {
         return expr.value;
       case 'ArrayLiteral':
         return expr.elements.map((e) => this.evaluate(e, env));
-      case 'ListComprehension': {
-        const iter = this.evaluate((expr as any).iterable, env);
-        if (!Array.isArray(iter) && typeof iter !== 'string') {
-          throw new Error('List comprehension requires an array or string');
-        }
-        const result: any[] = [];
-        for (const item of iter) {
-          const compEnv = new Environment(env);
-          compEnv.define((expr as any).variable, item);
-          result.push(this.evaluate((expr as any).element, compEnv));
-        }
-        return result;
-      }
       case 'Identifier': {
         try {
           return env.get(expr.name);

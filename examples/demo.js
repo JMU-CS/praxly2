@@ -3,7 +3,6 @@
 // ---------------------------------------------------------------------------
 // AST nodes NOT reachable from JavaScript source (covered by the other demos):
 //   RepeatUntil ......... no repeat/until syntax.
-//   ListComprehension ... Python-only.
 //
 // Interpreter notes honored below:
 //   * Output is console.log(...) (multiple args are space-joined).

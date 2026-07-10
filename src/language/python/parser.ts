@@ -823,20 +823,10 @@ export class Parser {
 
       const firstExpr = this.logicOr();
 
-      // Check for list comprehension: [expr for var in iterable]
+      // List comprehensions (`[expr for var in iterable]`) are not supported —
+      // no other Praxly target has them.
       if (this.check('KEYWORD', 'for')) {
-        this.advance(); // consume 'for'
-        const varName = this.consume('IDENTIFIER').value;
-        this.consume('KEYWORD', 'in');
-        const iterable = this.logicOr();
-        this.consume('PUNCTUATION', ']');
-        return {
-          id: generateId(),
-          type: 'ListComprehension',
-          element: firstExpr,
-          variable: varName,
-          iterable,
-        } as any;
+        throw new UnsupportedFeatureError('list comprehensions are not supported');
       }
 
       // Regular list literal

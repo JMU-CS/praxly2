@@ -887,12 +887,6 @@ export class PythonEmitter extends ASTVisitor {
         const elems = expr.elements.map((e) => this.generateExpression(e, 0)).join(', ');
         output = `[${elems}]`;
         break;
-      case 'ListComprehension':
-        const elemExpr = this.generateExpression((expr as any).element, 0);
-        const compVar = (expr as any).variable;
-        const iterExpr = this.generateExpression((expr as any).iterable, 0);
-        output = `[${elemExpr} for ${compVar} in ${iterExpr}]`;
-        break;
       case 'CompoundAssignment':
         const target = (expr as any).name;
         const value = this.generateExpression((expr as any).value, 0);

@@ -57,31 +57,7 @@ export class PraxisEmitter extends ASTVisitor {
     super.emit(line, nodeId);
   }
 
-  // Builds a Praxis `for` header for a comprehension/loop over `iterable`.
-  // A range(...) call becomes a C-style counter loop; anything else a for-in.
-  private comprehensionForHeader(variable: string, iterable: any): string {
-    if (iterable?.type === 'CallExpression' && iterable.callee?.name === 'range') {
-      const args = iterable.arguments;
-      let start = '0',
-        end = '0',
-        step = '1';
-      if (args.length === 1) end = this.generateExpression(args[0], 0);
-      else if (args.length >= 2) {
-        start = this.generateExpression(args[0], 0);
-        end = this.generateExpression(args[1], 0);
-      }
-      if (args.length === 3) step = this.generateExpression(args[2], 0);
-      return `for (int ${variable} <- ${start}; ${variable} < ${end}; ${variable} <- ${variable} + ${step})`;
-    }
-    return `for ${variable} in ${this.generateExpression(iterable, 0)}`;
-  }
-
   protected inferType(expr: Expression): string {
-    // A comprehension yields a list; type it by its element so the assignment
-    // doesn't fall back to a scalar `int`.
-    if ((expr as any).type === 'ListComprehension') {
-      return this.inferType((expr as any).element) + '[]';
-    }
     const ctor = this.classConstructorName(expr);
     if (ctor) return ctor;
     return super.inferType(expr);
@@ -781,19 +757,6 @@ export class PraxisEmitter extends ASTVisitor {
           `  ${tmp} <- ${this.generateExpression((expr as any).alternate, 0)}`
         );
         this.preludeLines.push(`end if`);
-        output = tmp;
-        break;
-      }
-
-      case 'ListComprehension': {
-        // Praxis has no comprehension; hoist into a loop that appends into a list.
-        const comp = expr as any;
-        const tmp = `_comp${this.tempCounter++}`;
-        this.preludeLines.push(`${tmp} <- {}`);
-        const header = this.comprehensionForHeader(comp.variable, comp.iterable);
-        this.preludeLines.push(header);
-        this.preludeLines.push(`  ${tmp}.append(${this.generateExpression(comp.element, 0)})`);
-        this.preludeLines.push(`end for`);
         output = tmp;
         break;
       }

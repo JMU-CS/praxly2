@@ -7,7 +7,6 @@
 //   Try / ExceptionHandler .. try/catch are not recognized keywords here.
 //   NewExpression ........... `new X(...)` is encoded as a CallExpression.
 //   ThisExpression .......... `this` is encoded as an Identifier.
-//   ListComprehension ....... Python-only.
 //
 // Interpreter notes honored below:
 //   * System.out.println takes exactly ONE argument -> concatenate with '+'.

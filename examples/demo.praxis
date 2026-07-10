@@ -8,7 +8,6 @@
 //   Switch / SwitchCase .. no switch/case keywords.
 //   ConditionalExpression  no ?: ternary operator.
 //   CompoundAssignment ... no +=/-=; write `x <- x + 1`.
-//   ListComprehension .... Python-only.
 //
 // (Functions and classes are hoisted, so the driver calls them before their
 // declarations appear further down the file.)

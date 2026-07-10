@@ -41,7 +41,6 @@ export type NodeType =
   | 'NewExpression'
   | 'MemberExpression'
   | 'IndexExpression'
-  | 'ListComprehension'
   | 'ArrayLiteral'
   | 'Identifier'
   | 'ThisExpression'
@@ -271,7 +270,6 @@ export type Expression =
   | NewExpression
   | MemberExpression
   | IndexExpression
-  | ListComprehension
   | ArrayLiteral
   | Identifier
   | ThisExpression
@@ -342,13 +340,6 @@ export interface IndexExpression extends ASTNode {
   // the interpreter honor them (a plain single-index access leaves both unset).
   indexEnd?: Expression;
   indexStep?: Expression;
-}
-
-export interface ListComprehension extends ASTNode {
-  type: 'ListComprehension';
-  element: Expression;
-  variable: string;
-  iterable: Expression;
 }
 
 export interface ArrayLiteral extends ASTNode {

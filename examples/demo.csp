@@ -12,7 +12,6 @@
 //   ConditionalExpression (ternary) ..... not parsed.
 //   UpdateExpression (++/--) ............ not in CSP.
 //   CompoundAssignment (+=) ............. write `x <- x + 1`.
-//   ListComprehension ................... Python-only.
 //
 // CSP runtime facts honored below:
 //   * Assignment is `<-` (or the unicode arrow); `=` means EQUALITY.
