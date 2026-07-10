@@ -5,6 +5,8 @@ import { PraxisEmitter } from '../src/language/praxis/emitter';
 import { Translator } from '../src/language/translator';
 import { SymbolTable } from '../src/language/visitor';
 import { Interpreter } from '../src/language/interpreter';
+import { JavaLexer } from '../src/language/java/lexer';
+import { JavaParser } from '../src/language/java/parser';
 
 describe('Praxis Lexer', () => {
   describe('Basic Tokens', () => {
@@ -660,6 +662,42 @@ end class Box`;
       expect(praxis).toContain('value <- v');
       expect(praxis).not.toContain('this.');
       expect(praxis).not.toContain('procedure new');
+    });
+
+    it('supports the optional `this`/`super` extension when a parameter shadows a field', () => {
+      const src = `public class Base
+    private String name
+    public Base(String name)
+        this.name <- name
+    end Base
+    public String label()
+        return name
+    end label
+end class Base
+
+class Sub extends Base
+    public Sub(String name)
+        super(name)
+    end Sub
+end class Sub
+
+Sub s <- new Sub("Ada")
+print(s.label())`;
+      expect(run(src)).toEqual(['Ada']);
+    });
+
+    it('emits `this.` only where a parameter shadows the field (bare otherwise)', () => {
+      // Java source uses `this.name = name` (param shadows field) and a bare
+      // `return name` (no shadow); Praxis should mirror that.
+      const src = `class Tag {
+    public String name;
+    public Tag(String name) { this.name = name; }
+    public String get() { return name; }
+}`;
+      const program = new JavaParser(new JavaLexer(src).tokenize()).parse();
+      const praxis = new Translator().translate(program, 'praxis');
+      expect(praxis).toContain('this.name <- name'); // shadowed -> qualified
+      expect(praxis).toContain('return name'); // not shadowed -> bare
     });
   });
 });

@@ -169,8 +169,8 @@ console.log("fib", fib(7));             // fib 13
 
 // ---- ClassDeclaration / Constructor / MethodDeclaration / this / super -----
 class Animal {
-    constructor(n) {                  // param differs from field (Praxis needs unique names)
-        this.name = n;                // ThisExpression + member Assignment
+    constructor(name) {
+        this.name = name;             // ThisExpression + member Assignment
     }
     describe() {
         return this.name + " the animal";
@@ -179,8 +179,8 @@ class Animal {
 
 // ClassDeclaration.superClass via `extends`
 class Dog extends Animal {
-    constructor(n) {
-        super(n);                     // super() runs the parent constructor
+    constructor(name) {
+        super(name);                  // super() runs the parent constructor
     }
     speak() {
         return "woof";
