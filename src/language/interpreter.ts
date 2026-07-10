@@ -1218,6 +1218,62 @@ export class Interpreter {
     return instance;
   }
 
+  /** Returns the bound `this`/`self` instance for the current scope, if any. */
+  private boundInstance(env: Environment): JavaInstance | undefined {
+    for (const key of ['this', 'self']) {
+      try {
+        const v = env.get(key);
+        if (v instanceof JavaInstance) return v;
+      } catch {
+        /* not bound */
+      }
+    }
+    return undefined;
+  }
+
+  /** True when `name` is a field declared on the instance's class hierarchy. */
+  private instanceHasField(inst: JavaInstance, name: string): boolean {
+    if (inst.fields.has(name)) return true;
+    let klass: JavaClass | undefined = inst.klass;
+    while (klass) {
+      if (klass.fields.has(name)) return true;
+      klass = klass.superClass;
+    }
+    return false;
+  }
+
+  /**
+   * Assigns a bare (untyped, non-member) name. Praxis has no `this`, so inside a
+   * method/constructor a name that is a field of the bound instance — and not a
+   * local/parameter — writes that field; otherwise it is an ordinary variable.
+   */
+  private assignBareName(
+    env: Environment,
+    name: string,
+    value: any,
+    varType: string | undefined,
+    origin: number | undefined
+  ): void {
+    if (!varType && !this.hasVariable(env, name)) {
+      const inst = this.boundInstance(env);
+      if (inst && this.instanceHasField(inst, name)) {
+        inst.setField(name, value);
+        return;
+      }
+    }
+    env.define(name, value, varType, origin);
+  }
+
+  /** True when `name` resolves to a variable/parameter in the scope chain. */
+  private hasVariable(env: Environment, name: string): boolean {
+    try {
+      env.get(name);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private execute(stmt: Statement, env: Environment) {
     switch (stmt.type) {
       case 'ClassDeclaration':
@@ -1293,7 +1349,7 @@ export class Interpreter {
             obj[idx] = value;
           } else if (effectiveTarget.type === 'Identifier') {
             // Identifier target - define the variable with type info
-            env.define(varName, value, (stmt as any).varType, declarationOrigin);
+            this.assignBareName(env, varName, value, (stmt as any).varType, declarationOrigin);
           } else {
             // For other target types, try to use stmt.name as fallback
             if (varName) {
@@ -1311,8 +1367,8 @@ export class Interpreter {
             throw new Error(`Cannot assign to field on non-object`);
           }
         } else if (varName) {
-          // Standard case: define the variable with type info
-          env.define(varName, value, (stmt as any).varType, declarationOrigin);
+          // Standard case: a bare name — may target an instance field (Praxis).
+          this.assignBareName(env, varName, value, (stmt as any).varType, declarationOrigin);
         }
         break;
       case 'If':

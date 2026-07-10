@@ -4,6 +4,7 @@ import { PraxisParser } from '../src/language/praxis/parser';
 import { PraxisEmitter } from '../src/language/praxis/emitter';
 import { Translator } from '../src/language/translator';
 import { SymbolTable } from '../src/language/visitor';
+import { Interpreter } from '../src/language/interpreter';
 
 describe('Praxis Lexer', () => {
   describe('Basic Tokens', () => {
@@ -573,6 +574,92 @@ end show`;
       const pythonResult = translator.translate(program, 'python');
 
       expect(pythonResult).toContain('def show(n: int):');
+    });
+  });
+
+  // Praxis classes: constructor named after the class, bare field access (no
+  // `this`/`self`), `super` for the parent constructor, optional modifiers,
+  // field initializers, and a generated default constructor.
+  describe('Classes (spec syntax)', () => {
+    const run = (src: string): string[] =>
+      new Interpreter().interpret(new PraxisParser(new PraxisLexer(src).tokenize()).parse(), src);
+
+    it('runs a constructor named after the class with bare field access', () => {
+      const src = `class Point
+    private int x
+    private int y
+    public Point(int a, int b)
+        x <- a
+        y <- b
+    end Point
+    public int sum()
+        return x + y
+    end sum
+end class Point
+Point p <- new Point(3, 4)
+print(p.sum())`;
+      expect(run(src)).toEqual(['7']);
+    });
+
+    it('calls the superclass constructor with super and inherits fields/methods', () => {
+      const src = `public class Animal
+    private String name
+    private String sound
+    public Animal(String n, String s)
+        name <- n
+        sound <- s
+    end Animal
+    public String speak()
+        return name + " says " + sound
+    end speak
+end class Animal
+
+class Dog extends Animal
+    public Dog(String n)
+        super(n, "Woof")
+    end Dog
+    public String fetch()
+        return name + " fetches the ball"
+    end fetch
+end class Dog
+
+Animal a <- new Animal("Cat", "Meow")
+Dog d <- new Dog("Rex")
+print(a.speak())
+print(d.speak())
+print(d.fetch())`;
+      expect(run(src)).toEqual(['Cat says Meow', 'Rex says Woof', 'Rex fetches the ball']);
+    });
+
+    it('generates a default constructor and applies field initializers', () => {
+      const src = `class Greeter
+    String word <- "friend"
+    public String greet()
+        return "Hello " + word
+    end greet
+end class Greeter
+Greeter g <- new Greeter()
+print(g.greet())`;
+      expect(run(src)).toEqual(['Hello friend']);
+    });
+
+    it('translates a class to Praxis with a class-named constructor and no this', () => {
+      const src = `class Box
+    private int value
+    public Box(int v)
+        value <- v
+    end Box
+    public int get()
+        return value
+    end get
+end class Box`;
+      const program = new PraxisParser(new PraxisLexer(src).tokenize()).parse();
+      const praxis = new Translator().translate(program, 'praxis');
+      expect(praxis).toContain('public Box(int v)');
+      expect(praxis).toContain('end Box');
+      expect(praxis).toContain('value <- v');
+      expect(praxis).not.toContain('this.');
+      expect(praxis).not.toContain('procedure new');
     });
   });
 });

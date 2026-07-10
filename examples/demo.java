@@ -198,8 +198,8 @@ class Counter {
 class Animal {
     public String name;
 
-    public Animal(String name) {
-        this.name = name;
+    public Animal(String n) {   // param name differs from field (Praxis needs unique names)
+        this.name = n;
     }
 
     public String describe() {
@@ -208,8 +208,8 @@ class Animal {
 }
 
 class Dog extends Animal {
-    public Dog(String name) {
-        super(name);            // runs Animal's constructor on this instance
+    public Dog(String n) {
+        super(n);               // runs Animal's constructor on this instance
     }
 
     public String speak() {
