@@ -62,6 +62,22 @@ export class CSPLexer {
         this.pos++;
         let value = '';
         while (this.pos < this.input.length && this.input[this.pos] !== '"') {
+          const c = this.input[this.pos];
+          if (c === '\\' && this.pos + 1 < this.input.length) {
+            const next = this.input[this.pos + 1];
+            const escapes: Record<string, string> = {
+              n: '\n',
+              t: '\t',
+              r: '\r',
+              '0': '\0',
+              '\\': '\\',
+              '"': '"',
+              "'": "'",
+            };
+            value += next in escapes ? escapes[next] : next;
+            this.pos += 2;
+            continue;
+          }
           value += this.input[this.pos++];
         }
         this.pos++;

@@ -137,8 +137,18 @@ export class Lexer {
         p++;
         let value = '';
         while (p < line.length && line[p] !== quote) {
-          if (line[p] === '\\') {
-            value += '\\' + line[p + 1];
+          if (line[p] === '\\' && p + 1 < line.length) {
+            const next = line[p + 1];
+            const escapes: Record<string, string> = {
+              n: '\n',
+              t: '\t',
+              r: '\r',
+              '0': '\0',
+              '\\': '\\',
+              '"': '"',
+              "'": "'",
+            };
+            value += next in escapes ? escapes[next] : next;
             p += 2;
           } else {
             value += line[p++];
