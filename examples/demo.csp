@@ -101,10 +101,12 @@ REPEAT 3 TIMES
     DISPLAY("tick")             // tick tick tick
 }
 
-// ---- FOR i FROM a TO b STEP s -> range-based For (end-exclusive) -----------
-FOR j FROM 0 TO 6 STEP 2
+// ---- Counting loop: counter + REPEAT UNTIL (CSP has no FOR FROM/TO) --------
+j <- 0
+REPEAT UNTIL (j >= 6)
 {
     DISPLAY(j)                  // 0 2 4
+    j <- j + 2
 }
 
 // ---- FOR EACH item IN list -------------------------------------------------
@@ -129,12 +131,14 @@ PROCEDURE isEven(n)
 
 PROCEDURE printEvens(limit)
 {
-    FOR i FROM 0 TO limit       // end-exclusive: 0 .. limit-1
+    i <- 0
+    REPEAT UNTIL (i >= limit)   // 0 .. limit-1
     {
         IF (isEven(i))
         {
             DISPLAY(i)
         }
+        i <- i + 1
     }
 }
 

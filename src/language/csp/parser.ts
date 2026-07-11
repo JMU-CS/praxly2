@@ -251,37 +251,13 @@ export class CSPParser {
     }
   }
 
+  // AP CSP has only `FOR EACH item IN iterable { ... }` (no counting FOR).
   private forStatement(): ForEach {
     this.consume('KEYWORD', 'FOR');
-
-    // FOR EACH item IN iterable { ... }
-    if (this.match('KEYWORD', 'EACH')) {
-      const variable = this.consume('IDENTIFIER').value;
-      this.consume('KEYWORD', 'IN');
-      const iterable = this.expression();
-      const body = this.block();
-      return { id: generateId(), type: 'ForEach', variable, iterable, body };
-    }
-
-    // FOR i FROM start TO end [STEP step] { ... }
+    this.consume('KEYWORD', 'EACH');
     const variable = this.consume('IDENTIFIER').value;
-    this.consume('KEYWORD', 'FROM');
-    const start = this.expression();
-    this.consume('KEYWORD', 'TO');
-    const end = this.expression();
-
-    let step: Expression | undefined = undefined;
-    if (this.match('KEYWORD', 'STEP')) {
-      step = this.expression();
-    }
-
-    const iterable: Expression = {
-      id: generateId(),
-      type: 'CallExpression',
-      callee: { id: generateId(), type: 'Identifier', name: 'range' },
-      arguments: step ? [start, end, step] : [start, end],
-    };
-
+    this.consume('KEYWORD', 'IN');
+    const iterable = this.expression();
     const body = this.block();
     return { id: generateId(), type: 'ForEach', variable, iterable, body };
   }

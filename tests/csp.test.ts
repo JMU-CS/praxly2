@@ -4,6 +4,8 @@ import { CSPParser } from '../src/language/csp/parser';
 import { CSPEmitter } from '../src/language/csp/emitter';
 import { Translator } from '../src/language/translator';
 import { SymbolTable } from '../src/language/visitor';
+import { Lexer as PythonLexer } from '../src/language/python/lexer';
+import { Parser as PythonParser } from '../src/language/python/parser';
 
 describe('CSP Lexer', () => {
   describe('Basic Tokens', () => {
@@ -466,41 +468,16 @@ describe('CSP Translation', () => {
       expect(result).toContain('IN');
     });
 
-    it('should parse FOR i FROM start TO end STEP step as range loop', () => {
-      const source = `FOR i FROM 0 TO 6 STEP 2
-{
-  DISPLAY(i)
-}`;
-      const lexer = new CSPLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new CSPParser(tokens);
-      const program = parser.parse();
-
-      const forStmt = program.body[0] as any;
-      expect(forStmt.type).toBe('ForEach');
-      expect(forStmt.iterable.type).toBe('CallExpression');
-      expect(forStmt.iterable.callee.name).toBe('range');
-      expect(forStmt.iterable.arguments.length).toBe(3);
-    });
-
-    it('should translate FOR FROM/TO/STEP loops to other targets', () => {
-      const source = `FOR i FROM 0 TO 6 STEP 2
-{
-  DISPLAY(i)
-}`;
-      const lexer = new CSPLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new CSPParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-
-      const pythonCode = translator.translate(program, 'python');
-      const javaCode = translator.translate(program, 'java');
-      const praxisCode = translator.translate(program, 'praxis');
-
-      expect(pythonCode).toContain('for i in range(0, 6, 2):');
-      expect(javaCode).toContain('for (int i = 0; i < 6; i += 2)');
-      expect(praxisCode).toContain('for (int i <- 0; i < 6; i <- i + 2)');
+    it('lowers a range() for-each to a counter + REPEAT UNTIL (no FOR FROM/TO)', () => {
+      // A range-based ForEach reaching the CSP emitter (e.g. from Python) must
+      // become spec-legal CSP: a counter plus REPEAT UNTIL, not FOR FROM/TO.
+      const src = `for i in range(0, 6, 2):
+    print(i)`;
+      const program = new PythonParser(new PythonLexer(src).tokenize()).parse();
+      const result = new Translator().translate(program, 'csp');
+      expect(result).not.toContain('FROM');
+      expect(result).toContain('REPEAT UNTIL');
+      expect(result).toContain('i <- i + 2');
     });
 
     it('should handle REPEAT n TIMES with variable', () => {

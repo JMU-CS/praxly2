@@ -216,6 +216,8 @@ export class CSPEmitter extends ASTVisitor {
 
   visitForEach(stmt: any): void {
     if (stmt.iterable?.type === 'CallExpression' && stmt.iterable.callee?.name === 'range') {
+      // AP CSP has no counting-for; lower `range(start, end, step)` (end-exclusive)
+      // to a counter + REPEAT UNTIL.
       const args = stmt.iterable.arguments;
       let start = '0',
         end = '0',
@@ -226,23 +228,25 @@ export class CSPEmitter extends ASTVisitor {
         end = this.generateExpression(args[1], 0);
       }
       if (args.length === 3) step = this.generateExpression(args[2], 0);
-
-      this.emit(`FOR ${stmt.variable} FROM ${start} TO ${end} STEP ${step}`, stmt.id);
-      this.emit('{');
-      this.indent();
-      this.visitBlock(stmt.body);
-      this.dedent();
-      this.emit('}');
+      const negStep =
+        args.length === 3 &&
+        args[2].type === 'Literal' &&
+        typeof args[2].value === 'number' &&
+        args[2].value < 0;
+      this.emitCounterLoop(
+        stmt.variable,
+        start,
+        end,
+        step,
+        negStep ? '<=' : '>=',
+        stmt.body,
+        stmt.id
+      );
     } else if (stmt.iterable?.type === 'BinaryExpression' && stmt.iterable.operator === '..') {
-      // Praxis range operator: for x in start..end  (inclusive)
+      // Praxis range operator `start..end` is inclusive; stop once the counter passes end.
       const start = this.generateExpression(stmt.iterable.left, 0);
       const end = this.generateExpression(stmt.iterable.right, 0);
-      this.emit(`FOR ${stmt.variable} FROM ${start} TO ${end} STEP 1`, stmt.id);
-      this.emit('{');
-      this.indent();
-      this.visitBlock(stmt.body);
-      this.dedent();
-      this.emit('}');
+      this.emitCounterLoop(stmt.variable, start, end, '1', '>', stmt.body, stmt.id);
     } else {
       this.emit(
         `FOR EACH ${stmt.variable} IN ${this.generateExpression(stmt.iterable, 0)}`,
@@ -254,6 +258,29 @@ export class CSPEmitter extends ASTVisitor {
       this.dedent();
       this.emit('}');
     }
+  }
+
+  // Emits `var <- start; REPEAT UNTIL (var <cmp> end) { body; var <- var + step }`,
+  // the spec-legal way to express a counting loop in CSP.
+  private emitCounterLoop(
+    variable: string,
+    start: string,
+    end: string,
+    step: string,
+    cmp: string,
+    body: any,
+    id: string
+  ): void {
+    this.context.symbolTable.enterScope();
+    this.emit(`${variable} <- ${start}`, id);
+    this.emit(`REPEAT UNTIL (${variable} ${cmp} ${end})`);
+    this.emit('{');
+    this.indent();
+    this.visitBlock(body);
+    this.emit(`${variable} <- ${variable} + ${step}`);
+    this.dedent();
+    this.emit('}');
+    this.context.symbolTable.exitScope();
   }
 
   visitFunctionDeclaration(stmt: any): void {
