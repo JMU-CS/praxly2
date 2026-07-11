@@ -16,12 +16,7 @@ import {
   type Identifier,
   type UnaryExpression,
   type FunctionDeclaration,
-  type ClassDeclaration,
-  type FieldDeclaration,
-  type Constructor,
-  type MethodDeclaration,
   type Parameter,
-  type AccessModifier,
   generateId,
 } from '../ast';
 import { attachComments } from '../comments';
@@ -72,9 +67,6 @@ export class CSPParser {
   }
 
   private topLevelDeclaration(): Statement {
-    if (this.check('KEYWORD', 'CLASS')) {
-      return this.classDeclaration();
-    }
     if (this.check('KEYWORD', 'PROCEDURE')) {
       return this.procedureDeclaration();
     }
@@ -90,20 +82,7 @@ export class CSPParser {
 
     while (!this.isAtEnd()) {
       // Skip to next statement-starting keyword
-      if (
-        this.check(
-          'KEYWORD',
-          'CLASS',
-          'PROCEDURE',
-          'IF',
-          'ELSE',
-          'WHILE',
-          'FOR',
-          'SKIP',
-          'RETURN',
-          'CHECK'
-        )
-      ) {
+      if (this.check('KEYWORD', 'PROCEDURE', 'IF', 'ELSE', 'REPEAT', 'FOR', 'RETURN')) {
         return;
       }
       // Also sync on closing braces or semicolons
@@ -133,103 +112,6 @@ export class CSPParser {
     this.consume('PUNCTUATION', ')');
     const body = this.block();
     return { id: generateId(), type: 'FunctionDeclaration', name, params, body };
-  }
-
-  private classDeclaration(): ClassDeclaration {
-    this.consume('KEYWORD', 'CLASS');
-    const name = this.consume('IDENTIFIER').value;
-
-    let superClass: Identifier | undefined = undefined;
-
-    this.consume('PUNCTUATION', '{');
-    const body: (FieldDeclaration | Constructor | MethodDeclaration)[] = [];
-
-    while (!this.check('PUNCTUATION', '}') && !this.isAtEnd()) {
-      body.push(this.classBodyDeclaration());
-    }
-
-    this.consume('PUNCTUATION', '}');
-    return { id: generateId(), type: 'ClassDeclaration', name, superClass, body };
-  }
-
-  private classBodyDeclaration(): FieldDeclaration | Constructor | MethodDeclaration {
-    const access = this.parseAccessModifier();
-
-    if (this.check('KEYWORD', 'CONSTRUCTOR')) {
-      return this.cspConstructor(access);
-    }
-
-    if (this.check('KEYWORD', 'PROCEDURE')) {
-      return this.cspMethod(access);
-    }
-
-    if (this.check('IDENTIFIER')) {
-      const name = this.consume('IDENTIFIER').value;
-      let initializer: Expression | undefined = undefined;
-      if (this.match('OPERATOR', '<-')) {
-        initializer = this.expression();
-      }
-      return {
-        id: generateId(),
-        type: 'FieldDeclaration',
-        name,
-        fieldType: 'auto',
-        isStatic: false,
-        access,
-        initializer,
-      };
-    }
-
-    throw new Error('Expected class member');
-  }
-
-  private cspConstructor(access: AccessModifier): Constructor {
-    this.consume('KEYWORD', 'CONSTRUCTOR');
-    this.consume('PUNCTUATION', '(');
-    const params: Parameter[] = [];
-    if (!this.check('PUNCTUATION', ')')) {
-      do {
-        const paramName = this.consume('IDENTIFIER').value;
-        params.push({ id: generateId(), type: 'Parameter', name: paramName, paramType: 'auto' });
-      } while (this.match('PUNCTUATION', ','));
-    }
-    this.consume('PUNCTUATION', ')');
-    const body = this.block();
-    return { id: generateId(), type: 'Constructor', access, params, body };
-  }
-
-  private cspMethod(access: AccessModifier): MethodDeclaration {
-    this.consume('KEYWORD', 'PROCEDURE');
-    const name = this.consume('IDENTIFIER').value;
-    this.consume('PUNCTUATION', '(');
-    const params: Parameter[] = [];
-    if (!this.check('PUNCTUATION', ')')) {
-      do {
-        const paramName = this.consume('IDENTIFIER').value;
-        params.push({ id: generateId(), type: 'Parameter', name: paramName, paramType: 'auto' });
-      } while (this.match('PUNCTUATION', ','));
-    }
-    this.consume('PUNCTUATION', ')');
-    const body = this.block();
-    return {
-      id: generateId(),
-      type: 'MethodDeclaration',
-      name,
-      access,
-      isStatic: false,
-      returnType: 'auto',
-      params,
-      body,
-    };
-  }
-
-  /**
-   * Parses access modifier.
-   */
-  private parseAccessModifier(): AccessModifier {
-    if (this.match('KEYWORD', 'PUBLIC')) return 'public';
-    if (this.match('KEYWORD', 'PRIVATE')) return 'private';
-    return 'public';
   }
 
   private block(): Block {

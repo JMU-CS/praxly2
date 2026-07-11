@@ -113,12 +113,6 @@ export class CSPLexer {
           'MOD',
           'true',
           'false',
-          'CLASS',
-          'PRIVATE',
-          'PUBLIC',
-          'CONSTRUCTOR',
-          'THIS',
-          'NEW',
         ];
         const type = keywords.includes(value) ? 'KEYWORD' : 'IDENTIFIER';
         if (value === 'true' || value === 'false') tokens.push({ type: 'BOOLEAN', value, start });

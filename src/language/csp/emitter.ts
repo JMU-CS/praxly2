@@ -45,75 +45,19 @@ export class CSPEmitter extends ASTVisitor {
     return `${this.generateExpression(idx, Precedence.Additive)} + 1`;
   }
 
-  private isJavaMainClass(classDecl: ClassDeclaration): boolean {
-    if (classDecl.name !== 'Main') return false;
-    return classDecl.body.some(
-      (m) =>
-        m.type === 'MethodDeclaration' &&
-        (m as MethodDeclaration).name === 'main' &&
-        (m as MethodDeclaration).isStatic
-    );
-  }
-
   visitProgram(program: Program): void {
-    const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
-    const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
-    const mainClass = classes.find((c) => this.isJavaMainClass(c as ClassDeclaration));
-    const otherClasses = classes.filter((c) => !this.isJavaMainClass(c as ClassDeclaration));
-
-    otherClasses.forEach((c) => {
-      this.visitClassDeclaration(c as ClassDeclaration);
-      this.emit('');
-    });
-    nonClasses.forEach((s) => this.visitStatement(s));
-
-    if (mainClass) {
-      const mainMethod = (mainClass as ClassDeclaration).body.find(
-        (m) => m.type === 'MethodDeclaration' && (m as MethodDeclaration).name === 'main'
-      ) as MethodDeclaration | undefined;
-      if (mainMethod) this.visitBlock(mainMethod.body);
-    }
+    program.body.forEach((s) => this.visitStatement(s));
   }
 
+  // CSP has no classes or object-oriented features (per specs/csp.md). These
+  // nodes are unreachable from CSP source; if one arrives from another language,
+  // emit a marker rather than non-spec OOP syntax.
   visitClassDeclaration(classDecl: ClassDeclaration): void {
-    this.emit(`CLASS ${classDecl.name}`);
-    this.emit('{');
-    this.indent();
-    classDecl.body.forEach((m) => {
-      this.visitStatement(m);
-      this.emit('');
-    });
-    this.dedent();
-    this.emit('}');
+    this.emit(`// unsupported in CSP: class ${classDecl.name}`);
   }
-
-  visitFieldDeclaration(field: FieldDeclaration): void {
-    const access = field.access === 'private' ? 'PRIVATE' : 'PUBLIC';
-    let line = `${access} ${field.name}`;
-    if (field.initializer) line += ` <- ${this.generateExpression(field.initializer, 0)}`;
-    this.emit(line);
-  }
-
-  visitConstructor(ctor: Constructor): void {
-    const params = ctor.params.map((p) => p.name).join(', ');
-    this.emit(`CONSTRUCTOR (${params})`);
-    this.emit('{');
-    this.indent();
-    this.visitBlock(ctor.body);
-    this.dedent();
-    this.emit('}');
-  }
-
-  visitMethodDeclaration(method: MethodDeclaration): void {
-    const access = method.access === 'private' ? 'PRIVATE' : 'PUBLIC';
-    const params = method.params.map((p) => p.name).join(', ');
-    this.emit(`${access} PROCEDURE ${method.name} (${params})`);
-    this.emit('{');
-    this.indent();
-    this.visitBlock(method.body);
-    this.dedent();
-    this.emit('}');
-  }
+  visitFieldDeclaration(_field: FieldDeclaration): void {}
+  visitConstructor(_ctor: Constructor): void {}
+  visitMethodDeclaration(_method: MethodDeclaration): void {}
 
   visitBlock(block: Block): void {
     block.body.forEach((s) => this.visitStatement(s));

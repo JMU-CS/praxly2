@@ -29,13 +29,15 @@ describe('CSP Lexer', () => {
       expect(keywords).toContain('PROCEDURE');
     });
 
-    it('should tokenize class keywords', () => {
-      const lexer = new CSPLexer('CLASS PUBLIC PRIVATE CONSTRUCTOR');
+    it('does not treat OOP words as keywords (CSP has no classes)', () => {
+      const lexer = new CSPLexer('CLASS PUBLIC PRIVATE CONSTRUCTOR NEW THIS');
       const tokens = lexer.tokenize();
       const keywords = tokens.filter((t) => t.type === 'KEYWORD').map((t) => t.value);
-      expect(keywords).toContain('CLASS');
-      expect(keywords).toContain('PUBLIC');
-      expect(keywords).toContain('CONSTRUCTOR');
+      expect(keywords).not.toContain('CLASS');
+      expect(keywords).not.toContain('PUBLIC');
+      // They tokenize as ordinary identifiers instead.
+      const idents = tokens.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
+      expect(idents).toContain('CLASS');
     });
 
     it('should tokenize assignment operator', () => {
@@ -110,18 +112,6 @@ describe('CSP Parser', () => {
       const program = parser.parse();
       expect(program.body[0].type).toBe('FunctionDeclaration');
       expect((program.body[0] as any).name).toBe('greet');
-    });
-
-    it('should parse class', () => {
-      const source = `CLASS Counter
-{
-  PUBLIC count <- 0
-}`;
-      const lexer = new CSPLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new CSPParser(tokens);
-      const program = parser.parse();
-      expect(program.body[0].type).toBe('ClassDeclaration');
     });
   });
 
@@ -445,38 +435,6 @@ describe('CSP Translation', () => {
       const result = translator.translate(program, 'csp');
       expect(result).toContain('PROCEDURE');
       expect(result).toContain('greet');
-    });
-  });
-
-  describe('Classes', () => {
-    it('should translate class declaration', () => {
-      const source = `CLASS Counter
-{
-  PUBLIC count <- 0
-}`;
-      const lexer = new CSPLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new CSPParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'csp');
-      expect(result).toContain('CLASS Counter');
-    });
-
-    it('should mark public fields', () => {
-      const source = `CLASS Counter
-{
-  PUBLIC count <- 0
-  PRIVATE secret <- 42
-}`;
-      const lexer = new CSPLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new CSPParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'csp');
-      expect(result).toContain('PUBLIC');
-      expect(result).toContain('PRIVATE');
     });
   });
 
