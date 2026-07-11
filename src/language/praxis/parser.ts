@@ -19,6 +19,8 @@ import {
   type FunctionDeclaration,
   type ClassDeclaration,
   generateId,
+  makeIdentifier,
+  lvalueName,
 } from '../ast';
 import { attachComments } from '../comments';
 
@@ -162,7 +164,7 @@ export class PraxisParser {
           classBody.push({
             id: generateId(),
             type: 'FieldDeclaration',
-            name: (stmt as any).name,
+            name: lvalueName(stmt) ?? 'unknown',
             fieldType: (stmt as any).varType || 'auto',
             isStatic: false,
             access,
@@ -335,7 +337,7 @@ export class PraxisParser {
     return {
       id: generateId(),
       type: 'Assignment',
-      name,
+      target: makeIdentifier(name),
       value,
       varType: typeName,
       declaredWithoutInitializer: !hasInitializer,
@@ -369,22 +371,13 @@ export class PraxisParser {
       if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
         const value = this.expression();
 
-        if (expr.type === 'Identifier') {
-          stmt = { id: generateId(), type: 'Assignment', name: (expr as Identifier).name, value };
-        } else if (expr.type === 'MemberExpression' || expr.type === 'IndexExpression') {
-          // Handle member and index expressions with target field
-          stmt = {
-            id: generateId(),
-            type: 'Assignment',
-            name:
-              expr.type === 'IndexExpression'
-                ? this.generateMemberPath(expr)
-                : this.generateMemberPath(expr),
-            value,
-            target: expr,
-            isMemberAssignment: true,
-            memberExpr: expr,
-          } as any;
+        if (
+          expr.type === 'Identifier' ||
+          expr.type === 'MemberExpression' ||
+          expr.type === 'IndexExpression'
+        ) {
+          // `expr` is the lvalue: a plain variable, or a member/index target.
+          stmt = { id: generateId(), type: 'Assignment', target: expr, value };
         } else {
           stmt = { id: generateId(), type: 'ExpressionStatement', expression: expr };
         }
@@ -397,14 +390,6 @@ export class PraxisParser {
     this.match('PUNCTUATION', ';');
 
     return this.withLocation(stmt, startIdx);
-  }
-
-  private generateMemberPath(expr: any): string {
-    if (expr.type === 'Identifier') return expr.name;
-    if (expr.type === 'MemberExpression') {
-      return `${this.generateMemberPath(expr.object)}.${expr.property.name}`;
-    }
-    return 'unknown';
   }
 
   private block(breakTokens: string[] = ['end', 'else', 'until']): Block {
@@ -671,7 +656,7 @@ export class PraxisParser {
           initStmt = {
             id: generateId(),
             type: 'Assignment',
-            name: this.generateMemberPath(expr),
+            target: expr,
             value: this.expression(),
           };
         } else {
@@ -688,7 +673,7 @@ export class PraxisParser {
         updateStmt = {
           id: generateId(),
           type: 'Assignment',
-          name: this.generateMemberPath(updateExpr),
+          target: updateExpr,
           value: this.expression(),
         };
       } else {

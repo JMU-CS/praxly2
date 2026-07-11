@@ -146,7 +146,7 @@ describe('Blocks parser (blocksToProgram)', () => {
     const program = blocksToProgram(json);
     expect(program.body[0]).toMatchObject({
       type: 'Assignment',
-      name: 'n',
+      target: { type: 'Identifier', name: 'n' },
       value: { type: 'Literal', value: 7 },
     });
   });

@@ -17,6 +17,7 @@ import type {
   ForEach,
   Expression,
 } from '../ast';
+import { lvalueName } from '../ast';
 
 export class JavaScriptEmitter extends ASTVisitor {
   // Track declared variable names so we only emit `let` on first assignment
@@ -198,39 +199,28 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitAssignment(stmt: any): void {
-    let target: string;
+    const name = lvalueName(stmt);
 
-    if (this.isIntegerType(stmt.varType) && typeof stmt.name === 'string') {
-      this.declaredIntVars.add(stmt.name);
+    if (this.isIntegerType(stmt.varType) && name) {
+      this.declaredIntVars.add(name);
     }
 
-    if (stmt.isMemberAssignment && stmt.memberExpr) {
-      target = this.generateExpression(stmt.memberExpr, 0);
-      const value = this.generateExpression(stmt.value, 0);
-      this.emit(`${target} = ${value};`, stmt.id);
-      return;
-    }
-
-    // Index/member targets (e.g. `arr[i] = v`) are assignments, never `let`
-    // declarations.
-    if (stmt.target && stmt.target.type !== 'Identifier') {
+    // Member/index target (e.g. `arr[i] = v`, `obj.field = v`) — always an
+    // assignment, never a `let` declaration.
+    if (name === undefined) {
       const t = this.generateExpression(stmt.target, 0);
       this.emit(`${t} = ${this.generateExpression(stmt.value, 0)};`, stmt.id);
       return;
     }
 
-    if (stmt.target) {
-      target = this.generateExpression(stmt.target, 0);
-    } else {
-      target = stmt.name;
-      // Prefix `this.` for class fields
-      if (
-        this.inClass &&
-        this.currentClassFields.has(target) &&
-        !this.context.symbolTable.get(target)
-      ) {
-        target = `this.${target}`;
-      }
+    let target = name;
+    // Prefix `this.` for class fields
+    if (
+      this.inClass &&
+      this.currentClassFields.has(target) &&
+      !this.context.symbolTable.get(target)
+    ) {
+      target = `this.${target}`;
     }
 
     if (stmt.declaredWithoutInitializer) {
@@ -334,8 +324,9 @@ export class JavaScriptEmitter extends ASTVisitor {
 
     const collectInit = (s: any) => {
       if (s.type === 'Assignment') {
-        this.declaredVars.add(s.name);
-        initParts.push(`let ${s.name} = ${this.generateExpression(s.value, 0)}`);
+        const name = lvalueName(s) ?? '';
+        this.declaredVars.add(name);
+        initParts.push(`let ${name} = ${this.generateExpression(s.value, 0)}`);
       } else if (s.type === 'ExpressionStatement') {
         initParts.push(this.generateExpression(s.expression, 0));
       } else if (Array.isArray(s)) {
@@ -349,8 +340,8 @@ export class JavaScriptEmitter extends ASTVisitor {
       if (!s) return '';
       if (s.type === 'ExpressionStatement') return this.generateExpression(s.expression, 0);
       if (s.type === 'Assignment') {
-        const name = s.target?.name ?? s.name;
-        const t = s.target ? this.generateExpression(s.target, 0) : s.name;
+        const name = lvalueName(s);
+        const t = this.generateExpression(s.target, 0);
         const v = s.value;
         // `j = j + 1` -> `j += 1`, because a bare assignment used as a for-update
         // is evaluated (not executed) and would be a no-op.

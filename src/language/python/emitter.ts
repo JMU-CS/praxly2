@@ -17,6 +17,7 @@ import type {
   ForEach,
   Expression,
 } from '../ast';
+import { lvalueName } from '../ast';
 
 /**
  * Emitter for converting AST to Python source code.
@@ -92,12 +93,7 @@ export class PythonEmitter extends ASTVisitor {
     if (!body?.body) return;
     body.body.forEach((stmt: any) => {
       // target: MemberExpression(self/this, x)
-      const me =
-        stmt.target?.type === 'MemberExpression'
-          ? stmt.target
-          : stmt.memberExpr?.type === 'MemberExpression'
-            ? stmt.memberExpr
-            : null;
+      const me = stmt.target?.type === 'MemberExpression' ? stmt.target : null;
       if (
         me &&
         (me.object?.name === 'self' ||
@@ -347,15 +343,18 @@ export class PythonEmitter extends ASTVisitor {
    * Handles chained assignments, member assignments, and field prefixing.
    */
   visitAssignment(stmt: any): void {
-    let target = stmt.name;
+    const name = lvalueName(stmt);
 
-    // Handle member expression assignments (e.g., self.count = value)
-    if (stmt.isMemberAssignment && stmt.memberExpr) {
-      target = this.generateExpression(stmt.memberExpr, 0);
-    } else if (stmt.target) {
+    // Member/index target (e.g. self.count = value, arr[i] = value) renders via
+    // the expression printer; a plain variable that is a class field gets a
+    // `self.` prefix.
+    let target: string;
+    if (name === undefined) {
       target = this.generateExpression(stmt.target, 0);
-    } else if (this.currentClassFields.has(target)) {
-      target = `self.${target}`;
+    } else if (this.currentClassFields.has(name)) {
+      target = `self.${name}`;
+    } else {
+      target = name;
     }
 
     // Handle nested assignments (chained assignment: x = y = z = 10)
@@ -368,8 +367,8 @@ export class PythonEmitter extends ASTVisitor {
       const value = this.generateExpression(stmt.value, 0);
 
       if (stmt.varType) {
-        if (this.isIntegerType(stmt.varType) && typeof stmt.name === 'string') {
-          this.declaredIntVars.add(stmt.name);
+        if (this.isIntegerType(stmt.varType) && name) {
+          this.declaredIntVars.add(name);
         }
         const annotatedType = this.toPythonType(stmt.varType);
         if (stmt.declaredWithoutInitializer) {
@@ -513,7 +512,8 @@ export class PythonEmitter extends ASTVisitor {
     // init must be a simple assignment: var = start
     const init = stmt.init as any;
     if (init.type !== 'Assignment') return null;
-    const variable = init.name as string;
+    const variable = lvalueName(init);
+    if (variable === undefined) return null;
     const start = this.generateExpression(init.value, 0);
 
     // condition must be: variable < end  OR  variable <= end
@@ -532,7 +532,7 @@ export class PythonEmitter extends ASTVisitor {
       if (upd?.type !== 'UpdateExpression') return null;
       if (upd.argument?.name !== variable || upd.operator !== '++') return null;
     } else if (update.type === 'Assignment') {
-      if (update.name !== variable) return null;
+      if (lvalueName(update) !== variable) return null;
       const val = update.value as any;
       if (val?.type !== 'BinaryExpression') return null;
       if (val.left?.type !== 'Identifier' || val.left.name !== variable) return null;

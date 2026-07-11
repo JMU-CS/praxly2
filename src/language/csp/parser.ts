@@ -269,10 +269,8 @@ export class CSPParser {
     // Assignment Check (handles variable and array index assignments)
     if (this.match('OPERATOR', '<-')) {
       const value = this.expression();
-      let nameStr = 'unknown';
-      if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
       return this.withLocation(
-        { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value },
+        { id: generateId(), type: 'Assignment', target: expr, value },
         startIdx
       );
     }
@@ -336,7 +334,6 @@ export class CSPParser {
       const initStmt: Statement = {
         id: generateId(),
         type: 'Assignment',
-        name: varName,
         target: { id: generateId(), type: 'Identifier', name: varName },
         value: { id: generateId(), type: 'Literal', value: 0, raw: '0' },
         varType: 'int',
@@ -351,7 +348,6 @@ export class CSPParser {
       const updateStmt: Statement = {
         id: generateId(),
         type: 'Assignment',
-        name: varName,
         target: { id: generateId(), type: 'Identifier', name: varName },
         value: {
           id: generateId(),

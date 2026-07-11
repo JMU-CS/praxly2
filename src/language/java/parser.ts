@@ -23,6 +23,7 @@ import {
   type Parameter,
   type AccessModifier,
   generateId,
+  makeIdentifier,
 } from '../ast';
 import { attachComments } from '../comments';
 
@@ -375,7 +376,7 @@ export class JavaParser {
         {
           id: generateId(),
           type: 'Assignment',
-          name,
+          target: makeIdentifier(name),
           value,
           varType: typeStr,
           declaredWithoutInitializer: !hasInitializer,
@@ -391,7 +392,10 @@ export class JavaParser {
         this.consume('OPERATOR', '=');
         const value = this.expression();
         if (!this.isAtEnd() && this.check('PUNCTUATION', ';')) this.advance();
-        return this.withLocation({ id: generateId(), type: 'Assignment', name, value }, startIdx);
+        return this.withLocation(
+          { id: generateId(), type: 'Assignment', target: makeIdentifier(name), value },
+          startIdx
+        );
       }
       // Check for type declarations: identifier identifier (e.g., "String name", "int x")
       // or a generic type declaration (e.g. "ArrayList<Integer> nums").
@@ -435,7 +439,7 @@ export class JavaParser {
               {
                 id: generateId(),
                 type: 'Assignment',
-                name,
+                target: makeIdentifier(name),
                 value,
                 varType: typeStr,
                 declaredWithoutInitializer: !hasInitializer,
@@ -644,7 +648,7 @@ export class JavaParser {
         const initAssignment = {
           id: generateId(),
           type: 'Assignment',
-          name: varName,
+          target: makeIdentifier(varName),
           value,
         } as Statement;
         this.withLocation(initAssignment, assignIdx);
@@ -659,7 +663,7 @@ export class JavaParser {
           const nextAssignment = {
             id: generateId(),
             type: 'Assignment',
-            name: nextVarName,
+            target: makeIdentifier(nextVarName),
             value: nextValue,
           } as Statement;
           this.withLocation(nextAssignment, nextAssignIdx);
@@ -732,7 +736,7 @@ export class JavaParser {
         const assignment = {
           id: generateId(),
           type: 'Assignment',
-          name: varName,
+          target: makeIdentifier(varName),
           value,
         } as Statement;
         this.withLocation(assignment, assignIdx);
@@ -817,26 +821,16 @@ export class JavaParser {
       this.advance();
       const right = this.assignment(); // Right-associative
 
-      // Regular assignment (=)
+      // Regular assignment (=). `left` is the lvalue: an Identifier for a plain
+      // variable, or a MemberExpression/IndexExpression for `this.count`/`array[i]`.
       if (operator === '=') {
         const assignIdx = this.current - 1; // Index of the = operator
-        let name = '';
-        if (left.type === 'Identifier') {
-          name = (left as any).name;
-        } else if (left.type === 'MemberExpression' || left.type === 'IndexExpression') {
-          // For member expressions like this.count or array[i], we need to preserve them
-          const memberAssignment = {
-            id: generateId(),
-            type: 'Assignment',
-            name: JSON.stringify(left),
-            value: right,
-            isMemberAssignment: true,
-            memberExpr: left,
-          } as any;
-          this.withLocation(memberAssignment, assignIdx);
-          return memberAssignment;
-        }
-        const assignment = { id: generateId(), type: 'Assignment', name, value: right } as any;
+        const assignment = {
+          id: generateId(),
+          type: 'Assignment',
+          target: left,
+          value: right,
+        } as any;
         this.withLocation(assignment, assignIdx);
         return assignment;
       }

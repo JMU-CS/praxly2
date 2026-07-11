@@ -23,6 +23,7 @@ import {
   type MethodDeclaration,
   type Parameter,
   generateId,
+  makeIdentifier,
 } from '../ast';
 import { attachComments } from '../comments';
 
@@ -272,13 +273,19 @@ export class JavaScriptParser {
     if (this.match('OPERATOR', '=')) {
       const value = this.expression();
       this.match('PUNCTUATION', ';');
-      return { id: generateId(), type: 'Assignment', name, value, varType: 'auto' };
+      return {
+        id: generateId(),
+        type: 'Assignment',
+        target: makeIdentifier(name),
+        value,
+        varType: 'auto',
+      };
     }
     this.match('PUNCTUATION', ';');
     return {
       id: generateId(),
       type: 'Assignment',
-      name,
+      target: makeIdentifier(name),
       value: { id: generateId(), type: 'Literal', value: undefined, raw: 'undefined' },
       varType: 'auto',
       declaredWithoutInitializer: true,
@@ -350,7 +357,7 @@ export class JavaScriptParser {
         const init: Statement = {
           id: generateId(),
           type: 'Assignment',
-          name: varName,
+          target: makeIdentifier(varName),
           value: initVal,
         };
         this.consume('PUNCTUATION', ';');
@@ -513,19 +520,9 @@ export class JavaScriptParser {
       const right = this.assignment();
 
       if (operator === '=') {
-        let name = '';
-        if (left.type === 'Identifier') name = (left as Identifier).name;
-        if (left.type === 'MemberExpression' || left.type === 'IndexExpression') {
-          return {
-            id: generateId(),
-            type: 'Assignment',
-            name: '',
-            value: right,
-            isMemberAssignment: true,
-            memberExpr: left,
-          } as any;
-        }
-        return { id: generateId(), type: 'Assignment', name, value: right } as any;
+        // `left` is the lvalue: an Identifier for a plain variable, or a
+        // MemberExpression/IndexExpression for `obj.field`/`arr[i]`.
+        return { id: generateId(), type: 'Assignment', target: left, value: right } as any;
       }
 
       const opMap: Record<string, string> = {

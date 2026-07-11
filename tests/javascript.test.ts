@@ -159,24 +159,33 @@ describe('JavaScript Parser', () => {
   describe('Variable declarations', () => {
     it('parses let declaration', () => {
       const ast = jsParse('let x = 5;');
-      expect(ast.body[0]).toMatchObject({ type: 'Assignment', name: 'x' });
+      expect(ast.body[0]).toMatchObject({
+        type: 'Assignment',
+        target: { type: 'Identifier', name: 'x' },
+      });
     });
 
     it('parses const declaration', () => {
       const ast = jsParse('const PI = 3.14;');
-      expect(ast.body[0]).toMatchObject({ type: 'Assignment', name: 'PI' });
+      expect(ast.body[0]).toMatchObject({
+        type: 'Assignment',
+        target: { type: 'Identifier', name: 'PI' },
+      });
     });
 
     it('parses var declaration', () => {
       const ast = jsParse('var y = "hello";');
-      expect(ast.body[0]).toMatchObject({ type: 'Assignment', name: 'y' });
+      expect(ast.body[0]).toMatchObject({
+        type: 'Assignment',
+        target: { type: 'Identifier', name: 'y' },
+      });
     });
 
     it('parses uninitialized declaration', () => {
       const ast = jsParse('let z;');
       expect(ast.body[0]).toMatchObject({
         type: 'Assignment',
-        name: 'z',
+        target: { type: 'Identifier', name: 'z' },
         declaredWithoutInitializer: true,
       });
     });

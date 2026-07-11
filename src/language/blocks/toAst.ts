@@ -8,7 +8,7 @@
  */
 
 import type { Block, Expression, Program, Statement, Parameter, If } from '../ast';
-import { generateId } from '../ast';
+import { generateId, makeIdentifier } from '../ast';
 import { inputBlock, type BlockState, type WorkspaceState } from './serialization';
 
 const COMPARE_OPS: Record<string, string> = {
@@ -96,7 +96,7 @@ class BlocksReader {
         return {
           id: generateId(),
           type: 'Assignment',
-          name: this.variable(block, 'VAR'),
+          target: makeIdentifier(this.variable(block, 'VAR')),
           value: this.expression(block, 'VALUE'),
         };
 
@@ -106,7 +106,7 @@ class BlocksReader {
         return {
           id: generateId(),
           type: 'Assignment',
-          name,
+          target: makeIdentifier(name),
           value: {
             id: generateId(),
             type: 'BinaryExpression',
