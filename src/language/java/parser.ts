@@ -1056,7 +1056,7 @@ export class JavaParser {
   private newExpression(): Expression {
     // Array creation expression: `new Type[] {elems}` or `new Type[size]`.
     if ((this.isTypeStart() || this.check('IDENTIFIER')) && this.checkNext('PUNCTUATION', '[')) {
-      this.advance(); // element type
+      const elementType = this.advance().value; // element type
       this.consume('PUNCTUATION', '[');
       if (this.check('PUNCTUATION', ']')) {
         this.advance();
@@ -1070,10 +1070,10 @@ export class JavaParser {
         this.consume('PUNCTUATION', '}');
         return { id: generateId(), type: 'ArrayLiteral', elements } as any;
       }
-      // `new Type[size]` — size is evaluated but produces an (empty) array here.
-      this.expression();
+      // `new Type[size]` — a sized array of default-initialized elements.
+      const size = this.expression();
       this.consume('PUNCTUATION', ']');
-      return { id: generateId(), type: 'ArrayLiteral', elements: [] } as any;
+      return { id: generateId(), type: 'ArrayCreation', elementType, size } as any;
     }
 
     const className = this.consume('IDENTIFIER').value;

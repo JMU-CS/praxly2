@@ -861,6 +861,20 @@ export class PythonEmitter extends ASTVisitor {
         const elems = expr.elements.map((e) => this.generateExpression(e, 0)).join(', ');
         output = `[${elems}]`;
         break;
+      case 'ArrayCreation': {
+        // Python has no fixed-size arrays; `new int[n]` becomes `[default] * n`.
+        const ac = expr as any;
+        const base = ac.elementType.replace(/\[\]/g, '');
+        const def = ['int', 'byte', 'short', 'long'].includes(base)
+          ? '0'
+          : ['double', 'float'].includes(base)
+            ? '0.0'
+            : base === 'boolean'
+              ? 'False'
+              : 'None';
+        output = `[${def}] * ${this.generateExpression(ac.size, 0)}`;
+        break;
+      }
       case 'CompoundAssignment':
         const target = (expr as any).name;
         const value = this.generateExpression((expr as any).value, 0);

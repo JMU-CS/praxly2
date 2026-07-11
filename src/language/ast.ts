@@ -43,6 +43,7 @@ export type NodeType =
   | 'MemberExpression'
   | 'IndexExpression'
   | 'ArrayLiteral'
+  | 'ArrayCreation'
   | 'Identifier'
   | 'ThisExpression'
   | 'Placeholder'
@@ -280,6 +281,7 @@ export type Expression =
   | MemberExpression
   | IndexExpression
   | ArrayLiteral
+  | ArrayCreation
   | Identifier
   | ThisExpression
   | Placeholder
@@ -350,6 +352,15 @@ export interface IndexExpression extends ASTNode {
 export interface ArrayLiteral extends ASTNode {
   type: 'ArrayLiteral';
   elements: Expression[];
+}
+
+// Fixed-size array creation with default-initialized elements (e.g. Java/Praxis
+// `new int[10]`), as opposed to an ArrayLiteral's explicit element list. The
+// interpreter fills `size` type-appropriate defaults (0 / false / null).
+export interface ArrayCreation extends ASTNode {
+  type: 'ArrayCreation';
+  elementType: string;
+  size: Expression;
 }
 
 export interface Identifier extends ASTNode {

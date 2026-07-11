@@ -773,6 +773,12 @@ export class PraxisEmitter extends ASTVisitor {
         output = `{${elems}}`;
         break;
       }
+
+      case 'ArrayCreation': {
+        const ac = expr as any;
+        output = `new ${ac.elementType}[${this.generateExpression(ac.size, 0)}]`;
+        break;
+      }
     }
 
     return currentPrecedence < parentPrecedence ? `(${output})` : output;

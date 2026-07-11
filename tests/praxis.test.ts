@@ -740,4 +740,30 @@ print(max(3, 7))`;
       expect(run(src)).toEqual(['42']);
     });
   });
+
+  // Fixed-size array creation: `new int[n]` -> n default-initialized elements.
+  describe('Sized array creation', () => {
+    const run = (src: string): string[] =>
+      new Interpreter().interpret(new PraxisParser(new PraxisLexer(src).tokenize()).parse(), src);
+
+    it('creates an array of default values with new int[n]', () => {
+      const src = `int[] a <- new int[3]
+a[1] <- 5
+print(a)
+print(a.length)`;
+      expect(run(src)).toEqual(['{0, 5, 0}', '3']);
+    });
+
+    it('parses to an ArrayCreation node', () => {
+      const program = new PraxisParser(new PraxisLexer('int[] a <- new int[4]').tokenize()).parse();
+      expect((program.body[0] as any).value.type).toBe('ArrayCreation');
+    });
+
+    it('translates new int[n] to each target language', () => {
+      const program = new PraxisParser(new PraxisLexer('int[] a <- new int[3]').tokenize()).parse();
+      expect(new Translator().translate(program, 'java')).toContain('new int[3]');
+      expect(new Translator().translate(program, 'python')).toContain('[0] * 3');
+      expect(new Translator().translate(program, 'javascript')).toContain('new Array(3).fill(0)');
+    });
+  });
 });

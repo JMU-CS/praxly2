@@ -973,6 +973,17 @@ export class PraxisParser {
 
     // Handle Object Instantiation
     if (this.match('KEYWORD', 'new')) {
+      // Fixed-size array creation: `new int[n]` / `new ClassName[n]`.
+      if (
+        (this.isTypeStart() || this.check('IDENTIFIER')) &&
+        this.checkPeekAhead('PUNCTUATION', '[', 1)
+      ) {
+        const elementType = this.advance().value;
+        this.consume('PUNCTUATION', '[');
+        const size = this.expression();
+        this.consume('PUNCTUATION', ']');
+        return { id: generateId(), type: 'ArrayCreation', elementType, size } as any;
+      }
       const className = this.consume('IDENTIFIER').value;
       this.consume('PUNCTUATION', '(');
       const args: Expression[] = [];

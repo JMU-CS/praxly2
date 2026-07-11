@@ -643,6 +643,19 @@ export class JavaScriptEmitter extends ASTVisitor {
         out = `[${expr.elements.map((e) => this.generateExpression(e, 0)).join(', ')}]`;
         break;
 
+      case 'ArrayCreation': {
+        // `new int[n]` -> `new Array(n).fill(default)`.
+        const ac = expr as any;
+        const base = ac.elementType.replace(/\[\]/g, '');
+        const def = ['int', 'byte', 'short', 'long', 'double', 'float'].includes(base)
+          ? '0'
+          : base === 'boolean'
+            ? 'false'
+            : 'null';
+        out = `new Array(${this.generateExpression(ac.size, 0)}).fill(${def})`;
+        break;
+      }
+
       case 'CompoundAssignment': {
         const op = (expr as any).operator;
         const name = (expr as any).name;

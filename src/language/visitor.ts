@@ -363,6 +363,8 @@ export abstract class ASTVisitor {
           return this.inferType(expr.elements[0]) + '[]';
         }
         return 'Object[]';
+      case 'ArrayCreation':
+        return (expr as any).elementType + '[]';
       default:
         return 'var';
     }

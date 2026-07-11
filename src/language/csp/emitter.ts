@@ -490,6 +490,24 @@ export class CSPEmitter extends ASTVisitor {
         output = `[${elems}]`;
         break;
       }
+
+      case 'ArrayCreation': {
+        // CSP has no fixed-size array syntax. Expand a literal size into a list
+        // of defaults; a non-literal size falls back to an empty list.
+        const ac = expr as any;
+        const base = ac.elementType.replace(/\[\]/g, '');
+        const def = ['int', 'byte', 'short', 'long', 'double', 'float'].includes(base)
+          ? '0'
+          : base === 'boolean'
+            ? 'false'
+            : 'null';
+        if (ac.size?.type === 'Literal' && typeof ac.size.value === 'number') {
+          output = `[${Array(Math.max(0, ac.size.value)).fill(def).join(', ')}]`;
+        } else {
+          output = '[]';
+        }
+        break;
+      }
     }
 
     return currentPrecedence < parentPrecedence ? `(${output})` : output;
