@@ -8,8 +8,8 @@ Guide for adding new UI features to Praxly's editor. Read `docs/COMPONENT_REFERE
 src/
   pages/
     EditorPage.tsx       ← main IDE page; owns all editor state
-    LandingPage.tsx      ← landing/home page
     EmbedPage.tsx        ← embeddable iframe version
+    AccountPage.tsx      ← account page
   components/
     editor/              ← editor-specific sub-components
       EditorHeader.tsx   ← toolbar, run/debug buttons, example picker

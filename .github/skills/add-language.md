@@ -2,7 +2,7 @@
 
 Complete checklist for adding a new source/target language (e.g., JavaScript, C++, Go) to Praxly.
 
-Read `.github/CLAUDE.md` and `docs/ADDING_A_LANGUAGE.md` before starting — they have code examples. This file is the integration checklist; those files have the implementation detail.
+Read `CLAUDE.md` and `docs/ADDING_A_LANGUAGE.md` before starting — they have code examples. This file is the integration checklist; those files have the implementation detail.
 
 ## 1. Create the language module
 
@@ -43,9 +43,9 @@ Add your language to `TargetLanguage`:
 
 ```typescript
 // Before
-export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis';
+export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | 'javascript';
 // After
-export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | '<lang>';
+export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | 'javascript' | '<lang>';
 ```
 
 ## 3. Register in `src/language/translator.ts`

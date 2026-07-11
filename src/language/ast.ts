@@ -1,13 +1,22 @@
 /**
  * Abstract Syntax Tree (AST) type definitions.
- * Defines all node types used throughout the language pipeline including programs, statements, expressions, and declarations.
+ * Defines all node types used throughout the language pipeline including programs,
+ * statements, expressions, and declarations.
+ *
+ * NodeType is ordered largest to smallest program unit, and every interface below is
+ * declared in that same order: Program/Block, then declarations (class/function),
+ * then statements, then expressions.
  */
 
 export type NodeType =
   | 'Program'
   | 'Block'
-  | 'Assignment'
-  | 'Print'
+  | 'ClassDeclaration'
+  | 'FieldDeclaration'
+  | 'Constructor'
+  | 'MethodDeclaration'
+  | 'FunctionDeclaration'
+  | 'Parameter'
   | 'If'
   | 'While'
   | 'DoWhile'
@@ -15,32 +24,28 @@ export type NodeType =
   | 'For'
   | 'Switch'
   | 'SwitchCase'
-  | 'FunctionDeclaration'
+  | 'Try'
+  | 'ExceptionHandler'
   | 'Return'
+  | 'Break'
+  | 'Continue'
+  | 'Assignment'
+  | 'Print'
+  | 'ExpressionStatement'
+  | 'ConditionalExpression'
   | 'BinaryExpression'
   | 'UnaryExpression'
   | 'UpdateExpression'
-  | 'Identifier'
-  | 'Literal'
-  | 'ArrayLiteral'
+  | 'CompoundAssignment'
   | 'CallExpression'
-  | 'ExpressionStatement'
-  | 'ClassDeclaration'
-  | 'FieldDeclaration'
-  | 'Constructor'
-  | 'MethodDeclaration'
   | 'NewExpression'
   | 'MemberExpression'
-  | 'ThisExpression'
-  | 'Parameter'
   | 'IndexExpression'
-  | 'Break'
-  | 'Continue'
-  | 'Try'
-  | 'ExceptionHandler'
-  | 'ConditionalExpression'
-  | 'CompoundAssignment'
-  | 'ListComprehension';
+  | 'ListComprehension'
+  | 'ArrayLiteral'
+  | 'Identifier'
+  | 'ThisExpression'
+  | 'Literal';
 
 export interface ASTNode {
   id: string;
@@ -59,54 +64,79 @@ export interface Block extends ASTNode {
 }
 
 export type Statement =
-  | Assignment
-  | Print
+  | ClassDeclaration
+  | FieldDeclaration
+  | Constructor
+  | MethodDeclaration
+  | FunctionDeclaration
   | If
   | While
   | DoWhile
   | RepeatUntil
   | For
   | Switch
-  | FunctionDeclaration
+  | Try
   | Return
-  | ExpressionStatement
-  | ClassDeclaration
-  | FieldDeclaration
-  | Constructor
-  | MethodDeclaration
   | Break
   | Continue
-  | Try;
+  | Assignment
+  | Print
+  | ExpressionStatement;
 
-export interface Break extends ASTNode {
-  type: 'Break';
-}
+// Parameter, SwitchCase, and ExceptionHandler are deliberately excluded from Statement:
+// they never appear directly in a Block's body, only as sub-nodes of their parent
+// (Parameter in param lists, SwitchCase in Switch.cases, ExceptionHandler in Try.handlers).
 
-export interface Continue extends ASTNode {
-  type: 'Continue';
-}
-
-export interface ExpressionStatement extends ASTNode {
-  type: 'ExpressionStatement';
-  expression: Expression;
-}
-
-export interface Assignment extends ASTNode {
-  type: 'Assignment';
+export interface ClassDeclaration extends ASTNode {
+  type: 'ClassDeclaration';
   name: string;
-  target?: Expression;
-  value: Expression;
-  varType?: string;
-  declaredWithoutInitializer?: boolean;
-  isMemberAssignment?: boolean;
-  memberExpr?: Expression;
+  superClass?: Identifier;
+  body: (FieldDeclaration | Constructor | MethodDeclaration)[];
 }
 
-export interface Print extends ASTNode {
-  type: 'Print';
-  expressions: Expression[];
-  separator?: string;
-  appendLineFeed?: boolean;
+export type AccessModifier = 'public' | 'private' | 'protected';
+
+export interface FieldDeclaration extends ASTNode {
+  type: 'FieldDeclaration';
+  name: string;
+  fieldType: string;
+  isStatic: boolean;
+  access: AccessModifier;
+  initializer?: Expression;
+  // Emission-only flag, same meaning as Assignment.declaredWithoutInitializer.
+  declaredWithoutInitializer?: boolean;
+}
+
+export interface Constructor extends ASTNode {
+  type: 'Constructor';
+  access: AccessModifier;
+  params: Parameter[];
+  body: Block;
+}
+
+export interface MethodDeclaration extends ASTNode {
+  type: 'MethodDeclaration';
+  name: string;
+  access: AccessModifier;
+  isStatic: boolean;
+  returnType: string;
+  params: Parameter[];
+  body: Block;
+}
+
+export interface FunctionDeclaration extends ASTNode {
+  type: 'FunctionDeclaration';
+  name: string;
+  params: Parameter[];
+  body: Block;
+}
+
+// Not a Statement — only appears in Constructor/MethodDeclaration/FunctionDeclaration param lists.
+export interface Parameter extends ASTNode {
+  type: 'Parameter';
+  name: string;
+  paramType: string;
+  defaultValue?: Expression;
 }
 
 export interface If extends ASTNode {
@@ -120,6 +150,7 @@ export interface While extends ASTNode {
   type: 'While';
   condition: Expression;
   body: Block;
+  // Python's for/while...else: runs when the loop finishes without a `break`.
   elseBranch?: Block;
 }
 
@@ -140,32 +171,9 @@ export interface RepeatUntil extends ASTNode {
   condition: Expression;
 }
 
-export interface Try extends ASTNode {
-  type: 'Try';
-  body: Block;
-  handlers: ExceptionHandler[];
-  finallyBlock?: Block;
-}
-
-export interface ExceptionHandler extends ASTNode {
-  type: 'ExceptionHandler';
-  exceptionType?: string;
-  varName?: string;
-  body: Block;
-}
-
-export interface Switch extends ASTNode {
-  type: 'Switch';
-  discriminant: Expression;
-  cases: SwitchCase[];
-}
-
-export interface SwitchCase extends ASTNode {
-  type: 'SwitchCase';
-  test?: Expression;
-  consequent: Statement[];
-}
-
+// One node models two loop shapes: foreach (variable(s)/iterable, e.g. Python `for x in y`,
+// CSP `FOR EACH`) and C-style three-clause (init/condition/update, e.g. Java/Praxis `for(;;)`).
+// The interpreter branches on whether init/condition/update are all present.
 export interface For extends ASTNode {
   type: 'For';
   variable: string;
@@ -178,10 +186,31 @@ export interface For extends ASTNode {
   elseBranch?: Block;
 }
 
-export interface FunctionDeclaration extends ASTNode {
-  type: 'FunctionDeclaration';
-  name: string;
-  params: Parameter[];
+export interface Switch extends ASTNode {
+  type: 'Switch';
+  discriminant: Expression;
+  cases: SwitchCase[];
+}
+
+// Not a Statement — only appears in Switch.cases, never directly in a Block's body.
+export interface SwitchCase extends ASTNode {
+  type: 'SwitchCase';
+  test?: Expression;
+  consequent: Statement[];
+}
+
+export interface Try extends ASTNode {
+  type: 'Try';
+  body: Block;
+  handlers: ExceptionHandler[];
+  finallyBlock?: Block;
+}
+
+// Not a Statement — only appears in Try.handlers, never directly in a Block's body.
+export interface ExceptionHandler extends ASTNode {
+  type: 'ExceptionHandler';
+  exceptionType?: string;
+  varName?: string;
   body: Block;
 }
 
@@ -190,21 +219,66 @@ export interface Return extends ASTNode {
   value?: Expression;
 }
 
+export interface Break extends ASTNode {
+  type: 'Break';
+}
+
+export interface Continue extends ASTNode {
+  type: 'Continue';
+}
+
+// For a member assignment (e.g. `obj.field = 5`), isMemberAssignment is true and memberExpr
+// holds the MemberExpression/IndexExpression target; name/varType are for plain variable
+// assignment. declaredWithoutInitializer marks a bare declaration (e.g. `int x;`) — it only
+// affects emitted output, not interpretation or type inference.
+export interface Assignment extends ASTNode {
+  type: 'Assignment';
+  name: string;
+  target?: Expression;
+  value: Expression;
+  varType?: string;
+  declaredWithoutInitializer?: boolean;
+  isMemberAssignment?: boolean;
+  memberExpr?: Expression;
+}
+
+// Mirrors Python's print(*args, sep=' ', end='\n'); the interpreter defaults separator to
+// ' ' and appendLineFeed to true when unset. Currently only the Praxis parser populates
+// these from natural-language phrasing — Python's own `sep=`/`end=` kwargs aren't parsed yet.
+export interface Print extends ASTNode {
+  type: 'Print';
+  expressions: Expression[];
+  separator?: string;
+  appendLineFeed?: boolean;
+}
+
+export interface ExpressionStatement extends ASTNode {
+  type: 'ExpressionStatement';
+  expression: Expression;
+}
+
 export type Expression =
+  | ConditionalExpression
   | BinaryExpression
   | UnaryExpression
   | UpdateExpression
-  | Identifier
-  | Literal
-  | ArrayLiteral
+  | CompoundAssignment
   | CallExpression
   | NewExpression
   | MemberExpression
-  | ThisExpression
   | IndexExpression
-  | ConditionalExpression
-  | CompoundAssignment
-  | ListComprehension;
+  | ListComprehension
+  | ArrayLiteral
+  | Identifier
+  | ThisExpression
+  | Literal;
+
+export interface ConditionalExpression extends ASTNode {
+  type: 'ConditionalExpression';
+  test: Expression;
+  consequent: Expression;
+  alternate: Expression;
+}
 
 export interface BinaryExpression extends ASTNode {
   type: 'BinaryExpression';
@@ -226,78 +300,20 @@ export interface UpdateExpression extends ASTNode {
   prefix: boolean;
 }
 
+// An Expression, not a Statement, so it can appear anywhere a value is expected —
+// notably a C-style For loop's `update` clause (e.g. `i += 1`), not just as a standalone line.
+export interface CompoundAssignment extends ASTNode {
+  type: 'CompoundAssignment';
+  operator: string;
+  name: string;
+  left: Expression;
+  right: Expression;
+}
+
 export interface CallExpression extends ASTNode {
   type: 'CallExpression';
   callee: Identifier | MemberExpression;
   arguments: Expression[];
-}
-
-export interface Identifier extends ASTNode {
-  type: 'Identifier';
-  name: string;
-}
-
-export interface Literal extends ASTNode {
-  type: 'Literal';
-  value: any;
-  raw: string;
-}
-
-export interface ArrayLiteral extends ASTNode {
-  type: 'ArrayLiteral';
-  elements: Expression[];
-}
-
-export interface IndexExpression extends ASTNode {
-  type: 'IndexExpression';
-  object: Expression;
-  index: Expression;
-  indexEnd?: Expression;
-  indexStep?: Expression;
-}
-
-// OOP-related nodes
-export type AccessModifier = 'public' | 'private' | 'protected';
-
-export interface ClassDeclaration extends ASTNode {
-  type: 'ClassDeclaration';
-  name: string;
-  superClass?: Identifier;
-  body: (FieldDeclaration | Constructor | MethodDeclaration)[];
-}
-
-export interface FieldDeclaration extends ASTNode {
-  type: 'FieldDeclaration';
-  name: string;
-  fieldType: string;
-  isStatic: boolean;
-  access: AccessModifier;
-  initializer?: Expression;
-  declaredWithoutInitializer?: boolean;
-}
-
-export interface Constructor extends ASTNode {
-  type: 'Constructor';
-  access: AccessModifier;
-  params: Parameter[];
-  body: Block;
-}
-
-export interface Parameter extends ASTNode {
-  type: 'Parameter';
-  name: string;
-  paramType: string;
-  defaultValue?: Expression;
-}
-
-export interface MethodDeclaration extends ASTNode {
-  type: 'MethodDeclaration';
-  name: string;
-  access: AccessModifier;
-  isStatic: boolean;
-  returnType: string;
-  params: Parameter[];
-  body: Block;
 }
 
 export interface NewExpression extends ASTNode {
@@ -313,23 +329,14 @@ export interface MemberExpression extends ASTNode {
   isMethod: boolean;
 }
 
-export interface ThisExpression extends ASTNode {
-  type: 'ThisExpression';
-}
-
-export interface ConditionalExpression extends ASTNode {
-  type: 'ConditionalExpression';
-  test: Expression;
-  consequent: Expression;
-  alternate: Expression;
-}
-
-export interface CompoundAssignment extends ASTNode {
-  type: 'CompoundAssignment';
-  operator: string;
-  name: string;
-  left: Expression;
-  right: Expression;
+export interface IndexExpression extends ASTNode {
+  type: 'IndexExpression';
+  object: Expression;
+  index: Expression;
+  // indexEnd/indexStep model Python slice syntax `a[start:end:step]`; both the emitters and
+  // the interpreter honor them (a plain single-index access leaves both unset).
+  indexEnd?: Expression;
+  indexStep?: Expression;
 }
 
 export interface ListComprehension extends ASTNode {
@@ -339,7 +346,29 @@ export interface ListComprehension extends ASTNode {
   iterable: Expression;
 }
 
-export const generateId = () => Math.random().toString(36).substr(2, 9);
+export interface ArrayLiteral extends ASTNode {
+  type: 'ArrayLiteral';
+  elements: Expression[];
+}
+
+export interface Identifier extends ASTNode {
+  type: 'Identifier';
+  name: string;
+}
+
+export interface ThisExpression extends ASTNode {
+  type: 'ThisExpression';
+}
+
+export interface Literal extends ASTNode {
+  type: 'Literal';
+  value: any;
+  // raw preserves the original source text (e.g. `1.0` vs `1`, or an f/r/b string prefix)
+  // so emitters can round-trip formatting that converting back to a string would lose.
+  raw: string;
+}
+
+export const generateId = () => Math.random().toString(36).substring(2, 11);
 
 export function* generateVariableName() {
   let id = 0;

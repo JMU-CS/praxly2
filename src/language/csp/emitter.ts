@@ -216,7 +216,6 @@ export class CSPEmitter extends ASTVisitor {
   }
 
   visitSwitch(stmt: any): void {
-    // CSP has no switch — translate to nested IF / ELSE IF chains.
     // CSP has no switch — translate to nested IF / ELSE blocks
     let first = true;
     const disc = stmt.discriminant ? this.generateExpression(stmt.discriminant, 0) : '';

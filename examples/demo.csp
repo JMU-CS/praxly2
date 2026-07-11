@@ -1,0 +1,144 @@
+// ===========================================================================
+// Praxly2 feature demo -- CSP           (shared notes: examples/README.md)
+// ---------------------------------------------------------------------------
+// CSP is a small procedural language, so it reaches fewer AST nodes than the
+// other demos.
+//
+// AST nodes NOT reachable from CSP source (covered by the other demos):
+//   Classes (ClassDeclaration/Constructor/Method/Field), NewExpression,
+//   MemberExpression, ThisExpression .... CSP has no usable OOP.
+//   DoWhile / RepeatUntil node .......... `REPEAT UNTIL` maps to While(NOT c).
+//   Switch / Try / Break / Continue ..... no such keywords.
+//   ConditionalExpression (ternary) ..... not parsed.
+//   UpdateExpression (++/--) ............ not in CSP.
+//   CompoundAssignment (+=) ............. write `x <- x + 1`.
+//   ListComprehension ................... Python-only.
+//
+// CSP runtime facts honored below:
+//   * Assignment is `<-` (or the unicode arrow); `=` means EQUALITY.
+//   * Lists are 0-based; `FOR i FROM a TO b` is END-EXCLUSIVE.
+//   * `REPEAT UNTIL(c)` is a PRE-condition loop (runs while NOT c).
+//   * There is no unary minus -> write `0 - x`. There is no `null`.
+//   * DISPLAY prints its single argument followed by a newline.
+//   * No `ELSE IF` -> nest an IF inside the ELSE block.
+// ===========================================================================
+
+
+// ========================== EXPRESSIONS ====================================
+
+// ---- Literal (number, string, boolean) + Assignment + DISPLAY -------------
+name <- "csp"
+greeting <- "hello " + name     // BinaryExpression '+' (string concatenation)
+DISPLAY(greeting)               // hello csp
+
+flag <- true
+DISPLAY(flag)                   // true
+
+// ---- BinaryExpression: arithmetic + MOD (division is floating point) -------
+total <- 3 + 4 * 2
+DISPLAY(total)                  // 11
+DISPLAY(17 MOD 5)               // 2
+DISPLAY(10 / 4)                 // 2.5
+
+// ---- No unary minus in CSP -> subtract from zero ---------------------------
+neg <- 0 - 7
+DISPLAY(neg)                    // -7
+
+// ---- Comparison + logical (AND / OR / NOT) incl. unicode relational forms --
+x <- 5
+DISPLAY(x >= 5 AND x < 10)      // true
+DISPLAY(x = 5 OR x = 6)         // true
+DISPLAY(NOT (x = 3))            // true  (UnaryExpression NOT)
+DISPLAY(x <> 3)                 // true  (ascii not-equal)
+DISPLAY(x ≠ 3)                  // true  (unicode not-equal)
+DISPLAY(x ≤ 5)                  // true  (unicode less-or-equal)
+DISPLAY(x ≥ 5)                  // true  (unicode greater-or-equal)
+
+// ---- ArrayLiteral + IndexExpression (0-based) + index Assignment -----------
+nums <- [10, 20, 30]
+DISPLAY(nums[0])                // 10
+nums[1] <- 99
+DISPLAY(nums[1])                // 99
+
+// ---- List builtins: APPEND / INSERT / REMOVE / LENGTH ----------------------
+APPEND(nums, 40)                // [10, 99, 30, 40]
+INSERT(nums, 0, 5)              // [5, 10, 99, 30, 40]
+REMOVE(nums, 1)                 // [5, 99, 30, 40]
+DISPLAY(LENGTH(nums))           // 4
+DISPLAY(nums[0])                // 5
+
+
+// ========================== STATEMENTS =====================================
+
+// ---- IF / ELSE with a nested IF (CSP has no ELSE IF) -----------------------
+score <- 82
+IF (score >= 90)
+{
+    DISPLAY("A")
+}
+ELSE
+{
+    IF (score >= 80)
+    {
+        DISPLAY("B")            // this runs
+    }
+    ELSE
+    {
+        DISPLAY("C")
+    }
+}
+
+// ---- REPEAT UNTIL(c) -> pre-condition While(NOT c) -------------------------
+i <- 0
+REPEAT UNTIL (i >= 3)
+{
+    DISPLAY(i)                  // 0 1 2
+    i <- i + 1
+}
+
+// ---- REPEAT n TIMES -> count-based For -------------------------------------
+REPEAT 3 TIMES
+{
+    DISPLAY("tick")             // tick tick tick
+}
+
+// ---- FOR i FROM a TO b STEP s -> range-based For (end-exclusive) -----------
+FOR j FROM 0 TO 6 STEP 2
+{
+    DISPLAY(j)                  // 0 2 4
+}
+
+// ---- FOR EACH item IN list -------------------------------------------------
+FOR EACH item IN nums
+{
+    DISPLAY(item)              // 5 99 30 40
+}
+
+
+// ========================== FUNCTIONS ======================================
+
+// ---- FunctionDeclaration (PROCEDURE) + Parameter + RETURN ------------------
+PROCEDURE add(x, y)
+{
+    RETURN x + y
+}
+
+PROCEDURE isEven(n)
+{
+    RETURN (n MOD 2) = 0        // `=` is equality; MOD is the modulo operator
+}
+
+PROCEDURE printEvens(limit)
+{
+    FOR i FROM 0 TO limit       // end-exclusive: 0 .. limit-1
+    {
+        IF (isEven(i))
+        {
+            DISPLAY(i)
+        }
+    }
+}
+
+// ---- Procedure calls (CallExpression / ExpressionStatement) ----------------
+DISPLAY(add(4, 5))             // 9
+printEvens(6)                  // 0 2 4

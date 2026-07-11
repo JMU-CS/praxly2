@@ -11,8 +11,6 @@ Detailed API documentation for key classes in the Praxly compiler.
 5. [AST Nodes](#ast-nodes)
 6. [Utilities](#utilities)
 
----
-
 ## Lexer Classes
 
 All lexers inherit from a common pattern defined in [src/language/lexer.ts](../../src/language/lexer.ts).
@@ -88,8 +86,6 @@ export class JavaLexer {
 - Does NOT inject virtual tokens
 - Handles multi-character operators: `<<`, `>>`, `>>>`, `<<=`, etc.
 - Recognizes Java keywords and their contextual types
-
----
 
 ## Parser Classes
 
@@ -228,8 +224,6 @@ private term(): Expression {
 }
 ```
 
----
-
 ## Interpreter
 
 **Location:** [src/language/interpreter.ts](../../src/language/interpreter.ts)
@@ -325,8 +319,6 @@ class JavaInstance {
   callMethod(methodName: string, args: any[], interpreter: Interpreter, env: Environment): any;
 }
 ```
-
----
 
 ## Translator & Emitters
 
@@ -452,8 +444,6 @@ table.get('y'); // 'String'
 table.exitScope();
 table.get('y'); // undefined (no longer in scope)
 ```
-
----
 
 ## AST Nodes
 
@@ -658,8 +648,6 @@ interface NewExpression extends ASTNode {
 }
 ```
 
----
-
 ## Utilities
 
 ### generateId()
@@ -729,8 +717,6 @@ export const useCodeDebugger = (getTranslation: (ast: Program | null, lang: Supp
   };
 }
 ```
-
----
 
 ## Type Definitions Summary
 

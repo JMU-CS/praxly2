@@ -1,6 +1,6 @@
 # Praxly2
 
-**Praxly** is an educational programming environment designed to bridge the gap between pseudocode and standard programming languages. It allows users to write code in one language (Python, Java, Praxis, or CSP) and instantly:
+**Praxly** is an educational programming environment designed to bridge the gap between pseudocode and standard programming languages. It allows users to write code in one language (Python, Java, JavaScript, CSP, Praxis, or Blocks) and instantly:
 
 - **Translate** it into another supported language
 - **Visualize** the Abstract Syntax Tree (AST)
@@ -11,7 +11,7 @@ Praxly2 is a modern TypeScript rewrite of [Praxly](https://github.com/JMU-CS/pra
 ### Features
 
 - **Universal AST**: All languages parse to the same intermediate representation
-- **Multi-language support**: Python, Java, CSP (pseudocode), and Praxis
+- **Multi-language support**: Python, Java, JavaScript, CSP, Praxis, and Blocks
 - **Real-time translation**: See code translated live as you type
 - **Code execution**: Run programs directly in the browser
 - **AST visualization**: Explore how your code is structured
@@ -62,15 +62,15 @@ npm run lint-staged:check
 Use these commands during normal development:
 
 ```sh
-npm run dev                # Start Vite dev server
-npm run build              # Type-check and production build
-npm run test               # Run Vitest in watch mode
-npm run test:run           # Run Vitest once
-npm run test-browser       # Run Selenium CSV suite (headless)
-npm run test-browser:headed # Run Selenium suite in visible Chrome
-npm run prettier:check     # Check formatting
-npm run prettier:write     # Rewrite files with Prettier
-npm run lint-staged:check  # Validate lint-staged config
+npm run dev                  # Start Vite dev server
+npm run build                # Type-check and production build
+npm run test                 # Run Vitest in watch mode
+npm run test:run             # Run Vitest once
+npm run test-browser         # Run Selenium CSV suite (headless)
+npm run test-browser:headed  # Run Selenium suite in visible Chrome
+npm run prettier:check       # Check formatting
+npm run prettier:write       # Rewrite files with Prettier
+npm run lint-staged:check    # Validate lint-staged config
 ```
 
 Browser test script examples:
