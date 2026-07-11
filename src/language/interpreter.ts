@@ -1562,6 +1562,15 @@ export class Interpreter {
         return expr.value;
       case 'ArrayLiteral':
         return expr.elements.map((e) => this.evaluate(e, env));
+      case 'ArrayCreation': {
+        // `new int[n]` — an array of n type-appropriate default values.
+        const size = Math.max(0, Math.floor(Number(this.evaluate(expr.size, env))));
+        const base = expr.elementType.replace(/\[\]/g, '');
+        let def: any = null;
+        if (['int', 'byte', 'short', 'long', 'float', 'double'].includes(base)) def = 0;
+        else if (base === 'boolean') def = false;
+        return new Array(size).fill(def);
+      }
       case 'Identifier': {
         try {
           return env.get(expr.name);

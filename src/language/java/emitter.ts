@@ -1298,6 +1298,11 @@ export class JavaEmitter extends ASTVisitor {
         const elems = expr.elements.map((e) => this.generateExpression(e, 0)).join(', ');
         output = `new ${baseType}[] {${elems}}`;
         break;
+      case 'ArrayCreation': {
+        const ac = expr as any;
+        output = `new ${ac.elementType}[${this.generateExpression(ac.size, 0)}]`;
+        break;
+      }
       case 'ConditionalExpression':
         // Ternary operator: condition ? consequent : alternate
         currentPrecedence = Precedence.Conditional;
