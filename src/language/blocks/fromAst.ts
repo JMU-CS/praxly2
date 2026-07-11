@@ -22,6 +22,7 @@ import type {
   Program,
   Statement,
 } from '../ast';
+import { lvalueName } from '../ast';
 import type { BlockState, WorkspaceState } from './serialization';
 
 const COMPARE_OPS: Record<string, string> = {
@@ -181,10 +182,10 @@ class BlocksWriter {
   }
 
   private assignment(stmt: Assignment): BlockState {
-    if (stmt.isMemberAssignment || (stmt.target && stmt.target.type !== 'Identifier')) {
+    const name = lvalueName(stmt);
+    if (name === undefined) {
       throw new Error('Blocks view only supports assigning to plain variables.');
     }
-    const name = stmt.target?.type === 'Identifier' ? stmt.target.name : stmt.name;
     return this.withInputs(
       { type: 'variables_set', fields: { VAR: { id: this.variableId(name) } } },
       { VALUE: this.value(stmt.value) }

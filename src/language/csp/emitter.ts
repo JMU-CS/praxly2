@@ -24,6 +24,7 @@ import type {
   Expression,
   UnaryExpression,
 } from '../ast';
+import { lvalueName } from '../ast';
 
 export class CSPEmitter extends ASTVisitor {
   protected override breakStr = 'BREAK';
@@ -148,19 +149,11 @@ export class CSPEmitter extends ASTVisitor {
     }
 
     if (stmt.declaredWithoutInitializer) {
-      this.emit(`// ${stmt.name} declared without initializer`, stmt.id);
+      this.emit(`// ${lvalueName(stmt) ?? ''} declared without initializer`, stmt.id);
       return;
     }
 
-    let targetStr: string;
-    if (stmt.isMemberAssignment && stmt.memberExpr) {
-      targetStr = this.generateExpression(stmt.memberExpr, 0);
-    } else if (stmt.target) {
-      targetStr = this.generateExpression(stmt.target, 0);
-    } else {
-      targetStr = stmt.name;
-    }
-
+    const targetStr = this.generateExpression(stmt.target, 0);
     this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`, stmt.id);
   }
 

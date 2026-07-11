@@ -23,6 +23,7 @@ import type {
   Block,
   Expression,
 } from '../ast';
+import { lvalueName } from '../ast';
 
 export class PraxisEmitter extends ASTVisitor {
   // Statements hoisted ahead of the current one (Praxis has no expression-level
@@ -156,12 +157,7 @@ export class PraxisEmitter extends ASTVisitor {
     const scan = (node: any, paramTypes: Map<string, string>): void => {
       if (!node || typeof node !== 'object') return;
       if (node.type === 'Assignment') {
-        const me =
-          node.target?.type === 'MemberExpression'
-            ? node.target
-            : node.memberExpr?.type === 'MemberExpression'
-              ? node.memberExpr
-              : undefined;
+        const me = node.target?.type === 'MemberExpression' ? node.target : undefined;
         const fieldName = me && isReceiver(me.object) ? me.property?.name : undefined;
         if (fieldName && !declared.has(fieldName) && !found.has(fieldName)) {
           // Prefer the type of a parameter the field is assigned from.
@@ -298,12 +294,14 @@ export class PraxisEmitter extends ASTVisitor {
       }
     }
 
-    if (stmt.isMemberAssignment && stmt.memberExpr) {
-      this.emit(`${this.generateExpression(stmt.memberExpr, 0)} <- ${rVal}`, stmt.id);
+    const name = lvalueName(stmt);
+    const targetStr = this.generateExpression(stmt.target, 0);
+
+    // Member/index mutation (e.g. obj.field <- v, arr[i] <- v) — never a declaration.
+    if (name === undefined) {
+      this.emit(`${targetStr} <- ${rVal}`, stmt.id);
       return;
     }
-
-    const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
 
     if (stmt.varType) {
       let type = stmt.varType;
@@ -316,16 +314,14 @@ export class PraxisEmitter extends ASTVisitor {
         if (type === 'int') type = 'double';
       }
       this.emit(`${type} ${targetStr} <- ${initVal}`, stmt.id);
-      this.context.symbolTable.set(stmt.name, type);
-    } else if (stmt.target && stmt.target.type !== 'Identifier') {
-      this.emit(`${targetStr} <- ${rVal}`, stmt.id);
-    } else if (this.context.symbolTable.get(stmt.name) !== undefined) {
+      this.context.symbolTable.set(name, type);
+    } else if (this.context.symbolTable.get(name) !== undefined) {
       this.emit(`${targetStr} <- ${rVal}`, stmt.id);
     } else {
       let type = this.inferType(stmt.value);
       if (type === 'var') type = 'int';
       this.emit(`${type} ${targetStr} <- ${initVal}`, stmt.id);
-      this.context.symbolTable.set(stmt.name, type);
+      this.context.symbolTable.set(name, type);
     }
   }
 
@@ -435,20 +431,19 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.enterScope();
     let initCode = '';
     if (stmt.init?.type === 'Assignment') {
+      const initName = lvalueName(stmt.init) ?? '';
       const rVal = this.generateExpression(stmt.init.value, 0);
       let type = stmt.init.varType || this.inferType(stmt.init.value);
       if (type === 'var') type = 'int';
-      initCode = `${type} ${stmt.init.name} <- ${rVal}`;
-      this.context.symbolTable.set(stmt.init.name, type);
+      initCode = `${type} ${initName} <- ${rVal}`;
+      this.context.symbolTable.set(initName, type);
     } else if (stmt.init) {
       initCode = this.generateExpression(stmt.init.expression, 0);
     }
     const condCode = stmt.condition ? this.generateExpression(stmt.condition, 0) : '';
     let updateCode = '';
     if (stmt.update?.type === 'Assignment') {
-      const ut = stmt.update.target
-        ? this.generateExpression(stmt.update.target, 0)
-        : stmt.update.name;
+      const ut = this.generateExpression(stmt.update.target, 0);
       updateCode = `${ut} <- ${this.generateExpression(stmt.update.value, 0)}`;
     } else if (stmt.update) {
       updateCode = this.generateExpression(stmt.update.expression, 0);

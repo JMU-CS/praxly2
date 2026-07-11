@@ -18,6 +18,7 @@ import type {
   ForEach,
   Expression,
 } from '../ast';
+import { lvalueName } from '../ast';
 
 /**
  * Emitter for converting AST to Java source code.
@@ -223,12 +224,7 @@ export class JavaEmitter extends ASTVisitor {
       if (!node || typeof node !== 'object') return;
 
       if (node.type === 'Assignment') {
-        const memberExpr =
-          node.target?.type === 'MemberExpression'
-            ? node.target
-            : node.memberExpr?.type === 'MemberExpression'
-              ? node.memberExpr
-              : undefined;
+        const memberExpr = node.target?.type === 'MemberExpression' ? node.target : undefined;
 
         if (memberExpr && this.isSelfMemberExpression(memberExpr)) {
           const fieldName = memberExpr.property?.name;
@@ -543,10 +539,31 @@ export class JavaEmitter extends ASTVisitor {
    * Generates proper Java variable declarations with type information.
    */
   visitAssignment(stmt: any): void {
-    const targetStr = stmt.target ? this.generateExpression(stmt.target, 0) : stmt.name;
-    const analyzedTypeHint = stmt.name
-      ? this.context.inferredVariableTypes?.get(stmt.name)
-      : undefined;
+    const name = lvalueName(stmt);
+    const targetStr = this.generateExpression(stmt.target, 0);
+
+    // Member/index mutation (e.g. this.count = v, obj.field = v, arr[i] = v).
+    // These are never declarations, so they never carry varType.
+    if (name === undefined) {
+      const rVal = this.generateExpression(stmt.value, 0);
+      // ArrayList index assignment must use .set(i, v), not `.get(i) = v`.
+      if (stmt.target.type === 'IndexExpression') {
+        const obj = stmt.target.object;
+        const objStr = this.generateExpression(obj, 0);
+        const idxStr = this.generateExpression(stmt.target.index, 0);
+        const objType = obj.type === 'Identifier' ? this.getTypeForName(obj.name) : undefined;
+        if (objType && this.isArrayListType(objType)) {
+          this.emit(`${objStr}.set(${idxStr}, ${rVal});`, stmt.id);
+        } else {
+          this.emit(`${objStr}[${idxStr}] = ${rVal};`, stmt.id);
+        }
+      } else {
+        this.emit(`${targetStr} = ${rVal};`, stmt.id);
+      }
+      return;
+    }
+
+    const analyzedTypeHint = this.context.inferredVariableTypes?.get(name);
 
     if (stmt.varType && stmt.declaredWithoutInitializer) {
       let declaredType =
@@ -555,7 +572,7 @@ export class JavaEmitter extends ASTVisitor {
           : stmt.varType;
       declaredType = this.toJavaType(declaredType);
       this.emit(`${this.declType(targetStr, declaredType)}${targetStr};`, stmt.id);
-      this.context.symbolTable.set(stmt.name, declaredType);
+      this.context.symbolTable.set(name, declaredType);
       return;
     }
 
@@ -570,26 +587,6 @@ export class JavaEmitter extends ASTVisitor {
       } else {
         initVal = initVal.replace(/^new \w+\[\] /, '');
       }
-    }
-
-    // Handle member/field assignments (e.g., this.count = value or obj.field = value)
-    if (stmt.isMemberAssignment && stmt.memberExpr) {
-      // ArrayList index assignment must use .set(i, v), not `.get(i) = v`.
-      if (stmt.memberExpr.type === 'IndexExpression') {
-        const obj = stmt.memberExpr.object;
-        const objStr = this.generateExpression(obj, 0);
-        const idxStr = this.generateExpression(stmt.memberExpr.index, 0);
-        const objType = obj.type === 'Identifier' ? this.getTypeForName(obj.name) : undefined;
-        if (objType && this.isArrayListType(objType)) {
-          this.emit(`${objStr}.set(${idxStr}, ${rVal});`, stmt.id);
-        } else {
-          this.emit(`${objStr}[${idxStr}] = ${rVal};`, stmt.id);
-        }
-        return;
-      }
-      const memberTargetStr = this.generateExpression(stmt.memberExpr, 0);
-      this.emit(`${memberTargetStr} = ${rVal};`, stmt.id);
-      return;
     }
 
     if (stmt.varType) {
@@ -610,23 +607,10 @@ export class JavaEmitter extends ASTVisitor {
       }
       declaredType = this.toJavaType(declaredType);
       this.emit(`${this.declType(targetStr, declaredType)}${targetStr} = ${initVal};`, stmt.id);
-      this.context.symbolTable.set(stmt.name, declaredType);
-    } else if (stmt.target && stmt.target.type === 'IndexExpression') {
-      // Index assignment: ArrayList uses .set(i, v); a plain array uses arr[i] = v.
-      const obj = stmt.target.object;
-      const objStr = this.generateExpression(obj, 0);
-      const idxStr = this.generateExpression(stmt.target.index, 0);
-      const objType = obj.type === 'Identifier' ? this.getTypeForName(obj.name) : undefined;
-      if (objType && this.isArrayListType(objType)) {
-        this.emit(`${objStr}.set(${idxStr}, ${rVal});`, stmt.id);
-      } else {
-        this.emit(`${objStr}[${idxStr}] = ${rVal};`, stmt.id);
-      }
-    } else if (stmt.target && stmt.target.type !== 'Identifier') {
-      this.emit(`${targetStr} = ${rVal};`, stmt.id);
-    } else if (this.context.symbolTable.get(stmt.name) !== undefined) {
+      this.context.symbolTable.set(name, declaredType);
+    } else if (this.context.symbolTable.get(name) !== undefined) {
       let nextValue = rVal;
-      const existingType = this.getTypeForName(stmt.name);
+      const existingType = this.getTypeForName(name);
       if (
         stmt.value.type === 'ArrayLiteral' &&
         existingType &&
@@ -651,7 +635,7 @@ export class JavaEmitter extends ASTVisitor {
         initVal = this.generateArrayListLiteral(stmt.value, this.getArrayListElementType(type));
       }
       this.emit(`${this.declType(targetStr, type)}${targetStr} = ${initVal};`, stmt.id);
-      this.context.symbolTable.set(stmt.name, type);
+      this.context.symbolTable.set(name, type);
     }
   }
 
@@ -809,21 +793,23 @@ export class JavaEmitter extends ASTVisitor {
     // Process initialization - can be single assignment or array of assignments
     if (stmt.init?.type === 'Assignment') {
       const initStmt = stmt.init as any;
+      const initName = lvalueName(initStmt) ?? '';
       const rVal = this.generateExpression(initStmt.value, 0);
       let type = initStmt.varType || this.inferType(initStmt.value);
       if (type === 'var') type = 'int';
-      initCode = `${this.declType(initStmt.name, type)}${initStmt.name} = ${rVal}`;
-      this.context.symbolTable.set(initStmt.name, type);
+      initCode = `${this.declType(initName, type)}${initName} = ${rVal}`;
+      this.context.symbolTable.set(initName, type);
     } else if (Array.isArray(stmt.init)) {
       // Handle multiple initialization statements
       const stmts = stmt.init as any;
       initCodes = stmts.map((s: any) => {
         if (s.type === 'Assignment') {
+          const name = lvalueName(s) ?? '';
           const rVal = this.generateExpression(s.value, 0);
           let type = s.varType || this.inferType(s.value);
           if (type === 'var') type = 'int';
-          this.context.symbolTable.set(s.name, type);
-          return `${type} ${s.name} = ${rVal}`;
+          this.context.symbolTable.set(name, type);
+          return `${type} ${name} = ${rVal}`;
         }
         return this.generateExpression((s as any).expression, 0);
       });
@@ -833,11 +819,12 @@ export class JavaEmitter extends ASTVisitor {
       const blockStmt = stmt.init as any;
       initCodes = blockStmt.body.map((s: any) => {
         if (s.type === 'Assignment') {
+          const name = lvalueName(s) ?? '';
           const rVal = this.generateExpression(s.value, 0);
           let type = s.varType || this.inferType(s.value);
           if (type === 'var') type = 'int';
-          this.context.symbolTable.set(s.name, type);
-          return `${type} ${s.name} = ${rVal}`;
+          this.context.symbolTable.set(name, type);
+          return `${type} ${name} = ${rVal}`;
         }
         return this.generateExpression((s as any).expression, 0);
       });
@@ -854,9 +841,7 @@ export class JavaEmitter extends ASTVisitor {
     let updateCodes: string[] = [];
     if (stmt.update?.type === 'Assignment') {
       const updateStmt = stmt.update as any;
-      const updateTarget = updateStmt.target
-        ? this.generateExpression(updateStmt.target, 0)
-        : updateStmt.name;
+      const updateTarget = this.generateExpression(updateStmt.target, 0);
       updateCode = `${updateTarget} = ${this.generateExpression(updateStmt.value, 0)}`;
     } else if (Array.isArray(stmt.update)) {
       // Handle multiple update statements

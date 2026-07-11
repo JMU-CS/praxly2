@@ -240,19 +240,18 @@ export interface Continue extends ASTNode {
   type: 'Continue';
 }
 
-// For a member assignment (e.g. `obj.field = 5`), isMemberAssignment is true and memberExpr
-// holds the MemberExpression/IndexExpression target; name/varType are for plain variable
-// assignment. declaredWithoutInitializer marks a bare declaration (e.g. `int x;`) — it only
-// affects emitted output, not interpretation or type inference.
+// `target` is the lvalue being assigned to: an Identifier for a plain variable
+// (`x = 5`), or a MemberExpression/IndexExpression for a member/index mutation
+// (`obj.field = 5`, `arr[i] = 5`). `varType` marks a typed declaration (`int x = 5`);
+// declaredWithoutInitializer marks a bare declaration (e.g. `int x;`) — it only affects
+// emitted output, not interpretation or type inference. Use `lvalueName(node)` to read
+// the plain-variable name (undefined for member/index targets).
 export interface Assignment extends ASTNode {
   type: 'Assignment';
-  name: string;
-  target?: Expression;
+  target: Expression;
   value: Expression;
   varType?: string;
   declaredWithoutInitializer?: boolean;
-  isMemberAssignment?: boolean;
-  memberExpr?: Expression;
 }
 
 // Mirrors Python's print(*args, sep=' ', end='\n'); the interpreter defaults separator to
@@ -378,6 +377,19 @@ export interface Literal extends ASTNode {
 }
 
 export const generateId = () => Math.random().toString(36).substring(2, 11);
+
+// Builds a fresh Identifier node — used by parsers/converters to construct an
+// Assignment `target` from a bare variable name.
+export const makeIdentifier = (name: string): Identifier => ({
+  id: generateId(),
+  type: 'Identifier',
+  name,
+});
+
+// The plain-variable name of an assignment target, or undefined when the target
+// is a member/index expression (which never names a declarable variable).
+export const lvalueName = (node: Assignment): string | undefined =>
+  node.target.type === 'Identifier' ? node.target.name : undefined;
 
 export function* generateVariableName() {
   let id = 0;

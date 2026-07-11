@@ -4,6 +4,7 @@
  */
 
 import type { Program, Statement, Expression, Block } from './ast';
+import { lvalueName } from './ast';
 import {
   type TargetLanguage,
   type TranslationContext,
@@ -126,15 +127,7 @@ export class Translator {
       }
     };
 
-    const getAssignmentName = (stmt: any): string | null => {
-      if (stmt.target?.type === 'Identifier') {
-        return stmt.target.name;
-      }
-      if (typeof stmt.name === 'string' && stmt.name && stmt.name !== 'unknown') {
-        return stmt.name;
-      }
-      return null;
-    };
+    const getAssignmentName = (stmt: any): string | null => lvalueName(stmt) ?? null;
 
     const inferType = (expr: Expression): string => {
       switch (expr.type) {

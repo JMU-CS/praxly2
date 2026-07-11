@@ -12,6 +12,7 @@ import type {
   MethodDeclaration,
   Constructor,
 } from './ast';
+import { lvalueName } from './ast';
 
 export class Environment {
   public values: Record<string, any> = {};
@@ -688,13 +689,7 @@ export class Interpreter {
           }
         } else if (stmt.type === 'Assignment') {
           const stmtValue = (stmt as any).value;
-          const target = (stmt as any).target;
-          const varName =
-            target?.type === 'Identifier'
-              ? target.name
-              : !target && !(stmt as any).name?.includes('.')
-                ? (stmt as any).name
-                : null;
+          const varName = lvalueName(stmt as any) ?? null;
 
           // Direct user function call: score <- askQ(...)
           let callInfo = this.getUserFunctionCall(stmtValue, env);
@@ -951,9 +946,7 @@ export class Interpreter {
       if (!node) return false;
 
       if (node.type === 'Assignment') {
-        return targetVars.has(node.name);
-      } else if (node.type === 'VariableDeclaration') {
-        return targetVars.has(node.name);
+        return targetVars.has(lvalueName(node) ?? '');
       } else if (node.type === 'UpdateExpression') {
         if (node.argument?.type === 'Identifier') {
           return targetVars.has(node.argument.name);
@@ -1275,13 +1268,10 @@ export class Interpreter {
           this.appendOutputText(rendered + trailingText, false);
         }
         break;
-      case 'Assignment':
-        let varName = stmt.name;
-
-        // Extract variable name from target if it's an Identifier
-        if (stmt.target && stmt.target.type === 'Identifier') {
-          varName = (stmt.target as any).name;
-        }
+      case 'Assignment': {
+        // Plain-variable name (undefined for member/index targets, which are
+        // never declarations — so the varType guards below never see undefined).
+        const varName = lvalueName(stmt);
 
         // Prefer explicit declaration type, otherwise use existing variable type when reassigning.
         const assignmentType =
@@ -1290,7 +1280,11 @@ export class Interpreter {
         const declarationOrigin = stmt.loc?.start;
 
         // Typed assignments act as declarations and cannot redeclare in the same scope.
-        if ((stmt as any).varType && Object.prototype.hasOwnProperty.call(env.values, varName)) {
+        if (
+          (stmt as any).varType &&
+          varName != null &&
+          Object.prototype.hasOwnProperty.call(env.values, varName)
+        ) {
           const existingOrigin = env.declarationOrigins[varName];
           if (existingOrigin !== declarationOrigin) {
             const line = this.getLineFromLocation(stmt.loc);
@@ -1309,44 +1303,26 @@ export class Interpreter {
           }
         }
 
-        const effectiveTarget = stmt.target || (stmt as any).memberExpr;
-        if (effectiveTarget) {
-          if (effectiveTarget.type === 'MemberExpression') {
-            const obj = this.evaluate((effectiveTarget as any).object, env);
-            const fieldName = (effectiveTarget as any).property.name;
-            if (obj instanceof JavaInstance) {
-              obj.setField(fieldName, value);
-            } else {
-              obj[fieldName] = value;
-            }
-          } else if (effectiveTarget.type === 'IndexExpression') {
-            const obj = this.evaluate((effectiveTarget as any).object, env);
-            const idx = this.evaluate((effectiveTarget as any).index, env);
-            obj[idx] = value;
-          } else if (effectiveTarget.type === 'Identifier') {
-            // Identifier target - define the variable with type info
-            this.assignBareName(env, varName, value, (stmt as any).varType, declarationOrigin);
-          } else {
-            // For other target types, try to use stmt.name as fallback
-            if (varName) {
-              env.define(varName, value, (stmt as any).varType, declarationOrigin);
-            }
-          }
-        } else if (stmt.name.includes('.')) {
-          const parts = stmt.name.split('.');
-          const objName = parts[0];
-          const fieldName = parts.slice(1).join('.');
-          const obj = env.get(objName);
+        const target = stmt.target;
+        if (target.type === 'MemberExpression') {
+          const obj = this.evaluate((target as any).object, env);
+          const fieldName = (target as any).property.name;
           if (obj instanceof JavaInstance) {
             obj.setField(fieldName, value);
           } else {
-            throw new Error(`Cannot assign to field on non-object`);
+            obj[fieldName] = value;
           }
+        } else if (target.type === 'IndexExpression') {
+          const obj = this.evaluate((target as any).object, env);
+          const idx = this.evaluate((target as any).index, env);
+          obj[idx] = value;
         } else if (varName) {
-          // Standard case: a bare name — may target an instance field (Praxis).
+          // Identifier target — define the variable with type info. May target an
+          // instance field (Praxis) via assignBareName.
           this.assignBareName(env, varName, value, (stmt as any).varType, declarationOrigin);
         }
         break;
+      }
       case 'If':
         const truthy = this.evaluate(stmt.condition, env);
         if (truthy) {
@@ -1559,19 +1535,18 @@ export class Interpreter {
     if ((expr as any).type === 'Assignment') {
       const a = expr as any;
       const value = this.evaluate(a.value, env);
-      const target = a.target || a.memberExpr;
-      if (target && target.type === 'MemberExpression') {
+      const target = a.target;
+      if (target.type === 'MemberExpression') {
         const obj = this.evaluate(target.object, env);
         const fieldName = target.property.name;
         if (obj instanceof JavaInstance) obj.setField(fieldName, value);
         else obj[fieldName] = value;
-      } else if (target && target.type === 'IndexExpression') {
+      } else if (target.type === 'IndexExpression') {
         const obj = this.evaluate(target.object, env);
         const idx = this.evaluate(target.index, env);
         obj[idx] = value;
       } else {
-        const name = target && target.type === 'Identifier' ? target.name : a.name;
-        env.assign(name, value);
+        env.assign(target.name, value);
       }
       return value;
     }

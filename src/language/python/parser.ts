@@ -22,6 +22,7 @@ import {
   type MethodDeclaration,
   type Parameter,
   generateId,
+  lvalueName,
 } from '../ast';
 import { attachComments } from '../comments';
 
@@ -169,7 +170,7 @@ export class Parser {
         body.push({
           id: generateId(),
           type: 'FieldDeclaration',
-          name: stmt.name,
+          name: lvalueName(stmt) ?? 'unknown',
           fieldType: 'auto',
           isStatic: false,
           access: 'public',
@@ -375,11 +376,6 @@ export class Parser {
       // Now rightExpr is the final value
       const value = rightExpr;
 
-      // For emissions, use the first target as the main one
-      let nameStr = 'unknown';
-      if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
-      else if (expr.type === 'MemberExpression') nameStr = (expr.property as Identifier).name;
-
       while (this.match('PUNCTUATION', ';')) {}
 
       // If there are chained assignments, create nested Assignment nodes
@@ -388,21 +384,14 @@ export class Parser {
         let result: any = {
           id: generateId(),
           type: 'Assignment',
-          name: 'z',
           target: targets[targets.length - 1],
           value,
         };
         for (let i = targets.length - 2; i >= 0; i--) {
-          const target = targets[i];
-          let targetName = 'unknown';
-          if (target.type === 'Identifier') targetName = (target as Identifier).name;
-          else if (target.type === 'MemberExpression')
-            targetName = (target.property as Identifier).name;
           result = {
             id: generateId(),
             type: 'Assignment',
-            name: targetName,
-            target,
+            target: targets[i],
             value: result,
           };
         }
@@ -410,7 +399,7 @@ export class Parser {
       }
 
       return this.withLocation(
-        { id: generateId(), type: 'Assignment', name: nameStr, target: expr, value },
+        { id: generateId(), type: 'Assignment', target: expr, value },
         startIdx
       );
     }
@@ -419,8 +408,6 @@ export class Parser {
     if (this.match('OPERATOR', '+=', '-=', '*=', '/=', '%=', '//=')) {
       const op = this.previous().value.slice(0, -1); // strip '=' => '+','//', etc.
       const rVal = this.expression();
-      let nameStr = 'unknown';
-      if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
 
       const augmentedValue: Expression = {
         id: generateId(),
@@ -434,7 +421,6 @@ export class Parser {
         {
           id: generateId(),
           type: 'Assignment',
-          name: nameStr,
           target: expr,
           value: augmentedValue,
         },
@@ -461,7 +447,6 @@ export class Parser {
         {
           id: generateId(),
           type: 'Assignment',
-          name: (expr as Identifier).name,
           target: expr,
           value,
           varType: typeName,
