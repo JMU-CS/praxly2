@@ -60,6 +60,7 @@ For example, `RANDOM(1, 3)` could return `1`, `2`, or `3`.
 The relational operators `=`, `≠`, `>`, `<`, `≥`, and `≤` are used to test the relationship between two variables, expressions, or values.
 A comparison using relational operators evaluates to a Boolean value.
 For example, `a = b` evaluates to `true` if `a` and `b` are equal; otherwise it evaluates to `false`.
+The ASCII forms `<>` (or `!=`), `<=`, and `>=` are also accepted for `≠`, `≤`, and `≥`.
 
 `NOT condition`
 
