@@ -9,6 +9,7 @@ export type TokenType =
   | 'IDENTIFIER'
   | 'NUMBER'
   | 'STRING'
+  | 'CHAR'
   | 'BOOLEAN'
   | 'OPERATOR'
   | 'PUNCTUATION'

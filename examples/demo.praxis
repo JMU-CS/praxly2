@@ -8,6 +8,7 @@
 //   Switch / SwitchCase .. no switch/case keywords.
 //   ConditionalExpression  no ?: ternary operator.
 //   CompoundAssignment ... no +=/-=; write `x <- x + 1`.
+//   ForEach .............. no for-each; Praxis has only the C-style for loop.
 //
 // (Functions and classes are hoisted, so the driver calls them before their
 // declarations appear further down the file.)
@@ -38,7 +39,6 @@ print(a - b)      // 12
 print(a * b)      // 85
 print(a / b)      // 3   (integer division: both operands are int)
 print(a % b)      // 2
-print(a mod b)    // 2   (`mod` keyword == `%`)
 print(2 ^ 10)     // 1024 (exponent, right-associative)
 
 // ---- UnaryExpression (- and not) -------------------------------------------
@@ -49,7 +49,6 @@ print(not flag)   // false
 print(a > b and b > 0)   // true
 print(a == 17)           // true
 print(a != b)            // true
-print(a <> b)            // true (<> alias for !=)
 print(b <= a)            // true
 print(b ≤ a)             // true (unicode ≤)
 print(a ≠ b)             // true (unicode ≠)
@@ -82,16 +81,14 @@ print("tail")                  // -> "joined: tail" on one line
 // ========================== STATEMENTS =====================================
 banner("control flow")
 
-// ---- If / else with a nested If (Praxis has no `else if`) ------------------
+// ---- If / else if / else (a single `end if` closes the whole chain) --------
 int score <- 75
 if (score >= 90)
     print("A")
+else if (score >= 70)
+    print("B")                 // this runs
 else
-    if (score >= 70)
-        print("B")             // this runs
-    else
-        print("C")
-    end if
+    print("C")
 end if
 
 // ---- While (pre-condition loop) --------------------------------------------
@@ -108,13 +105,13 @@ for j <- 0; j < xs.length; j <- j + 1
 end for
 print(total)                   // 161
 
-// ---- For, for-each over an array -------------------------------------------
-for x in xs
-    print(x)
+// ---- For, iterate an array by index (Praxis has only the C-style for) ------
+for p <- 0; p < xs.length; p <- p + 1
+    print(xs[p])
 end for
 
-// ---- For, for-each over range() --------------------------------------------
-for k in range(1, 4)
+// ---- For, counting loop ----------------------------------------------------
+for k <- 1; k < 4; k <- k + 1
     print(k)                   // 1 2 3
 end for
 

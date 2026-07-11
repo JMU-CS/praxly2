@@ -183,8 +183,8 @@ export class PraxisParser {
   }
 
   private isFunctionDeclaration(): boolean {
-    // Check for 'procedure' or 'function' keywords
-    if (this.check('KEYWORD', 'procedure') || this.check('KEYWORD', 'function')) {
+    // A void procedure is introduced by the `procedure` keyword.
+    if (this.check('KEYWORD', 'procedure')) {
       return (
         this.checkPeekAhead('IDENTIFIER', undefined, 1) &&
         this.checkPeekAhead('PUNCTUATION', '(', 2)
@@ -244,7 +244,7 @@ export class PraxisParser {
         this.consume('PUNCTUATION', ']');
         returnType += '[]';
       }
-    } else if (this.check('KEYWORD', 'procedure') || this.check('KEYWORD', 'function')) {
+    } else if (this.check('KEYWORD', 'procedure')) {
       this.advance();
       returnType = 'void';
     }
@@ -569,6 +569,18 @@ export class PraxisParser {
   }
 
   private ifStatement(): If {
+    // A whole `if ... else if ... else ... end if` chain has a single `end if`;
+    // ifBody() parses the (possibly recursive) structure without consuming it.
+    const node = this.ifBody();
+    this.consume('KEYWORD', 'end');
+    this.consume('KEYWORD', 'if');
+    return node;
+  }
+
+  // Parses `if (cond) then [else if ... | else ...]` WITHOUT the trailing
+  // `end if`. `else if` recurses, nesting a fresh If inside the else block, so
+  // the chain is modeled as nested If nodes (there is no dedicated ElseIf node).
+  private ifBody(): If {
     this.consume('KEYWORD', 'if');
     this.match('PUNCTUATION', '(');
     const condition = this.expression();
@@ -578,11 +590,13 @@ export class PraxisParser {
     let elseBranch: Block | undefined = undefined;
 
     if (this.match('KEYWORD', 'else')) {
-      elseBranch = this.block();
+      if (this.check('KEYWORD', 'if')) {
+        const nested = this.ifBody();
+        elseBranch = { id: generateId(), type: 'Block', body: [nested] };
+      } else {
+        elseBranch = this.block();
+      }
     }
-
-    this.consume('KEYWORD', 'end');
-    this.consume('KEYWORD', 'if');
 
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
   }
@@ -626,105 +640,53 @@ export class PraxisParser {
     return { id: generateId(), type: 'RepeatUntil', condition, body };
   }
 
+  // Praxis has only the C-style `for (init; condition; update)` loop.
   private forStatement(): any {
     this.consume('KEYWORD', 'for');
     const hasParen = this.match('PUNCTUATION', '(');
 
-    // Detect whether this is a C-Style (init; cond; update) loop or a Python-style iterator loop
-    let isCStyle = false;
-    for (let i = this.current; i < this.tokens.length; i++) {
-      const val = this.tokens[i].value;
-      // Check for 'in' keyword first - if found, it's an iterator loop
-      if (val.toLowerCase() === 'in') {
-        isCStyle = false;
-        break;
-      }
-      if (val === ';' || val === 'do' || val === ')' || val === 'end') {
-        if (val === ';') isCStyle = true;
-        break;
-      }
-    }
-
-    if (isCStyle) {
-      // Parse C-Style components
-      let initStmt: Statement;
-      if (this.isTypeStart() || this.checkPeekAhead('IDENTIFIER', undefined, 1)) {
-        initStmt = this.variableDeclaration();
-      } else {
-        const expr = this.expression();
-        if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
-          initStmt = {
-            id: generateId(),
-            type: 'Assignment',
-            target: expr,
-            value: this.expression(),
-          };
-        } else {
-          initStmt = { id: generateId(), type: 'ExpressionStatement', expression: expr };
-        }
-      }
-      this.consume('PUNCTUATION', ';');
-      const condition = this.expression();
-      this.consume('PUNCTUATION', ';');
-
-      let updateStmt: Statement;
-      const updateExpr = this.expression();
+    let initStmt: Statement;
+    if (this.isTypeStart() || this.checkPeekAhead('IDENTIFIER', undefined, 1)) {
+      initStmt = this.variableDeclaration();
+    } else {
+      const expr = this.expression();
       if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
-        updateStmt = {
+        initStmt = {
           id: generateId(),
           type: 'Assignment',
-          target: updateExpr,
+          target: expr,
           value: this.expression(),
         };
       } else {
-        updateStmt = { id: generateId(), type: 'ExpressionStatement', expression: updateExpr };
+        initStmt = { id: generateId(), type: 'ExpressionStatement', expression: expr };
       }
-
-      if (hasParen) this.consume('PUNCTUATION', ')');
-      this.match('KEYWORD', 'do');
-
-      const body = this.block();
-
-      this.consume('KEYWORD', 'end');
-      this.consume('KEYWORD', 'for');
-
-      return { id: generateId(), type: 'For', init: initStmt, condition, update: updateStmt, body };
-    } else {
-      // Iterator Loop
-      let variable = '';
-      if (this.isTypeStart()) {
-        this.advance();
-        while (this.match('PUNCTUATION', '[')) {
-          this.consume('PUNCTUATION', ']');
-        }
-      }
-      variable = this.consume('IDENTIFIER').value;
-
-      let iterable: Expression;
-      if (this.match('KEYWORD', 'in')) {
-        iterable = this.expression();
-      } else {
-        this.match('OPERATOR', '<-') || this.match('OPERATOR', '=');
-        const start = this.expression();
-        this.consume('KEYWORD', 'to');
-        const end = this.expression();
-        iterable = {
-          id: generateId(),
-          type: 'CallExpression',
-          callee: { id: generateId(), type: 'Identifier', name: 'range' },
-          arguments: [start, end],
-        };
-      }
-
-      if (hasParen) this.consume('PUNCTUATION', ')');
-      this.match('KEYWORD', 'do');
-
-      const body = this.block();
-      this.consume('KEYWORD', 'end');
-      this.consume('KEYWORD', 'for');
-
-      return { id: generateId(), type: 'ForEach', variable, iterable, body };
     }
+    this.consume('PUNCTUATION', ';');
+    const condition = this.expression();
+    this.consume('PUNCTUATION', ';');
+
+    let updateStmt: Statement;
+    const updateExpr = this.expression();
+    if (this.match('OPERATOR', '<-') || this.match('OPERATOR', '=')) {
+      updateStmt = {
+        id: generateId(),
+        type: 'Assignment',
+        target: updateExpr,
+        value: this.expression(),
+      };
+    } else {
+      updateStmt = { id: generateId(), type: 'ExpressionStatement', expression: updateExpr };
+    }
+
+    if (hasParen) this.consume('PUNCTUATION', ')');
+    this.match('KEYWORD', 'do');
+
+    const body = this.block();
+
+    this.consume('KEYWORD', 'end');
+    this.consume('KEYWORD', 'for');
+
+    return { id: generateId(), type: 'For', init: initStmt, condition, update: updateStmt, body };
   }
 
   private returnStatement(): Return {
@@ -817,21 +779,11 @@ export class PraxisParser {
   }
 
   private equality(): Expression {
-    let left = this.range();
-    while (this.match('OPERATOR', '==', '!=', '<>')) {
-      let operator = this.previous().value;
-      if (operator === '<>') operator = '!=';
-      const right = this.range();
-      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
-    }
-    return left;
-  }
-
-  private range(): Expression {
     let left = this.comparison();
-    while (this.match('OPERATOR', '..')) {
+    while (this.match('OPERATOR', '==', '!=')) {
+      const operator = this.previous().value;
       const right = this.comparison();
-      left = { id: generateId(), type: 'BinaryExpression', left, operator: '..', right };
+      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
     }
     return left;
   }
@@ -858,9 +810,8 @@ export class PraxisParser {
 
   private factor(): Expression {
     let left = this.exponent();
-    while (this.match('OPERATOR', '*', '/', '%') || this.match('KEYWORD', 'mod')) {
-      let operator = this.previous().value.toLowerCase();
-      if (operator === 'mod') operator = '%';
+    while (this.match('OPERATOR', '*', '/', '%')) {
+      const operator = this.previous().value.toLowerCase();
       const right = this.exponent();
       left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
     }
@@ -985,6 +936,14 @@ export class PraxisParser {
         value: this.previous().value,
         raw: `"${this.previous().value}"`,
       };
+    // Char literal: a single character written with single quotes (`'a'`).
+    if (this.match('CHAR'))
+      return {
+        id: generateId(),
+        type: 'Literal',
+        value: this.previous().value,
+        raw: `'${this.previous().value}'`,
+      };
     if (this.match('BOOLEAN'))
       return {
         id: generateId(),
@@ -997,9 +956,16 @@ export class PraxisParser {
     if (this.match('IDENTIFIER'))
       return { id: generateId(), type: 'Identifier', name: this.previous().value };
 
-    // Allow type keywords to be used as function names (e.g., int(), float(), str())
-    const typeKeywords = ['boolean', 'char', 'double', 'float', 'int', 'short', 'string', 'void'];
-    if (this.check('KEYWORD') && typeKeywords.includes(this.peek().value.toLowerCase())) {
+    // `super(...)` calls the superclass constructor; treat `super` as an identifier
+    // so the call/member machinery handles it uniformly.
+    if (this.match('KEYWORD', 'super'))
+      return { id: generateId(), type: 'Identifier', name: 'super' };
+
+    // Allow the numeric conversion keywords `int()` / `float()` to be called as
+    // functions. Other type keywords are not callable (`str()` works as a plain
+    // identifier call).
+    const callableTypeKeywords = ['int', 'float'];
+    if (this.check('KEYWORD') && callableTypeKeywords.includes(this.peek().value.toLowerCase())) {
       const name = this.peek().value;
       this.advance();
       return { id: generateId(), type: 'Identifier', name };

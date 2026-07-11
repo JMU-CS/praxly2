@@ -453,7 +453,7 @@ export class JavaScriptEmitter extends ASTVisitor {
       case 'Literal':
         if (expr.value === null) out = 'null';
         else if (expr.value === undefined) out = 'undefined';
-        else if (typeof expr.value === 'string') out = `"${expr.value}"`;
+        else if (typeof expr.value === 'string') out = `"${this.escapeString(expr.value)}"`;
         else if (typeof expr.value === 'boolean') out = String(expr.value);
         else {
           const raw = expr.raw;

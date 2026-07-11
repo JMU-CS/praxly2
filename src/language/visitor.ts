@@ -136,6 +136,19 @@ export abstract class ASTVisitor {
     this.indentLevel--;
   }
 
+  /**
+   * Escapes a runtime string value back into source-literal form — the inverse
+   * of the lexers' escape processing. Shared by every emitter so a value that
+   * contains a backslash, quote, newline, tab, or carriage return re-emits as
+   * `\\`, `\"`/`\'`, `\n`, `\t`, `\r` and re-parses, instead of breaking across
+   * lines. Pass `quote` as `'` to escape single (char-literal) delimiters.
+   */
+  protected escapeString(value: string, quote: '"' | "'" = '"'): string {
+    let out = value.replace(/\\/g, '\\\\');
+    out = quote === "'" ? out.replace(/'/g, "\\'") : out.replace(/"/g, '\\"');
+    return out.replace(/\n/g, '\\n').replace(/\t/g, '\\t').replace(/\r/g, '\\r');
+  }
+
   // -- Visit Methods (To be implemented by concrete emitters) --
   /**
    * Visits program and returns the result.

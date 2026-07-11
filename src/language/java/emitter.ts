@@ -1050,7 +1050,7 @@ export class JavaEmitter extends ASTVisitor {
           const hasPyPrefix =
             expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"');
           const strVal = hasPyPrefix ? expr.value.substring(1) : expr.value;
-          output = `"${strVal}"`;
+          output = `"${this.escapeString(strVal)}"`;
         } else if (typeof expr.value === 'boolean') output = expr.value.toString();
         else output = String(expr.value);
         break;

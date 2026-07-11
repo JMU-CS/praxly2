@@ -17,13 +17,31 @@ describe('Praxis Lexer', () => {
       expect(tokens).toContainEqual(expect.objectContaining({ type: 'NUMBER', value: '3.14' }));
     });
 
-    it('should tokenize strings with quotes', () => {
-      const lexer = new PraxisLexer('"hello" \'world\'');
+    it('should tokenize double-quoted strings', () => {
+      const lexer = new PraxisLexer('"hello" "world"');
       const tokens = lexer.tokenize();
       const strings = tokens.filter((t) => t.type === 'STRING');
       expect(strings).toHaveLength(2);
       expect(strings[0].value).toBe('hello');
       expect(strings[1].value).toBe('world');
+    });
+
+    it('should tokenize single-quoted char literals', () => {
+      const lexer = new PraxisLexer("'a' 'Z'");
+      const tokens = lexer.tokenize();
+      const chars = tokens.filter((t) => t.type === 'CHAR');
+      expect(chars.map((t) => t.value)).toEqual(['a', 'Z']);
+    });
+
+    it('should process escape sequences in strings', () => {
+      const lexer = new PraxisLexer('"a\\tb\\nc"');
+      const tokens = lexer.tokenize();
+      const strings = tokens.filter((t) => t.type === 'STRING');
+      expect(strings[0].value).toBe('a\tb\nc');
+    });
+
+    it('should reject multi-character char literals', () => {
+      expect(() => new PraxisLexer("'ab'").tokenize()).toThrow();
     });
 
     it('should tokenize boolean literals', () => {
@@ -47,12 +65,18 @@ describe('Praxis Lexer', () => {
     });
 
     it('should tokenize comparison operators', () => {
-      const lexer = new PraxisLexer('x <> y x <= y x >= y');
+      const lexer = new PraxisLexer('x != y x <= y x >= y');
       const tokens = lexer.tokenize();
       const operators = tokens.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
-      expect(operators).toContain('<>');
+      expect(operators).toContain('!=');
       expect(operators).toContain('<=');
       expect(operators).toContain('>=');
+    });
+
+    it('should accept the ⟵ (U+27F5) assignment glyph', () => {
+      const lexer = new PraxisLexer('x ⟵ 5');
+      const tokens = lexer.tokenize();
+      expect(tokens).toContainEqual(expect.objectContaining({ type: 'OPERATOR', value: '<-' }));
     });
 
     it('should skip comments', () => {
@@ -176,15 +200,23 @@ end for`;
       expect(program.body[0].type).toBe('For');
     });
 
-    it('should parse for-in loop', () => {
-      const source = `for x in array
-  print(x)
-end for`;
+    it('should parse an else-if chain as nested If nodes', () => {
+      const source = `if (x == 1)
+  print("a")
+else if (x == 2)
+  print("b")
+else
+  print("c")
+end if`;
       const lexer = new PraxisLexer(source);
       const tokens = lexer.tokenize();
       const parser = new PraxisParser(tokens);
       const program = parser.parse();
-      expect(program.body[0].type).toBe('ForEach');
+      const ifStmt = program.body[0] as any;
+      expect(ifStmt.type).toBe('If');
+      // `else if` nests a fresh If inside the else block (no dedicated ElseIf node).
+      expect(ifStmt.elseBranch.body[0].type).toBe('If');
+      expect(ifStmt.elseBranch.body[0].elseBranch.body[0].type).toBe('Print');
     });
 
     it('should parse print statement', () => {
@@ -461,27 +493,6 @@ end for`;
       const result = translator.translate(program, 'praxis');
       expect(result).toContain('for');
       expect(result).toContain('xs[i]');
-    });
-
-    it('should parse range literals', () => {
-      const source = `x <- 1..10`;
-      const lexer = new PraxisLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PraxisParser(tokens);
-      const program = parser.parse();
-      expect(program.body.length).toBeGreaterThan(0);
-    });
-
-    it('should correctly translate range literal to other languages', () => {
-      const source = `x <- 1..5
-print(x)`;
-      const lexer = new PraxisLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new PraxisParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const pythonResult = translator.translate(program, 'python');
-      expect(pythonResult).toContain('x');
     });
 
     it('should correctly handle 0-based array access in for loops', () => {

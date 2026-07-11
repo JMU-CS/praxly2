@@ -375,7 +375,7 @@ export class CSPEmitter extends ASTVisitor {
             expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"')
               ? expr.value.substring(1)
               : expr.value;
-          output = `"${v}"`;
+          output = `"${this.escapeString(v)}"`;
         } else if (typeof expr.value === 'boolean') {
           output = expr.value ? 'true' : 'false';
         } else {
