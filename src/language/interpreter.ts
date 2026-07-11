@@ -1679,6 +1679,17 @@ export class Interpreter {
           case '-':
             return l - r;
           case '*':
+            // List repetition: `[x] * n` or `n * [x]` (Python/JS idiom).
+            if (Array.isArray(l) && typeof r === 'number') {
+              const out: any[] = [];
+              for (let k = 0; k < r; k++) out.push(...l);
+              return out;
+            }
+            if (Array.isArray(r) && typeof l === 'number') {
+              const out: any[] = [];
+              for (let k = 0; k < l; k++) out.push(...r);
+              return out;
+            }
             return l * r;
           case '/':
             // Assignment to an integer variable uses integer division by default.
@@ -1727,6 +1738,12 @@ export class Interpreter {
           if (expr.arguments.length === 0) return [];
           const init = this.evaluate(expr.arguments[0], env);
           return Array.isArray(init) ? [...init] : [];
+        }
+        // JS `new Array(n)` -> an n-length array; `new Array(a, b, ...)` -> a list.
+        if (expr.className === 'Array') {
+          const args = expr.arguments.map((a) => this.evaluate(a, env));
+          if (args.length === 1 && typeof args[0] === 'number') return new Array(args[0]);
+          return args;
         }
         const klass = env.get(expr.className);
         if (!klass || !(klass instanceof JavaClass)) {
@@ -1905,6 +1922,9 @@ export class Interpreter {
               case 'push':
                 obj.push(args[0]);
                 return null;
+              case 'fill':
+                obj.fill(args[0]);
+                return obj;
               case 'splice': {
                 const start = Number(args[0] ?? 0);
                 const deleteCount = args.length >= 2 ? Number(args[1]) : obj.length - start;
@@ -2153,6 +2173,12 @@ export class Interpreter {
           if (expr.arguments.length === 0) return [];
           const init = this.evaluate(expr.arguments[0], env);
           return Array.isArray(init) ? [...init] : [];
+        }
+        // JS `Array(n)` -> n-length array; `Array(a, b, ...)` -> a list.
+        if (calleeName === 'Array') {
+          const args = expr.arguments.map((a) => this.evaluate(a, env));
+          if (args.length === 1 && typeof args[0] === 'number') return new Array(args[0]);
+          return args;
         }
 
         let callee: any;

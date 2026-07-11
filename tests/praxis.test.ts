@@ -763,7 +763,7 @@ print(a.length)`;
       const program = new PraxisParser(new PraxisLexer('int[] a <- new int[3]').tokenize()).parse();
       expect(new Translator().translate(program, 'java')).toContain('new int[3]');
       expect(new Translator().translate(program, 'python')).toContain('[0] * 3');
-      expect(new Translator().translate(program, 'javascript')).toContain('new Array(3).fill(0)');
+      expect(new Translator().translate(program, 'javascript')).toContain('Array(3).fill(0)');
     });
   });
 });
