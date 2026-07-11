@@ -18,7 +18,7 @@
 //   * Lists are 1-based (AP CSP); `FOR i FROM a TO b` is END-EXCLUSIVE.
 //   * `REPEAT UNTIL(c)` is a PRE-condition loop (runs while NOT c).
 //   * There is no unary minus -> write `0 - x`. There is no `null`.
-//   * DISPLAY prints its single argument followed by a newline.
+//   * DISPLAY prints its argument followed by a SPACE (no newline), per AP CSP.
 //   * No `ELSE IF` -> nest an IF inside the ELSE block.
 // ===========================================================================
 

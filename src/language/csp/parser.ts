@@ -165,14 +165,24 @@ export class CSPParser {
 
   private printStatement(): Statement {
     this.consume('KEYWORD', 'DISPLAY');
+    // AP CSP DISPLAY appends a space, not a newline. Model that as a single-arg
+    // print whose separator (used here as the terminator) is a space and whose
+    // appendLineFeed is false.
+    let expr: Expression;
     if (this.check('PUNCTUATION', '(')) {
       this.consume('PUNCTUATION', '(');
-      const expr = this.expression();
+      expr = this.expression();
       this.consume('PUNCTUATION', ')');
-      return { id: generateId(), type: 'Print', expressions: [expr] };
+    } else {
+      expr = this.expression();
     }
-    const expr = this.expression();
-    return { id: generateId(), type: 'Print', expressions: [expr] };
+    return {
+      id: generateId(),
+      type: 'Print',
+      expressions: [expr],
+      separator: ' ',
+      appendLineFeed: false,
+    } as any;
   }
 
   private ifStatement(): If {

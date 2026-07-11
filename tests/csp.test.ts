@@ -418,7 +418,8 @@ DISPLAY("after")`;
         new CSPParser(new CSPLexer(source).tokenize()).parse(),
         source
       );
-      expect(out).toEqual(['B', 'after']);
+      // DISPLAY appends a space (no newline), so both land on one line.
+      expect(out).toEqual(['B after ']);
     });
 
     it('should translate repeat until loop', () => {

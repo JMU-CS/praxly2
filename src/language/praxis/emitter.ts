@@ -253,8 +253,14 @@ export class PraxisEmitter extends ASTVisitor {
     // Separator / newline control has no dedicated syntax in Praxis; it is carried
     // in a trailing comment that the parser reads back (see parsePrintCommentMetadata).
     const notes: string[] = [];
-    if (stmt.separator === '') notes.push('no separator');
-    if (stmt.appendLineFeed === false) notes.push('no line feed');
+    if (stmt.appendLineFeed === false && stmt.separator === ' ') {
+      // Value followed by a space, no newline (e.g. from CSP DISPLAY). The parser
+      // maps "space after" back to separator=' ' + appendLineFeed=false.
+      notes.push('space after');
+    } else {
+      if (stmt.separator === '') notes.push('no separator');
+      if (stmt.appendLineFeed === false) notes.push('no line feed');
+    }
     const comment = notes.length ? `  // ${notes.join(', ')}` : '';
     if (args.length === 1) {
       this.emit(`print ${args[0]}${comment}`, stmt.id);

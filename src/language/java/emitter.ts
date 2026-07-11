@@ -523,7 +523,10 @@ export class JavaEmitter extends ASTVisitor {
 
     if (suppressLineFeed) {
       if (typeof stmt.separator === 'string' && args.length === 1) {
-        this.emit(`System.out.print(${args[0]} + ${JSON.stringify(stmt.separator)});`, stmt.id);
+        // Re-generate at additive precedence so a low-precedence arg (e.g.
+        // `a && b`) is parenthesized before the joining `+ " "`.
+        const arg = this.generateExpression(stmt.expressions[0], Precedence.Additive);
+        this.emit(`System.out.print(${arg} + ${JSON.stringify(stmt.separator)});`, stmt.id);
       } else {
         this.emit(`System.out.print(${rendered});`, stmt.id);
       }

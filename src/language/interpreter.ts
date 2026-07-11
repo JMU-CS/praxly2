@@ -326,12 +326,18 @@ export class Interpreter {
   }
 
   private appendOutputText(text: string, appendLineFeed: boolean) {
+    // A `\n` inside the text is a line break: everything before it completes the
+    // current output line. This keeps the output array one-entry-per-line even
+    // when a printed value (or a terminator baked into it) contains a newline —
+    // essential for faithful cross-language print/DISPLAY round-tripping.
+    const combined = this.outputLineBuffer + text;
+    const parts = combined.split('\n');
+    for (let i = 0; i < parts.length - 1; i++) this.output.push(parts[i]);
+    this.outputLineBuffer = parts[parts.length - 1];
     if (appendLineFeed) {
-      this.output.push(this.outputLineBuffer + text);
+      this.output.push(this.outputLineBuffer);
       this.outputLineBuffer = '';
-      return;
     }
-    this.outputLineBuffer += text;
   }
 
   private flushOutputBuffer() {
@@ -1261,10 +1267,15 @@ export class Interpreter {
         if (appendLineFeed) {
           this.appendOutputText(rendered, true);
         } else {
-          const trailingText =
+          // A single-expression print carries its terminator in `separator`
+          // (e.g. CSP DISPLAY appends a space). Suppress that space when the
+          // value already ends in a newline, so `DISPLAY(x + "\n")` yields
+          // exactly `x\n` (see faithful print-terminator semantics).
+          let trailingText =
             typeof (stmt as any).separator === 'string' && vals.length === 1
               ? (stmt as any).separator
               : '';
+          if (rendered.endsWith('\n')) trailingText = '';
           this.appendOutputText(rendered + trailingText, false);
         }
         break;

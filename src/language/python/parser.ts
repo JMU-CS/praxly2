@@ -344,7 +344,12 @@ export class Parser {
             const val = this.logicOr();
             const strVal = val.type === 'Literal' ? String((val as any).value) : '';
             if (kw === 'sep') print.separator = strVal;
-            else print.appendLineFeed = strVal === '\n';
+            else {
+              print.appendLineFeed = strVal === '\n';
+              // A non-newline `end` (e.g. `end=" "`) is a terminator; the
+              // interpreter renders a single-arg print's terminator via separator.
+              if (strVal !== '\n') print.separator = strVal;
+            }
           } else {
             expressions.push(this.logicOr());
           }

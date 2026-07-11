@@ -64,18 +64,21 @@ export class CSPEmitter extends ASTVisitor {
   }
 
   visitPrint(stmt: any): void {
+    // DISPLAY natively appends a space (no newline). To preserve the source's
+    // terminator faithfully: a newline-terminated print bakes `+ "\n"` into the
+    // argument (DISPLAY's own space is suppressed once the value ends in `\n`);
+    // a space-terminated print (e.g. from CSP itself) emits a bare DISPLAY and
+    // relies on the native space.
+    const sep = typeof stmt.separator === 'string' ? stmt.separator : ' ';
+    const newline = stmt.appendLineFeed !== false;
     if (stmt.expressions.length === 0) {
-      this.emit(`DISPLAY("")`, stmt.id);
+      this.emit(newline ? `DISPLAY("\\n")` : `DISPLAY("")`, stmt.id);
       return;
     }
-    if (stmt.expressions.length === 1) {
-      this.emit(`DISPLAY(${this.generateExpression(stmt.expressions[0], 0)})`, stmt.id);
-      return;
-    }
-    // Multiple expressions: emit separate DISPLAY calls
-    stmt.expressions.forEach((e: any) => {
-      this.emit(`DISPLAY(${this.generateExpression(e, 0)})`, stmt.id);
-    });
+    const parts = stmt.expressions.map((e: any) => this.generateExpression(e, Precedence.Additive));
+    let joined = parts.join(` + ${JSON.stringify(sep)} + `);
+    if (newline) joined += ` + ${JSON.stringify('\n')}`;
+    this.emit(`DISPLAY(${joined})`, stmt.id);
   }
 
   visitAssignment(stmt: any): void {

@@ -600,9 +600,11 @@ describe('Translation to JavaScript', () => {
       return translateToJS(ast);
     }
 
-    it('translates DISPLAY to console.log', () => {
+    it('translates DISPLAY (space terminator) to process.stdout.write', () => {
+      // CSP DISPLAY appends a space with no newline, so it maps to a no-newline
+      // write with the space preserved, not console.log.
       const out = cspToJS('DISPLAY("hello")');
-      expect(out).toContain('console.log("hello")');
+      expect(out).toContain('process.stdout.write("hello" + " ")');
     });
 
     it('translates REPEAT UNTIL loop', () => {
