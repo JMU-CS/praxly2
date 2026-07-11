@@ -1764,6 +1764,7 @@ export class Interpreter {
               abs: Math.abs,
               sqrt: Math.sqrt,
               pow: Math.pow,
+              log: Math.log,
               max: Math.max,
               min: Math.min,
             };
@@ -1876,6 +1877,8 @@ export class Interpreter {
               // AP CS A String methods
               case 'indexOf':
                 return obj.indexOf(String(args[0]));
+              case 'contains':
+                return obj.includes(String(args[0]));
               case 'equals':
                 return obj === args[0];
               case 'compareTo': {
@@ -2168,6 +2171,26 @@ export class Interpreter {
             throw e;
           }
           return null;
+        }
+
+        // Numeric built-ins (Java Math methods, also callable bare in pseudocode).
+        // Resolved AFTER user functions above so a user-defined `min`/`max`/etc.
+        // takes precedence over the built-in.
+        switch (calleeName) {
+          case 'min': {
+            const nums = expr.arguments.map((a) => Number(this.evaluate(a, env)));
+            return Math.min(...nums);
+          }
+          case 'max': {
+            const nums = expr.arguments.map((a) => Number(this.evaluate(a, env)));
+            return Math.max(...nums);
+          }
+          case 'abs':
+            return Math.abs(Number(this.evaluate(expr.arguments[0], env)));
+          case 'sqrt':
+            return Math.sqrt(Number(this.evaluate(expr.arguments[0], env)));
+          case 'log':
+            return Math.log(Number(this.evaluate(expr.arguments[0], env)));
         }
 
         // Bare call to a sibling method: e.g. a free function translated to a
