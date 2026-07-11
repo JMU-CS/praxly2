@@ -199,9 +199,13 @@ export abstract class ASTVisitor {
    */
   abstract visitContinue(stmt: any): void;
   /**
-   * Visits for and returns the result.
+   * Visits a C-style for loop and returns the result.
    */
   abstract visitFor(stmt: any): void;
+  /**
+   * Visits a for-each (iterator) loop and returns the result.
+   */
+  abstract visitForEach(stmt: any): void;
   /**
    * Visits function declaration and returns the result.
    */
@@ -265,6 +269,9 @@ export abstract class ASTVisitor {
         break;
       case 'For':
         this.visitFor(stmt);
+        break;
+      case 'ForEach':
+        this.visitForEach(stmt);
         break;
       case 'Try':
         this.visitTry(stmt);

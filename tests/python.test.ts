@@ -210,7 +210,7 @@ else:
       const tokens = lexer.tokenize();
       const parser = new PythonParser(tokens);
       const program = parser.parse();
-      expect(program.body[0].type).toBe('For');
+      expect(program.body[0].type).toBe('ForEach');
     });
 
     it('should parse return statement', () => {

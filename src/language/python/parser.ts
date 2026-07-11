@@ -11,7 +11,7 @@ import {
   type Expression,
   type If,
   type While,
-  type For,
+  type ForEach,
   type Return,
   type CallExpression,
   type Identifier,
@@ -566,7 +566,7 @@ export class Parser {
     return { id: generateId(), type: 'Try', body: tryBlock, handlers, finallyBlock };
   }
 
-  private forStatement(): For {
+  private forStatement(): ForEach {
     this.consume('KEYWORD', 'for');
     const variable = this.consume('IDENTIFIER').value;
     // Multiple loop targets (`for i, x in enumerate(...)`) are not supported —
@@ -588,7 +588,7 @@ export class Parser {
 
     return {
       id: generateId(),
-      type: 'For',
+      type: 'ForEach',
       variable,
       iterable,
       body,

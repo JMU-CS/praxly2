@@ -13,6 +13,7 @@ import {
   type If,
   type While,
   type For,
+  type ForEach,
   type Return,
   type CallExpression,
   type Identifier,
@@ -327,7 +328,7 @@ export class JavaScriptParser {
     return { id: generateId(), type: 'DoWhile', body, condition };
   }
 
-  private forStatement(): For {
+  private forStatement(): For | ForEach {
     this.consume('KEYWORD', 'for');
     this.consume('PUNCTUATION', '(');
 
@@ -341,7 +342,7 @@ export class JavaScriptParser {
           const iterable = this.expression();
           this.consume('PUNCTUATION', ')');
           const body = this.blockOrStatement();
-          return { id: generateId(), type: 'For', variable: varName, iterable, body };
+          return { id: generateId(), type: 'ForEach', variable: varName, iterable, body };
         }
         // C-style: for (let i = 0; ...)
         this.consume('OPERATOR', '=');
@@ -362,12 +363,9 @@ export class JavaScriptParser {
         }
         this.consume('PUNCTUATION', ')');
         const body = this.blockOrStatement();
-        const dummy: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
         return {
           id: generateId(),
           type: 'For',
-          variable: varName,
-          iterable: dummy,
           body,
           init,
           condition,
@@ -396,12 +394,9 @@ export class JavaScriptParser {
     }
     this.consume('PUNCTUATION', ')');
     const body = this.blockOrStatement();
-    const dummy: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
     return {
       id: generateId(),
       type: 'For',
-      variable: '',
-      iterable: dummy,
       body,
       init,
       condition,

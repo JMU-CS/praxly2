@@ -10,7 +10,7 @@ import {
   type Block,
   type Expression,
   type If,
-  type For,
+  type ForEach,
   type Return,
   type CallExpression,
   type Identifier,
@@ -365,8 +365,6 @@ export class CSPParser {
       return {
         id: generateId(),
         type: 'For',
-        variable: varName,
-        iterable: { id: generateId(), type: 'Identifier', name: 'null' },
         init: initStmt,
         condition: condExpr,
         update: updateStmt,
@@ -375,7 +373,7 @@ export class CSPParser {
     }
   }
 
-  private forStatement(): For {
+  private forStatement(): ForEach {
     this.consume('KEYWORD', 'FOR');
 
     // FOR EACH item IN iterable { ... }
@@ -384,7 +382,7 @@ export class CSPParser {
       this.consume('KEYWORD', 'IN');
       const iterable = this.expression();
       const body = this.block();
-      return { id: generateId(), type: 'For', variable, iterable, body };
+      return { id: generateId(), type: 'ForEach', variable, iterable, body };
     }
 
     // FOR i FROM start TO end [STEP step] { ... }
@@ -407,7 +405,7 @@ export class CSPParser {
     };
 
     const body = this.block();
-    return { id: generateId(), type: 'For', variable, iterable, body };
+    return { id: generateId(), type: 'ForEach', variable, iterable, body };
   }
 
   private returnStatement(): Return {

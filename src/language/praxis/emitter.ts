@@ -432,35 +432,37 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitFor(stmt: any): void {
-    if (stmt.init && stmt.condition && stmt.update) {
-      this.context.symbolTable.enterScope();
-      let initCode = '';
-      if (stmt.init.type === 'Assignment') {
-        const rVal = this.generateExpression(stmt.init.value, 0);
-        let type = stmt.init.varType || this.inferType(stmt.init.value);
-        if (type === 'var') type = 'int';
-        initCode = `${type} ${stmt.init.name} <- ${rVal}`;
-        this.context.symbolTable.set(stmt.init.name, type);
-      } else {
-        initCode = this.generateExpression(stmt.init.expression, 0);
-      }
-      const condCode = this.generateExpression(stmt.condition, 0);
-      let updateCode = '';
-      if (stmt.update.type === 'Assignment') {
-        const ut = stmt.update.target
-          ? this.generateExpression(stmt.update.target, 0)
-          : stmt.update.name;
-        updateCode = `${ut} <- ${this.generateExpression(stmt.update.value, 0)}`;
-      } else {
-        updateCode = this.generateExpression(stmt.update.expression, 0);
-      }
-      this.emit(`for (${initCode}; ${condCode}; ${updateCode})`, stmt.id);
-      this.indent();
-      this.visitBlock(stmt.body);
-      this.dedent();
-      this.emit('end for');
-      this.context.symbolTable.exitScope();
-    } else if (stmt.iterable?.type === 'CallExpression' && stmt.iterable.callee?.name === 'range') {
+    this.context.symbolTable.enterScope();
+    let initCode = '';
+    if (stmt.init?.type === 'Assignment') {
+      const rVal = this.generateExpression(stmt.init.value, 0);
+      let type = stmt.init.varType || this.inferType(stmt.init.value);
+      if (type === 'var') type = 'int';
+      initCode = `${type} ${stmt.init.name} <- ${rVal}`;
+      this.context.symbolTable.set(stmt.init.name, type);
+    } else if (stmt.init) {
+      initCode = this.generateExpression(stmt.init.expression, 0);
+    }
+    const condCode = stmt.condition ? this.generateExpression(stmt.condition, 0) : '';
+    let updateCode = '';
+    if (stmt.update?.type === 'Assignment') {
+      const ut = stmt.update.target
+        ? this.generateExpression(stmt.update.target, 0)
+        : stmt.update.name;
+      updateCode = `${ut} <- ${this.generateExpression(stmt.update.value, 0)}`;
+    } else if (stmt.update) {
+      updateCode = this.generateExpression(stmt.update.expression, 0);
+    }
+    this.emit(`for (${initCode}; ${condCode}; ${updateCode})`, stmt.id);
+    this.indent();
+    this.visitBlock(stmt.body);
+    this.dedent();
+    this.emit('end for');
+    this.context.symbolTable.exitScope();
+  }
+
+  visitForEach(stmt: any): void {
+    if (stmt.iterable?.type === 'CallExpression' && stmt.iterable.callee?.name === 'range') {
       const args = stmt.iterable.arguments;
       let start = '0',
         end = '0',

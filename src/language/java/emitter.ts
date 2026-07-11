@@ -15,6 +15,7 @@ import type {
   MethodDeclaration,
   Block,
   For,
+  ForEach,
   Expression,
 } from '../ast';
 
@@ -800,98 +801,97 @@ export class JavaEmitter extends ASTVisitor {
    * 3. Iterator-based: for(item : collection)
    */
   visitFor(stmt: For): void {
-    // Handle C-style for loop: for(type var = init; condition; update)
-    if (stmt.init && stmt.condition && stmt.update) {
-      this.context.symbolTable.enterScope();
-      let initCode = '';
-      let initCodes: string[] = [];
+    // C-style for loop: for(type var = init; condition; update)
+    this.context.symbolTable.enterScope();
+    let initCode = '';
+    let initCodes: string[] = [];
 
-      // Process initialization - can be single assignment or array of assignments
-      if (stmt.init.type === 'Assignment') {
-        const initStmt = stmt.init as any;
-        const rVal = this.generateExpression(initStmt.value, 0);
-        let type = initStmt.varType || this.inferType(initStmt.value);
-        if (type === 'var') type = 'int';
-        initCode = `${this.declType(initStmt.name, type)}${initStmt.name} = ${rVal}`;
-        this.context.symbolTable.set(initStmt.name, type);
-      } else if (Array.isArray(stmt.init)) {
-        // Handle multiple initialization statements
-        const stmts = stmt.init as any;
-        initCodes = stmts.map((s: any) => {
-          if (s.type === 'Assignment') {
-            const rVal = this.generateExpression(s.value, 0);
-            let type = s.varType || this.inferType(s.value);
-            if (type === 'var') type = 'int';
-            this.context.symbolTable.set(s.name, type);
-            return `${type} ${s.name} = ${rVal}`;
-          }
-          return this.generateExpression((s as any).expression, 0);
-        });
-        initCode = initCodes.join(', ');
-      } else if ((stmt.init as any)?.type === 'Block') {
-        // Handle Block node as initialization (legacy support)
-        const blockStmt = stmt.init as any;
-        initCodes = blockStmt.body.map((s: any) => {
-          if (s.type === 'Assignment') {
-            const rVal = this.generateExpression(s.value, 0);
-            let type = s.varType || this.inferType(s.value);
-            if (type === 'var') type = 'int';
-            this.context.symbolTable.set(s.name, type);
-            return `${type} ${s.name} = ${rVal}`;
-          }
-          return this.generateExpression((s as any).expression, 0);
-        });
-        initCode = initCodes.join(', ');
-      } else {
-        initCode = this.generateExpression((stmt.init as any).expression, 0);
-      }
+    // Process initialization - can be single assignment or array of assignments
+    if (stmt.init?.type === 'Assignment') {
+      const initStmt = stmt.init as any;
+      const rVal = this.generateExpression(initStmt.value, 0);
+      let type = initStmt.varType || this.inferType(initStmt.value);
+      if (type === 'var') type = 'int';
+      initCode = `${this.declType(initStmt.name, type)}${initStmt.name} = ${rVal}`;
+      this.context.symbolTable.set(initStmt.name, type);
+    } else if (Array.isArray(stmt.init)) {
+      // Handle multiple initialization statements
+      const stmts = stmt.init as any;
+      initCodes = stmts.map((s: any) => {
+        if (s.type === 'Assignment') {
+          const rVal = this.generateExpression(s.value, 0);
+          let type = s.varType || this.inferType(s.value);
+          if (type === 'var') type = 'int';
+          this.context.symbolTable.set(s.name, type);
+          return `${type} ${s.name} = ${rVal}`;
+        }
+        return this.generateExpression((s as any).expression, 0);
+      });
+      initCode = initCodes.join(', ');
+    } else if ((stmt.init as any)?.type === 'Block') {
+      // Handle Block node as initialization (legacy support)
+      const blockStmt = stmt.init as any;
+      initCodes = blockStmt.body.map((s: any) => {
+        if (s.type === 'Assignment') {
+          const rVal = this.generateExpression(s.value, 0);
+          let type = s.varType || this.inferType(s.value);
+          if (type === 'var') type = 'int';
+          this.context.symbolTable.set(s.name, type);
+          return `${type} ${s.name} = ${rVal}`;
+        }
+        return this.generateExpression((s as any).expression, 0);
+      });
+      initCode = initCodes.join(', ');
+    } else if (stmt.init) {
+      initCode = this.generateExpression((stmt.init as any).expression, 0);
+    }
 
-      // Generate condition expression
-      const condCode = this.generateExpression(stmt.condition, 0);
+    // Generate condition expression (a C-style loop may omit it)
+    const condCode = stmt.condition ? this.generateExpression(stmt.condition, 0) : '';
 
-      // Process update clause - can be single or multiple statements
-      let updateCode = '';
-      let updateCodes: string[] = [];
-      if (stmt.update.type === 'Assignment') {
-        const updateStmt = stmt.update as any;
-        const updateTarget = updateStmt.target
-          ? this.generateExpression(updateStmt.target, 0)
-          : updateStmt.name;
-        updateCode = `${updateTarget} = ${this.generateExpression(updateStmt.value, 0)}`;
-      } else if (Array.isArray(stmt.update)) {
-        // Handle multiple update statements
-        const stmts = stmt.update as any;
-        updateCodes = stmts.map((s: any) => {
-          if (s.type === 'ExpressionStatement') {
-            return this.generateExpression(s.expression, 0);
-          }
-          return this.generateExpression((s as any).expression, 0);
-        });
-        updateCode = updateCodes.join(', ');
-      } else if ((stmt.update as any)?.type === 'Block') {
-        // Handle Block node as update (legacy support)
-        const blockStmt = stmt.update as any;
-        updateCodes = blockStmt.body.map((s: any) => {
-          if (s.type === 'ExpressionStatement') {
-            return this.generateExpression(s.expression, 0);
-          }
-          return this.generateExpression((s as any).expression, 0);
-        });
-        updateCode = updateCodes.join(', ');
-      } else {
-        updateCode = this.generateExpression((stmt.update as any).expression, 0);
-      }
+    // Process update clause - can be single or multiple statements
+    let updateCode = '';
+    let updateCodes: string[] = [];
+    if (stmt.update?.type === 'Assignment') {
+      const updateStmt = stmt.update as any;
+      const updateTarget = updateStmt.target
+        ? this.generateExpression(updateStmt.target, 0)
+        : updateStmt.name;
+      updateCode = `${updateTarget} = ${this.generateExpression(updateStmt.value, 0)}`;
+    } else if (Array.isArray(stmt.update)) {
+      // Handle multiple update statements
+      const stmts = stmt.update as any;
+      updateCodes = stmts.map((s: any) => {
+        if (s.type === 'ExpressionStatement') {
+          return this.generateExpression(s.expression, 0);
+        }
+        return this.generateExpression((s as any).expression, 0);
+      });
+      updateCode = updateCodes.join(', ');
+    } else if ((stmt.update as any)?.type === 'Block') {
+      // Handle Block node as update (legacy support)
+      const blockStmt = stmt.update as any;
+      updateCodes = blockStmt.body.map((s: any) => {
+        if (s.type === 'ExpressionStatement') {
+          return this.generateExpression(s.expression, 0);
+        }
+        return this.generateExpression((s as any).expression, 0);
+      });
+      updateCode = updateCodes.join(', ');
+    } else if (stmt.update) {
+      updateCode = this.generateExpression((stmt.update as any).expression, 0);
+    }
 
-      this.emit(`for (${initCode}; ${condCode}; ${updateCode}) {`, stmt.id);
-      this.indent();
-      this.visitBlock(stmt.body);
-      this.dedent();
-      this.emit('}');
-      this.context.symbolTable.exitScope();
-    } else if (
-      stmt.iterable.type === 'CallExpression' &&
-      (stmt.iterable as any).callee.name === 'range'
-    ) {
+    this.emit(`for (${initCode}; ${condCode}; ${updateCode}) {`, stmt.id);
+    this.indent();
+    this.visitBlock(stmt.body);
+    this.dedent();
+    this.emit('}');
+    this.context.symbolTable.exitScope();
+  }
+
+  visitForEach(stmt: ForEach): void {
+    if (stmt.iterable.type === 'CallExpression' && (stmt.iterable as any).callee.name === 'range') {
       // Handle range(start, end, step) - converts to C-style loop
       const args = (stmt.iterable as any).arguments;
       let start = '0',

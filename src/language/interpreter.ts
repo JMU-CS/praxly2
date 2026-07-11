@@ -569,39 +569,42 @@ export class Interpreter {
       } else if (stmt.type === 'For') {
         const forStmt = stmt as any;
         try {
-          if (forStmt.init && forStmt.condition && forStmt.update) {
-            // C-Style for loop
-            this.execute(forStmt.init, env);
-            while (true) {
-              // Yield the For statement itself for each iteration (always, for debugging)
-              yield {
-                nodeId: forStmt.id,
-                nodeType: forStmt.type,
-                loc: forStmt.loc || null,
-                variables: env.getAllVariables(),
-              };
-              const condition = this.evaluate(forStmt.condition, env);
-              if (!condition) break;
-              yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
-              this.execute(forStmt.update, env);
-            }
-          } else {
-            // For-each loop
-            const iterable = this.evaluate(forStmt.iterable, env);
-            if (!Array.isArray(iterable) && typeof iterable !== 'string') {
-              throw new Error('For loop requires array or string');
-            }
-            for (const item of iterable) {
-              env.define(forStmt.variable, item);
-              // Yield the For statement itself for each iteration (always, for debugging)
-              yield {
-                nodeId: forStmt.id,
-                nodeType: forStmt.type,
-                loc: forStmt.loc || null,
-                variables: env.getAllVariables(),
-              };
-              yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
-            }
+          // C-style for loop; any clause may be absent (`for (;;)`).
+          if (forStmt.init) this.execute(forStmt.init, env);
+          while (true) {
+            // Yield the For statement itself for each iteration (always, for debugging)
+            yield {
+              nodeId: forStmt.id,
+              nodeType: forStmt.type,
+              loc: forStmt.loc || null,
+              variables: env.getAllVariables(),
+            };
+            if (forStmt.condition && !this.evaluate(forStmt.condition, env)) break;
+            yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
+            if (forStmt.update) this.execute(forStmt.update, env);
+          }
+        } catch (e) {
+          if (e instanceof ReturnException) throw e;
+          throw e;
+        }
+        i++;
+      } else if (stmt.type === 'ForEach') {
+        const forStmt = stmt as any;
+        try {
+          const iterable = this.evaluate(forStmt.iterable, env);
+          if (!Array.isArray(iterable) && typeof iterable !== 'string') {
+            throw new Error('For-each loop requires array or string');
+          }
+          for (const item of iterable) {
+            env.define(forStmt.variable, item);
+            // Yield the ForEach statement itself for each iteration (always, for debugging)
+            yield {
+              nodeId: forStmt.id,
+              nodeType: forStmt.type,
+              loc: forStmt.loc || null,
+              variables: env.getAllVariables(),
+            };
+            yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
           }
         } catch (e) {
           if (e instanceof ReturnException) throw e;
@@ -1413,35 +1416,35 @@ export class Interpreter {
         break;
       }
       case 'For': {
-        if (stmt.init && stmt.condition && stmt.update) {
-          // C-Style evaluation mappings
-          this.execute(stmt.init, env);
-          let iterationCount = 0;
-          const MAX_ITERATIONS = 10000;
-          while (this.evaluate(stmt.condition, env)) {
-            iterationCount++;
-            if (iterationCount > MAX_ITERATIONS) {
-              const lineNum = this.getLineFromLocation(stmt.loc);
-              throw new Error(
-                `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
-              );
-            }
-            const signal = this.runIteration(stmt.body.body, env);
-            if (signal === 'break') {
-              break;
-            }
-            // `continue` still runs the update clause (C semantics).
-            this.execute(stmt.update, env);
+        // C-style three-clause loop; any clause may be absent (`for (;;)`).
+        if (stmt.init) this.execute(stmt.init, env);
+        let iterationCount = 0;
+        const MAX_ITERATIONS = 10000;
+        while (stmt.condition ? this.evaluate(stmt.condition, env) : true) {
+          iterationCount++;
+          if (iterationCount > MAX_ITERATIONS) {
+            const lineNum = this.getLineFromLocation(stmt.loc);
+            throw new Error(
+              `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
+            );
           }
-        } else {
-          const iterable = this.evaluate(stmt.iterable, env);
-          if (!Array.isArray(iterable) && typeof iterable !== 'string')
-            throw new Error('For loop requires array or string');
-          for (const item of iterable) {
-            env.define(stmt.variable, item);
-            if (this.runIteration(stmt.body.body, env) === 'break') {
-              break;
-            }
+          const signal = this.runIteration(stmt.body.body, env);
+          if (signal === 'break') {
+            break;
+          }
+          // `continue` still runs the update clause (C semantics).
+          if (stmt.update) this.execute(stmt.update, env);
+        }
+        break;
+      }
+      case 'ForEach': {
+        const iterable = this.evaluate(stmt.iterable, env);
+        if (!Array.isArray(iterable) && typeof iterable !== 'string')
+          throw new Error('For-each loop requires array or string');
+        for (const item of iterable) {
+          env.define(stmt.variable, item);
+          if (this.runIteration(stmt.body.body, env) === 'break') {
+            break;
           }
         }
         break;

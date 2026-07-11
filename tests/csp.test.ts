@@ -195,7 +195,7 @@ ELSE
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
       const program = parser.parse();
-      expect(program.body[0].type).toBe('For');
+      expect(program.body[0].type).toBe('ForEach');
     });
 
     it('should parse return statement', () => {
@@ -519,7 +519,7 @@ describe('CSP Translation', () => {
       const program = parser.parse();
 
       const forStmt = program.body[0] as any;
-      expect(forStmt.type).toBe('For');
+      expect(forStmt.type).toBe('ForEach');
       expect(forStmt.iterable.type).toBe('CallExpression');
       expect(forStmt.iterable.callee.name).toBe('range');
       expect(forStmt.iterable.arguments.length).toBe(3);
