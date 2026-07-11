@@ -327,6 +327,14 @@ export class JavaParser {
     return { id: generateId(), type: 'Block', body: statements };
   }
 
+  // A control-flow body: a braced `{ ... }` block, or a single braceless statement
+  // (e.g. `if (c) doThing();`). Without the single-statement case, `block()` would
+  // read to the next `}` and greedily swallow following sibling statements.
+  private blockOrStatement(): Block {
+    if (this.check('PUNCTUATION', '{')) return this.block();
+    return { id: generateId(), type: 'Block', body: [this.statement()] };
+  }
+
   private statement(): Statement {
     const startIdx = this.current;
 
@@ -496,7 +504,7 @@ export class JavaParser {
     this.consume('PUNCTUATION', '(');
     const condition = this.expression();
     this.consume('PUNCTUATION', ')');
-    const thenBranch = this.block();
+    const thenBranch = this.blockOrStatement();
     let elseBranch: Block | undefined = undefined;
     if (this.match('KEYWORD', 'else')) {
       if (this.check('KEYWORD', 'if')) {
@@ -505,7 +513,7 @@ export class JavaParser {
         elseBranch = { id: generateId(), type: 'Block', body: [elifStatement] };
       } else {
         // Handle regular else block
-        elseBranch = this.block();
+        elseBranch = this.blockOrStatement();
       }
     }
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
@@ -516,13 +524,13 @@ export class JavaParser {
     this.consume('PUNCTUATION', '(');
     const condition = this.expression();
     this.consume('PUNCTUATION', ')');
-    const body = this.block();
+    const body = this.blockOrStatement();
     return { id: generateId(), type: 'While', condition, body };
   }
 
   private doWhileStatement(): any {
     this.consume('KEYWORD', 'do');
-    const body = this.block();
+    const body = this.blockOrStatement();
     this.consume('KEYWORD', 'while');
     this.consume('PUNCTUATION', '(');
     const condition = this.expression();
@@ -682,7 +690,7 @@ export class JavaParser {
           updates.length === 1 ? updates[0] : updates.length > 1 ? (updates as any) : undefined;
 
         this.consume('PUNCTUATION', ')');
-        const body = this.block();
+        const body = this.blockOrStatement();
         return {
           id: generateId(),
           type: 'For',
@@ -696,7 +704,7 @@ export class JavaParser {
         this.advance(); // consume ':'
         iterable = this.expression();
         this.consume('PUNCTUATION', ')');
-        const body = this.block();
+        const body = this.blockOrStatement();
         return { id: generateId(), type: 'ForEach', variable: varName, iterable, body };
       }
     } else if (this.check('IDENTIFIER')) {
@@ -714,7 +722,7 @@ export class JavaParser {
         this.advance(); // consume ':'
         iterable = this.expression();
         this.consume('PUNCTUATION', ')');
-        const body = this.block();
+        const body = this.blockOrStatement();
         return { id: generateId(), type: 'ForEach', variable: varName, iterable, body };
       } else if (this.check('OPERATOR', '=')) {
         // C-style: i = 0;
@@ -738,7 +746,7 @@ export class JavaParser {
           update = { id: generateId(), type: 'ExpressionStatement', expression: updateExpr };
         }
         this.consume('PUNCTUATION', ')');
-        const body = this.block();
+        const body = this.blockOrStatement();
         return {
           id: generateId(),
           type: 'For',
@@ -769,7 +777,7 @@ export class JavaParser {
     }
     this.consume('PUNCTUATION', ')');
 
-    const body = this.block();
+    const body = this.blockOrStatement();
     return { id: generateId(), type: 'For', body, init, condition, update };
   }
 
