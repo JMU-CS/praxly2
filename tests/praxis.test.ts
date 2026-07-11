@@ -711,4 +711,33 @@ print(s.label())`;
       expect(praxis).toContain('return name'); // not shadowed -> bare
     });
   });
+
+  // Standard-library built-ins the Praxis spec lists (specs/praxis.md).
+  describe('Standard-library built-ins', () => {
+    const run = (src: string): string[] =>
+      new Interpreter().interpret(new PraxisParser(new PraxisLexer(src).tokenize()).parse(), src);
+
+    it('supports bare min/max/abs/sqrt/log', () => {
+      const src = `print(min(3, 7))
+print(max(3, 7))
+print(abs(0 - 4))
+print(sqrt(9.0))
+print(log(1.0))`;
+      expect(run(src)).toEqual(['3', '7', '4', '3', '0']);
+    });
+
+    it('supports the contains() string method', () => {
+      const src = `print("hello".contains("ell"))
+print("hello".contains("zzz"))`;
+      expect(run(src)).toEqual(['true', 'false']);
+    });
+
+    it('lets a user-defined function shadow a built-in of the same name', () => {
+      const src = `int max(int a, int b)
+    return 42
+end max
+print(max(3, 7))`;
+      expect(run(src)).toEqual(['42']);
+    });
+  });
 });
