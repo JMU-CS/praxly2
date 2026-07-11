@@ -154,11 +154,13 @@ In addition to the official Praxis specification, the Praxly interpreter support
 - `break` and `continue` statements
 - `try`, `catch`, and `finally` (ending with `end try`)
 - Constructors (optional; see examples below)
-- Fixed-size array creation: `int[] array ← new int[10]`
+- Fixed-size array creation: `int[] array ← new int[10]` (elements default to `0`/`false`/`null`)
+- Character literals in single quotes (e.g. `char c ← 'A'`), holding exactly one character; double quotes denote strings
+- Escape sequences in string and character literals: `\n`, `\t`, `\r`, `\"`, `\'`, `\\`
 - Trailing semicolons are allowed (they are ignored by Praxly)
 
 Praxly also supports `if ... else if ... else` statements.
-This syntax provides a more concise alternative to nesting `if` statements inside successive `else` blocks.
+This is a more concise alternative to nesting an `if` inside an `else` block; a single `end if` closes the whole chain.
 
 For compatibility with the other languages supported by Praxly, arrays also support the following list operations:
 
@@ -169,7 +171,7 @@ For compatibility with the other languages supported by Praxly, arrays also supp
 
 The following built-in functions are also available:
 
-- Python built-ins: `input()`, `int()`, `float()`
+- Python built-ins: `input()`, `int()`, `float()`, `str()`
 - Java Math methods: `random()`, `randomInt()`, `randomSeed()`, `min()`, `max()`, `abs()`, `log()`, `sqrt()`
 - Java String methods: `.charAt()`, `.contains()`, `.indexOf()`, `.length()`, `.substring()`, `.toLowerCase()`, `.toUpperCase()`
 

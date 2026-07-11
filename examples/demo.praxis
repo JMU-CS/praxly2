@@ -31,7 +31,13 @@ int m <- 0
 m = 10
 print(m)
 
-// ---- BinaryExpression: arithmetic (+ - * / % mod ^) ------------------------
+// ---- char literal + string escape sequences --------------------------------
+char grade <- 'A'              // single-quoted, exactly one character
+string tabbed <- "col1\tcol2"  // \t \n \r \" \\ are recognized escapes
+print(grade)                   // A
+print(tabbed)                  // col1<tab>col2
+
+// ---- BinaryExpression: arithmetic (+ - * / % ^) ----------------------------
 int a <- 17
 int b <- 5
 print(a + b)      // 22
@@ -70,6 +76,23 @@ print(xs.length)            // 4  (MemberExpression)
 xs.append(99)               // method CallExpression as ExpressionStatement
 print(xs.length)            // 5
 print(xs)                   // {50, 3, 8, 1, 99}
+
+// ---- ArrayCreation: new int[n] (n default-initialized elements) ------------
+int[] buffer <- new int[3]  // {0, 0, 0}
+buffer[1] <- 7
+print(buffer)               // {0, 7, 0}
+print(buffer.length)        // 3
+
+// ---- Built-in functions (min/max/abs/sqrt/log, str/int/float, contains) ----
+print(min(3, 8))            // 3
+print(max(3, 8))            // 8
+print(abs(-7))              // 7
+print(sqrt(16.0))           // 4
+print(log(1.0))             // 0
+print(str(42))              // 42   (number -> string)
+print(int("7") + 1)         // 8    (string -> int)
+print(float("2.5"))         // 2.5  (string -> float)
+print("praxis".contains("rax"))  // true (String method)
 
 // ---- Print: separator / appendLineFeed via trailing comment ----------------
 print("A", "B", "C")           // "A B C"  (default separator " ")
@@ -128,6 +151,27 @@ repeat
     print(r)                   // 0 1 2
     r <- r + 1
 until (r >= 3)
+
+// ---- Break / Continue ------------------------------------------------------
+for t <- 0; t < 5; t <- t + 1
+    if (t == 1)
+        continue               // skip printing 1
+    end if
+    if (t == 3)
+        break                  // stop the loop at 3
+    end if
+    print(t)                   // 0 2
+end for
+
+// ---- Try / Catch / Finally -------------------------------------------------
+try
+    print(missingValue)        // undefined variable raises an error
+    print("not reached")
+catch e
+    print("caught error")      // this runs
+finally
+    print("cleanup")           // always runs
+end try
 
 
 // ========================== FUNCTIONS ======================================
