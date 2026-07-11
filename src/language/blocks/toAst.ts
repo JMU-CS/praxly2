@@ -152,7 +152,7 @@ class BlocksReader {
         // "repeat n times" — a counted for-loop over range(n).
         return {
           id: generateId(),
-          type: 'For',
+          type: 'ForEach',
           variable: 'i',
           iterable: this.rangeCall([this.expression(block, 'TIMES')]),
           body: this.block(inputBlock(block, 'DO')),
@@ -161,7 +161,7 @@ class BlocksReader {
       case 'praxly_for_range':
         return {
           id: generateId(),
-          type: 'For',
+          type: 'ForEach',
           variable: this.variable(block, 'VAR'),
           iterable: this.rangeCall([this.expression(block, 'FROM'), this.expression(block, 'TO')]),
           body: this.block(inputBlock(block, 'DO')),

@@ -293,7 +293,7 @@ export class Translator {
         }
         if (stmt.type === 'While' || stmt.type === 'DoWhile' || stmt.type === 'RepeatUntil')
           analyzeBlock(stmt.body.body);
-        if (stmt.type === 'For') analyzeBlock(stmt.body.body);
+        if (stmt.type === 'For' || stmt.type === 'ForEach') analyzeBlock(stmt.body.body);
       });
     };
 

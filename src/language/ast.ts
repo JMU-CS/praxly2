@@ -22,6 +22,7 @@ export type NodeType =
   | 'DoWhile'
   | 'RepeatUntil'
   | 'For'
+  | 'ForEach'
   | 'Switch'
   | 'SwitchCase'
   | 'Try'
@@ -81,6 +82,7 @@ export type Statement =
   | DoWhile
   | RepeatUntil
   | For
+  | ForEach
   | Switch
   | Try
   | Return
@@ -175,16 +177,25 @@ export interface RepeatUntil extends ASTNode {
   condition: Expression;
 }
 
-// One node models two loop shapes: foreach (variable(s)/iterable, e.g. Python `for x in y`,
-// CSP `FOR EACH`) and C-style three-clause (init/condition/update, e.g. Java/Praxis `for(;;)`).
-// The interpreter branches on whether init/condition/update are all present.
+// C-style three-clause loop (e.g. Java/Praxis `for (init; condition; update)`).
+// Each clause is optional — C-style syntax permits an empty clause (`for (;;)`).
+// `init`/`update` are usually Assignment/ExpressionStatement nodes, but some
+// front-ends pass an array of them for comma-separated clauses.
 export interface For extends ASTNode {
   type: 'For';
-  variable: string;
-  iterable: Expression;
   init?: Statement;
   condition?: Expression;
   update?: Statement;
+  body: Block;
+}
+
+// Iterator loop over a sequence (e.g. Python `for x in y`, CSP `FOR EACH`,
+// Java `for (x : xs)`). The iterable may be a plain collection, a `range(...)`
+// call, or a Praxis `a..b` range expression — each emitter renders accordingly.
+export interface ForEach extends ASTNode {
+  type: 'ForEach';
+  variable: string;
+  iterable: Expression;
   body: Block;
 }
 

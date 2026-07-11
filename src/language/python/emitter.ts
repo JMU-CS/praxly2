@@ -14,6 +14,7 @@ import type {
   MethodDeclaration,
   Block,
   For,
+  ForEach,
   Expression,
 } from '../ast';
 
@@ -550,37 +551,39 @@ export class PythonEmitter extends ASTVisitor {
    * 2. Iterator-based: for var in iterable with optional tuple unpacking
    */
   visitFor(stmt: For): void {
-    if (stmt.init && stmt.condition && stmt.update) {
-      const range = this.tryExtractRangeArgs(stmt);
-      if (range) {
-        const { variable, start, end, step, inclusive } = range;
-        const endExpr = inclusive ? `${end} + 1` : end;
-        let rangeCall: string;
-        if (start === '0' && step === '1') {
-          rangeCall = `range(${endExpr})`;
-        } else if (step === '1') {
-          rangeCall = `range(${start}, ${endExpr})`;
-        } else {
-          rangeCall = `range(${start}, ${endExpr}, ${step})`;
-        }
-        this.emit(`for ${variable} in ${rangeCall}:`, stmt.id);
-        this.indent();
-        this.visitBlock(stmt.body);
-        this.dedent();
+    // A C-style loop that matches the range(...) idiom collapses to `for i in range()`;
+    // otherwise it lowers to an initializer + `while`.
+    const range = this.tryExtractRangeArgs(stmt);
+    if (range) {
+      const { variable, start, end, step, inclusive } = range;
+      const endExpr = inclusive ? `${end} + 1` : end;
+      let rangeCall: string;
+      if (start === '0' && step === '1') {
+        rangeCall = `range(${endExpr})`;
+      } else if (step === '1') {
+        rangeCall = `range(${start}, ${endExpr})`;
       } else {
-        this.context.symbolTable.enterScope();
-        this.visitStatement(stmt.init);
-        this.emit(`while ${this.generateExpression(stmt.condition, 0)}:`, stmt.id);
-        this.indent();
-        this.visitBlock(stmt.body);
-        this.visitStatement(stmt.update);
-        this.dedent();
-        this.context.symbolTable.exitScope();
+        rangeCall = `range(${start}, ${endExpr}, ${step})`;
       }
-    } else if (
-      stmt.iterable?.type === 'BinaryExpression' &&
-      (stmt.iterable as any).operator === '..'
-    ) {
+      this.emit(`for ${variable} in ${rangeCall}:`, stmt.id);
+      this.indent();
+      this.visitBlock(stmt.body);
+      this.dedent();
+    } else {
+      this.context.symbolTable.enterScope();
+      if (stmt.init) this.visitStatement(stmt.init);
+      const cond = stmt.condition ? this.generateExpression(stmt.condition, 0) : 'True';
+      this.emit(`while ${cond}:`, stmt.id);
+      this.indent();
+      this.visitBlock(stmt.body);
+      if (stmt.update) this.visitStatement(stmt.update);
+      this.dedent();
+      this.context.symbolTable.exitScope();
+    }
+  }
+
+  visitForEach(stmt: ForEach): void {
+    if (stmt.iterable?.type === 'BinaryExpression' && (stmt.iterable as any).operator === '..') {
       // Praxis range operator: for x in start..end  (inclusive) → range(start, end + 1)
       const iter = stmt.iterable as any;
       const start = this.generateExpression(iter.left, 0);

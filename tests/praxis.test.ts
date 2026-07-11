@@ -184,7 +184,7 @@ end for`;
       const tokens = lexer.tokenize();
       const parser = new PraxisParser(tokens);
       const program = parser.parse();
-      expect(program.body[0].type).toBe('For');
+      expect(program.body[0].type).toBe('ForEach');
     });
 
     it('should parse print statement', () => {

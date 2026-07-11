@@ -12,6 +12,7 @@ import {
   type If,
   type While,
   type For,
+  type ForEach,
   type Return,
   type CallExpression,
   type Identifier,
@@ -612,7 +613,7 @@ export class JavaParser {
     return { id: generateId(), type: 'Continue' };
   }
 
-  private forStatement(): For {
+  private forStatement(): For | ForEach {
     this.consume('KEYWORD', 'for');
     this.consume('PUNCTUATION', '(');
 
@@ -620,7 +621,6 @@ export class JavaParser {
     let init: Statement | undefined = undefined;
     let condition: Expression | undefined = undefined;
     let update: Statement | undefined = undefined;
-    let variable = '';
     let iterable: Expression = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
 
     // Check if it's a type declaration or variable
@@ -686,8 +686,6 @@ export class JavaParser {
         return {
           id: generateId(),
           type: 'For',
-          variable: varName,
-          iterable,
           body,
           init,
           condition,
@@ -699,7 +697,7 @@ export class JavaParser {
         iterable = this.expression();
         this.consume('PUNCTUATION', ')');
         const body = this.block();
-        return { id: generateId(), type: 'For', variable: varName, iterable, body };
+        return { id: generateId(), type: 'ForEach', variable: varName, iterable, body };
       }
     } else if (this.check('IDENTIFIER')) {
       // Could be for-each with already-declared type or C-style with expression
@@ -717,7 +715,7 @@ export class JavaParser {
         iterable = this.expression();
         this.consume('PUNCTUATION', ')');
         const body = this.block();
-        return { id: generateId(), type: 'For', variable: varName, iterable, body };
+        return { id: generateId(), type: 'ForEach', variable: varName, iterable, body };
       } else if (this.check('OPERATOR', '=')) {
         // C-style: i = 0;
         const assignIdx = this.current;
@@ -744,8 +742,6 @@ export class JavaParser {
         return {
           id: generateId(),
           type: 'For',
-          variable: varName,
-          iterable,
           body,
           init,
           condition,
@@ -774,7 +770,7 @@ export class JavaParser {
     this.consume('PUNCTUATION', ')');
 
     const body = this.block();
-    return { id: generateId(), type: 'For', variable, iterable, body, init, condition, update };
+    return { id: generateId(), type: 'For', body, init, condition, update };
   }
 
   private returnStatement(): Return {

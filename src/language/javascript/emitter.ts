@@ -14,6 +14,7 @@ import type {
   MethodDeclaration,
   Block,
   For,
+  ForEach,
   Expression,
 } from '../ast';
 
@@ -327,57 +328,56 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitFor(stmt: For): void {
-    if (stmt.init && stmt.condition && stmt.update) {
-      // C-style for
-      const savedDeclared = new Set(this.declaredVars);
-      const initParts: string[] = [];
+    // C-style for
+    const savedDeclared = new Set(this.declaredVars);
+    const initParts: string[] = [];
 
-      const collectInit = (s: any) => {
-        if (s.type === 'Assignment') {
-          this.declaredVars.add(s.name);
-          initParts.push(`let ${s.name} = ${this.generateExpression(s.value, 0)}`);
-        } else if (s.type === 'ExpressionStatement') {
-          initParts.push(this.generateExpression(s.expression, 0));
-        } else if (Array.isArray(s)) {
-          s.forEach(collectInit);
+    const collectInit = (s: any) => {
+      if (s.type === 'Assignment') {
+        this.declaredVars.add(s.name);
+        initParts.push(`let ${s.name} = ${this.generateExpression(s.value, 0)}`);
+      } else if (s.type === 'ExpressionStatement') {
+        initParts.push(this.generateExpression(s.expression, 0));
+      } else if (Array.isArray(s)) {
+        s.forEach(collectInit);
+      }
+    };
+    collectInit(stmt.init);
+
+    const cond = stmt.condition ? this.generateExpression(stmt.condition, 0) : '';
+    const renderUpdate = (s: any): string => {
+      if (!s) return '';
+      if (s.type === 'ExpressionStatement') return this.generateExpression(s.expression, 0);
+      if (s.type === 'Assignment') {
+        const name = s.target?.name ?? s.name;
+        const t = s.target ? this.generateExpression(s.target, 0) : s.name;
+        const v = s.value;
+        // `j = j + 1` -> `j += 1`, because a bare assignment used as a for-update
+        // is evaluated (not executed) and would be a no-op.
+        if (
+          v?.type === 'BinaryExpression' &&
+          v.left?.type === 'Identifier' &&
+          v.left.name === name &&
+          ['+', '-', '*', '/', '%'].includes(v.operator)
+        ) {
+          return `${t} ${v.operator}= ${this.generateExpression(v.right, 0)}`;
         }
-      };
-      collectInit(stmt.init);
+        return `${t} = ${this.generateExpression(v, 0)}`;
+      }
+      return this.generateExpression(s, 0);
+    };
+    const upd = renderUpdate(stmt.update);
 
-      const cond = stmt.condition ? this.generateExpression(stmt.condition, 0) : '';
-      const renderUpdate = (s: any): string => {
-        if (!s) return '';
-        if (s.type === 'ExpressionStatement') return this.generateExpression(s.expression, 0);
-        if (s.type === 'Assignment') {
-          const name = s.target?.name ?? s.name;
-          const t = s.target ? this.generateExpression(s.target, 0) : s.name;
-          const v = s.value;
-          // `j = j + 1` -> `j += 1`, because a bare assignment used as a for-update
-          // is evaluated (not executed) and would be a no-op.
-          if (
-            v?.type === 'BinaryExpression' &&
-            v.left?.type === 'Identifier' &&
-            v.left.name === name &&
-            ['+', '-', '*', '/', '%'].includes(v.operator)
-          ) {
-            return `${t} ${v.operator}= ${this.generateExpression(v.right, 0)}`;
-          }
-          return `${t} = ${this.generateExpression(v, 0)}`;
-        }
-        return this.generateExpression(s, 0);
-      };
-      const upd = renderUpdate(stmt.update);
+    this.emit(`for (${initParts.join(', ')}; ${cond}; ${upd}) {`, stmt.id);
+    this.indent();
+    this.visitBlock(stmt.body);
+    this.dedent();
+    this.emit('}');
+    this.declaredVars = savedDeclared;
+  }
 
-      this.emit(`for (${initParts.join(', ')}; ${cond}; ${upd}) {`, stmt.id);
-      this.indent();
-      this.visitBlock(stmt.body);
-      this.dedent();
-      this.emit('}');
-      this.declaredVars = savedDeclared;
-    } else if (
-      stmt.iterable?.type === 'BinaryExpression' &&
-      (stmt.iterable as any).operator === '..'
-    ) {
+  visitForEach(stmt: ForEach): void {
+    if (stmt.iterable?.type === 'BinaryExpression' && (stmt.iterable as any).operator === '..') {
       // Praxis range: for x in start..end → regular for
       const iter = stmt.iterable as any;
       const start = this.generateExpression(iter.left, 0);
@@ -392,7 +392,7 @@ export class JavaScriptEmitter extends ASTVisitor {
       this.dedent();
       this.emit('}');
     } else {
-      // foreach: a range(...) iterable lowers to a C-style for; otherwise for-of
+      // a range(...) iterable lowers to a C-style for; otherwise for-of
       const rangeHeader = this.rangeForHeader(stmt.variable, stmt.iterable);
       this.declaredVars.add(stmt.variable);
       if (rangeHeader) {

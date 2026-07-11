@@ -15,7 +15,7 @@ import type {
   Assignment,
   Block,
   Expression,
-  For,
+  ForEach,
   FunctionDeclaration,
   If,
   Print,
@@ -152,8 +152,8 @@ class BlocksWriter {
           }
         );
 
-      case 'For':
-        return this.forStatement(stmt);
+      case 'ForEach':
+        return this.forEachStatement(stmt);
 
       case 'Break':
         return { type: 'controls_flow_statements', fields: { FLOW: 'BREAK' } };
@@ -257,13 +257,13 @@ class BlocksWriter {
     return block;
   }
 
-  private forStatement(stmt: For): BlockState {
+  private forEachStatement(stmt: ForEach): BlockState {
     const iterable = stmt.iterable;
     const isRange =
       iterable?.type === 'CallExpression' &&
       iterable.callee.type === 'Identifier' &&
       iterable.callee.name.toLowerCase() === 'range';
-    if (!isRange || stmt.init) {
+    if (!isRange) {
       throw new Error('Blocks view only supports counted loops over range(…).');
     }
 

@@ -240,7 +240,7 @@ describe('JavaScript Parser', () => {
     it('parses for-of loop', () => {
       const ast = jsParse('for (const x of nums) { console.log(x); }');
       const forNode = ast.body[0] as any;
-      expect(forNode.type).toBe('For');
+      expect(forNode.type).toBe('ForEach');
       expect(forNode.variable).toBe('x');
     });
 

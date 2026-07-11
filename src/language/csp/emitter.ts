@@ -259,21 +259,26 @@ export class CSPEmitter extends ASTVisitor {
   }
 
   visitFor(stmt: any): void {
-    if (stmt.init && stmt.condition && stmt.update) {
-      // C-style for — desugar to assignment + REPEAT UNTIL
-      this.context.symbolTable.enterScope();
-      this.visitStatement(stmt.init);
-      const inner = this.stripNot(stmt.condition);
-      const untilCond = inner ?? `NOT (${this.generateExpression(stmt.condition, 0)})`;
-      this.emit(`REPEAT UNTIL (${untilCond})`, stmt.id);
-      this.emit('{');
-      this.indent();
-      this.visitBlock(stmt.body);
-      this.visitStatement(stmt.update);
-      this.dedent();
-      this.emit('}');
-      this.context.symbolTable.exitScope();
-    } else if (stmt.iterable?.type === 'CallExpression' && stmt.iterable.callee?.name === 'range') {
+    // C-style for — desugar to assignment + REPEAT UNTIL. Any clause may be absent.
+    this.context.symbolTable.enterScope();
+    if (stmt.init) this.visitStatement(stmt.init);
+    let untilCond = 'false';
+    if (stmt.condition) {
+      untilCond =
+        this.stripNot(stmt.condition) ?? `NOT (${this.generateExpression(stmt.condition, 0)})`;
+    }
+    this.emit(`REPEAT UNTIL (${untilCond})`, stmt.id);
+    this.emit('{');
+    this.indent();
+    this.visitBlock(stmt.body);
+    if (stmt.update) this.visitStatement(stmt.update);
+    this.dedent();
+    this.emit('}');
+    this.context.symbolTable.exitScope();
+  }
+
+  visitForEach(stmt: any): void {
+    if (stmt.iterable?.type === 'CallExpression' && stmt.iterable.callee?.name === 'range') {
       const args = stmt.iterable.arguments;
       let start = '0',
         end = '0',

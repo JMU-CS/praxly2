@@ -738,7 +738,7 @@ export class PraxisParser {
       this.consume('KEYWORD', 'end');
       this.consume('KEYWORD', 'for');
 
-      return { id: generateId(), type: 'For', variable, iterable, body };
+      return { id: generateId(), type: 'ForEach', variable, iterable, body };
     }
   }
 
