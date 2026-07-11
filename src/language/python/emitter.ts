@@ -701,7 +701,7 @@ export class PythonEmitter extends ASTVisitor {
           const hasPyPrefix =
             expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"');
           const strVal = hasPyPrefix ? expr.value.substring(1) : expr.value;
-          output = `"${strVal}"`;
+          output = `"${this.escapeString(strVal)}"`;
         } else if (typeof expr.value === 'boolean') output = expr.value ? 'True' : 'False';
         else {
           // Preserve float literals like 0.0, 3.14 — raw keeps the original token text

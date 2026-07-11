@@ -85,17 +85,41 @@ export class PraxisLexer {
         continue;
       }
 
-      // Strings
+      // Strings (double-quoted) and char literals (single-quoted), with escape
+      // sequences. A char literal must resolve to exactly one character.
       if (char === '"' || char === "'") {
         const quote = char;
         const start = this.pos;
         this.pos++;
         let value = '';
         while (this.pos < this.input.length && this.input[this.pos] !== quote) {
+          const c = this.input[this.pos];
+          if (c === '\\' && this.pos + 1 < this.input.length) {
+            const next = this.input[this.pos + 1];
+            const escapes: Record<string, string> = {
+              n: '\n',
+              t: '\t',
+              r: '\r',
+              '0': '\0',
+              '\\': '\\',
+              '"': '"',
+              "'": "'",
+            };
+            value += next in escapes ? escapes[next] : next;
+            this.pos += 2;
+            continue;
+          }
           value += this.input[this.pos++];
         }
-        this.pos++;
-        tokens.push({ type: 'STRING', value, start });
+        this.pos++; // closing quote
+        if (quote === "'") {
+          if (value.length !== 1) {
+            throw new Error(`Char literal must be exactly one character: '${value}'`);
+          }
+          tokens.push({ type: 'CHAR', value, start });
+        } else {
+          tokens.push({ type: 'STRING', value, start });
+        }
         continue;
       }
 
@@ -128,16 +152,14 @@ export class PraxisLexer {
           'not',
           'true',
           'false',
-          'mod',
-          'in',
           'class',
           'extends',
           'new',
+          'super',
           'public',
           'private',
           'null',
           'procedure',
-          'function',
           'boolean',
           'char',
           'double',
@@ -182,15 +204,8 @@ export class PraxisLexer {
         ';',
         ':',
       ];
-      if (operators.includes(char) || ['←', '≠', '≥', '≤'].includes(char)) {
+      if (operators.includes(char) || ['←', '⟵', '≠', '≥', '≤'].includes(char)) {
         const start = this.pos;
-
-        // Range operator (..)
-        if (char === '.' && this.input[this.pos + 1] === '.') {
-          tokens.push({ type: 'OPERATOR', value: '..', start });
-          this.pos += 2;
-          continue;
-        }
 
         // Increment / Decrement
         if (char === '+' && this.input[this.pos + 1] === '+') {
@@ -210,11 +225,6 @@ export class PraxisLexer {
           this.pos += 2;
           continue;
         }
-        if (char === '<' && this.input[this.pos + 1] === '>') {
-          tokens.push({ type: 'OPERATOR', value: '<>', start });
-          this.pos += 2;
-          continue;
-        }
         if (['<', '>', '!', '='].includes(char) && this.input[this.pos + 1] === '=') {
           tokens.push({ type: 'OPERATOR', value: char + '=', start });
           this.pos += 2;
@@ -222,7 +232,7 @@ export class PraxisLexer {
         }
 
         // Praxis Specific Unicode Math Symbols
-        if (char === '←') {
+        if (char === '←' || char === '⟵') {
           tokens.push({ type: 'OPERATOR', value: '<-', start: this.pos++ });
           continue;
         }

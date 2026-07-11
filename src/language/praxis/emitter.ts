@@ -333,14 +333,27 @@ export class PraxisEmitter extends ASTVisitor {
     this.context.symbolTable.exitScope();
     this.dedent();
 
-    // Praxis has no `else if`; an else-if chain is written as a nested `if`
-    // inside the `else` block (each with its own `end if`). Emitting the
-    // elseBranch as an ordinary block yields exactly that nesting.
-    if (stmt.elseBranch) {
+    // An else branch that is exactly a single nested `if` is an else-if chain;
+    // emit it as `else if (...)` rather than a nested `if ... end if`.
+    const isElseIf = (b: any) =>
+      b && b.type === 'Block' && b.body.length === 1 && b.body[0].type === 'If';
+    let elseBranch = stmt.elseBranch;
+    while (isElseIf(elseBranch)) {
+      const nested = elseBranch.body[0];
+      this.emit(`else if (${this.generateExpression(nested.condition, 0)})`, nested.id);
+      this.indent();
+      this.context.symbolTable.enterScope();
+      this.visitBlock(nested.thenBranch);
+      this.context.symbolTable.exitScope();
+      this.dedent();
+      elseBranch = nested.elseBranch;
+    }
+
+    if (elseBranch) {
       this.emit('else');
       this.indent();
       this.context.symbolTable.enterScope();
-      this.visitBlock(stmt.elseBranch);
+      this.visitBlock(elseBranch);
       this.context.symbolTable.exitScope();
       this.dedent();
     }
@@ -378,9 +391,9 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitSwitch(stmt: any): void {
-    // Praxis has no switch/case; lower a (break-terminated) switch to a nested
-    // if / else { if ... } chain comparing the discriminant to each case's test.
-    // A `default` case becomes the innermost `else`.
+    // Praxis has no switch/case; lower a (break-terminated) switch to an
+    // `if / else if / ... / else` chain comparing the discriminant to each
+    // case's test. A `default` case becomes the trailing `else`.
     const disc = this.generateExpression(stmt.discriminant, 0);
     const cases: any[] = stmt.cases;
     const stripBreak = (body: any[]): any[] => body.filter((s) => s.type !== 'Break');
@@ -394,13 +407,7 @@ export class PraxisEmitter extends ASTVisitor {
 
     testable.forEach((c, i) => {
       const cond = `${disc} == ${this.generateExpression(c.test, 0)}`;
-      if (i === 0) {
-        this.emit(`if (${cond})`, stmt.id);
-      } else {
-        this.emit('else');
-        this.indent();
-        this.emit(`if (${cond})`);
-      }
+      this.emit(i === 0 ? `if (${cond})` : `else if (${cond})`, i === 0 ? stmt.id : undefined);
       this.indent();
       stripBreak(c.consequent).forEach((s) => this.visitStatement(s));
       this.dedent();
@@ -414,10 +421,6 @@ export class PraxisEmitter extends ASTVisitor {
     }
 
     this.emit('end if');
-    for (let i = 1; i < testable.length; i++) {
-      this.dedent();
-      this.emit('end if');
-    }
   }
 
   visitBreak(_stmt: any): void {
@@ -477,14 +480,23 @@ export class PraxisEmitter extends ASTVisitor {
       this.dedent();
       this.emit('end for');
     } else {
-      this.emit(`for ${stmt.variable} in ${this.generateExpression(stmt.iterable, 0)}`, stmt.id);
-      this.indent();
+      // Praxis has no for-each; lower iterating a collection/string to a C-style
+      // index loop. The source is copied into an (untyped) temp so it is only
+      // evaluated once, and the loop variable is assigned dynamically so it takes
+      // the element's type without a declaration.
+      const n = this.tempCounter++;
+      const arr = `_arr${n}`;
+      const idx = `_i${n}`;
       this.context.symbolTable.enterScope();
+      this.emit(`${arr} <- ${this.generateExpression(stmt.iterable, 0)}`, stmt.id);
+      this.emit(`for (int ${idx} <- 0; ${idx} < ${arr}.length; ${idx} <- ${idx} + 1)`);
+      this.indent();
+      this.emit(`${stmt.variable} <- ${arr}[${idx}]`);
       this.context.symbolTable.set(stmt.variable, 'var');
       this.visitBlock(stmt.body);
-      this.context.symbolTable.exitScope();
       this.dedent();
       this.emit('end for');
+      this.context.symbolTable.exitScope();
     }
   }
 
@@ -597,7 +609,12 @@ export class PraxisEmitter extends ASTVisitor {
           const hasPyPrefix =
             expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"');
           const v = hasPyPrefix ? expr.value.substring(1) : expr.value;
-          output = `"${v}"`;
+          // A single-quoted raw marks a char literal; keep the single quotes.
+          if (expr.raw?.startsWith("'")) {
+            output = `'${this.escapeString(v, "'")}'`;
+          } else {
+            output = `"${this.escapeString(v)}"`;
+          }
         } else if (typeof expr.value === 'boolean') {
           output = expr.value ? 'true' : 'false';
         } else {
@@ -678,7 +695,6 @@ export class PraxisEmitter extends ASTVisitor {
           '%': { op: '%', prec: Precedence.Multiplicative },
           '**': { op: '^', prec: Precedence.Exponential },
           '^': { op: '^', prec: Precedence.Exponential },
-          '..': { op: '..', prec: Precedence.Relational },
         };
         const od = opMap[expr.operator] ?? { op: expr.operator, prec: 0 };
         currentPrecedence = od.prec;
@@ -738,6 +754,12 @@ export class PraxisEmitter extends ASTVisitor {
           break;
         }
         const argsStr = expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ');
+        // Praxis's string-conversion built-in is `str()`; `String`/`STRING` (the
+        // type keyword) is not callable, so remap conversion calls onto `str`.
+        if (calleeStr === 'String' || calleeStr === 'STRING') {
+          output = `str(${argsStr})`;
+          break;
+        }
         // A bare call to a class name (e.g. Python's `Animal("Rex")`) is an
         // instantiation; Praxis requires the explicit `new`.
         output = this.classConstructorName(expr)
