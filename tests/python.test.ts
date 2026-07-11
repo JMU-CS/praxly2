@@ -861,6 +861,27 @@ describe('Python Bug Fixes', () => {
     });
   });
 
+  describe('Chained Assignment', () => {
+    const run = (source: string): string[] =>
+      new Interpreter().interpret(
+        new PythonParser(new PythonLexer(source).tokenize()).parse(),
+        source
+      );
+
+    it('assigns a chained value to every new target', () => {
+      expect(run('x = y = z = 7\nprint(x)\nprint(y)\nprint(z)')).toEqual(['7', '7', '7']);
+    });
+
+    it('evaluates the right-hand side only once', () => {
+      const src = `def f(n):
+  return n + 1
+a = b = f(10)
+print(a)
+print(b)`;
+      expect(run(src)).toEqual(['11', '11']);
+    });
+  });
+
   describe('Java Collection Mutability Inference', () => {
     it('should emit Java arrays when a Python list is never appended', () => {
       const source = `nums = [1, 2, 3]
