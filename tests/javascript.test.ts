@@ -17,6 +17,7 @@ import { CSPLexer } from '../src/language/csp/lexer';
 import { CSPParser } from '../src/language/csp/parser';
 import { PraxisLexer } from '../src/language/praxis/lexer';
 import { PraxisParser } from '../src/language/praxis/parser';
+import { Interpreter } from '../src/language/interpreter';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -337,6 +338,20 @@ describe('JavaScript Parser', () => {
       const ast = jsParse('class Dog extends Animal { bark() { console.log("woof"); } }');
       const cls = ast.body[0] as any;
       expect(cls.superClass?.name).toBe('Animal');
+    });
+  });
+
+  describe('Chained assignment', () => {
+    const run = (src: string): string[] =>
+      new Interpreter().interpret(new JavaScriptParser(jsLex(src)).parse(), src);
+
+    it('runs a chain that reassigns existing variables', () => {
+      const src = 'let i;\nlet j;\ni = j = 5;\nconsole.log(i);\nconsole.log(j);';
+      expect(run(src)).toEqual(['5', '5']);
+    });
+
+    it('runs a chain that introduces new variables', () => {
+      expect(run('i = j = 9;\nconsole.log(i);\nconsole.log(j);')).toEqual(['9', '9']);
     });
   });
 });

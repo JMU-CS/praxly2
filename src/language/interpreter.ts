@@ -1546,7 +1546,11 @@ export class Interpreter {
         const idx = this.evaluate(target.index, env);
         obj[idx] = value;
       } else {
-        env.assign(target.name, value);
+        // Mirror the statement-position Identifier branch: define-if-new (and
+        // instance-field aware) rather than plain `env.assign`, so a chained
+        // `x = y = z = v` can introduce brand-new inner targets (y, z) instead
+        // of throwing "Undefined variable".
+        this.assignBareName(env, target.name, value, undefined, a.loc?.start);
       }
       return value;
     }
