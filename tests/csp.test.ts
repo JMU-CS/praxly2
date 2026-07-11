@@ -4,6 +4,7 @@ import { CSPParser } from '../src/language/csp/parser';
 import { CSPEmitter } from '../src/language/csp/emitter';
 import { Translator } from '../src/language/translator';
 import { SymbolTable } from '../src/language/visitor';
+import { Interpreter } from '../src/language/interpreter';
 import { Lexer as PythonLexer } from '../src/language/python/lexer';
 import { Parser as PythonParser } from '../src/language/python/parser';
 
@@ -392,6 +393,32 @@ describe('CSP Translation', () => {
       const translator = new Translator();
       const result = translator.translate(program, 'csp');
       expect(result).toContain('IF');
+    });
+
+    it('emits ELSE IF chains and does not absorb a trailing statement', () => {
+      const source = `score <- 82
+IF (score >= 90)
+{
+  DISPLAY("A")
+}
+ELSE IF (score >= 80)
+{
+  DISPLAY("B")
+}
+ELSE
+{
+  DISPLAY("C")
+}
+DISPLAY("after")`;
+      const program = new CSPParser(new CSPLexer(source).tokenize()).parse();
+      const result = new Translator().translate(program, 'csp');
+      expect(result).toContain('ELSE IF (score ≥ 80)');
+      // The nested ELSE IF must not swallow the statement after the chain.
+      const out = new Interpreter().interpret(
+        new CSPParser(new CSPLexer(source).tokenize()).parse(),
+        source
+      );
+      expect(out).toEqual(['B', 'after']);
     });
 
     it('should translate repeat until loop', () => {

@@ -184,7 +184,15 @@ export class CSPParser {
     const thenBranch = this.block();
     let elseBranch: Block | undefined = undefined;
     if (this.match('KEYWORD', 'ELSE')) {
-      elseBranch = this.block();
+      // `ELSE IF (...)` is a chain: parse the nested IF as a single statement so
+      // it (and its own else chain) is captured, rather than letting the
+      // brace-optional block() run past it. A plain `ELSE { ... }` uses block().
+      if (this.check('KEYWORD', 'IF')) {
+        const nested = this.ifStatement();
+        elseBranch = { id: generateId(), type: 'Block', body: [nested] };
+      } else {
+        elseBranch = this.block();
+      }
     }
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
   }

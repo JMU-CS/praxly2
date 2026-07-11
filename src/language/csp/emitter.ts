@@ -1,11 +1,11 @@
 /**
  * CSP Language Emitter
  * Converts AST nodes into CSP (AP pseudocode) output.
- * Handles CSP-specific syntax: PROCEDURE, DISPLAY, FOR EACH / FOR FROM TO,
- * REPEAT n TIMES, REPEAT UNTIL, and brace-delimited blocks.
+ * Handles CSP-specific syntax: PROCEDURE, DISPLAY, FOR EACH, REPEAT UNTIL,
+ * and brace-delimited blocks.
  *
  * Key dialect rules enforced here:
- *  - No ELSE IF chain — nested IF inside ELSE block instead (per spec)
+ *  - IF / ELSE IF / ELSE chains (single nested-IF else branch -> ELSE IF)
  *  - Assignment arrow is <- (spec uses ←, both accepted on input)
  *  - Equality operator is = (not ==)
  *  - Not-equal is ≠, but <> is also emitted for ASCII compatibility
@@ -109,12 +109,27 @@ export class CSPEmitter extends ASTVisitor {
     this.dedent();
     this.emit('}');
 
-    if (stmt.elseBranch) {
+    // An else branch that is exactly one nested IF is an ELSE IF chain
+    // (specs/csp.md documents ELSE IF; braces disambiguate).
+    const isElseIf = (b: any) =>
+      b && b.type === 'Block' && b.body.length === 1 && b.body[0].type === 'If';
+    let elseBranch = stmt.elseBranch;
+    while (isElseIf(elseBranch)) {
+      const nested = elseBranch.body[0];
+      this.emit(`ELSE IF (${this.generateExpression(nested.condition, 0)})`, nested.id);
+      this.emit('{');
+      this.indent();
+      this.visitBlock(nested.thenBranch);
+      this.dedent();
+      this.emit('}');
+      elseBranch = nested.elseBranch;
+    }
+
+    if (elseBranch) {
       this.emit('ELSE');
       this.emit('{');
       this.indent();
-      // Nested IFs inside ELSE blocks are emitted naturally — no ELSE IF per spec
-      this.visitBlock(stmt.elseBranch);
+      this.visitBlock(elseBranch);
       this.dedent();
       this.emit('}');
     }
