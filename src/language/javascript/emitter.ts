@@ -652,7 +652,7 @@ export class JavaScriptEmitter extends ASTVisitor {
           : base === 'boolean'
             ? 'false'
             : 'null';
-        out = `new Array(${this.generateExpression(ac.size, 0)}).fill(${def})`;
+        out = `Array(${this.generateExpression(ac.size, 0)}).fill(${def})`;
         break;
       }
 
