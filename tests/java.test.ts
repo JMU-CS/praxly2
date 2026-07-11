@@ -718,3 +718,44 @@ flags ^= 7;`;
     });
   });
 });
+
+describe('Java braceless control-flow bodies', () => {
+  const runJava = (src: string): string[] =>
+    new Interpreter().interpret(new JavaParser(new JavaLexer(src).tokenize()).parse(), src);
+  const parseJava = (src: string) => new JavaParser(new JavaLexer(src).tokenize()).parse();
+
+  it('braceless if does not swallow the following statement (condition false)', () => {
+    // Regression: `block()` used to read to EOF when no `{` was present, absorbing
+    // the trailing println into the if-body so it was skipped when the guard failed.
+    expect(runJava('int x = -1; if (x > 0) x = 5; System.out.println(x);')).toEqual(['-1']);
+  });
+
+  it('braceless if runs its body and the sibling (condition true)', () => {
+    expect(runJava('int x = 1; if (x > 0) x = 5; System.out.println(x);')).toEqual(['5']);
+  });
+
+  it('parses a braceless if body as exactly one statement', () => {
+    const program = parseJava('int x = 1; if (x > 0) x = 5; System.out.println(x);');
+    // Statements: the declaration, the if, and the println as a sibling (not absorbed).
+    expect(program.body.map((s: any) => s.type)).toEqual(['Assignment', 'If', 'Print']);
+    const ifStmt = program.body[1] as any;
+    expect(ifStmt.thenBranch.body).toHaveLength(1);
+    expect(ifStmt.thenBranch.body[0].type).toBe('Assignment');
+  });
+
+  it('braceless if/else picks the right branch and keeps the sibling', () => {
+    const src =
+      'int x = -1; if (x > 0) System.out.println("pos"); else System.out.println("neg"); System.out.println("after");';
+    expect(runJava(src)).toEqual(['neg', 'after']);
+  });
+
+  it('braceless while body does not swallow the following statement', () => {
+    expect(runJava('int i = 0; while (i < 3) i++; System.out.println(i);')).toEqual(['3']);
+  });
+
+  it('braceless for body does not swallow the following statement', () => {
+    expect(
+      runJava('int s = 0; for (int i = 0; i < 3; i++) s += i; System.out.println(s);')
+    ).toEqual(['3']);
+  });
+});
