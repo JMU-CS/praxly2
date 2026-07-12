@@ -85,6 +85,38 @@ export class JavaLexer {
         continue;
       }
 
+      // Char literal: a single character in single quotes, with escape handling.
+      if (char === "'") {
+        const start = this.pos;
+        this.pos++;
+        let value = '';
+        while (this.pos < this.input.length && this.input[this.pos] !== "'") {
+          const c = this.input[this.pos];
+          if (c === '\\' && this.pos + 1 < this.input.length) {
+            const next = this.input[this.pos + 1];
+            const escapes: Record<string, string> = {
+              n: '\n',
+              t: '\t',
+              r: '\r',
+              '0': '\0',
+              '\\': '\\',
+              '"': '"',
+              "'": "'",
+            };
+            value += next in escapes ? escapes[next] : next;
+            this.pos += 2;
+            continue;
+          }
+          value += this.input[this.pos++];
+        }
+        this.pos++; // closing quote
+        if (value.length !== 1) {
+          throw new Error(`Char literal must be exactly one character: '${value}'`);
+        }
+        tokens.push({ type: 'CHAR', value, start });
+        continue;
+      }
+
       if (/[a-zA-Z_]/.test(char)) {
         const start = this.pos;
         let value = '';
@@ -116,11 +148,6 @@ export class JavaLexer {
           'this',
           'null',
           'final',
-          'abstract',
-          'interface',
-          'implements',
-          'package',
-          'import',
           'String',
           'char',
           'float',
@@ -140,10 +167,9 @@ export class JavaLexer {
         continue;
       }
 
-      if (['+', '-', '*', '/', '=', '>', '<', '!', '&', '|', '%', '^', '~'].includes(char)) {
+      if (['+', '-', '*', '/', '=', '>', '<', '!', '&', '|', '%'].includes(char)) {
         const start = this.pos;
         const next = this.input[this.pos + 1];
-        const next2 = this.input[this.pos + 2];
         if (char === '=' && next === '=') {
           tokens.push({ type: 'OPERATOR', value: '==', start });
           this.pos += 2;
@@ -159,53 +185,8 @@ export class JavaLexer {
           this.pos += 2;
           continue;
         }
-        if (char === '&' && next === '=') {
-          tokens.push({ type: 'OPERATOR', value: '&=', start });
-          this.pos += 2;
-          continue;
-        }
         if (char === '|' && next === '|') {
           tokens.push({ type: 'OPERATOR', value: '||', start });
-          this.pos += 2;
-          continue;
-        }
-        if (char === '|' && next === '=') {
-          tokens.push({ type: 'OPERATOR', value: '|=', start });
-          this.pos += 2;
-          continue;
-        }
-        if (char === '^' && next === '=') {
-          tokens.push({ type: 'OPERATOR', value: '^=', start });
-          this.pos += 2;
-          continue;
-        }
-        if (char === '<' && next === '<') {
-          if (next2 === '=') {
-            tokens.push({ type: 'OPERATOR', value: '<<=', start });
-            this.pos += 3;
-            continue;
-          }
-          tokens.push({ type: 'OPERATOR', value: '<<', start });
-          this.pos += 2;
-          continue;
-        }
-        if (char === '>' && next === '>') {
-          if (next2 === '>') {
-            if (this.input[this.pos + 3] === '=') {
-              tokens.push({ type: 'OPERATOR', value: '>>>=', start });
-              this.pos += 4;
-              continue;
-            }
-            tokens.push({ type: 'OPERATOR', value: '>>>', start });
-            this.pos += 3;
-            continue;
-          }
-          if (next2 === '=') {
-            tokens.push({ type: 'OPERATOR', value: '>>=', start });
-            this.pos += 3;
-            continue;
-          }
-          tokens.push({ type: 'OPERATOR', value: '>>', start });
           this.pos += 2;
           continue;
         }
@@ -236,11 +217,6 @@ export class JavaLexer {
         }
         if (char === '-' && next === '=') {
           tokens.push({ type: 'OPERATOR', value: '-=', start });
-          this.pos += 2;
-          continue;
-        }
-        if (char === '*' && next === '*') {
-          tokens.push({ type: 'OPERATOR', value: '**', start });
           this.pos += 2;
           continue;
         }

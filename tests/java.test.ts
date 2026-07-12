@@ -6,6 +6,8 @@ import { Translator } from '../src/language/translator';
 import { SymbolTable } from '../src/language/visitor';
 import { Lexer as PythonLexer } from '../src/language/python/lexer';
 import { Parser as PythonParser } from '../src/language/python/parser';
+import { PraxisLexer } from '../src/language/praxis/lexer';
+import { PraxisParser } from '../src/language/praxis/parser';
 import { Interpreter } from '../src/language/interpreter';
 
 describe('Java Lexer', () => {
@@ -508,15 +510,11 @@ public class Main {
       expect(result).toContain('default');
     });
 
-    it('should translate bitwise XOR operation', () => {
-      const source = `int result = a ^ b;`;
-      const lexer = new JavaLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new JavaParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'java');
-      expect(result).toContain('^');
+    it('parses and re-emits a char literal', () => {
+      const source = `char grade = 'A';`;
+      const program = new JavaParser(new JavaLexer(source).tokenize()).parse();
+      const result = new Translator().translate(program, 'java');
+      expect(result).toContain("char grade = 'A'");
     });
 
     it('should translate other compound assignment operators', () => {
@@ -617,17 +615,6 @@ if (a != b) {
       expect(javaResult).toContain('.equals(');
     });
 
-    it('should handle bitwise XOR operator', () => {
-      const source = `int result = a ^ b;`;
-      const lexer = new JavaLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new JavaParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'java');
-      expect(result).toContain('^');
-    });
-
     it('should support ternary operators', () => {
       const source = `int max = a > b ? a : b;`;
       const lexer = new JavaLexer(source);
@@ -704,17 +691,12 @@ x /= 4;`;
       expect(result).toContain('/=');
     });
 
-    it('should translate XOR assignment operator', () => {
-      const source = `int flags = 15;
-flags ^= 7;`;
-      const lexer = new JavaLexer(source);
-      const tokens = lexer.tokenize();
-      const parser = new JavaParser(tokens);
-      const program = parser.parse();
-      const translator = new Translator();
-      const result = translator.translate(program, 'java');
-      expect(result).toContain('flags');
-      expect(result).toContain('^=');
+    it('emits exponentiation as Math.pow, never a bare ^', () => {
+      // Praxis `2 ^ 10` (interpreter treats ^ as power) must become Math.pow in Java.
+      const program = new PraxisParser(new PraxisLexer('int x <- 2 ^ 10').tokenize()).parse();
+      const result = new Translator().translate(program, 'java');
+      expect(result).toContain('Math.pow(2, 10)');
+      expect(result).not.toContain(' ^ ');
     });
   });
 });

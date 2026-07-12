@@ -1053,7 +1053,9 @@ export class JavaEmitter extends ASTVisitor {
           const hasPyPrefix =
             expr.raw?.startsWith('f"') || expr.raw?.startsWith('r"') || expr.raw?.startsWith('b"');
           const strVal = hasPyPrefix ? expr.value.substring(1) : expr.value;
-          output = `"${this.escapeString(strVal)}"`;
+          // A single-quoted raw marks a char literal; keep the single quotes.
+          if (expr.raw?.startsWith("'")) output = `'${this.escapeString(strVal, "'")}'`;
+          else output = `"${this.escapeString(strVal)}"`;
         } else if (typeof expr.value === 'boolean') output = expr.value.toString();
         else output = String(expr.value);
         break;
@@ -1112,8 +1114,10 @@ export class JavaEmitter extends ASTVisitor {
         output = `${this.generateExpression(expr.object, currentPrecedence)}.${expr.property.name}`;
         break;
       case 'BinaryExpression':
-        // Handle power operator as special case using Math.pow()
-        if (expr.operator === '**') {
+        // Exponentiation (`**` from Python/JS, `^` from Praxis — the interpreter
+        // treats `^` as power, never bitwise XOR) → Math.pow. Java has no `^`
+        // exponent operator, so never emit a bare `^`.
+        if (expr.operator === '**' || expr.operator === '^') {
           currentPrecedence = Precedence.Exponential;
           const base = this.generateExpression(expr.left, currentPrecedence);
           const exponent = this.generateExpression(expr.right, currentPrecedence);
@@ -1140,13 +1144,6 @@ export class JavaEmitter extends ASTVisitor {
           '*': { op: '*', prec: Precedence.Multiplicative },
           '/': { op: '/', prec: Precedence.Multiplicative },
           '%': { op: '%', prec: Precedence.Multiplicative },
-          // Bitwise operators
-          '&': { op: '&', prec: Precedence.BitwiseAnd },
-          '|': { op: '|', prec: Precedence.BitwiseOr },
-          '^': { op: '^', prec: Precedence.Xor },
-          '<<': { op: '<<', prec: Precedence.Shift },
-          '>>': { op: '>>', prec: Precedence.Shift },
-          '>>>': { op: '>>>', prec: Precedence.Shift },
           // Other operators
           '..': { op: '..', prec: Precedence.Relational },
         };

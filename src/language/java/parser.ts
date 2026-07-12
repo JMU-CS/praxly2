@@ -800,23 +800,7 @@ export class JavaParser {
   private assignment(): Expression {
     let left = this.ternary();
 
-    if (
-      this.check(
-        'OPERATOR',
-        '=',
-        '+=',
-        '-=',
-        '*=',
-        '/=',
-        '%=',
-        '&=',
-        '|=',
-        '^=',
-        '<<=',
-        '>>=',
-        '>>>='
-      )
-    ) {
+    if (this.check('OPERATOR', '=', '+=', '-=', '*=', '/=', '%=')) {
       const operator = this.peek().value;
       this.advance();
       const right = this.assignment(); // Right-associative
@@ -852,24 +836,6 @@ export class JavaParser {
           break;
         case '%=':
           binaryOp = '%';
-          break;
-        case '&=':
-          binaryOp = '&';
-          break;
-        case '|=':
-          binaryOp = '|';
-          break;
-        case '^=':
-          binaryOp = '^';
-          break;
-        case '<<=':
-          binaryOp = '<<';
-          break;
-        case '>>=':
-          binaryOp = '>>';
-          break;
-        case '>>>=':
-          binaryOp = '>>>';
           break;
       }
 
@@ -923,54 +889,17 @@ export class JavaParser {
   }
 
   private logicAnd(): Expression {
-    let left = this.bitwiseOr();
+    let left = this.equality();
     while (this.match('OPERATOR', '&&')) {
-      const right = this.bitwiseOr();
+      const right = this.equality();
       left = { id: generateId(), type: 'BinaryExpression', left, operator: 'and', right };
     }
     return left;
   }
 
-  private bitwiseOr(): Expression {
-    let left = this.bitwiseXor();
-    while (this.match('OPERATOR', '|')) {
-      const right = this.bitwiseXor();
-      left = { id: generateId(), type: 'BinaryExpression', left, operator: '|', right };
-    }
-    return left;
-  }
-
-  private bitwiseXor(): Expression {
-    let left = this.bitwiseAnd();
-    while (this.match('OPERATOR', '^')) {
-      const right = this.bitwiseAnd();
-      left = { id: generateId(), type: 'BinaryExpression', left, operator: '^', right };
-    }
-    return left;
-  }
-
-  private bitwiseAnd(): Expression {
-    let left = this.equality();
-    while (this.match('OPERATOR', '&')) {
-      const right = this.equality();
-      left = { id: generateId(), type: 'BinaryExpression', left, operator: '&', right };
-    }
-    return left;
-  }
-
   private equality(): Expression {
-    let left = this.shift();
-    while (this.match('OPERATOR', '==', '!=')) {
-      const operator = this.previous().value;
-      const right = this.shift();
-      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
-    }
-    return left;
-  }
-
-  private shift(): Expression {
     let left = this.comparison();
-    while (this.match('OPERATOR', '<<', '>>', '>>>')) {
+    while (this.match('OPERATOR', '==', '!=')) {
       const operator = this.previous().value;
       const right = this.comparison();
       left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
@@ -999,18 +928,8 @@ export class JavaParser {
   }
 
   private factor(): Expression {
-    let left = this.exponent();
-    while (this.match('OPERATOR', '*', '/', '%')) {
-      const operator = this.previous().value;
-      const right = this.exponent();
-      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
-    }
-    return left;
-  }
-
-  private exponent(): Expression {
     let left = this.unary();
-    while (this.match('OPERATOR', '**')) {
+    while (this.match('OPERATOR', '*', '/', '%')) {
       const operator = this.previous().value;
       const right = this.unary();
       left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
@@ -1025,7 +944,7 @@ export class JavaParser {
       const argument = this.unary();
       return { id: generateId(), type: 'UpdateExpression', operator, argument, prefix: true };
     }
-    if (this.match('OPERATOR', '!', '-', '~')) {
+    if (this.match('OPERATOR', '!', '-')) {
       let operator = this.previous().value;
       if (operator === '!') operator = 'not';
       const right = this.unary();
@@ -1186,6 +1105,14 @@ export class JavaParser {
         type: 'Literal',
         value: this.previous().value,
         raw: `"${this.previous().value}"`,
+      };
+    // Char literal: single-quoted, kept distinct via a single-quote raw.
+    if (this.match('CHAR'))
+      return {
+        id: generateId(),
+        type: 'Literal',
+        value: this.previous().value,
+        raw: `'${this.previous().value}'`,
       };
     if (this.match('BOOLEAN'))
       return {
