@@ -175,8 +175,6 @@ export class JavaScriptParser {
     const params: Parameter[] = [];
     if (!this.check('PUNCTUATION', ')')) {
       do {
-        // skip destructuring or rest params gracefully
-        this.match('OPERATOR', '...');
         const paramName = this.check('IDENTIFIER') ? this.consume('IDENTIFIER').value : '_';
         params.push({
           id: generateId(),
@@ -227,7 +225,6 @@ export class JavaScriptParser {
     if (this.check('KEYWORD', 'continue')) return this.withLoc(this.continueStatement(), si);
     if (this.check('KEYWORD', 'return')) return this.withLoc(this.returnStatement(), si);
     if (this.check('KEYWORD', 'try')) return this.withLoc(this.tryStatement(), si);
-    if (this.check('KEYWORD', 'throw')) return this.withLoc(this.throwStatement(), si);
     if (this.check('KEYWORD', 'function')) return this.functionDeclaration();
     if (this.check('KEYWORD', 'class')) return this.classDeclaration();
 
@@ -255,6 +252,36 @@ export class JavaScriptParser {
         return this.withLoc({ id: generateId(), type: 'Print', expressions: args }, si);
       }
       // Not console.log — rewind and fall through
+      this.current = saved;
+    }
+
+    // process.stdout.write(...) → Print with no trailing newline.
+    if (this.check('IDENTIFIER', 'process') && this.checkNext('PUNCTUATION', '.')) {
+      const saved = this.current;
+      this.advance(); // process
+      this.advance(); // .
+      if (
+        this.check('IDENTIFIER', 'stdout') &&
+        this.checkNext('PUNCTUATION', '.') &&
+        this.tokens[this.current + 2]?.value === 'write'
+      ) {
+        this.advance(); // stdout
+        this.advance(); // .
+        this.advance(); // write
+        this.consume('PUNCTUATION', '(');
+        const args: Expression[] = [];
+        if (!this.check('PUNCTUATION', ')')) {
+          do {
+            args.push(this.expression());
+          } while (this.match('PUNCTUATION', ','));
+        }
+        this.consume('PUNCTUATION', ')');
+        this.match('PUNCTUATION', ';');
+        return this.withLoc(
+          { id: generateId(), type: 'Print', expressions: args, appendLineFeed: false } as any,
+          si
+        );
+      }
       this.current = saved;
     }
 
@@ -345,10 +372,32 @@ export class JavaScriptParser {
       this.advance(); // consume let/const/var
       if (this.check('IDENTIFIER')) {
         const varName = this.consume('IDENTIFIER').value;
-        if (this.match('KEYWORD', 'of', 'in')) {
+        if (this.match('KEYWORD', 'of')) {
           const iterable = this.expression();
           this.consume('PUNCTUATION', ')');
           const body = this.blockOrStatement();
+          return { id: generateId(), type: 'ForEach', variable: varName, iterable, body };
+        }
+        if (this.match('KEYWORD', 'in')) {
+          // for...in iterates indices; lower to `for v in range(target.length)`,
+          // reusing the shared range()->index-loop path in every emitter.
+          const target = this.expression();
+          this.consume('PUNCTUATION', ')');
+          const body = this.blockOrStatement();
+          const iterable: Expression = {
+            id: generateId(),
+            type: 'CallExpression',
+            callee: { id: generateId(), type: 'Identifier', name: 'range' },
+            arguments: [
+              {
+                id: generateId(),
+                type: 'MemberExpression',
+                object: target,
+                property: { id: generateId(), type: 'Identifier', name: 'length' },
+                isMethod: false,
+              },
+            ],
+          } as any;
           return { id: generateId(), type: 'ForEach', variable: varName, iterable, body };
         }
         // C-style: for (let i = 0; ...)
@@ -497,14 +546,6 @@ export class JavaScriptParser {
     return { id: generateId(), type: 'Try', body, handlers, finallyBlock };
   }
 
-  private throwStatement(): Statement {
-    this.consume('KEYWORD', 'throw');
-    const value = this.expression();
-    this.match('PUNCTUATION', ';');
-    // Represent as an expression statement wrapping a call to throw-like function
-    return { id: generateId(), type: 'ExpressionStatement', expression: value };
-  }
-
   // ── Expressions (Pratt-style) ─────────────────────────────────────────────
 
   private expression(): Expression {
@@ -569,7 +610,7 @@ export class JavaScriptParser {
 
   private logicOr(): Expression {
     let left = this.logicAnd();
-    while (this.match('OPERATOR', '||', '??')) {
+    while (this.match('OPERATOR', '||')) {
       const right = this.logicAnd();
       left = { id: generateId(), type: 'BinaryExpression', left, operator: 'or', right };
     }
@@ -679,10 +720,6 @@ export class JavaScriptParser {
         className,
         arguments: args,
       } as any;
-    }
-    if (this.match('KEYWORD', 'typeof')) {
-      const arg = this.unary();
-      return { id: generateId(), type: 'UnaryExpression', operator: 'typeof', argument: arg };
     }
     return this.postfix();
   }

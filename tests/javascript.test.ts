@@ -74,9 +74,10 @@ describe('JavaScript Lexer', () => {
       expect(toks).toContainEqual(expect.objectContaining({ type: 'STRING', value: 'world' }));
     });
 
-    it('tokenises template literals as strings', () => {
+    it('does not support template literals (backticks)', () => {
+      // Backticks are unsupported; they don't produce a STRING token.
       const toks = jsLex('`hi`');
-      expect(toks).toContainEqual(expect.objectContaining({ type: 'STRING', value: 'hi' }));
+      expect(toks.some((t) => t.type === 'STRING')).toBe(false);
     });
 
     it('tokenises boolean literals', () => {
@@ -252,6 +253,22 @@ describe('JavaScript Parser', () => {
       const forNode = ast.body[0] as any;
       expect(forNode.type).toBe('ForEach');
       expect(forNode.variable).toBe('x');
+    });
+
+    it('lowers for-in to index iteration over range(x.length)', () => {
+      const ast = jsParse('for (let i in nums) { console.log(i); }');
+      const forNode = ast.body[0] as any;
+      expect(forNode.type).toBe('ForEach');
+      expect(forNode.iterable.type).toBe('CallExpression');
+      expect(forNode.iterable.callee.name).toBe('range');
+      expect(forNode.iterable.arguments[0].type).toBe('MemberExpression');
+    });
+
+    it('parses process.stdout.write as a no-newline Print', () => {
+      const ast = jsParse('process.stdout.write("x");');
+      const node = ast.body[0] as any;
+      expect(node.type).toBe('Print');
+      expect(node.appendLineFeed).toBe(false);
     });
 
     it('parses switch statement', () => {

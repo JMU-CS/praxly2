@@ -32,7 +32,6 @@ const JS_KEYWORDS = new Set([
   'try',
   'catch',
   'finally',
-  'throw',
   'true',
   'false',
   'null',
@@ -40,15 +39,6 @@ const JS_KEYWORDS = new Set([
   'this',
   'super',
   'static',
-  'import',
-  'export',
-  'from',
-  'typeof',
-  'instanceof',
-  'void',
-  'delete',
-  'async',
-  'await',
 ]);
 
 export class JavaScriptLexer {
@@ -179,22 +169,8 @@ export class JavaScriptLexer {
         continue;
       }
 
-      // Template literals — treat as plain string (no interpolation)
-      if (char === '`') {
-        const start = this.pos++;
-        let value = '';
-        while (this.pos < this.input.length && this.input[this.pos] !== '`') {
-          if (this.input[this.pos] === '\\') {
-            this.pos++;
-            value += this.input[this.pos++];
-          } else {
-            value += this.input[this.pos++];
-          }
-        }
-        this.pos++; // closing `
-        tokens.push({ type: 'STRING', value, start });
-        continue;
-      }
+      // Template literals (backticks) are not supported: interpolation doesn't
+      // translate, so use "..." strings with `+` concatenation instead.
 
       // Identifiers and keywords
       if (/[a-zA-Z_$]/.test(char)) {
@@ -224,7 +200,6 @@ export class JavaScriptLexer {
         '**',
         '||',
         '&&',
-        '??',
         '++',
         '--',
         '+=',
@@ -238,7 +213,6 @@ export class JavaScriptLexer {
         '<<',
         '>>',
         '>>>',
-        '=>',
         '<=',
         '>=',
         '==',
