@@ -351,13 +351,23 @@ export abstract class ASTVisitor {
           return objType.slice('ArrayList<'.length, -1);
         }
         return 'var';
-      case 'CallExpression':
-        const calleeName = (expr.callee as any).name;
+      case 'CallExpression': {
+        const callee = expr.callee as any;
+        if (callee.type === 'MemberExpression') {
+          const m = callee.property?.name;
+          if (m === 'split') return 'String[]';
+          if (m === 'substring' || m === 'toUpperCase' || m === 'toLowerCase' || m === 'charAt')
+            return 'String';
+          if (m === 'indexOf' || m === 'length' || m === 'size' || m === 'compareTo') return 'int';
+          if (m === 'contains' || m === 'equals') return 'boolean';
+        }
+        const calleeName = callee.name;
         if (calleeName === 'range') return 'int[]';
         if (calleeName === 'input' || calleeName === 'INPUT') return 'String';
         if (calleeName && this.context.functionReturnTypes.has(calleeName))
           return this.context.functionReturnTypes.get(calleeName)!;
         return 'var';
+      }
       case 'ArrayLiteral':
         if (expr.elements && expr.elements.length > 0) {
           return this.inferType(expr.elements[0]) + '[]';

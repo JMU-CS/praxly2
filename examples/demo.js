@@ -22,6 +22,11 @@ let active = true;
 let nothing = null;
 console.log(count, pi, title, active, nothing);
 
+// ---- Bare declaration (declaredWithoutInitializer) then assign -------------
+let later;
+later = 100;
+console.log(later);                     // 100
+
 // ---- BinaryExpression: arithmetic (JS division is float) + ** --------------
 let a = 17;
 let b = 5;
@@ -50,7 +55,10 @@ console.log(bigger);                    // 17
 
 // ---- Supported String methods + conversions --------------------------------
 let s = "Hello";
-console.log(s.length, s.toUpperCase(), s.substring(1, 3), s.charAt(0));  // 5 HELLO el H
+console.log(s.length, s.toUpperCase(), s.toLowerCase(), s.substring(1, 3), s.charAt(0)); // 5 HELLO hello el H
+console.log(s.indexOf("ll"), s.indexOf("l") >= 0);      // 2 true  (indexOf as "contains")
+let parts = "a,b,c".split(",");                         // split
+console.log(parts.length, parts[1]);                    // 3 b
 console.log(parseInt("42"), String(7), parseFloat("1.5"));               // 42 7 1.5
 
 
@@ -94,10 +102,17 @@ for (const ch of "hi") {
     console.log("char " + ch);          // char h / char i
 }
 
-// ---- IndexExpression write + array method (.push) + .length ----------------
+// ---- For (for-in over indices) ---------------------------------------------
+for (let idx in nums) {
+    console.log("idx " + idx);          // idx 0 / idx 1 / idx 2
+}
+
+// ---- IndexExpression write + array methods (.push / .pop) + .length --------
 nums[0] = 99;
 nums.push(40);
 console.log(nums[0], nums.length);   // 99 4
+nums.pop();
+console.log(nums.length);            // 3
 
 // ---- Try / ExceptionHandler / finally --------------------------------------
 // Reading an undefined name throws; the catch clause handles it (binding the
@@ -166,6 +181,16 @@ console.log("fib", fib(7));             // fib 13
 
 // ========================== CLASSES ========================================
 
+// ---- Class fields (FieldDeclaration) + static field + method ---------------
+class Counter {
+    n = 0;                            // instance FieldDeclaration with initializer
+    static total = 0;                 // static FieldDeclaration
+    bump() {
+        this.n = this.n + 1;
+        return this.n;
+    }
+}
+
 // ---- ClassDeclaration / Constructor / MethodDeclaration / this / super -----
 class Animal {
     constructor(name) {
@@ -187,6 +212,10 @@ class Dog extends Animal {
 }
 
 // ---- Objects: new (NewExpression) + methods + this + extends + super -------
+let c = new Counter();
+console.log(c.bump(), c.bump());        // 1 2
+console.log(c.n, c.total);              // 2 0  (instance field + static via instance)
+
 let d = new Dog("Fido");
 console.log(d.speak());                 // woof (Dog's own method)
 console.log(d.describe());              // Fido the animal (inherited + super)

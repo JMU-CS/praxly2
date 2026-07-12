@@ -271,6 +271,21 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitAssignment(stmt: any): void {
+    // Bare declaration (`int x;` / JS `let x;`): emit a typed default declaration
+    // when the type is known; for an untyped (auto) one, defer to the first real
+    // assignment rather than rendering the placeholder value (e.g. JS `undefined`).
+    if (stmt.declaredWithoutInitializer) {
+      const declName = lvalueName(stmt);
+      const declType =
+        stmt.varType && stmt.varType !== 'auto' && stmt.varType !== 'var' ? stmt.varType : '';
+      if (declName && declType) {
+        this.emit(`${declType} ${declName}`, stmt.id);
+        this.context.symbolTable.set(declName, declType);
+      } else if (declName) {
+        this.emit(`// ${declName} declared without initializer`, stmt.id);
+      }
+      return;
+    }
     if (stmt.target?.type === 'ArrayLiteral') {
       const targets = stmt.target.elements;
       if (stmt.value?.type === 'ArrayLiteral') {

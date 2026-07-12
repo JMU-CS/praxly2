@@ -166,7 +166,17 @@ export class Translator {
           }
           return 'var';
         case 'CallExpression':
-          const calleeNameForAnalysis = (expr.callee as any).name;
+          const calleeForAnalysis = expr.callee as any;
+          if (calleeForAnalysis.type === 'MemberExpression') {
+            const m = calleeForAnalysis.property?.name;
+            if (m === 'split') return 'String[]';
+            if (m === 'substring' || m === 'toUpperCase' || m === 'toLowerCase' || m === 'charAt')
+              return 'String';
+            if (m === 'indexOf' || m === 'length' || m === 'size' || m === 'compareTo')
+              return 'int';
+            if (m === 'contains' || m === 'equals') return 'boolean';
+          }
+          const calleeNameForAnalysis = calleeForAnalysis.name;
           if (calleeNameForAnalysis === 'range') return 'int[]';
           if (calleeNameForAnalysis === 'len' || calleeNameForAnalysis === 'LENGTH') return 'int';
           if (calleeNameForAnalysis === 'input' || calleeNameForAnalysis === 'INPUT')
