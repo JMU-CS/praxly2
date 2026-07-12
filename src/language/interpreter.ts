@@ -183,6 +183,14 @@ class JavaInstance {
   }
 }
 
+// Java Scanner over System.in. Reads whitespace-delimited tokens (next/nextInt/…)
+// with a small buffer, and whole lines (nextLine) — both drawn from the shared
+// input queue. The interpreter dispatches its methods (see the Scanner branch in
+// evaluate) where it can reuse readInputLine().
+class JavaScanner {
+  tokenBuffer: string[] = [];
+}
+
 export class Interpreter {
   private globalEnv = new Environment();
   private output: string[] = [];
@@ -214,6 +222,19 @@ export class Interpreter {
     const result = this.inputQueue.length > 0 ? this.inputQueue.shift()! : null;
     // console.log('getNextInput returning:', result);
     return result;
+  }
+
+  // Reads and echoes one line of input, or (when the queue is empty) prompts via
+  // the input handler / throws InputPrompt for the UI. Shared by input() and Scanner.
+  private readInputLine(prompt: string): string {
+    const nextInput = this.getNextInput();
+    if (nextInput !== null) {
+      this.flushOutputBuffer();
+      this.output.push(`> ${nextInput}`);
+      return nextInput;
+    }
+    if (this.inputHandler && !this.isDebugging) return this.inputHandler(prompt);
+    throw new InputPrompt(prompt);
   }
 
   setDebugging(isDebugging: boolean) {
@@ -1761,6 +1782,11 @@ export class Interpreter {
           if (args.length === 1 && typeof args[0] === 'number') return new Array(args[0]);
           return args;
         }
+        // `new Scanner(System.in)` — bound to the shared input queue. Args are not
+        // evaluated (System.in has no interpreter value).
+        if (expr.className === 'Scanner') {
+          return new JavaScanner();
+        }
         const klass = env.get(expr.className);
         if (!klass || !(klass instanceof JavaClass)) {
           throw new Error(`Undefined class '${expr.className}'`);
@@ -1904,6 +1930,46 @@ export class Interpreter {
             return obj.callMethod(methodName, args, this, env);
           }
 
+          if (obj instanceof JavaScanner) {
+            // Refill the token buffer from input lines when empty (skipping blank
+            // lines); a missing input propagates InputPrompt like input() does.
+            const fillTokens = () => {
+              while (obj.tokenBuffer.length === 0) {
+                obj.tokenBuffer = this.readInputLine('')
+                  .split(/\s+/)
+                  .filter((t) => t.length > 0);
+              }
+            };
+            switch (methodName) {
+              case 'next':
+                fillTokens();
+                return obj.tokenBuffer.shift();
+              case 'nextInt':
+                fillTokens();
+                return parseInt(obj.tokenBuffer.shift()!, 10);
+              case 'nextDouble':
+                fillTokens();
+                return parseFloat(obj.tokenBuffer.shift()!);
+              case 'nextBoolean':
+                fillTokens();
+                return obj.tokenBuffer.shift()!.toLowerCase() === 'true';
+              case 'nextLine':
+                // Rest of the current line if tokens are buffered, else a fresh line.
+                if (obj.tokenBuffer.length > 0) {
+                  const rest = obj.tokenBuffer.join(' ');
+                  obj.tokenBuffer = [];
+                  return rest;
+                }
+                return this.readInputLine('');
+              case 'hasNext':
+                return obj.tokenBuffer.length > 0 || this.hasInput();
+              case 'close':
+                return null;
+              default:
+                throw new Error(`Unknown Scanner method '${methodName}'`);
+            }
+          }
+
           if (typeof obj === 'string') {
             switch (methodName) {
               case 'substring':
@@ -2023,6 +2089,12 @@ export class Interpreter {
 
         const calleeName = (expr.callee as any).name;
 
+        // `new Scanner(System.in)` is encoded as a bare call to `Scanner`; bind it
+        // to the input queue without evaluating its arg (System.in has no value).
+        if (calleeName === 'Scanner') {
+          return new JavaScanner();
+        }
+
         // super(args) — run the parent class constructor on the current instance
         if (calleeName === 'super') {
           let instance: any;
@@ -2061,27 +2133,7 @@ export class Interpreter {
         if (calleeName === 'input' || calleeName === 'INPUT') {
           const promptStr =
             expr.arguments.length > 0 ? this.stringify(this.evaluate(expr.arguments[0], env)) : '';
-          // console.log('input() called, checking for queued input...');
-          const nextInput = this.getNextInput();
-          if (nextInput !== null) {
-            // console.log('Found input in queue, returning:', nextInput);
-            // Add echo to output to ensure correct order
-            this.flushOutputBuffer();
-            this.output.push(`> ${nextInput}`);
-            return nextInput;
-          }
-          // No input available
-          // console.log('No input in queue, throwing InputPrompt with prompt:', promptStr);
-          if (this.isDebugging) {
-            // In debug mode, throw InputPrompt so debugger can handle it
-            throw new InputPrompt(promptStr);
-          } else if (this.inputHandler) {
-            // In normal run mode with a handler, use it to prompt user
-            return this.inputHandler(promptStr);
-          } else {
-            // Both debug and normal mode: throw InputPrompt to let UI handle it
-            throw new InputPrompt(promptStr);
-          }
+          return this.readInputLine(promptStr);
         }
 
         // Built-in functions

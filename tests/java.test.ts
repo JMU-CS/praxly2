@@ -715,6 +715,29 @@ x /= 4;`;
       expect(out).toEqual(['true']);
     });
 
+    it('reads input via Scanner (nextInt/nextDouble/nextBoolean/next/nextLine)', () => {
+      const src = `public class Main {
+  public static void main(String[] args) {
+    Scanner sc = new Scanner(System.in);
+    int a = sc.nextInt();
+    int b = sc.nextInt();
+    double d = sc.nextDouble();
+    boolean flag = sc.nextBoolean();
+    String word = sc.next();
+    System.out.println(a + b);
+    System.out.println(d);
+    System.out.println(flag);
+    System.out.println(word);
+    sc.close();
+  }
+}`;
+      const interp = new Interpreter();
+      interp.addInput('3 4 2.5 true hello');
+      const out = interp.interpret(new JavaParser(new JavaLexer(src).tokenize()).parse(), src);
+      // Drop the input-echo line; assert the computed values.
+      expect(out.filter((l) => !l.startsWith('>'))).toEqual(['7', '2.5', 'true', 'hello']);
+    });
+
     it('provides default Object toString() and equals()', () => {
       const out = runJava(`public class Main {
   public static void main(String[] args) {
