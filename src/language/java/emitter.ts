@@ -1209,7 +1209,9 @@ export class JavaEmitter extends ASTVisitor {
           // Map source language methods to Java ArrayList/String methods
           if (method === 'append') output = `${obj}.add(${argsF[0]})`;
           else if (method === 'insert') output = `${obj}.add(${argsF[0]}, ${argsF[1]})`;
-          else if (method === 'remove') output = `${obj}.remove((Object)${argsF[0]})`;
+          // The interpreter's list remove is by index (Java ArrayList.remove(int));
+          // emit a plain remove(i) — no `(Object)` cast (the Java parser has no casts).
+          else if (method === 'remove') output = `${obj}.remove(${argsF[0]})`;
           else if (method === 'pop')
             output =
               argsF.length > 0 ? `${obj}.remove(${argsF[0]})` : `${obj}.remove(${obj}.size() - 1)`;

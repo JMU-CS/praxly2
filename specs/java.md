@@ -67,3 +67,7 @@ The _AP Computer Science A_ exam may use the following methods from the Java lib
 - Additional String methods: `charAt()`, `contains()`, `toUpperCase()`, `toLowerCase()`.
 - Additional Math methods: `log()`, `max()`, `min()`
 - Random class with methods: `randomInt()`, `setSeed()`
+- `char` literals (e.g. `'A'`) and escape sequences (`\n`, `\t`, `\r`, `\"`, `\'`, `\\`) in
+  `String` and `char` literals.
+- A default `Object.toString()` returns `"ClassName instance"`; the bitwise/shift operators
+  and `**` (not part of the AP CSA subset) are not supported.

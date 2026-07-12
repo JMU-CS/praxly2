@@ -4,7 +4,6 @@
 // AST nodes NOT reachable from Java source (covered by the other demos):
 //   FunctionDeclaration ..... Java has only methods, never free functions.
 //   RepeatUntil ............. no repeat/until syntax.
-//   Try / ExceptionHandler .. try/catch are not recognized keywords here.
 //   NewExpression ........... `new X(...)` is encoded as a CallExpression.
 //   ThisExpression .......... `this` is encoded as an Identifier.
 //
@@ -12,8 +11,8 @@
 //   * System.out.println takes exactly ONE argument -> concatenate with '+'.
 //   * A C-style for-loop update should be `i++` (an embedded plain assignment
 //     like `i = i + 1` is a no-op).
-//   * Compare Strings with `==` (String.equals is not implemented).
-//   * No Math / ArrayList / generics -> use plain arrays.
+//   * Scanner reads System.in, which the auto-runner can't supply, so Scanner is
+//     exercised by the Java tests (with provided input) rather than here.
 //
 // The executable code lives in Main.main (auto-invoked by the interpreter);
 // the helper classes it uses are declared afterwards.
@@ -76,17 +75,52 @@ public class Main {
         int bigger = (a > b) ? a : b;
         System.out.println(bigger);          // 17
 
-        // ---- Supported String methods --------------------------------------
+        // ---- AP CSA String methods -----------------------------------------
         String s = "Hello";
-        System.out.println(s.length());        // 5
-        System.out.println(s.toUpperCase());   // HELLO
-        System.out.println(s.substring(1, 3)); // el
-        System.out.println(s.charAt(0));       // H
+        System.out.println(s.length());           // 5
+        System.out.println(s.toUpperCase());      // HELLO
+        System.out.println(s.toLowerCase());      // hello
+        System.out.println(s.substring(1, 3));    // el
+        System.out.println(s.charAt(0));          // H
+        System.out.println(s.indexOf("ll"));      // 2
+        System.out.println(s.contains("ell"));    // true
+        System.out.println(s.compareTo("Hello")); // 0
+        String[] parts = "a,b,c".split(",");      // split around ","
+        System.out.println(parts[1]);             // b
 
-        // ---- String equality uses == (String.equals is not implemented) ---
-        if (label == "java") {
+        // ---- String equality via .equals() (AP CSA) ------------------------
+        if (label.equals("java")) {
             System.out.println("match");
         }
+
+        // ---- char literal --------------------------------------------------
+        char grade = 'A';
+        System.out.println(grade);                // A
+
+        // ---- Integer / Double statics --------------------------------------
+        System.out.println(Integer.parseInt("42") + 1);  // 43
+        System.out.println(Double.parseDouble("2.5"));    // 2.5
+        System.out.println(Integer.MAX_VALUE);            // 2147483647
+        System.out.println(Integer.MIN_VALUE);            // -2147483648
+
+        // ---- Math methods --------------------------------------------------
+        System.out.println(Math.abs(-7));         // 7
+        System.out.println(Math.max(3, 8));       // 8
+        System.out.println(Math.min(3, 8));       // 3
+        System.out.println(Math.pow(2, 10));      // 1024
+        System.out.println(Math.sqrt(16.0));      // 4
+
+        // ---- ArrayList (add / add(i,x) / get / set / size / remove) --------
+        ArrayList<Integer> list = new ArrayList<Integer>();
+        list.add(10);
+        list.add(20);
+        list.add(1, 15);                          // insert 15 at index 1
+        System.out.println(list.get(0));          // 10
+        System.out.println(list.size());          // 3
+        list.set(0, 5);
+        System.out.println(list.get(0));          // 5
+        list.remove(0);
+        System.out.println(list.size());          // 2
 
         // ========================= STATEMENTS ==========================
 
@@ -156,6 +190,15 @@ public class Main {
             System.out.println("flow " + t); // flow 0 / flow 2
         }
 
+        // ---- Try / Catch / Finally -----------------------------------------
+        try {
+            System.out.println(missingValue);    // undefined variable -> error
+        } catch (Exception e) {
+            System.out.println("caught");        // this runs
+        } finally {
+            System.out.println("cleanup");       // always runs
+        }
+
         // ========================= OBJECTS =============================
 
         // ---- new, methods, fields, static read, extends + super -----------
@@ -164,6 +207,7 @@ public class Main {
         c.increment();
         System.out.println(c.getCount());   // 7
         System.out.println(c.created);      // 0 (static field, read via instance)
+        System.out.println(c.toString());   // Counter instance (default Object.toString)
 
         Dog d = new Dog("Fido");
         System.out.println(d.speak());      // woof (Dog's own method)

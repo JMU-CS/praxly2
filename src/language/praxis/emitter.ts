@@ -766,6 +766,20 @@ export class PraxisEmitter extends ASTVisitor {
           output = `str(${argsStr})`;
           break;
         }
+        // Java Integer.parseInt / Double.parseDouble → Praxis int()/float(). This
+        // is idiomatic and avoids `Double` (which lowercases to the `double`
+        // keyword and can't appear in expression position).
+        const mcallee = expr.callee as any;
+        if (mcallee.type === 'MemberExpression' && mcallee.object?.type === 'Identifier') {
+          if (mcallee.object.name === 'Integer' && mcallee.property?.name === 'parseInt') {
+            output = `int(${argsStr})`;
+            break;
+          }
+          if (mcallee.object.name === 'Double' && mcallee.property?.name === 'parseDouble') {
+            output = `float(${argsStr})`;
+            break;
+          }
+        }
         // A bare call to a class name (e.g. Python's `Animal("Rex")`) is an
         // instantiation; Praxis requires the explicit `new`.
         output = this.classConstructorName(expr)
