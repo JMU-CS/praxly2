@@ -699,6 +699,36 @@ x /= 4;`;
       expect(result).not.toContain(' ^ ');
     });
   });
+
+  describe('AP CSA stdlib', () => {
+    const runJava = (src: string): string[] =>
+      new Interpreter().interpret(new JavaParser(new JavaLexer(src).tokenize()).parse(), src);
+
+    it('supports Math.random() (seeded, in [0,1))', () => {
+      const out = runJava(`public class Main {
+  public static void main(String[] args) {
+    randomSeed(1);
+    double r = Math.random();
+    System.out.println(r >= 0.0 && r < 1.0);
+  }
+}`);
+      expect(out).toEqual(['true']);
+    });
+
+    it('provides default Object toString() and equals()', () => {
+      const out = runJava(`public class Main {
+  public static void main(String[] args) {
+    Point p = new Point();
+    Point q = new Point();
+    System.out.println(p.equals(p));
+    System.out.println(p.equals(q));
+    System.out.println(p.toString());
+  }
+}
+class Point { }`);
+      expect(out).toEqual(['true', 'false', 'Point instance']);
+    });
+  });
 });
 
 describe('Java braceless control-flow bodies', () => {

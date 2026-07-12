@@ -159,7 +159,12 @@ class JavaInstance {
 
   callMethod(methodName: string, args: any[], interpreter: Interpreter, env: Environment): any {
     const method = this.klass.getMethod(methodName);
-    if (!method) throw new Error(`Undefined method '${methodName}'`);
+    if (!method) {
+      // Default Object methods when the class doesn't override them (AP CSA).
+      if (methodName === 'toString' && args.length === 0) return `${this.klass.name} instance`;
+      if (methodName === 'equals' && args.length === 1) return this === args[0];
+      throw new Error(`Undefined method '${methodName}'`);
+    }
 
     const methodEnv = new Environment(env);
     methodEnv.define('this', this);
@@ -1804,6 +1809,8 @@ export class Interpreter {
               log: Math.log,
               max: Math.max,
               min: Math.min,
+              // Uses the seeded PRNG so randomSeed() makes Math.random() deterministic.
+              random: () => this.getRandomValue(),
             };
             if (mathFns[fn]) return mathFns[fn](...mathArgs);
             throw new Error(`Unknown Math function '${fn}'`);
