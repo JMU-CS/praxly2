@@ -1356,4 +1356,84 @@ print(meow.x)`;
       expect(javaCode).toContain('Meow meow = new Meow(10);');
     });
   });
+
+  describe('Python Phase — Subset Alignment', () => {
+    const parse = (src: string) => new PythonParser(new PythonLexer(src).tokenize()).parse();
+    const run = (src: string) => new Interpreter().interpret(parse(src), src).join('\n');
+    const toJava = (src: string) => new Translator().translate(parse(src), 'java');
+    const expectRejected = (src: string) => expect(() => parse(src)).toThrow(/not supported/);
+
+    describe('Conditional (ternary) expression', () => {
+      it('parses `x if c else y` as a ConditionalExpression', () => {
+        const program = parse(`a = 5 if True else 9`) as any;
+        const value = program.body[0].value;
+        expect(value.type).toBe('ConditionalExpression');
+        expect(value.consequent.value).toBe(5);
+        expect(value.alternate.value).toBe(9);
+      });
+
+      it('interprets both branches', () => {
+        expect(run(`print(5 if True else 9)`)).toContain('5');
+        expect(run(`print(5 if False else 9)`)).toContain('9');
+      });
+
+      it('translates to a Java ternary', () => {
+        const java = toJava(`flag = True\nx = 5 if flag else 9`);
+        expect(java).toContain('?');
+        expect(java).toContain(':');
+      });
+
+      it('does not collide with the if statement', () => {
+        // A leading `if` is still a statement, not a ternary.
+        const out = run(`if True:\n    print("stmt")`);
+        expect(out).toContain('stmt');
+      });
+    });
+
+    describe('`**` precedence and associativity', () => {
+      it('is right-associative: 2 ** 3 ** 2 == 512', () => {
+        expect(run(`print(2 ** 3 ** 2)`)).toContain('512');
+      });
+
+      it('binds tighter than unary minus: -2 ** 2 == -4', () => {
+        expect(run(`print(-2 ** 2)`)).toContain('-4');
+      });
+
+      it('allows a unary in the right operand: 2 ** -1 == 0.5', () => {
+        expect(run(`print(2 ** -1)`)).toContain('0.5');
+      });
+    });
+
+    describe('print sep=/end= detection', () => {
+      it('honors the sep= keyword argument', () => {
+        expect(run(`print("a", "b", sep="-")`)).toContain('a-b');
+      });
+
+      it('treats a positional argument named `sep` as a value, not a kwarg', () => {
+        expect(run(`sep = "!"\nprint(sep)`)).toContain('!');
+      });
+    });
+
+    describe('unsupported Python-only idioms reject cleanly', () => {
+      it('rejects `is` / `is not`', () => {
+        expectRejected(`x = a is b`);
+        expectRejected(`x = a is not b`);
+      });
+      it('rejects lambda', () => expectRejected(`f = lambda x: x + 1`));
+      it('rejects `with`', () => expectRejected(`with open("f") as g:\n    pass`));
+      it('rejects `global`', () => expectRejected(`global x`));
+      it('rejects `nonlocal`', () => expectRejected(`nonlocal x`));
+      it('rejects `import`', () => expectRejected(`import math`));
+      it('rejects `from ... import`', () => expectRejected(`from math import sqrt`));
+      it('rejects f-strings', () => expectRejected(`x = f"hi {name}"`));
+      it('rejects dict literals', () => expectRejected(`d = {1: 2}`));
+      it('rejects set literals', () => expectRejected(`s = {1, 2, 3}`));
+      it('rejects *args', () => expectRejected(`def f(*args):\n    pass`));
+      it('rejects **kwargs', () => expectRejected(`def f(**kwargs):\n    pass`));
+      it('rejects default parameter values', () => expectRejected(`def f(x=5):\n    pass`));
+      it('rejects keyword arguments', () => expectRejected(`foo(x=5)`));
+      it('rejects decorators', () => expectRejected(`@dec\ndef f():\n    pass`));
+      it('rejects chained comparison', () => expectRejected(`x = 1 < 2 < 3`));
+    });
+  });
 });

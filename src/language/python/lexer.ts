@@ -5,6 +5,7 @@
 
 import type { Token } from '../lexer';
 import type { SourceComment } from '../comments';
+import { UnsupportedFeatureError } from './parser';
 
 export class Lexer {
   private pos = 0;
@@ -162,6 +163,14 @@ export class Lexer {
       if (/[a-zA-Z_]/.test(char)) {
         let value = '';
         while (p < line.length && /[a-zA-Z0-9_]/.test(line[p])) value += line[p++];
+        // String prefixes (f-strings, raw/byte strings) immediately followed by
+        // a quote have no cross-language mapping — reject cleanly.
+        if (
+          /^[frbFRB]{1,2}$/.test(value) &&
+          p < line.length &&
+          (line[p] === '"' || line[p] === "'")
+        )
+          throw new UnsupportedFeatureError('f-strings / string prefixes are not supported');
         const keywords = [
           'def',
           'class',
@@ -185,6 +194,15 @@ export class Lexer {
           'except',
           'finally',
           'as',
+          // Registered so the parser can reject them with a clear message rather
+          // than silently lexing them as identifiers.
+          'is',
+          'lambda',
+          'with',
+          'global',
+          'nonlocal',
+          'import',
+          'from',
         ];
 
         if (keywords.includes(value)) {
@@ -257,6 +275,8 @@ export class Lexer {
         p++;
         continue;
       }
+
+      if (char === '@') throw new UnsupportedFeatureError('decorators are not supported');
 
       throw new Error(`Unexpected character: ${char} at position ${offset + p}`);
     }

@@ -193,11 +193,17 @@ export class Parser {
     const params: Parameter[] = [];
     if (!this.check('PUNCTUATION', ')')) {
       do {
+        // `*args` / `**kwargs` have no equivalent in the other targets.
+        if (this.check('OPERATOR', '*') || this.check('OPERATOR', '**'))
+          throw new UnsupportedFeatureError('*args / **kwargs are not supported');
         const paramName = this.consume('IDENTIFIER').value;
         let paramType = 'auto';
         if (this.match('PUNCTUATION', ':')) {
           paramType = this.parseParameterTypeAnnotation();
         }
+        // Default parameter values (`def f(x=5)`) are not supported.
+        if (this.check('OPERATOR', '='))
+          throw new UnsupportedFeatureError('default parameter values are not supported');
         params.push({
           id: generateId(),
           type: 'Parameter',
@@ -262,6 +268,9 @@ export class Parser {
             statements.push(this.statement());
           }
         } catch (e) {
+          // An unsupported-feature error is intentional and must reach the user —
+          // don't recover from it (mirrors parse()).
+          if (e instanceof UnsupportedFeatureError) throw e;
           // Error recovery: skip to next statement
           while (
             !this.check('PUNCTUATION', '}') &&
@@ -302,6 +311,8 @@ export class Parser {
         const stmt = this.statement();
         return { id: generateId(), type: 'Block', body: [stmt] };
       } catch (e) {
+        // An unsupported-feature error must reach the user, not be swallowed.
+        if (e instanceof UnsupportedFeatureError) throw e;
         // Return empty block on error
         return { id: generateId(), type: 'Block', body: [] };
       }
@@ -327,6 +338,17 @@ export class Parser {
       return this.withLocation(stmt, startIdx);
     }
 
+    // Python-only statement forms with no mapping to the other targets — reject
+    // cleanly rather than mis-parsing them into junk.
+    if (this.check('KEYWORD', 'with'))
+      throw new UnsupportedFeatureError("'with' statements are not supported");
+    if (this.check('KEYWORD', 'global'))
+      throw new UnsupportedFeatureError("'global' is not supported");
+    if (this.check('KEYWORD', 'nonlocal'))
+      throw new UnsupportedFeatureError("'nonlocal' is not supported");
+    if (this.check('KEYWORD', 'import') || this.check('KEYWORD', 'from'))
+      throw new UnsupportedFeatureError('import statements are not supported');
+
     if (this.check('IDENTIFIER', 'print') && this.checkNext('PUNCTUATION', '(')) {
       this.consume('IDENTIFIER');
       this.consume('PUNCTUATION', '(');
@@ -334,10 +356,12 @@ export class Parser {
       const print: any = { id: generateId(), type: 'Print', expressions };
       if (!this.check('PUNCTUATION', ')')) {
         do {
-          // `sep=`/`end=` keyword arguments configure the Print node.
+          // `sep=`/`end=` keyword arguments configure the Print node. Both
+          // require a following `=` so a positional arg literally named `sep`
+          // isn't misread as the separator kwarg.
           if (
-            this.check('IDENTIFIER', 'sep') ||
-            (this.check('IDENTIFIER', 'end') && this.checkNext('OPERATOR', '='))
+            (this.check('IDENTIFIER', 'sep') || this.check('IDENTIFIER', 'end')) &&
+            this.checkNext('OPERATOR', '=')
           ) {
             const kw = this.consume('IDENTIFIER').value;
             this.consume('OPERATOR', '=');
@@ -351,7 +375,7 @@ export class Parser {
               if (strVal !== '\n') print.separator = strVal;
             }
           } else {
-            expressions.push(this.logicOr());
+            expressions.push(this.ternary());
           }
         } while (this.match('PUNCTUATION', ','));
       }
@@ -598,7 +622,7 @@ export class Parser {
   // --- Expressions ---
 
   private expression(): Expression {
-    const expr = this.logicOr();
+    const expr = this.ternary();
     // Tuple expressions / tuple assignment (`a, b = 1, 2`) are not supported —
     // no other Praxly target has tuples. A top-level comma signals a tuple.
     if (
@@ -610,6 +634,22 @@ export class Parser {
       throw new UnsupportedFeatureError('tuple assignment / tuple expressions are not supported');
     }
     return expr;
+  }
+
+  /**
+   * Python conditional expression: `consequent if test else alternate`. Parsed
+   * below the statement-level `if` dispatch (a leading `if` is a statement), so
+   * this only fires as an infix `if` after a value, e.g. `a = x if c else y`.
+   */
+  private ternary(): Expression {
+    const consequent = this.logicOr();
+    if (this.match('KEYWORD', 'if')) {
+      const test = this.logicOr();
+      this.consume('KEYWORD', 'else');
+      const alternate = this.ternary();
+      return { id: generateId(), type: 'ConditionalExpression', test, consequent, alternate };
+    }
+    return consequent;
   }
 
   private logicOr(): Expression {
@@ -642,11 +682,18 @@ export class Parser {
 
   private comparison(): Expression {
     let left = this.term();
-    while (this.match('OPERATOR', '>', '>=', '<', '<=')) {
+    if (this.match('OPERATOR', '>', '>=', '<', '<=')) {
       const operator = this.previous().value;
       const right = this.term();
       left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
+      // Chained comparison (`a < b < c`) has no equivalent in the other targets;
+      // reject it rather than mis-evaluating it left-associatively.
+      if (this.check('OPERATOR', '>', '>=', '<', '<='))
+        throw new UnsupportedFeatureError('chained comparison is not supported');
     }
+    // Identity comparison `is` / `is not` has no cross-language mapping.
+    if (this.check('KEYWORD', 'is'))
+      throw new UnsupportedFeatureError("'is' / 'is not' is not supported");
     return left;
   }
 
@@ -661,18 +708,8 @@ export class Parser {
   }
 
   private factor(): Expression {
-    let left = this.exponent();
-    while (this.match('OPERATOR', '*', '/', '%', '//')) {
-      const operator = this.previous().value;
-      const right = this.exponent();
-      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
-    }
-    return left;
-  }
-
-  private exponent(): Expression {
     let left = this.unary();
-    while (this.match('OPERATOR', '**')) {
+    while (this.match('OPERATOR', '*', '/', '%', '//')) {
       const operator = this.previous().value;
       const right = this.unary();
       left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
@@ -680,6 +717,7 @@ export class Parser {
     return left;
   }
 
+  // Unary +/-/not binds *looser* than `**`, so `-2**2` is `-(2**2)`.
   private unary(): Expression {
     if (this.match('KEYWORD', 'not')) {
       const right = this.unary();
@@ -690,7 +728,20 @@ export class Parser {
       const right = this.unary();
       return { id: generateId(), type: 'UnaryExpression', operator, argument: right };
     }
-    return this.call();
+    return this.power();
+  }
+
+  // `**` is right-associative and binds tighter than unary on its base, while
+  // its right operand may itself be a unary (`2**-1`) — matching Python: so
+  // `2**3**2` is `2**(3**2)`. Recursing through unary() gives both properties.
+  private power(): Expression {
+    const base = this.call();
+    if (this.match('OPERATOR', '**')) {
+      const operator = this.previous().value;
+      const right = this.unary();
+      return { id: generateId(), type: 'BinaryExpression', left: base, operator, right };
+    }
+    return base;
   }
 
   private call(): Expression {
@@ -730,7 +781,11 @@ export class Parser {
     const args: Expression[] = [];
     if (!this.check('PUNCTUATION', ')')) {
       do {
-        args.push(this.logicOr());
+        args.push(this.ternary());
+        // Keyword arguments (`f(x=5)`) are not supported (print's `sep=`/`end=`
+        // are handled separately, before this generic call path).
+        if (this.check('OPERATOR', '='))
+          throw new UnsupportedFeatureError('keyword arguments are not supported');
       } while (this.match('PUNCTUATION', ','));
     }
     this.consume('PUNCTUATION', ')');
@@ -768,6 +823,9 @@ export class Parser {
     if (this.match('KEYWORD', 'None'))
       return { id: generateId(), type: 'Literal', value: null, raw: 'None' };
 
+    if (this.check('KEYWORD', 'lambda'))
+      throw new UnsupportedFeatureError('lambda expressions are not supported');
+
     if (this.match('IDENTIFIER'))
       return { id: generateId(), type: 'Identifier', name: this.previous().value };
 
@@ -778,7 +836,7 @@ export class Parser {
         return { id: generateId(), type: 'ArrayLiteral', elements: [] };
       }
 
-      const firstExpr = this.logicOr();
+      const firstExpr = this.ternary();
 
       // List comprehensions (`[expr for var in iterable]`) are not supported —
       // no other Praxly target has them.
@@ -790,7 +848,7 @@ export class Parser {
       const elements: Expression[] = [firstExpr];
       while (this.match('PUNCTUATION', ',')) {
         if (this.check('PUNCTUATION', ']')) break;
-        elements.push(this.logicOr());
+        elements.push(this.ternary());
       }
       this.consume('PUNCTUATION', ']');
       return { id: generateId(), type: 'ArrayLiteral', elements };
@@ -801,6 +859,9 @@ export class Parser {
       this.consume('PUNCTUATION', ')');
       return expr;
     }
+    // Dict/set literals (`{...}`) have no equivalent in the other targets.
+    if (this.check('PUNCTUATION', '{'))
+      throw new UnsupportedFeatureError('dict / set literals are not supported');
     throw new Error(`Expect expression. Found ${this.peek().value}`);
   }
 
