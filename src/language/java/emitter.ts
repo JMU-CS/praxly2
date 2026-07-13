@@ -1229,6 +1229,8 @@ export class JavaEmitter extends ASTVisitor {
           else if (method === 'sort') output = `java.util.Collections.sort(${obj})`;
           else if (method === 'lower') output = `${obj}.toLowerCase()`;
           else if (method === 'upper') output = `${obj}.toUpperCase()`;
+          else if (method === 'find')
+            output = `${obj}.indexOf(${argsF[0]})`; // Python spelling
           else if (method === 'replace') output = `${obj}.replace(${argsF[0]}, ${argsF[1]})`;
           // Default method call
           else output = `${obj}.${method}(${argsF.join(', ')})`;

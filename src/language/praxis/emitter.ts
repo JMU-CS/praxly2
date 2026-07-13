@@ -774,6 +774,27 @@ export class PraxisEmitter extends ASTVisitor {
 
       case 'CallExpression': {
         currentPrecedence = Precedence.Call;
+        // Praxis uses the Java-style string-method names; normalize Python
+        // spellings (upper/lower/find) to them.
+        {
+          const mc = expr.callee as any;
+          if (mc.type === 'MemberExpression') {
+            const pxName = (
+              { upper: 'toUpperCase', lower: 'toLowerCase', find: 'indexOf' } as Record<
+                string,
+                string
+              >
+            )[mc.property?.name];
+            // `typeof === 'string'` guards against inherited Object keys like
+            // `toString`/`constructor` (which would otherwise resolve to a function).
+            if (typeof pxName === 'string') {
+              const objStr = this.generateExpression(mc.object, Precedence.Member);
+              const a = expr.arguments.map((x) => this.generateExpression(x, 0)).join(', ');
+              output = `${objStr}.${pxName}(${a})`;
+              break;
+            }
+          }
+        }
         const calleeStr =
           (expr.callee as any).type === 'MemberExpression'
             ? this.generateExpression(expr.callee as any, 0)

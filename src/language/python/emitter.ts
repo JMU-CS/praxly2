@@ -815,6 +815,26 @@ export class PythonEmitter extends ASTVisitor {
       }
       case 'CallExpression':
         currentPrecedence = Precedence.Call;
+        // Normalize Java/JS string-method names to their Python spellings.
+        {
+          const mc = expr.callee as any;
+          if (mc.type === 'MemberExpression') {
+            const pyName = (
+              { toUpperCase: 'upper', toLowerCase: 'lower', indexOf: 'find' } as Record<
+                string,
+                string
+              >
+            )[mc.property?.name];
+            // `typeof === 'string'` guards against inherited Object keys like
+            // `toString`/`constructor` (which would otherwise resolve to a function).
+            if (typeof pyName === 'string') {
+              const objStr = this.generateExpression(mc.object, Precedence.Member);
+              const a = expr.arguments.map((x) => this.generateExpression(x, 0)).join(', ');
+              output = `${objStr}.${pyName}(${a})`;
+              break;
+            }
+          }
+        }
         let calleeStrPy = '';
         if ((expr.callee as any).type === 'MemberExpression') {
           calleeStrPy = this.generateExpression(expr.callee as any, 0);

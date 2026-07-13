@@ -5,6 +5,8 @@ import { PythonEmitter } from '../src/language/python/emitter';
 import { Translator } from '../src/language/translator';
 import { SymbolTable } from '../src/language/visitor';
 import { Interpreter } from '../src/language/interpreter';
+import { JavaLexer } from '../src/language/java/lexer';
+import { JavaParser } from '../src/language/java/parser';
 
 describe('Python Lexer', () => {
   describe('Basic Tokens', () => {
@@ -1474,5 +1476,41 @@ print(meow.x)`;
         expect(out.filter((l) => !l.startsWith('>'))).toEqual(['Hi Alice', '21']);
       });
     });
+  });
+});
+
+describe('Python string methods (upper/lower/find/replace)', () => {
+  const parse = (src: string) => new PythonParser(new PythonLexer(src).tokenize()).parse();
+  const run = (src: string) => new Interpreter().interpret(parse(src), src);
+  const toJava = (src: string) => new Translator().translate(parse(src), 'java');
+
+  it('interprets the Python string-method spellings', () => {
+    const out = run(
+      `w = "Hello World"\nprint(w.upper())\nprint(w.lower())\nprint(w.find("World"))\nprint(w.replace("o", "0"))`
+    );
+    expect(out).toEqual(['HELLO WORLD', 'hello world', '6', 'Hell0 W0rld']);
+  });
+
+  it('translates Python names to Java spellings', () => {
+    const java = toJava(`w = "Hi"\na = w.upper()\nb = w.lower()\nc = w.find("i")`);
+    expect(java).toContain('w.toUpperCase()');
+    expect(java).toContain('w.toLowerCase()');
+    expect(java).toContain('w.indexOf("i")');
+  });
+
+  it('translates Java string-method names back to Python spellings', () => {
+    const jsrc = `public class Main {
+  public static void main(String[] args) {
+    String w = "Hi";
+    System.out.println(w.toUpperCase());
+    System.out.println(w.indexOf("i"));
+  }
+}`;
+    const py = new Translator().translate(
+      new JavaParser(new JavaLexer(jsrc).tokenize()).parse(),
+      'python'
+    );
+    expect(py).toContain('w.upper()');
+    expect(py).toContain('w.find("i")');
   });
 });

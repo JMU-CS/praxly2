@@ -93,6 +93,10 @@ print(str(42))              // 42   (number -> string)
 print(int("7") + 1)         // 8    (string -> int)
 print(float("2.5"))         // 2.5  (string -> float)
 print("praxis".contains("rax"))  // true (String method)
+print("praxis".substring(0, 3))  // pra  (0-based, end-exclusive)
+print("praxis".charAt(0))        // p
+print("praxis".toUpperCase())    // PRAXIS
+print("praxis".indexOf("x"))     // 4
 
 // ---- Print: separator / appendLineFeed via trailing comment ----------------
 print("A", "B", "C")           // "A B C"  (default separator " ")

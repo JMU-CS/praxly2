@@ -38,6 +38,12 @@ print(count > 3 and pi < 4, count == 7 or active)  # true true
 label = "big" if count > 5 else "small"            # ternary
 print(label, count != 3)                           # big true
 
+# ---- String methods (upper/lower/find/replace) -----------------------------
+print(title.upper())              # PYTHON
+print(title.lower())              # python
+print(title.find("th"))           # 2   (index of "th")
+print(title.replace("p", "P"))    # Python
+
 # ---- ArrayLiteral / IndexExpression / MemberExpression / CallExpression ----
 values = [5, 2, 9, 1]
 values[0] = 50                    # index Assignment

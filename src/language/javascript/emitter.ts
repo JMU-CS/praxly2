@@ -588,6 +588,20 @@ export class JavaScriptEmitter extends ASTVisitor {
                   ? `${objStr}.splice(${arg(0)}, 1)[0]`
                   : `${objStr}.pop()`;
               break;
+            // String-method names normalized to JS spellings.
+            case 'upper':
+              out = `${objStr}.toUpperCase()`;
+              break;
+            case 'lower':
+              out = `${objStr}.toLowerCase()`;
+              break;
+            case 'find':
+              out = `${objStr}.indexOf(${arg(0)})`;
+              break;
+            case 'replace':
+              // replace ALL occurrences (Python/Java semantics) -> replaceAll.
+              out = `${objStr}.replaceAll(${arg(0)}, ${arg(1)})`;
+              break;
             default:
               out = `${objStr}.${method}(${argList()})`;
           }

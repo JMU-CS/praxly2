@@ -2017,8 +2017,10 @@ export class Interpreter {
                 if (args.length === 1) return obj.substring(Number(args[0]));
                 return obj;
               case 'toLowerCase':
+              case 'lower': // Python spelling
                 return obj.toLowerCase();
               case 'toUpperCase':
+              case 'upper': // Python spelling
                 return obj.toUpperCase();
               case 'charAt':
                 return obj.charAt(Number(args[0] ?? 0));
@@ -2026,7 +2028,11 @@ export class Interpreter {
                 return obj.length;
               // AP CS A String methods
               case 'indexOf':
+              case 'find': // Python spelling
                 return obj.indexOf(String(args[0]));
+              case 'replace': // replaces ALL occurrences (Python/Java semantics)
+              case 'replaceAll': // JS spelling (emitted by the JS emitter)
+                return obj.split(String(args[0])).join(String(args[1]));
               case 'contains':
               case 'includes': // JS spelling (emitted for `x in s` membership)
                 return obj.includes(String(args[0]));
