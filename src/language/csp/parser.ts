@@ -405,7 +405,7 @@ export class CSPParser {
     return expr;
   }
 
-  private finishCall(callee: Expression): CallExpression {
+  private finishCall(callee: Expression): Expression {
     if (callee.type !== 'Identifier') throw new Error('Can only call identifiers');
     const args: Expression[] = [];
     if (!this.check('PUNCTUATION', ')')) {
@@ -414,8 +414,31 @@ export class CSPParser {
       } while (this.match('PUNCTUATION', ','));
     }
     this.consume('PUNCTUATION', ')');
-    // INSERT(list, pos, value) / REMOVE(list, pos) take 1-based positions in CSP.
     const name = (callee as Identifier).name;
+
+    // CSP string functions are 1-based; lower them to the shared 0-based
+    // string-method AST so the interpreter and other emitters handle them
+    // uniformly (the CSP emitter converts back to 1-based on the way out).
+    if ((name === 'SUBSTRING' || name === 'substring') && args.length === 3) {
+      // SUBSTRING(s, start, end): 1-based inclusive -> s.substring(start-1, end).
+      return this.methodCall(args[0], 'substring', [this.toZeroBased(args[1]), args[2]]);
+    }
+    if ((name === 'CHARAT' || name === 'charAt') && args.length === 2) {
+      // CHARAT(s, i): 1-based -> s.charAt(i-1).
+      return this.methodCall(args[0], 'charAt', [this.toZeroBased(args[1])]);
+    }
+    if ((name === 'CONCAT' || name === 'concat') && args.length === 2) {
+      // CONCAT(a, b) -> a + b (string concatenation).
+      return {
+        id: generateId(),
+        type: 'BinaryExpression',
+        operator: '+',
+        left: args[0],
+        right: args[1],
+      } as any;
+    }
+
+    // INSERT(list, pos, value) / REMOVE(list, pos) take 1-based positions in CSP.
     if (name === 'INSERT' && args.length === 3) args[1] = this.toZeroBased(args[1]);
     else if (name === 'REMOVE' && args.length === 2) args[1] = this.toZeroBased(args[1]);
     return {
@@ -424,6 +447,22 @@ export class CSPParser {
       callee: callee as Identifier,
       arguments: args,
     };
+  }
+
+  /** Builds a `obj.method(args)` call node (used to lower CSP string functions). */
+  private methodCall(obj: Expression, method: string, args: Expression[]): CallExpression {
+    return {
+      id: generateId(),
+      type: 'CallExpression',
+      callee: {
+        id: generateId(),
+        type: 'MemberExpression',
+        object: obj,
+        property: { id: generateId(), type: 'Identifier', name: method },
+        isMethod: true,
+      } as any,
+      arguments: args,
+    } as any;
   }
 
   private primary(): Expression {

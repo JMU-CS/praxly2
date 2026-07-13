@@ -45,6 +45,21 @@ export class CSPEmitter extends ASTVisitor {
     return `${this.generateExpression(idx, Precedence.Additive)} + 1`;
   }
 
+  // Converts a 0-based string-index argument to a 1-based CSP argument, folding
+  // `x - 1` (produced by the CSP parser's 1-based lowering) back to `x`.
+  private oneBasedArg(idx: any): string {
+    if (idx?.type === 'Literal' && typeof idx.value === 'number') return String(idx.value + 1);
+    if (
+      idx?.type === 'BinaryExpression' &&
+      idx.operator === '-' &&
+      idx.right?.type === 'Literal' &&
+      idx.right.value === 1
+    ) {
+      return this.generateExpression(idx.left, 0);
+    }
+    return `${this.generateExpression(idx, Precedence.Additive)} + 1`;
+  }
+
   visitProgram(program: Program): void {
     program.body.forEach((s) => this.visitStatement(s));
   }
@@ -444,6 +459,33 @@ export class CSPEmitter extends ASTVisitor {
 
       case 'CallExpression': {
         currentPrecedence = Precedence.Call;
+
+        // String-method calls -> CSP's 1-based string functions.
+        const mCallee = expr.callee as any;
+        if (mCallee.type === 'MemberExpression') {
+          const obj = this.generateExpression(mCallee.object, 0);
+          const method = mCallee.property?.name;
+          const a = expr.arguments;
+          if (method === 'substring' && a.length === 2) {
+            // 0-based [start, end) -> 1-based inclusive SUBSTRING(s, start+1, end).
+            output = `SUBSTRING(${obj}, ${this.oneBasedArg(a[0])}, ${this.generateExpression(a[1], 0)})`;
+            break;
+          }
+          if (method === 'substring' && a.length === 1) {
+            output = `SUBSTRING(${obj}, ${this.oneBasedArg(a[0])}, len(${obj}))`;
+            break;
+          }
+          if (method === 'charAt' && a.length === 1) {
+            output = `CHARAT(${obj}, ${this.oneBasedArg(a[0])})`;
+            break;
+          }
+          if (method === 'length' && a.length === 0) {
+            // String length is `len(s)` in CSP (lists use LENGTH(...)).
+            output = `len(${obj})`;
+            break;
+          }
+        }
+
         const calleeStr =
           (expr.callee as any).type === 'MemberExpression'
             ? this.generateExpression(expr.callee as any, 0)

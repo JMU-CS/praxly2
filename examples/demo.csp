@@ -67,6 +67,13 @@ REMOVE(nums, 2)                 // [5, 99, 30, 40]      (remove position 2, the 
 DISPLAY(LENGTH(nums))           // 4
 DISPLAY(nums[1])                // 5
 
+// ---- String functions: CONCAT / SUBSTRING / CHARAT / len (1-based) ---------
+word <- "algorithm"
+DISPLAY(CONCAT("al", "go"))     // algo
+DISPLAY(SUBSTRING(word, 1, 4))  // algo  (characters 1..4, inclusive)
+DISPLAY(CHARAT(word, 1))        // a     (the first character)
+DISPLAY(len(word))              // 9
+
 
 // ========================== STATEMENTS =====================================
 

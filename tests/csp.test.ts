@@ -582,4 +582,35 @@ DISPLAY(nums[1])`;
       expect(out.join('').replace(/\s+/g, ' ').trim()).toBe('4 3');
     });
   });
+
+  describe('CSP string functions (1-based)', () => {
+    const parse = (src: string) => new CSPParser(new CSPLexer(src).tokenize()).parse();
+    const run = (src: string): string =>
+      new Interpreter().interpret(parse(src), src).join('').replace(/\s+/g, ' ').trim();
+
+    it('SUBSTRING is 1-based inclusive, CHARAT is 1-based, CONCAT concatenates', () => {
+      const out = run(
+        `word <- "hello"\nDISPLAY(SUBSTRING(word, 2, 4))\nDISPLAY(CHARAT(word, 1))\nDISPLAY(CONCAT("ab", "cd"))\nDISPLAY(len(word))`
+      );
+      expect(out).toBe('ell h abcd 5');
+    });
+
+    it('translates SUBSTRING/CHARAT into 0-based Java string methods', () => {
+      const java = new Translator().translate(
+        parse(`word <- "hello"\nDISPLAY(SUBSTRING(word, 2, 4))\nDISPLAY(CHARAT(word, 1))`),
+        'java'
+      );
+      expect(java).toContain('word.substring(1, 4)');
+      expect(java).toContain('word.charAt(0)');
+    });
+
+    it('round-trips SUBSTRING/CHARAT back to 1-based CSP', () => {
+      const csp = new Translator().translate(
+        parse(`word <- "hello"\nDISPLAY(SUBSTRING(word, 2, 4))\nDISPLAY(CHARAT(word, 1))`),
+        'csp'
+      );
+      expect(csp).toContain('SUBSTRING(word, 2, 4)');
+      expect(csp).toContain('CHARAT(word, 1)');
+    });
+  });
 });
