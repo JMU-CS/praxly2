@@ -199,6 +199,60 @@ export function registerPraxlyBlocks(): void {
       style: 'list_blocks',
       tooltip: 'The number of elements in a list, or characters in a string.',
     },
+    // ---- Strings (1-based positions, matching AP CSP) ---------------------
+    {
+      type: 'praxly_str_substring',
+      message0: 'substring of %1 from %2 to %3',
+      args0: [
+        { type: 'input_value', name: 'STR' },
+        { type: 'input_value', name: 'START' },
+        { type: 'input_value', name: 'END' },
+      ],
+      inputsInline: true,
+      output: null,
+      style: 'text_blocks',
+      tooltip: 'The characters from the start position to the end position, inclusive (1-based).',
+    },
+    {
+      type: 'praxly_str_charat',
+      message0: 'character %1 of %2',
+      args0: [
+        { type: 'input_value', name: 'INDEX' },
+        { type: 'input_value', name: 'STR' },
+      ],
+      inputsInline: true,
+      output: null,
+      style: 'text_blocks',
+      tooltip: 'The single character at a position. The first character is at position 1.',
+    },
+    {
+      type: 'praxly_str_upper',
+      message0: '%1 in upper case',
+      args0: [{ type: 'input_value', name: 'STR' }],
+      output: null,
+      style: 'text_blocks',
+      tooltip: 'A copy of the string with every letter in upper case.',
+    },
+    {
+      type: 'praxly_str_lower',
+      message0: '%1 in lower case',
+      args0: [{ type: 'input_value', name: 'STR' }],
+      output: null,
+      style: 'text_blocks',
+      tooltip: 'A copy of the string with every letter in lower case.',
+    },
+    {
+      type: 'praxly_str_contains',
+      message0: '%1 contains %2',
+      args0: [
+        { type: 'input_value', name: 'STR' },
+        { type: 'input_value', name: 'SEARCH' },
+      ],
+      inputsInline: true,
+      output: 'Boolean',
+      style: 'text_blocks',
+      tooltip: 'True if the first string contains the second string.',
+    },
   ]);
 }
 
@@ -263,6 +317,22 @@ export const PRAXLY_TOOLBOX = {
         { kind: 'block', type: 'text_join' },
         { kind: 'block', type: 'praxly_print' },
         { kind: 'block', type: 'praxly_input' },
+        {
+          kind: 'block',
+          type: 'praxly_str_substring',
+          inputs: {
+            START: { shadow: { type: 'math_number', fields: { NUM: 1 } } },
+            END: { shadow: { type: 'math_number', fields: { NUM: 3 } } },
+          },
+        },
+        {
+          kind: 'block',
+          type: 'praxly_str_charat',
+          inputs: { INDEX: { shadow: { type: 'math_number', fields: { NUM: 1 } } } },
+        },
+        { kind: 'block', type: 'praxly_str_upper' },
+        { kind: 'block', type: 'praxly_str_lower' },
+        { kind: 'block', type: 'praxly_str_contains' },
       ],
     },
     {

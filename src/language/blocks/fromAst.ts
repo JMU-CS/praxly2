@@ -19,6 +19,7 @@ import type {
   ForEach,
   FunctionDeclaration,
   If,
+  MemberExpression,
   Print,
   Program,
   Statement,
@@ -218,6 +219,46 @@ class BlocksWriter {
       { type: 'variables_set', fields: { VAR: { id: this.variableId(name) } } },
       { VALUE: this.value(stmt.value) }
     );
+  }
+
+  /** A string-method call (obj.substring(...), obj.toUpperCase(), …) → block. */
+  private stringMethod(callee: MemberExpression, args: Expression[]): BlockState {
+    const name = callee.property.name;
+    const obj = callee.object;
+    switch (name) {
+      case 'substring':
+        if (args.length < 2) break;
+        // s.substring(a, b): a is the 0-based start, b the exclusive end,
+        // which equals the 1-based inclusive end shown in the block.
+        return this.withInputs(
+          { type: 'praxly_str_substring' },
+          {
+            STR: this.value(obj),
+            START: this.value(this.toOneBasedIndex(args[0])),
+            END: this.value(args[1]),
+          }
+        );
+      case 'charAt':
+        if (args.length < 1) break;
+        return this.withInputs(
+          { type: 'praxly_str_charat' },
+          { INDEX: this.value(this.toOneBasedIndex(args[0])), STR: this.value(obj) }
+        );
+      case 'toUpperCase':
+      case 'upper':
+        return this.withInputs({ type: 'praxly_str_upper' }, { STR: this.value(obj) });
+      case 'toLowerCase':
+      case 'lower':
+        return this.withInputs({ type: 'praxly_str_lower' }, { STR: this.value(obj) });
+      case 'contains':
+      case 'includes':
+        if (args.length < 1) break;
+        return this.withInputs(
+          { type: 'praxly_str_contains' },
+          { STR: this.value(obj), SEARCH: this.value(args[0]) }
+        );
+    }
+    throw new Error(`Blocks view doesn't support the "${name}" method.`);
   }
 
   /** APPEND/INSERT/REMOVE free-function calls → the matching list block. */
@@ -608,8 +649,8 @@ class BlocksWriter {
         );
 
       case 'CallExpression': {
-        if (expr.callee.type !== 'Identifier') {
-          throw new Error('Blocks view only supports calling named functions.');
+        if (expr.callee.type === 'MemberExpression') {
+          return this.stringMethod(expr.callee, expr.arguments);
         }
         // length of a list/string.
         if (LENGTH_NAMES.has(expr.callee.name) && expr.arguments.length === 1) {

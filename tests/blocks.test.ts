@@ -345,6 +345,37 @@ describe('Blocks Option B (interpret round trip)', () => {
     expect(get.inputs.INDEX.block).toMatchObject({ type: 'math_number', fields: { NUM: 1 } });
   });
 
+  it('interprets a CSP string program identically through blocks', () => {
+    const source = [
+      'word <- "algorithm"',
+      'DISPLAY(CONCAT("al", "go"))',
+      'DISPLAY(SUBSTRING(word, 1, 4))',
+      'DISPLAY(CHARAT(word, 1))',
+      'DISPLAY(len(word))',
+    ].join('\n');
+    const program = parseCsp(source);
+    // algo | algo | a | 9, all space-terminated.
+    expect(new Interpreter().interpret(program, '')).toEqual(['algo algo a 9 ']);
+    assertInterpretsIdentically(program);
+  });
+
+  it('keeps substring/charAt positions 1-based across the round trip', () => {
+    const json = JSON.parse(
+      programToBlocksJson(parseCsp('word <- "hi"\nDISPLAY(CHARAT(word, 1))'))
+    );
+    const charat = json.blocks.blocks[0].next.block.inputs.VALUE.block;
+    expect(charat.type).toBe('praxly_str_charat');
+    expect(charat.inputs.INDEX.block).toMatchObject({ type: 'math_number', fields: { NUM: 1 } });
+  });
+
+  it('round-trips upper/lower/contains string blocks', () => {
+    // Praxis-style string methods also map onto the blocks.
+    const program = parsePython(
+      's = "Hi"\nprint(s.upper())\nprint(s.lower())\nprint("hello".contains("ell"))'
+    );
+    assertInterpretsIdentically(program);
+  });
+
   it('round-trips a for-each loop over a list value', () => {
     // No list-literal block yet (Commit 2), so drive the LIST socket from a
     // variable and assert the AST shape survives real Blockly load/save.

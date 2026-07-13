@@ -426,6 +426,29 @@ class BlocksReader {
           arguments: [this.expression(block, 'VALUE')],
         };
 
+      case 'praxly_str_substring':
+        // substring from a to b (1-based inclusive) -> s.substring(a-1, b).
+        return this.methodCall(this.expression(block, 'STR'), 'substring', [
+          this.toZeroBasedIndex(this.expression(block, 'START')),
+          this.expression(block, 'END'),
+        ]);
+
+      case 'praxly_str_charat':
+        return this.methodCall(this.expression(block, 'STR'), 'charAt', [
+          this.toZeroBasedIndex(this.expression(block, 'INDEX')),
+        ]);
+
+      case 'praxly_str_upper':
+        return this.methodCall(this.expression(block, 'STR'), 'toUpperCase', []);
+
+      case 'praxly_str_lower':
+        return this.methodCall(this.expression(block, 'STR'), 'toLowerCase', []);
+
+      case 'praxly_str_contains':
+        return this.methodCall(this.expression(block, 'STR'), 'contains', [
+          this.expression(block, 'SEARCH'),
+        ]);
+
       case 'praxly_input':
         return {
           id: generateId(),
@@ -449,6 +472,22 @@ class BlocksReader {
       operator,
       left: this.expression(block, leftName),
       right: this.expression(block, rightName),
+    };
+  }
+
+  /** Builds an `obj.method(args)` call node for a string-method block. */
+  private methodCall(object: Expression, method: string, args: Expression[]): Expression {
+    return {
+      id: generateId(),
+      type: 'CallExpression',
+      callee: {
+        id: generateId(),
+        type: 'MemberExpression',
+        object,
+        property: { id: generateId(), type: 'Identifier', name: method },
+        isMethod: true,
+      },
+      arguments: args,
     };
   }
 
