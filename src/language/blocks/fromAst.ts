@@ -44,6 +44,9 @@ const ARITHMETIC_OPS: Record<string, string> = {
   '^': 'POWER',
 };
 
+/** Builtin names that read a length (of a list or string). */
+const LENGTH_NAMES = new Set(['len', 'LENGTH', 'length']);
+
 /** Converts a Program to Blockly workspace JSON, returned as a string. */
 export function programToBlocksJson(program: Program): string {
   return JSON.stringify(new BlocksWriter(program).write());
@@ -182,6 +185,8 @@ class BlocksWriter {
       case 'ExpressionStatement': {
         const expr = stmt.expression;
         if (expr.type === 'CallExpression' && expr.callee.type === 'Identifier') {
+          const listOp = this.listOpStatement(expr.callee.name, expr.arguments);
+          if (listOp) return listOp;
           return this.procedureCall(expr.callee.name, expr.arguments, false);
         }
         throw new Error(`Blocks view doesn't support this expression statement.`);
@@ -193,6 +198,18 @@ class BlocksWriter {
   }
 
   private assignment(stmt: Assignment): BlockState {
+    // Assigning to a list element (`a[i] = v`) is the "set item" block.
+    if (stmt.target.type === 'IndexExpression') {
+      const target = stmt.target;
+      return this.withInputs(
+        { type: 'praxly_list_set' },
+        {
+          INDEX: this.value(this.toOneBasedIndex(target.index)),
+          LIST: this.value(target.object),
+          VALUE: this.value(stmt.value),
+        }
+      );
+    }
     const name = lvalueName(stmt);
     if (name === undefined) {
       throw new Error('Blocks view only supports assigning to plain variables.');
@@ -201,6 +218,57 @@ class BlocksWriter {
       { type: 'variables_set', fields: { VAR: { id: this.variableId(name) } } },
       { VALUE: this.value(stmt.value) }
     );
+  }
+
+  /** APPEND/INSERT/REMOVE free-function calls → the matching list block. */
+  private listOpStatement(name: string, args: Expression[]): BlockState | undefined {
+    if ((name === 'APPEND' || name === 'append') && args.length === 2) {
+      return this.withInputs(
+        { type: 'praxly_list_append' },
+        { VALUE: this.value(args[1]), LIST: this.value(args[0]) }
+      );
+    }
+    if ((name === 'INSERT' || name === 'insert') && args.length === 3) {
+      return this.withInputs(
+        { type: 'praxly_list_insert' },
+        {
+          VALUE: this.value(args[2]),
+          INDEX: this.value(this.toOneBasedIndex(args[1])),
+          LIST: this.value(args[0]),
+        }
+      );
+    }
+    if ((name === 'REMOVE' || name === 'remove') && args.length === 2) {
+      return this.withInputs(
+        { type: 'praxly_list_remove' },
+        { INDEX: this.value(this.toOneBasedIndex(args[1])), LIST: this.value(args[0]) }
+      );
+    }
+    return undefined;
+  }
+
+  /** Converts a 0-based AST index back to a 1-based block value (mirrors the
+   *  CSP emitter's oneBasedArg: fold `x - 1` → `x`, else `+ 1`). */
+  private toOneBasedIndex(idx: Expression): Expression {
+    if (idx.type === 'Literal' && typeof idx.value === 'number') {
+      const v = idx.value + 1;
+      return { id: `blocks-idx-${idx.id}`, type: 'Literal', value: v, raw: String(v) };
+    }
+    if (
+      idx.type === 'BinaryExpression' &&
+      idx.operator === '-' &&
+      idx.right.type === 'Literal' &&
+      idx.right.value === 1
+    ) {
+      return idx.left;
+    }
+    return {
+      id: `blocks-idx-${idx.id}`,
+      type: 'BinaryExpression',
+      operator: '+',
+      left: idx,
+      right: { id: `blocks-idx1-${idx.id}`, type: 'Literal', value: 1, raw: '1' },
+    };
   }
 
   private print(stmt: Print): BlockState {
@@ -521,11 +589,37 @@ class BlocksWriter {
         throw new Error(`Blocks view doesn't support unary "${expr.operator}".`);
       }
 
-      case 'CallExpression':
+      case 'ArrayLiteral': {
+        const inputs: BlockState['inputs'] = {};
+        expr.elements.forEach((el, i) => {
+          inputs[`ADD${i}`] = { block: this.expression(el) };
+        });
+        return {
+          type: 'lists_create_with',
+          extraState: { itemCount: expr.elements.length },
+          inputs,
+        };
+      }
+
+      case 'IndexExpression':
+        return this.withInputs(
+          { type: 'praxly_list_get' },
+          { INDEX: this.value(this.toOneBasedIndex(expr.index)), LIST: this.value(expr.object) }
+        );
+
+      case 'CallExpression': {
         if (expr.callee.type !== 'Identifier') {
           throw new Error('Blocks view only supports calling named functions.');
         }
+        // length of a list/string.
+        if (LENGTH_NAMES.has(expr.callee.name) && expr.arguments.length === 1) {
+          return this.withInputs(
+            { type: 'praxly_length' },
+            { VALUE: this.value(expr.arguments[0]) }
+          );
+        }
         return this.procedureCall(expr.callee.name, expr.arguments, true);
+      }
 
       default:
         throw new Error(`Blocks view doesn't support ${expr.type} expressions yet.`);

@@ -117,6 +117,39 @@ class BlocksReader {
         };
       }
 
+      case 'praxly_list_set':
+        // set item i of list to v  ->  list[i-1] = v
+        return {
+          id: generateId(),
+          type: 'Assignment',
+          target: {
+            id: generateId(),
+            type: 'IndexExpression',
+            object: this.expression(block, 'LIST'),
+            index: this.toZeroBasedIndex(this.expression(block, 'INDEX')),
+          },
+          value: this.expression(block, 'VALUE'),
+        };
+
+      case 'praxly_list_append':
+        return this.listCallStatement('APPEND', [
+          this.expression(block, 'LIST'),
+          this.expression(block, 'VALUE'),
+        ]);
+
+      case 'praxly_list_insert':
+        return this.listCallStatement('INSERT', [
+          this.expression(block, 'LIST'),
+          this.toZeroBasedIndex(this.expression(block, 'INDEX')),
+          this.expression(block, 'VALUE'),
+        ]);
+
+      case 'praxly_list_remove':
+        return this.listCallStatement('REMOVE', [
+          this.expression(block, 'LIST'),
+          this.toZeroBasedIndex(this.expression(block, 'INDEX')),
+        ]);
+
       case 'praxly_print': {
         // NL sets what follows the value: a newline (default), a space (CSP
         // DISPLAY's trailing space), or nothing.
@@ -365,6 +398,34 @@ class BlocksReader {
         }));
       }
 
+      case 'lists_create_with': {
+        const extra = (block.extraState ?? {}) as { itemCount?: number };
+        const count = extra.itemCount ?? 0;
+        const elements: Expression[] = [];
+        for (let i = 0; i < count; i++) {
+          const item = inputBlock(block, `ADD${i}`);
+          if (item) elements.push(this.expressionBlock(item));
+        }
+        return { id: generateId(), type: 'ArrayLiteral', elements };
+      }
+
+      case 'praxly_list_get':
+        // item i of list  ->  list[i-1]
+        return {
+          id: generateId(),
+          type: 'IndexExpression',
+          object: this.expression(block, 'LIST'),
+          index: this.toZeroBasedIndex(this.expression(block, 'INDEX')),
+        };
+
+      case 'praxly_length':
+        return {
+          id: generateId(),
+          type: 'CallExpression',
+          callee: { id: generateId(), type: 'Identifier', name: 'len' },
+          arguments: [this.expression(block, 'VALUE')],
+        };
+
       case 'praxly_input':
         return {
           id: generateId(),
@@ -388,6 +449,36 @@ class BlocksReader {
       operator,
       left: this.expression(block, leftName),
       right: this.expression(block, rightName),
+    };
+  }
+
+  /** Wraps a CSP-style list builtin (APPEND/INSERT/REMOVE) as a statement. */
+  private listCallStatement(name: string, args: Expression[]): Statement {
+    return {
+      id: generateId(),
+      type: 'ExpressionStatement',
+      expression: {
+        id: generateId(),
+        type: 'CallExpression',
+        callee: { id: generateId(), type: 'Identifier', name },
+        arguments: args,
+      },
+    };
+  }
+
+  /** Converts a 1-based block index to a 0-based AST index (mirrors the CSP
+   *  parser's toZeroBased: decrement a literal, else wrap in `x - 1`). */
+  private toZeroBasedIndex(index: Expression): Expression {
+    if (index.type === 'Literal' && typeof index.value === 'number') {
+      const v = index.value - 1;
+      return { id: generateId(), type: 'Literal', value: v, raw: String(v) };
+    }
+    return {
+      id: generateId(),
+      type: 'BinaryExpression',
+      operator: '-',
+      left: index,
+      right: { id: generateId(), type: 'Literal', value: 1, raw: '1' },
     };
   }
 

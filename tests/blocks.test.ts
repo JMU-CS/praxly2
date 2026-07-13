@@ -130,7 +130,15 @@ describe('Blocks emitter (programToBlocksJson)', () => {
   });
 
   it('rejects constructs the Blocks view does not support', () => {
-    expect(() => programToBlocksJson(parsePython('nums = [1, 2, 3]'))).toThrow(/support/i);
+    // Ternary (ConditionalExpression) is an intentional omission of the subset.
+    expect(() => programToBlocksJson(parsePython('x = 1 if y > 0 else 2'))).toThrow(/support/i);
+  });
+
+  it('emits a list literal as lists_create_with', () => {
+    const state = JSON.parse(programToBlocksJson(parsePython('nums = [1, 2, 3]')));
+    const list = state.blocks.blocks[0].inputs.VALUE.block;
+    expect(list.type).toBe('lists_create_with');
+    expect(list.extraState).toEqual({ itemCount: 3 });
   });
 });
 
@@ -308,6 +316,33 @@ describe('Blocks Option B (interpret round trip)', () => {
     const top = JSON.parse(programToBlocksJson(program)).blocks.blocks[0];
     expect(top.next.block.type).toBe('praxly_forever');
     assertInterpretsIdentically(program);
+  });
+
+  it('interprets a CSP list program identically through blocks', () => {
+    const source = [
+      'nums <- [10, 20, 30]',
+      'DISPLAY(nums[1])',
+      'nums[2] <- 99',
+      'DISPLAY(nums[2])',
+      'APPEND(nums, 40)',
+      'INSERT(nums, 1, 5)',
+      'REMOVE(nums, 2)',
+      'DISPLAY(LENGTH(nums))',
+      'DISPLAY(nums[1])',
+      'FOR EACH item IN nums { DISPLAY(item) }',
+    ].join('\n');
+    const program = parseCsp(source);
+    // Ground-truth output: 1-based indexing, list mutation, for-each.
+    expect(new Interpreter().interpret(program, '')).toEqual(['10 99 4 5 5 99 30 40 ']);
+    assertInterpretsIdentically(program);
+  });
+
+  it('keeps list indexing 1-based across the round trip', () => {
+    // nums[1] is the first element -> AST index 0 -> block shadow index 1.
+    const state = JSON.parse(programToBlocksJson(parseCsp('nums <- [7, 8]\nDISPLAY(nums[1])')));
+    const get = state.blocks.blocks[0].next.block.inputs.VALUE.block;
+    expect(get.type).toBe('praxly_list_get');
+    expect(get.inputs.INDEX.block).toMatchObject({ type: 'math_number', fields: { NUM: 1 } });
   });
 
   it('round-trips a for-each loop over a list value', () => {

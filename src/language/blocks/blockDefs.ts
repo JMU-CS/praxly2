@@ -124,6 +124,81 @@ export function registerPraxlyBlocks(): void {
         'Run the body once for each element of the list, with the variable set ' +
         'to each element in turn.',
     },
+    // ---- Lists (1-based, matching AP CSP) ---------------------------------
+    {
+      type: 'praxly_list_get',
+      message0: 'item %1 of %2',
+      args0: [
+        { type: 'input_value', name: 'INDEX' },
+        { type: 'input_value', name: 'LIST' },
+      ],
+      inputsInline: true,
+      output: null,
+      style: 'list_blocks',
+      tooltip: 'Get the element of a list at a position. The first item is at position 1.',
+    },
+    {
+      type: 'praxly_list_set',
+      message0: 'set item %1 of %2 to %3',
+      args0: [
+        { type: 'input_value', name: 'INDEX' },
+        { type: 'input_value', name: 'LIST' },
+        { type: 'input_value', name: 'VALUE' },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      style: 'list_blocks',
+      tooltip: 'Replace the element of a list at a position. The first item is at position 1.',
+    },
+    {
+      type: 'praxly_list_append',
+      message0: 'append %1 to %2',
+      args0: [
+        { type: 'input_value', name: 'VALUE' },
+        { type: 'input_value', name: 'LIST' },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      style: 'list_blocks',
+      tooltip: 'Add a value to the end of a list.',
+    },
+    {
+      type: 'praxly_list_insert',
+      message0: 'insert %1 at %2 in %3',
+      args0: [
+        { type: 'input_value', name: 'VALUE' },
+        { type: 'input_value', name: 'INDEX' },
+        { type: 'input_value', name: 'LIST' },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      style: 'list_blocks',
+      tooltip: 'Insert a value into a list at a position, shifting later items right.',
+    },
+    {
+      type: 'praxly_list_remove',
+      message0: 'remove item %1 from %2',
+      args0: [
+        { type: 'input_value', name: 'INDEX' },
+        { type: 'input_value', name: 'LIST' },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      style: 'list_blocks',
+      tooltip: 'Remove the element of a list at a position, shifting later items left.',
+    },
+    {
+      type: 'praxly_length',
+      message0: 'length of %1',
+      args0: [{ type: 'input_value', name: 'VALUE' }],
+      output: null,
+      style: 'list_blocks',
+      tooltip: 'The number of elements in a list, or characters in a string.',
+    },
   ]);
 }
 
@@ -188,6 +263,36 @@ export const PRAXLY_TOOLBOX = {
         { kind: 'block', type: 'text_join' },
         { kind: 'block', type: 'praxly_print' },
         { kind: 'block', type: 'praxly_input' },
+      ],
+    },
+    {
+      kind: 'category',
+      name: 'Lists',
+      categorystyle: 'list_category',
+      contents: [
+        { kind: 'block', type: 'lists_create_with' },
+        {
+          kind: 'block',
+          type: 'praxly_list_get',
+          inputs: { INDEX: { shadow: { type: 'math_number', fields: { NUM: 1 } } } },
+        },
+        {
+          kind: 'block',
+          type: 'praxly_list_set',
+          inputs: { INDEX: { shadow: { type: 'math_number', fields: { NUM: 1 } } } },
+        },
+        { kind: 'block', type: 'praxly_list_append' },
+        {
+          kind: 'block',
+          type: 'praxly_list_insert',
+          inputs: { INDEX: { shadow: { type: 'math_number', fields: { NUM: 1 } } } },
+        },
+        {
+          kind: 'block',
+          type: 'praxly_list_remove',
+          inputs: { INDEX: { shadow: { type: 'math_number', fields: { NUM: 1 } } } },
+        },
+        { kind: 'block', type: 'praxly_length' },
       ],
     },
     // Dynamic categories: Blockly fills these flyouts itself (variable
