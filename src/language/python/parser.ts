@@ -681,19 +681,41 @@ export class Parser {
   }
 
   private comparison(): Expression {
-    let left = this.term();
+    const left = this.term();
+
+    // Relational comparison (chaining is rejected below).
     if (this.match('OPERATOR', '>', '>=', '<', '<=')) {
       const operator = this.previous().value;
       const right = this.term();
-      left = { id: generateId(), type: 'BinaryExpression', left, operator, right };
-      // Chained comparison (`a < b < c`) has no equivalent in the other targets;
-      // reject it rather than mis-evaluating it left-associatively.
-      if (this.check('OPERATOR', '>', '>=', '<', '<='))
+      // Chained comparison (`a < b < c`, `a < b in c`) has no cross-language
+      // mapping; reject it rather than mis-evaluating it left-associatively.
+      if (
+        this.check('OPERATOR', '>', '>=', '<', '<=') ||
+        this.check('KEYWORD', 'in') ||
+        (this.check('KEYWORD', 'not') && this.checkNext('KEYWORD', 'in'))
+      ) {
         throw new UnsupportedFeatureError('chained comparison is not supported');
+      }
+      return { id: generateId(), type: 'BinaryExpression', left, operator, right };
     }
+
+    // String membership: `x in s` / `x not in s` → BinaryExpression. Membership
+    // is restricted to strings at runtime (the interpreter rejects a list RHS).
+    if (this.match('KEYWORD', 'in')) {
+      const right = this.term();
+      return { id: generateId(), type: 'BinaryExpression', left, operator: 'in', right };
+    }
+    if (this.check('KEYWORD', 'not') && this.checkNext('KEYWORD', 'in')) {
+      this.advance();
+      this.advance();
+      const right = this.term();
+      return { id: generateId(), type: 'BinaryExpression', left, operator: 'not in', right };
+    }
+
     // Identity comparison `is` / `is not` has no cross-language mapping.
     if (this.check('KEYWORD', 'is'))
       throw new UnsupportedFeatureError("'is' / 'is not' is not supported");
+
     return left;
   }
 

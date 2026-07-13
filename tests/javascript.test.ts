@@ -487,6 +487,14 @@ describe('Translation from JavaScript', () => {
       const out = translateFromJS(funcSrc, 'python');
       expect(out).toContain('def max(a, b)');
     });
+
+    it('emits index-target compound assignment correctly (not undefined)', () => {
+      // A member/index compound target must use the full target expression,
+      // not a bare identifier name (which is empty for non-identifier targets).
+      const out = translateFromJS('let a = [1, 2, 3];\na[0] += 5;', 'python');
+      expect(out).toContain('a[0] += 5');
+      expect(out).not.toContain('undefined');
+    });
   });
 
   describe('to Java', () => {

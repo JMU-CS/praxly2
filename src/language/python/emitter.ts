@@ -2,7 +2,7 @@
  * Python Language Emitter
  * Converts AST nodes into Python source code.
  * Handles Python-specific syntax including classes with self parameter,
- * indentation-based blocks, tuple unpacking, and Python method/function syntax.
+ * indentation-based blocks, and Python method/function syntax.
  */
 
 import { ASTVisitor, Precedence } from '../visitor';
@@ -761,6 +761,9 @@ export class PythonEmitter extends ASTVisitor {
           '>': { op: '>', prec: Precedence.Relational },
           '<=': { op: '<=', prec: Precedence.Relational },
           '>=': { op: '>=', prec: Precedence.Relational },
+          // String membership — native in Python.
+          in: { op: 'in', prec: Precedence.Relational },
+          'not in': { op: 'not in', prec: Precedence.Relational },
           '+': { op: '+', prec: Precedence.Additive },
           '-': { op: '-', prec: Precedence.Additive },
           '*': { op: '*', prec: Precedence.Multiplicative },
@@ -875,12 +878,15 @@ export class PythonEmitter extends ASTVisitor {
         output = `[${def}] * ${this.generateExpression(ac.size, 0)}`;
         break;
       }
-      case 'CompoundAssignment':
-        const target = (expr as any).name;
-        const value = this.generateExpression((expr as any).value, 0);
-        const operator = (expr as any).operator;
-        output = `${target} ${operator}= ${value}`;
+      case 'CompoundAssignment': {
+        const ca = expr as any;
+        // Use the full target expression so member/index targets (`self.x += 1`,
+        // `a[i] += 1`) emit correctly, not just bare-identifier targets.
+        const target = ca.left ? this.generateExpression(ca.left, Precedence.Call) : ca.name;
+        const value = this.generateExpression(ca.value ?? ca.right, 0);
+        output = `${target} ${ca.operator}= ${value}`;
         break;
+      }
     }
     return currentPrecedence < parentPrecedence ? `(${output})` : output;
   }

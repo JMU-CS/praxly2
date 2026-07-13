@@ -700,6 +700,15 @@ export class PraxisEmitter extends ASTVisitor {
       }
 
       case 'BinaryExpression': {
+        // String membership (`x in s`) → Praxis String.contains.
+        if (expr.operator === 'in' || expr.operator === 'not in') {
+          const needle = this.generateExpression(expr.left, Precedence.Call);
+          const hay = this.generateExpression(expr.right, Precedence.Call);
+          const call = `${hay}.contains(${needle})`;
+          output = expr.operator === 'in' ? call : `not ${call}`;
+          currentPrecedence = expr.operator === 'in' ? Precedence.Call : Precedence.Unary;
+          break;
+        }
         const opMap: Record<string, { op: string; prec: number }> = {
           or: { op: 'or', prec: Precedence.LogicalOr },
           and: { op: 'and', prec: Precedence.LogicalAnd },

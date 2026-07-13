@@ -329,7 +329,7 @@ export class Interpreter {
       case 'BinaryExpression': {
         const binary = expr as any;
         const operator = binary.operator;
-        if (['==', '!=', '>', '<', '>=', '<=', 'and', 'or'].includes(operator)) {
+        if (['==', '!=', '>', '<', '>=', '<=', 'and', 'or', 'in', 'not in'].includes(operator)) {
           return 'boolean';
         }
         const leftType = this.inferExpressionType(binary.left, env);
@@ -1764,6 +1764,16 @@ export class Interpreter {
             return l && r;
           case 'or':
             return l || r;
+          case 'in':
+          case 'not in': {
+            // Membership is string-only (`x in str`). List membership is
+            // deliberately unsupported (no clean mapping to CSP/Praxis).
+            if (typeof r !== 'string') {
+              throw new Error("membership 'in' is only supported for strings, not lists");
+            }
+            const contained = r.includes(String(l));
+            return expr.operator === 'in' ? contained : !contained;
+          }
           default:
             throw new Error(`Unknown operator ${expr.operator}`);
         }

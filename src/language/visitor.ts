@@ -331,7 +331,7 @@ export abstract class ASTVisitor {
       case 'Identifier':
         return this.context.symbolTable.get(expr.name) || 'var';
       case 'BinaryExpression':
-        if (['>', '<', '>=', '<=', '==', '!=', 'and', 'or'].includes(expr.operator))
+        if (['>', '<', '>=', '<=', '==', '!=', 'and', 'or', 'in', 'not in'].includes(expr.operator))
           return 'boolean';
         const left = this.inferType(expr.left);
         const right = this.inferType(expr.right);

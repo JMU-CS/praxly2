@@ -1435,5 +1435,31 @@ print(meow.x)`;
       it('rejects decorators', () => expectRejected(`@dec\ndef f():\n    pass`));
       it('rejects chained comparison', () => expectRejected(`x = 1 < 2 < 3`));
     });
+
+    describe('string membership (in / not in)', () => {
+      it('parses `x in s` as a BinaryExpression', () => {
+        const program = parse(`word = "cat"\nr = "a" in word`) as any;
+        const value = program.body[1].value;
+        expect(value.type).toBe('BinaryExpression');
+        expect(value.operator).toBe('in');
+      });
+
+      it('interprets string membership', () => {
+        expect(run(`word = "cat"\nprint("a" in word)`)).toContain('true');
+        expect(run(`word = "cat"\nprint("z" in word)`)).toContain('false');
+        expect(run(`word = "cat"\nprint("z" not in word)`)).toContain('true');
+      });
+
+      it('rejects list membership at runtime', () => {
+        expect(run(`nums = [1, 2]\nprint(1 in nums)`)).toMatch(/strings/);
+      });
+
+      it('translates to Java String.contains with a boolean type', () => {
+        const java = toJava(`word = "cat"\nx = "a" in word\ny = "b" not in word`);
+        expect(java).toContain('word.contains("a")');
+        expect(java).toContain('!word.contains("b")');
+        expect(java).toContain('boolean x');
+      });
+    });
   });
 });

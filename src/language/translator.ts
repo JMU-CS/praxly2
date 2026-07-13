@@ -145,7 +145,9 @@ export class Translator {
         case 'Identifier':
           return context.symbolTable.get(expr.name) || 'var';
         case 'BinaryExpression':
-          if (['>', '<', '>=', '<=', '==', '!=', 'and', 'or'].includes(expr.operator))
+          if (
+            ['>', '<', '>=', '<=', '==', '!=', 'and', 'or', 'in', 'not in'].includes(expr.operator)
+          )
             return 'boolean';
           const left = inferType(expr.left);
           const right = inferType(expr.right);

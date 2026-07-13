@@ -503,6 +503,15 @@ export class JavaScriptEmitter extends ASTVisitor {
         break;
 
       case 'BinaryExpression': {
+        // String membership (`x in s`) → JS String.includes.
+        if (expr.operator === 'in' || expr.operator === 'not in') {
+          const needle = this.generateExpression(expr.left, Precedence.Call);
+          const hay = this.generateExpression(expr.right, Precedence.Call);
+          out =
+            expr.operator === 'in' ? `${hay}.includes(${needle})` : `!${hay}.includes(${needle})`;
+          prec = expr.operator === 'in' ? Precedence.Call : Precedence.Unary;
+          break;
+        }
         const opMap: Record<string, { op: string; prec: number }> = {
           or: { op: '||', prec: Precedence.LogicalOr },
           and: { op: '&&', prec: Precedence.LogicalAnd },

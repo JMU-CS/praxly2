@@ -403,6 +403,10 @@ export class CSPEmitter extends ASTVisitor {
         break;
 
       case 'BinaryExpression': {
+        // CSP pseudocode has no membership primitive.
+        if (expr.operator === 'in' || expr.operator === 'not in') {
+          throw new Error("membership 'in' / 'not in' is not supported in CSP pseudocode");
+        }
         const opMap: Record<string, { op: string; prec: number }> = {
           or: { op: 'OR', prec: Precedence.LogicalOr },
           and: { op: 'AND', prec: Precedence.LogicalAnd },

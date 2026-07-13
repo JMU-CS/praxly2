@@ -1125,6 +1125,16 @@ export class JavaEmitter extends ASTVisitor {
           break;
         }
 
+        // String membership (`x in s`) → Java String.contains.
+        if (expr.operator === 'in' || expr.operator === 'not in') {
+          const needle = this.generateExpression(expr.left, Precedence.Call);
+          const hay = this.generateExpression(expr.right, Precedence.Call);
+          output =
+            expr.operator === 'in' ? `${hay}.contains(${needle})` : `!${hay}.contains(${needle})`;
+          currentPrecedence = expr.operator === 'in' ? Precedence.Call : Precedence.Unary;
+          break;
+        }
+
         // Operator mapping from source language to Java syntax
         const opMap: Record<string, { op: string; prec: number }> = {
           // Logical operators
