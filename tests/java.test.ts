@@ -794,3 +794,31 @@ describe('Java braceless control-flow bodies', () => {
     ).toEqual(['3']);
   });
 });
+
+describe('Java random (seeded, deterministic)', () => {
+  const runJava = (src: string): string[] =>
+    new Interpreter().interpret(new JavaParser(new JavaLexer(src).tokenize()).parse(), src);
+
+  it('OOP Random.setSeed yields a deterministic sequence', () => {
+    const out = runJava(`public class Main {
+  public static void main(String[] args) {
+    Random r = new Random();
+    r.setSeed(42);
+    System.out.println(r.nextInt(100));
+    System.out.println(r.nextInt(100));
+    System.out.println(r.nextBoolean());
+  }
+}`);
+    expect(out).toEqual(['60', '44', 'false']);
+  });
+
+  it('Math.random() stays in [0, 1)', () => {
+    const out = runJava(`public class Main {
+  public static void main(String[] args) {
+    double x = Math.random();
+    System.out.println(x >= 0.0 && x < 1.0);
+  }
+}`);
+    expect(out).toEqual(['true']);
+  });
+});

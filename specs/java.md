@@ -66,7 +66,11 @@ The _AP Computer Science A_ exam may use the following methods from the Java lib
 - `Scanner` is used by Praxly only to read input from `System.in`.
 - Additional String methods: `charAt()`, `contains()`, `toUpperCase()`, `toLowerCase()`.
 - Additional Math methods: `log()`, `max()`, `min()`
-- Random class with methods: `randomInt()`, `setSeed()`
+- `Random` class: `new Random()`, `int nextInt(int bound)` (a value in `[0, bound)`),
+  `double nextDouble()` (a value in `[0.0, 1.0)`), `boolean nextBoolean()`, and
+  `void setSeed(long seed)` for deterministic sequences. (`setSeed(s)` uses the same
+  seeded generator as the pseudocode `randomSeed(s)`, so a seeded `Random` and a seeded
+  procedural `randomInt` produce the same sequence.)
 - `char` literals (e.g. `'A'`) and escape sequences (`\n`, `\t`, `\r`, `\"`, `\'`, `\\`) in
   `String` and `char` literals.
 - A default `Object.toString()` returns `"ClassName instance"`; the bitwise/shift operators

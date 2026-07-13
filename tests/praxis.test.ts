@@ -766,4 +766,16 @@ print(a.length)`;
       expect(new Translator().translate(program, 'javascript')).toContain('Array(3).fill(0)');
     });
   });
+
+  describe('Praxis random (seeded, deterministic)', () => {
+    const run = (src: string): string[] =>
+      new Interpreter().interpret(new PraxisParser(new PraxisLexer(src).tokenize()).parse(), src);
+
+    it('randomSeed + randomInt are deterministic (and match Java seeded Random)', () => {
+      expect(run(`randomSeed(42)\nprint(randomInt(100))\nprint(randomInt(100))`)).toEqual([
+        '60',
+        '44',
+      ]);
+    });
+  });
 });

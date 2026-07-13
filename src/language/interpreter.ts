@@ -191,6 +191,18 @@ class JavaScanner {
   tokenBuffer: string[] = [];
 }
 
+// Java Random: each instance owns its PRNG state (seedable via setSeed); nextInt/
+// nextDouble/nextBoolean route through it. Modeled on JavaScanner — the interpreter
+// dispatches its methods (see the Random branch in evaluate). An unseeded instance
+// uses Math.random; a setSeed(s) instance uses the same Mulberry32 as the procedural
+// randomSeed(s), so a seeded Java Random matches a seeded randomInt with the same seed.
+class JavaRandom {
+  rng: (() => number) | null = null;
+  next(): number {
+    return this.rng ? this.rng() : Math.random();
+  }
+}
+
 export class Interpreter {
   private globalEnv = new Environment();
   private output: string[] = [];
@@ -1980,6 +1992,24 @@ export class Interpreter {
             }
           }
 
+          if (obj instanceof JavaRandom) {
+            switch (methodName) {
+              case 'nextInt':
+                // nextInt(n) -> integer in [0, n); nextInt() -> any non-negative int.
+                if (args.length >= 1) return Math.floor(obj.next() * Number(args[0]));
+                return Math.floor(obj.next() * 0x100000000);
+              case 'nextDouble':
+                return obj.next();
+              case 'nextBoolean':
+                return obj.next() < 0.5;
+              case 'setSeed':
+                obj.rng = this.createSeededRandom(this.normalizeSeed(args[0] ?? 0));
+                return null;
+              default:
+                throw new Error(`Unknown Random method '${methodName}'`);
+            }
+          }
+
           if (typeof obj === 'string') {
             switch (methodName) {
               case 'substring':
@@ -2104,6 +2134,13 @@ export class Interpreter {
         // to the input queue without evaluating its arg (System.in has no value).
         if (calleeName === 'Scanner') {
           return new JavaScanner();
+        }
+
+        // `new Random()` is encoded as a bare call to `Random` — an OOP Random
+        // instance whose methods (nextInt/nextDouble/nextBoolean/setSeed) are
+        // dispatched in the member-call handling above.
+        if (calleeName === 'Random') {
+          return new JavaRandom();
         }
 
         // super(args) — run the parent class constructor on the current instance
@@ -2236,13 +2273,27 @@ export class Interpreter {
 
         // Random functions
         if (calleeName === 'random' || calleeName === 'RANDOM') {
+          // CSP `RANDOM(a, b)`: inclusive random integer in [a, b]. The 0-arg
+          // form is a float in [0, 1) (Java Math.random / Praxis random()).
+          if (expr.arguments.length === 2) {
+            const a = Math.trunc(Number(this.evaluate(expr.arguments[0], env)));
+            const b = Math.trunc(Number(this.evaluate(expr.arguments[1], env)));
+            const lo = Math.min(a, b);
+            const hi = Math.max(a, b);
+            return lo + Math.floor(this.getRandomValue() * (hi - lo + 1));
+          }
           return this.getRandomValue();
         }
         if (calleeName === 'randomInt' || calleeName === 'RANDOMINT') {
           const max = this.evaluate(expr.arguments[0], env);
           return Math.floor(this.getRandomValue() * max);
         }
-        if (calleeName === 'randomSeed' || calleeName === 'RANDOMSEED') {
+        // `setSeed` is the Java-spec bare spelling; `randomSeed` is Praxis/CSP.
+        if (
+          calleeName === 'randomSeed' ||
+          calleeName === 'RANDOMSEED' ||
+          calleeName === 'setSeed'
+        ) {
           const seedValue = expr.arguments.length > 0 ? this.evaluate(expr.arguments[0], env) : 0;
           this.seededRandom = this.createSeededRandom(this.normalizeSeed(seedValue));
           return null;

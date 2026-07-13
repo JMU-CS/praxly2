@@ -572,4 +572,14 @@ DISPLAY(nums[1])`;
       expect(javaCode).not.toContain('int[] nums');
     });
   });
+
+  describe('CSP RANDOM(a, b) (seeded, deterministic)', () => {
+    const run = (src: string): string[] =>
+      new Interpreter().interpret(new CSPParser(new CSPLexer(src).tokenize()).parse(), src);
+
+    it('returns an inclusive integer, deterministic when seeded', () => {
+      const out = run(`randomSeed(42)\nDISPLAY(RANDOM(1, 6))\nDISPLAY(RANDOM(1, 6))`);
+      expect(out.join('').replace(/\s+/g, ' ').trim()).toBe('4 3');
+    });
+  });
 });
