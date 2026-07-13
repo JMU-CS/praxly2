@@ -1,17 +1,25 @@
-This directory contains the original language specifications downloaded from the following sources:
+This directory documents the scope of each language Praxly supports. Three of the specs are
+rewritten from the original standardized-exam references; the rest describe Praxly's own
+supported subsets and shared library.
 
-* **CSP**: https://apcentral.collegeboard.org/media/pdf/ap-computer-science-principles-exam-reference-sheet.pdf
-* **Java**: https://apcentral.collegeboard.org/media/pdf/ap-computer-science-a-java-quick-reference.pdf
-* **Praxis**: https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf#page=21
+Exam-based specs (with an **Extensions for Praxly** section noting anything added beyond the
+original reference):
 
-The most relevant information from each PDF has been rewritten as Markdown, making it easier to use as context for AI agents:
+* [csp.md](csp.md) — https://apcentral.collegeboard.org/media/pdf/ap-computer-science-principles-exam-reference-sheet.pdf
+* [java.md](java.md) — https://apcentral.collegeboard.org/media/pdf/ap-computer-science-a-java-quick-reference.pdf
+* [praxis.md](praxis.md) — https://praxis.ets.org/on/demandware.static/-/Library-Sites-ets-praxisLibrary/default/pdfs/5652.pdf#page=21
 
-* [csp.md](csp.md)
-* [java.md](java.md)
-* [praxis.md](praxis.md)
+Praxly-defined subsets (JavaScript and Python are not tied to an exam, so these describe what
+the parser/interpreter supports and explicitly rejects):
 
-Each Markdown file includes an **Extensions for Praxly** section that documents features added beyond the original language specification.
+* [javascript.md](javascript.md)
+* [python.md](python.md)
 
-The interpreter supports the union of the language features described in the Markdown files, along with a common library of built-in functions.
+Cross-cutting reference:
 
-The other language front ends (Blocks, JavaScript, and Python) implement only the features needed to support this shared language definition.
+* [stdlib.md](stdlib.md) — the shared built-in library, with a table mapping every built-in
+  function/method across all five languages plus notes on semantic differences.
+
+The interpreter supports the union of the language features described in these files, along with
+the common library of built-in functions. Blocks (Blockly) implements only the features needed
+to support this shared language definition.
