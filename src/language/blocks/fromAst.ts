@@ -188,6 +188,16 @@ class BlocksWriter {
         if (expr.type === 'CallExpression' && expr.callee.type === 'Identifier') {
           const listOp = this.listOpStatement(expr.callee.name, expr.arguments);
           if (listOp) return listOp;
+          // seed random with s (a void builtin call).
+          if (
+            ['randomSeed', 'RANDOMSEED', 'setSeed'].includes(expr.callee.name) &&
+            expr.arguments.length === 1
+          ) {
+            return this.withInputs(
+              { type: 'praxly_random_seed' },
+              { SEED: this.value(expr.arguments[0]) }
+            );
+          }
           return this.procedureCall(expr.callee.name, expr.arguments, false);
         }
         throw new Error(`Blocks view doesn't support this expression statement.`);
@@ -259,6 +269,55 @@ class BlocksWriter {
         );
     }
     throw new Error(`Blocks view doesn't support the "${name}" method.`);
+  }
+
+  /** Math / random / conversion free-function calls → the matching value block.
+   *  Skips names the user has defined as functions (interpreter prefers those
+   *  for the overridable math builtins). */
+  private builtinCall(name: string, args: Expression[]): BlockState | undefined {
+    if (this.functionParams.has(name)) return undefined;
+    const one = (type: string, slot = 'X') =>
+      this.withInputs({ type }, { [slot]: this.value(args[0]) });
+    const two = (type: string) =>
+      this.withInputs({ type }, { A: this.value(args[0]), B: this.value(args[1]) });
+
+    switch (name) {
+      case 'abs':
+        if (args.length === 1) return one('praxly_abs');
+        break;
+      case 'sqrt':
+        if (args.length === 1) return one('praxly_sqrt');
+        break;
+      case 'min':
+        if (args.length === 2) return two('praxly_min');
+        break;
+      case 'max':
+        if (args.length === 2) return two('praxly_max');
+        break;
+      case 'random':
+      case 'RANDOM':
+        if (args.length === 0) return { type: 'praxly_random' };
+        if (args.length === 2) return two('praxly_random_range');
+        break;
+      case 'randomInt':
+      case 'RANDOMINT':
+        if (args.length === 1) return one('praxly_random_int', 'N');
+        break;
+      case 'int':
+      case 'INT':
+        if (args.length === 1) return one('praxly_to_int');
+        break;
+      case 'float':
+      case 'FLOAT':
+        if (args.length === 1) return one('praxly_to_float');
+        break;
+      case 'str':
+      case 'String':
+      case 'STRING':
+        if (args.length === 1) return one('praxly_to_str');
+        break;
+    }
+    return undefined;
   }
 
   /** APPEND/INSERT/REMOVE free-function calls → the matching list block. */
@@ -659,6 +718,8 @@ class BlocksWriter {
             { VALUE: this.value(expr.arguments[0]) }
           );
         }
+        const builtin = this.builtinCall(expr.callee.name, expr.arguments);
+        if (builtin) return builtin;
         return this.procedureCall(expr.callee.name, expr.arguments, true);
       }
 

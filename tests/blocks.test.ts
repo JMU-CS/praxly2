@@ -376,6 +376,47 @@ describe('Blocks Option B (interpret round trip)', () => {
     assertInterpretsIdentically(program);
   });
 
+  it('interprets math, random, and conversion builtins identically', () => {
+    // randomSeed makes the random calls deterministic, so both the direct and
+    // round-tripped runs produce the same sequence.
+    const source = [
+      'randomSeed(42)',
+      'DISPLAY(abs(0 - 7))',
+      'DISPLAY(sqrt(16))',
+      'DISPLAY(max(3, 8))',
+      'DISPLAY(min(3, 8))',
+      'DISPLAY(RANDOM(1, 6))',
+      'DISPLAY(randomInt(100))',
+      'DISPLAY(int("7") + 1)',
+      'DISPLAY(float("2.5"))',
+      'DISPLAY(str(42))',
+    ].join('\n');
+    const program = parseCsp(source);
+    assertInterpretsIdentically(program);
+    // The non-random parts are stable regardless of seed.
+    const out = new Interpreter().interpret(program, '')[0];
+    expect(out.startsWith('7 4 8 3 ')).toBe(true);
+    expect(out.endsWith(' 8 2.5 42 ')).toBe(true);
+  });
+
+  it('maps abs/RANDOM/int onto dedicated builtin blocks', () => {
+    const state = JSON.parse(
+      programToBlocksJson(parseCsp('DISPLAY(abs(0 - 3))\nDISPLAY(RANDOM(1, 6))\nDISPLAY(int("5"))'))
+    );
+    const first = state.blocks.blocks[0];
+    expect(first.inputs.VALUE.block.type).toBe('praxly_abs');
+    expect(first.next.block.inputs.VALUE.block.type).toBe('praxly_random_range');
+    expect(first.next.block.next.block.inputs.VALUE.block.type).toBe('praxly_to_int');
+  });
+
+  it('does not treat a user function named min as a builtin', () => {
+    // The interpreter prefers a user-defined min, so blocks must emit a call.
+    const source = 'PROCEDURE min(a, b) { RETURN a } DISPLAY(min(2, 9))';
+    const state = JSON.parse(programToBlocksJson(parseCsp(source)));
+    const display = state.blocks.blocks.find((b: any) => b.type === 'praxly_print');
+    expect(display.inputs.VALUE.block.type).toBe('procedures_callreturn');
+  });
+
   it('round-trips a for-each loop over a list value', () => {
     // No list-literal block yet (Commit 2), so drive the LIST socket from a
     // variable and assert the AST shape survives real Blockly load/save.

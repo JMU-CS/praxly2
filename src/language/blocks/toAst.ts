@@ -150,6 +150,13 @@ class BlocksReader {
           this.toZeroBasedIndex(this.expression(block, 'INDEX')),
         ]);
 
+      case 'praxly_random_seed':
+        return {
+          id: generateId(),
+          type: 'ExpressionStatement',
+          expression: this.freeCall('randomSeed', [this.expression(block, 'SEED')]),
+        };
+
       case 'praxly_print': {
         // NL sets what follows the value: a newline (default), a space (CSP
         // DISPLAY's trailing space), or nothing.
@@ -449,6 +456,28 @@ class BlocksReader {
           this.expression(block, 'SEARCH'),
         ]);
 
+      case 'praxly_abs':
+        return this.freeCall('abs', [this.expression(block, 'X')]);
+      case 'praxly_sqrt':
+        return this.freeCall('sqrt', [this.expression(block, 'X')]);
+      case 'praxly_min':
+        return this.freeCall('min', [this.expression(block, 'A'), this.expression(block, 'B')]);
+      case 'praxly_max':
+        return this.freeCall('max', [this.expression(block, 'A'), this.expression(block, 'B')]);
+      case 'praxly_random':
+        return this.freeCall('random', []);
+      case 'praxly_random_int':
+        return this.freeCall('randomInt', [this.expression(block, 'N')]);
+      case 'praxly_random_range':
+        // RANDOM(a, b): inclusive integer in [a, b].
+        return this.freeCall('RANDOM', [this.expression(block, 'A'), this.expression(block, 'B')]);
+      case 'praxly_to_int':
+        return this.freeCall('int', [this.expression(block, 'X')]);
+      case 'praxly_to_float':
+        return this.freeCall('float', [this.expression(block, 'X')]);
+      case 'praxly_to_str':
+        return this.freeCall('str', [this.expression(block, 'X')]);
+
       case 'praxly_input':
         return {
           id: generateId(),
@@ -518,6 +547,16 @@ class BlocksReader {
       operator: '-',
       left: index,
       right: { id: generateId(), type: 'Literal', value: 1, raw: '1' },
+    };
+  }
+
+  /** Builds a free-function call node (Identifier callee). */
+  private freeCall(name: string, args: Expression[]): Expression {
+    return {
+      id: generateId(),
+      type: 'CallExpression',
+      callee: { id: generateId(), type: 'Identifier', name },
+      arguments: args,
     };
   }
 
