@@ -1242,13 +1242,16 @@ export class JavaEmitter extends ASTVisitor {
 
         // Handle global/builtin function calls with special mapping
         if (calleeStr === 'LENGTH' || calleeStr === 'len') {
-          // length() becomes .length property access
+          // Length-of maps to `.size()` (ArrayList), `.length()` (String — it's a
+          // method in Java), or `.length` (array property).
           const lengthTargetExpr = expr.arguments[0];
           const lengthTarget = this.generateExpression(lengthTargetExpr, 0);
           const lengthTargetType = this.getExpressionType(lengthTargetExpr);
           output = this.isArrayListType(lengthTargetType)
             ? `${lengthTarget}.size()`
-            : `${lengthTarget}.length`;
+            : lengthTargetType === 'String'
+              ? `${lengthTarget}.length()`
+              : `${lengthTarget}.length`;
           break;
         }
         // Handle input() function - map to Scanner.nextLine()

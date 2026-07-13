@@ -109,6 +109,7 @@ public class Main {
         System.out.println(Math.min(3, 8));       // 3
         System.out.println(Math.pow(2, 10));      // 1024
         System.out.println(Math.sqrt(16.0));      // 4
+        System.out.println(Math.log(1.0));        // 0.0
 
         // ---- ArrayList (add / add(i,x) / get / set / size / remove) --------
         ArrayList<Integer> list = new ArrayList<Integer>();

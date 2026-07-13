@@ -64,7 +64,10 @@ The _AP Computer Science A_ exam may use the following methods from the Java lib
 
 - Praxly supports all methods above except for the `File` class.
 - `Scanner` is used by Praxly only to read input from `System.in`.
-- Additional String methods: `charAt()`, `contains()`, `toUpperCase()`, `toLowerCase()`.
+- Additional String methods: `charAt()`, `contains()`, `toUpperCase()`, `toLowerCase()`,
+  `indexOf()`/`find()`, and `replace(old, new)` (replaces every occurrence).
+- `String.split(del)` splits on `del` as a **literal delimiter**, not a regular
+  expression (a deliberate simplification of Java's regex-based `split`).
 - Additional Math methods: `log()`, `max()`, `min()`
 - `Random` class: `new Random()`, `int nextInt(int bound)` (a value in `[0, bound)`),
   `double nextDouble()` (a value in `[0.0, 1.0)`), `boolean nextBoolean()`, and

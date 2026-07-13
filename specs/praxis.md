@@ -173,7 +173,7 @@ The following built-in functions are also available:
 
 - Python built-ins: `input()`, `int()`, `float()`, `str()`
 - Java Math methods: `random()`, `randomInt()`, `randomSeed()`, `min()`, `max()`, `abs()`, `log()`, `sqrt()`
-- Java String methods: `.charAt()`, `.contains()`, `.indexOf()`, `.length()`, `.substring()`, `.toLowerCase()`, `.toUpperCase()`
+- Java String methods: `.charAt()`, `.contains()`, `.indexOf()`, `.length()`, `.replace()`, `.substring()`, `.toLowerCase()`, `.toUpperCase()`
 
 ## Inheritance Example
 

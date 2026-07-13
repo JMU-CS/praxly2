@@ -234,15 +234,24 @@ Returns the flow of control to the point where the procedure was called and retu
 
 ## String Operations
 
-`concat(str1, str2)`
+String functions are written in uppercase by convention (like `DISPLAY` and
+`RANDOM`), but lowercase spellings are also accepted. String positions are
+**1-based**, matching CSP lists.
+
+`CONCAT(str1, str2)`
 
 Combine two strings.
-Example: `concat("Hello", " World")` returns `"Hello World"`.
+Example: `CONCAT("Hello", " World")` returns `"Hello World"`.
 
-`substring(str, start, end)`
+`SUBSTRING(str, start, end)`
 
-Extract characters from start to end.
-Example: `substring("hello", 2, 4)` returns `"ell"`.
+Extract the characters from position `start` to position `end`, inclusive (1-based).
+Example: `SUBSTRING("hello", 2, 4)` returns `"ell"`.
+
+`CHARAT(str, index)`
+
+Return the single character at position `index` (1-based).
+Example: `CHARAT("hello", 1)` returns `"h"`.
 
 `len(str)`
 
