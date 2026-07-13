@@ -1,18 +1,22 @@
 /**
  * Custom Blockly block definitions, toolbox, and theme for the Blocks view.
  *
- * The Blocks language only exposes constructs that exist in every text
- * language in this project (Python, Java, JavaScript, CSP, Praxis):
- * variables, arithmetic/comparison/logic expressions, if/else, while and
- * repeat-until loops, counted loops over a range, print/input, and
- * functions. Anything outside that set has no block, so students can't
- * build a program that fails to translate.
+ * Blocks is a deliberate SUBSET language, aimed at middle-school programming
+ * and AP CSP — the same procedural, untyped, non-OOP surface CSP exposes (see
+ * specs/blocks.md and specs/csp.md). It covers variables, arithmetic /
+ * comparison / logic, if/else, the loop forms (while, repeat-until, repeat-n,
+ * count-with-var, forever, for-each), procedures, print/input, 1-based lists
+ * and strings, and the math / random / conversion / length builtins. It has
+ * NO classes, typed declarations, try/catch, switch, ternary, ++/--, or += —
+ * those AST nodes have no block, so students can't build a program that fails
+ * to translate.
  *
  * Standard Blockly blocks are reused wherever their semantics match the
- * Universal AST; the four `praxly_*` blocks below cover the gaps:
- * print/input (Blockly's text_print has no equivalent AST node shape we
- * want) and the two loop forms whose semantics differ from Blockly's
- * stock loops (post-condition repeat-until, exclusive-end range loop).
+ * Universal AST (controls_if, math_arithmetic, lists_create_with, variables,
+ * procedures, …); the `praxly_*` blocks below cover the rest — print/input,
+ * the extra loop forms, and the 1-based list/string/math builtins. List and
+ * string positions are shown 1-based (AP CSP) and folded to the 0-based AST in
+ * fromAst/toAst, mirroring csp/parser.ts and csp/emitter.ts.
  */
 
 import * as Blockly from 'blockly';
@@ -365,6 +369,27 @@ export const PRAXLY_TOOLBOX = {
   contents: [
     {
       kind: 'category',
+      name: 'Common',
+      categorystyle: 'common_category',
+      contents: [
+        { kind: 'block', type: 'praxly_print' },
+        { kind: 'block', type: 'praxly_input' },
+        { kind: 'block', type: 'controls_if' },
+        { kind: 'block', type: 'controls_if', extraState: { hasElse: true } },
+        {
+          kind: 'block',
+          type: 'controls_repeat_ext',
+          inputs: { TIMES: { shadow: { type: 'math_number', fields: { NUM: 10 } } } },
+        },
+        { kind: 'block', type: 'praxly_forever' },
+        { kind: 'block', type: 'logic_compare' },
+        { kind: 'block', type: 'math_number' },
+        { kind: 'block', type: 'math_arithmetic' },
+        { kind: 'block', type: 'text' },
+      ],
+    },
+    {
+      kind: 'category',
       name: 'Logic',
       categorystyle: 'logic_category',
       contents: [
@@ -519,6 +544,22 @@ const PRAXLY_COMPONENT_STYLES = {
   cursorColour: '#818cf8',
 };
 
+// Per-category hues, spread around the wheel so each category reads distinctly
+// on the slate-950 workspace. Mid-tone (~-500/-600) fills keep white block text
+// legible. Each `<name>_blocks` style also colours the stock blocks that use it
+// (controls_if → logic_blocks, math_number → math_blocks, …), so custom and
+// built-in blocks in a category stay visually consistent.
+const PRAXLY_CATEGORY_HUES: Record<string, string> = {
+  common: '#6366f1', // indigo-500
+  logic: '#d97706', // amber-600
+  loop: '#8b5cf6', // violet-500
+  math: '#10b981', // emerald-500
+  text: '#0d9488', // teal-600
+  list: '#0891b2', // cyan-600
+  variable: '#e11d48', // rose-600
+  procedure: '#c026d3', // fuchsia-600
+};
+
 /**
  * Dark theme tuned to Praxly's slate/indigo editor palette.
  *
@@ -529,14 +570,27 @@ const PRAXLY_COMPONENT_STYLES = {
  * Blockly re-measure and re-render every block at the new size.
  */
 export function praxlyTheme(fontSizePx: number): Blockly.Theme {
+  // Start from Classic so styles we don't override (e.g. variable_dynamic,
+  // colour, hat) keep working, then recolour our categories and their blocks.
+  const blockStyles: Record<string, { colourPrimary: string }> = {
+    ...Blockly.Themes.Classic.blockStyles,
+  };
+  const categoryStyles: Record<string, { colour: string }> = {
+    ...Blockly.Themes.Classic.categoryStyles,
+  };
+  for (const [name, colour] of Object.entries(PRAXLY_CATEGORY_HUES)) {
+    if (name !== 'common') blockStyles[`${name}_blocks`] = { colourPrimary: colour };
+    categoryStyles[`${name}_category`] = { colour };
+  }
+
   // The size is baked into the theme name on purpose: Blockly caches its
   // injected stylesheet per theme-name-derived CSS selector and silently
   // skips re-injection when the name is unchanged, so a same-name theme
   // swap would never update the block font CSS.
   const theme = new Blockly.Theme(
     `praxly-dark-${Math.round(fontSizePx)}`,
-    Blockly.Themes.Classic.blockStyles,
-    Blockly.Themes.Classic.categoryStyles,
+    blockStyles,
+    categoryStyles,
     PRAXLY_COMPONENT_STYLES
   );
   theme.fontStyle = { family: PRAXLY_BLOCKLY_FONT, size: fontSizePx * 0.75 };

@@ -5,6 +5,13 @@ programs — one per text language Praxly2 supports. Each one exercises **every
 Universal-AST node its language's parser can produce**, and every construct in
 it runs top to bottom with **no runtime error**.
 
+`demo.blocks.json` is the sample for the visual [Blocks](../specs/blocks.md)
+language. It is a Blockly **workspace document**, not text source, and — because
+Blocks is a deliberate procedural subset — showcases the language rather than
+covering every AST node. It is exercised by `tests/blocks.test.ts` (loaded
+through real Blockly, converted to the AST, and interpreted), not by
+`examples.test.ts`.
+
 These files serve two purposes:
 
 1. **Documentation** — a worked example of exactly which language features

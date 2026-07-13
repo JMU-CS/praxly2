@@ -6,10 +6,16 @@ import { CSPLexer } from '../src/language/csp/lexer';
 import { CSPParser } from '../src/language/csp/parser';
 import { blocksToProgram } from '../src/language/blocks/toAst';
 import { programToBlocksJson } from '../src/language/blocks/fromAst';
-import { registerPraxlyBlocks } from '../src/language/blocks/blockDefs';
+import {
+  registerPraxlyBlocks,
+  praxlyTheme,
+  PRAXLY_TOOLBOX,
+} from '../src/language/blocks/blockDefs';
 import { Translator } from '../src/language/translator';
 import { Interpreter } from '../src/language/interpreter';
 import type { Program } from '../src/language/ast';
+import cspDemoSrc from '../examples/demo.csp?raw';
+import blocksDemoJson from '../examples/demo.blocks.json?raw';
 
 registerPraxlyBlocks();
 
@@ -278,7 +284,72 @@ describe('Blocks round trips', () => {
   });
 });
 
+describe('Blocks toolbox and theme', () => {
+  /** Every non-dynamic block type referenced anywhere in the toolbox. */
+  function toolboxBlockTypes(node: any, acc: string[] = []): string[] {
+    if (node?.kind === 'block' && node.type) acc.push(node.type);
+    for (const child of node?.contents ?? []) toolboxBlockTypes(child, acc);
+    return acc;
+  }
+
+  it('references only registered block types', () => {
+    for (const type of toolboxBlockTypes(PRAXLY_TOOLBOX)) {
+      expect(Blockly.Blocks[type], `toolbox block "${type}" is not registered`).toBeDefined();
+    }
+  });
+
+  it('builds a theme with a distinct hue per category', () => {
+    const theme = praxlyTheme(16);
+    for (const name of [
+      'common',
+      'logic',
+      'loop',
+      'math',
+      'text',
+      'list',
+      'variable',
+      'procedure',
+    ]) {
+      expect(theme.categoryStyles[`${name}_category`]?.colour).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+    // Font size is baked into the name so Blockly re-injects CSS on resize.
+    expect(praxlyTheme(20).name).not.toBe(theme.name);
+  });
+});
+
 describe('Blocks Option B (interpret round trip)', () => {
+  it('interprets the full CSP demo identically through blocks', () => {
+    // demo.csp is exactly the procedural, non-OOP subset Blocks targets.
+    assertInterpretsIdentically(parseCsp(cspDemoSrc));
+  });
+
+  it('loads and runs the Blocks demo workspace', () => {
+    // examples/demo.blocks.json is the discoverable Blocks sample: it must load
+    // through real Blockly, convert to AST, and interpret to a known result.
+    const program = blocksToProgram(roundTripThroughBlockly(blocksDemoJson));
+    const output = new Interpreter().interpret(program, '');
+    expect(output).toEqual([
+      'A',
+      'B',
+      'C',
+      '6',
+      '3',
+      '2',
+      '1',
+      'HELLO',
+      'hello',
+      'el',
+      'H',
+      'true',
+      '5',
+      '7',
+      '3',
+      '8',
+      '7.5',
+      '42',
+    ]);
+  });
+
   it('interprets a CSP subset program identically through blocks', () => {
     // Uses only the procedural, non-list/string subset supported so far:
     // assignment, if/else, DISPLAY (space terminator), REPEAT n TIMES (counting

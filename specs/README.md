@@ -14,6 +14,8 @@ the parser/interpreter supports and explicitly rejects):
 
 * [javascript.md](javascript.md)
 * [python.md](python.md)
+* [blocks.md](blocks.md) — the visual Blockly language, a procedural/untyped subset for
+  middle-school and AP CSP courses
 
 Cross-cutting reference:
 
@@ -21,5 +23,5 @@ Cross-cutting reference:
   function/method across all five languages plus notes on semantic differences.
 
 The interpreter supports the union of the language features described in these files, along with
-the common library of built-in functions. Blocks (Blockly) implements only the features needed
-to support this shared language definition.
+the common library of built-in functions. Blocks (Blockly) implements a deliberate procedural,
+non-OOP subset of them — see [blocks.md](blocks.md).

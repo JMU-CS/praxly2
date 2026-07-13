@@ -1,0 +1,906 @@
+{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "procedures_defreturn",
+        "fields": {
+          "NAME": "describe"
+        },
+        "extraState": {
+          "params": [
+            {
+              "name": "score",
+              "id": "var_score"
+            }
+          ]
+        },
+        "inputs": {
+          "STACK": {
+            "block": {
+              "type": "controls_if",
+              "inputs": {
+                "IF0": {
+                  "block": {
+                    "type": "logic_compare",
+                    "fields": {
+                      "OP": "GTE"
+                    },
+                    "inputs": {
+                      "A": {
+                        "block": {
+                          "type": "variables_get",
+                          "fields": {
+                            "VAR": {
+                              "id": "var_score"
+                            }
+                          }
+                        }
+                      },
+                      "B": {
+                        "block": {
+                          "type": "math_number",
+                          "fields": {
+                            "NUM": 90
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "DO0": {
+                  "block": {
+                    "type": "praxly_return",
+                    "inputs": {
+                      "VALUE": {
+                        "block": {
+                          "type": "text",
+                          "fields": {
+                            "TEXT": "A"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "IF1": {
+                  "block": {
+                    "type": "logic_compare",
+                    "fields": {
+                      "OP": "GTE"
+                    },
+                    "inputs": {
+                      "A": {
+                        "block": {
+                          "type": "variables_get",
+                          "fields": {
+                            "VAR": {
+                              "id": "var_score"
+                            }
+                          }
+                        }
+                      },
+                      "B": {
+                        "block": {
+                          "type": "math_number",
+                          "fields": {
+                            "NUM": 80
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "DO1": {
+                  "block": {
+                    "type": "praxly_return",
+                    "inputs": {
+                      "VALUE": {
+                        "block": {
+                          "type": "text",
+                          "fields": {
+                            "TEXT": "B"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "ELSE": {
+                  "block": {
+                    "type": "praxly_return",
+                    "inputs": {
+                      "VALUE": {
+                        "block": {
+                          "type": "text",
+                          "fields": {
+                            "TEXT": "C"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "extraState": {
+                "elseIfCount": 1,
+                "hasElse": true
+              }
+            }
+          }
+        },
+        "x": 24,
+        "y": 24
+      },
+      {
+        "type": "variables_set",
+        "fields": {
+          "VAR": {
+            "id": "var_scores"
+          }
+        },
+        "inputs": {
+          "VALUE": {
+            "block": {
+              "type": "lists_create_with",
+              "extraState": {
+                "itemCount": 3
+              },
+              "inputs": {
+                "ADD0": {
+                  "block": {
+                    "type": "math_number",
+                    "fields": {
+                      "NUM": 95
+                    }
+                  }
+                },
+                "ADD1": {
+                  "block": {
+                    "type": "math_number",
+                    "fields": {
+                      "NUM": 82
+                    }
+                  }
+                },
+                "ADD2": {
+                  "block": {
+                    "type": "math_number",
+                    "fields": {
+                      "NUM": 70
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "next": {
+          "block": {
+            "type": "praxly_for_each",
+            "fields": {
+              "VAR": {
+                "id": "var_s"
+              }
+            },
+            "inputs": {
+              "LIST": {
+                "block": {
+                  "type": "variables_get",
+                  "fields": {
+                    "VAR": {
+                      "id": "var_scores"
+                    }
+                  }
+                }
+              },
+              "DO": {
+                "block": {
+                  "type": "praxly_print",
+                  "fields": {
+                    "NL": "NEWLINE"
+                  },
+                  "inputs": {
+                    "VALUE": {
+                      "block": {
+                        "type": "procedures_callreturn",
+                        "extraState": {
+                          "name": "describe",
+                          "params": [
+                            "score"
+                          ]
+                        },
+                        "inputs": {
+                          "ARG0": {
+                            "block": {
+                              "type": "variables_get",
+                              "fields": {
+                                "VAR": {
+                                  "id": "var_s"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "next": {
+              "block": {
+                "type": "variables_set",
+                "fields": {
+                  "VAR": {
+                    "id": "var_total"
+                  }
+                },
+                "inputs": {
+                  "VALUE": {
+                    "block": {
+                      "type": "math_number",
+                      "fields": {
+                        "NUM": 0
+                      }
+                    }
+                  }
+                },
+                "next": {
+                  "block": {
+                    "type": "praxly_for_range",
+                    "fields": {
+                      "VAR": {
+                        "id": "var_i"
+                      }
+                    },
+                    "inputs": {
+                      "FROM": {
+                        "block": {
+                          "type": "math_number",
+                          "fields": {
+                            "NUM": 1
+                          }
+                        }
+                      },
+                      "TO": {
+                        "block": {
+                          "type": "math_number",
+                          "fields": {
+                            "NUM": 4
+                          }
+                        }
+                      },
+                      "DO": {
+                        "block": {
+                          "type": "variables_set",
+                          "fields": {
+                            "VAR": {
+                              "id": "var_total"
+                            }
+                          },
+                          "inputs": {
+                            "VALUE": {
+                              "block": {
+                                "type": "math_arithmetic",
+                                "fields": {
+                                  "OP": "ADD"
+                                },
+                                "inputs": {
+                                  "A": {
+                                    "block": {
+                                      "type": "variables_get",
+                                      "fields": {
+                                        "VAR": {
+                                          "id": "var_total"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "B": {
+                                    "block": {
+                                      "type": "variables_get",
+                                      "fields": {
+                                        "VAR": {
+                                          "id": "var_i"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "next": {
+                      "block": {
+                        "type": "praxly_print",
+                        "fields": {
+                          "NL": "NEWLINE"
+                        },
+                        "inputs": {
+                          "VALUE": {
+                            "block": {
+                              "type": "variables_get",
+                              "fields": {
+                                "VAR": {
+                                  "id": "var_total"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "next": {
+                          "block": {
+                            "type": "variables_set",
+                            "fields": {
+                              "VAR": {
+                                "id": "var_n"
+                              }
+                            },
+                            "inputs": {
+                              "VALUE": {
+                                "block": {
+                                  "type": "math_number",
+                                  "fields": {
+                                    "NUM": 3
+                                  }
+                                }
+                              }
+                            },
+                            "next": {
+                              "block": {
+                                "type": "praxly_forever",
+                                "inputs": {
+                                  "DO": {
+                                    "block": {
+                                      "type": "praxly_print",
+                                      "fields": {
+                                        "NL": "NEWLINE"
+                                      },
+                                      "inputs": {
+                                        "VALUE": {
+                                          "block": {
+                                            "type": "variables_get",
+                                            "fields": {
+                                              "VAR": {
+                                                "id": "var_n"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      "next": {
+                                        "block": {
+                                          "type": "variables_set",
+                                          "fields": {
+                                            "VAR": {
+                                              "id": "var_n"
+                                            }
+                                          },
+                                          "inputs": {
+                                            "VALUE": {
+                                              "block": {
+                                                "type": "math_arithmetic",
+                                                "fields": {
+                                                  "OP": "MINUS"
+                                                },
+                                                "inputs": {
+                                                  "A": {
+                                                    "block": {
+                                                      "type": "variables_get",
+                                                      "fields": {
+                                                        "VAR": {
+                                                          "id": "var_n"
+                                                        }
+                                                      }
+                                                    }
+                                                  },
+                                                  "B": {
+                                                    "block": {
+                                                      "type": "math_number",
+                                                      "fields": {
+                                                        "NUM": 1
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          },
+                                          "next": {
+                                            "block": {
+                                              "type": "controls_if",
+                                              "inputs": {
+                                                "IF0": {
+                                                  "block": {
+                                                    "type": "logic_compare",
+                                                    "fields": {
+                                                      "OP": "LTE"
+                                                    },
+                                                    "inputs": {
+                                                      "A": {
+                                                        "block": {
+                                                          "type": "variables_get",
+                                                          "fields": {
+                                                            "VAR": {
+                                                              "id": "var_n"
+                                                            }
+                                                          }
+                                                        }
+                                                      },
+                                                      "B": {
+                                                        "block": {
+                                                          "type": "math_number",
+                                                          "fields": {
+                                                            "NUM": 0
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                },
+                                                "DO0": {
+                                                  "block": {
+                                                    "type": "controls_flow_statements",
+                                                    "fields": {
+                                                      "FLOW": "BREAK"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "next": {
+                                  "block": {
+                                    "type": "variables_set",
+                                    "fields": {
+                                      "VAR": {
+                                        "id": "var_word"
+                                      }
+                                    },
+                                    "inputs": {
+                                      "VALUE": {
+                                        "block": {
+                                          "type": "text",
+                                          "fields": {
+                                            "TEXT": "Hello"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "next": {
+                                      "block": {
+                                        "type": "praxly_print",
+                                        "fields": {
+                                          "NL": "NEWLINE"
+                                        },
+                                        "inputs": {
+                                          "VALUE": {
+                                            "block": {
+                                              "type": "praxly_str_upper",
+                                              "inputs": {
+                                                "STR": {
+                                                  "block": {
+                                                    "type": "variables_get",
+                                                    "fields": {
+                                                      "VAR": {
+                                                        "id": "var_word"
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        },
+                                        "next": {
+                                          "block": {
+                                            "type": "praxly_print",
+                                            "fields": {
+                                              "NL": "NEWLINE"
+                                            },
+                                            "inputs": {
+                                              "VALUE": {
+                                                "block": {
+                                                  "type": "praxly_str_lower",
+                                                  "inputs": {
+                                                    "STR": {
+                                                      "block": {
+                                                        "type": "variables_get",
+                                                        "fields": {
+                                                          "VAR": {
+                                                            "id": "var_word"
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "next": {
+                                              "block": {
+                                                "type": "praxly_print",
+                                                "fields": {
+                                                  "NL": "NEWLINE"
+                                                },
+                                                "inputs": {
+                                                  "VALUE": {
+                                                    "block": {
+                                                      "type": "praxly_str_substring",
+                                                      "inputs": {
+                                                        "STR": {
+                                                          "block": {
+                                                            "type": "variables_get",
+                                                            "fields": {
+                                                              "VAR": {
+                                                                "id": "var_word"
+                                                              }
+                                                            }
+                                                          }
+                                                        },
+                                                        "START": {
+                                                          "block": {
+                                                            "type": "math_number",
+                                                            "fields": {
+                                                              "NUM": 2
+                                                            }
+                                                          }
+                                                        },
+                                                        "END": {
+                                                          "block": {
+                                                            "type": "math_number",
+                                                            "fields": {
+                                                              "NUM": 3
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                },
+                                                "next": {
+                                                  "block": {
+                                                    "type": "praxly_print",
+                                                    "fields": {
+                                                      "NL": "NEWLINE"
+                                                    },
+                                                    "inputs": {
+                                                      "VALUE": {
+                                                        "block": {
+                                                          "type": "praxly_str_charat",
+                                                          "inputs": {
+                                                            "INDEX": {
+                                                              "block": {
+                                                                "type": "math_number",
+                                                                "fields": {
+                                                                  "NUM": 1
+                                                                }
+                                                              }
+                                                            },
+                                                            "STR": {
+                                                              "block": {
+                                                                "type": "variables_get",
+                                                                "fields": {
+                                                                  "VAR": {
+                                                                    "id": "var_word"
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    },
+                                                    "next": {
+                                                      "block": {
+                                                        "type": "praxly_print",
+                                                        "fields": {
+                                                          "NL": "NEWLINE"
+                                                        },
+                                                        "inputs": {
+                                                          "VALUE": {
+                                                            "block": {
+                                                              "type": "praxly_str_contains",
+                                                              "inputs": {
+                                                                "STR": {
+                                                                  "block": {
+                                                                    "type": "variables_get",
+                                                                    "fields": {
+                                                                      "VAR": {
+                                                                        "id": "var_word"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                },
+                                                                "SEARCH": {
+                                                                  "block": {
+                                                                    "type": "text",
+                                                                    "fields": {
+                                                                      "TEXT": "ell"
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        },
+                                                        "next": {
+                                                          "block": {
+                                                            "type": "praxly_print",
+                                                            "fields": {
+                                                              "NL": "NEWLINE"
+                                                            },
+                                                            "inputs": {
+                                                              "VALUE": {
+                                                                "block": {
+                                                                  "type": "praxly_length",
+                                                                  "inputs": {
+                                                                    "VALUE": {
+                                                                      "block": {
+                                                                        "type": "variables_get",
+                                                                        "fields": {
+                                                                          "VAR": {
+                                                                            "id": "var_word"
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "next": {
+                                                              "block": {
+                                                                "type": "praxly_print",
+                                                                "fields": {
+                                                                  "NL": "NEWLINE"
+                                                                },
+                                                                "inputs": {
+                                                                  "VALUE": {
+                                                                    "block": {
+                                                                      "type": "praxly_abs",
+                                                                      "inputs": {
+                                                                        "X": {
+                                                                          "block": {
+                                                                            "type": "math_arithmetic",
+                                                                            "fields": {
+                                                                              "OP": "MINUS"
+                                                                            },
+                                                                            "inputs": {
+                                                                              "A": {
+                                                                                "block": {
+                                                                                  "type": "math_number",
+                                                                                  "fields": {
+                                                                                    "NUM": 0
+                                                                                  }
+                                                                                }
+                                                                              },
+                                                                              "B": {
+                                                                                "block": {
+                                                                                  "type": "math_number",
+                                                                                  "fields": {
+                                                                                    "NUM": 7
+                                                                                  }
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                },
+                                                                "next": {
+                                                                  "block": {
+                                                                    "type": "praxly_print",
+                                                                    "fields": {
+                                                                      "NL": "NEWLINE"
+                                                                    },
+                                                                    "inputs": {
+                                                                      "VALUE": {
+                                                                        "block": {
+                                                                          "type": "praxly_min",
+                                                                          "inputs": {
+                                                                            "A": {
+                                                                              "block": {
+                                                                                "type": "math_number",
+                                                                                "fields": {
+                                                                                  "NUM": 3
+                                                                                }
+                                                                              }
+                                                                            },
+                                                                            "B": {
+                                                                              "block": {
+                                                                                "type": "math_number",
+                                                                                "fields": {
+                                                                                  "NUM": 8
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "next": {
+                                                                      "block": {
+                                                                        "type": "praxly_print",
+                                                                        "fields": {
+                                                                          "NL": "NEWLINE"
+                                                                        },
+                                                                        "inputs": {
+                                                                          "VALUE": {
+                                                                            "block": {
+                                                                              "type": "praxly_max",
+                                                                              "inputs": {
+                                                                                "A": {
+                                                                                  "block": {
+                                                                                    "type": "math_number",
+                                                                                    "fields": {
+                                                                                      "NUM": 3
+                                                                                    }
+                                                                                  }
+                                                                                },
+                                                                                "B": {
+                                                                                  "block": {
+                                                                                    "type": "math_number",
+                                                                                    "fields": {
+                                                                                      "NUM": 8
+                                                                                    }
+                                                                                  }
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        },
+                                                                        "next": {
+                                                                          "block": {
+                                                                            "type": "praxly_print",
+                                                                            "fields": {
+                                                                              "NL": "NEWLINE"
+                                                                            },
+                                                                            "inputs": {
+                                                                              "VALUE": {
+                                                                                "block": {
+                                                                                  "type": "math_arithmetic",
+                                                                                  "fields": {
+                                                                                    "OP": "ADD"
+                                                                                  },
+                                                                                  "inputs": {
+                                                                                    "A": {
+                                                                                      "block": {
+                                                                                        "type": "praxly_to_int",
+                                                                                        "inputs": {
+                                                                                          "X": {
+                                                                                            "block": {
+                                                                                              "type": "text",
+                                                                                              "fields": {
+                                                                                                "TEXT": "5"
+                                                                                              }
+                                                                                            }
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                    },
+                                                                                    "B": {
+                                                                                      "block": {
+                                                                                        "type": "praxly_to_float",
+                                                                                        "inputs": {
+                                                                                          "X": {
+                                                                                            "block": {
+                                                                                              "type": "text",
+                                                                                              "fields": {
+                                                                                                "TEXT": "2.5"
+                                                                                              }
+                                                                                            }
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                    }
+                                                                                  }
+                                                                                }
+                                                                              }
+                                                                            },
+                                                                            "next": {
+                                                                              "block": {
+                                                                                "type": "praxly_print",
+                                                                                "fields": {
+                                                                                  "NL": "NEWLINE"
+                                                                                },
+                                                                                "inputs": {
+                                                                                  "VALUE": {
+                                                                                    "block": {
+                                                                                      "type": "praxly_to_str",
+                                                                                      "inputs": {
+                                                                                        "X": {
+                                                                                          "block": {
+                                                                                            "type": "math_number",
+                                                                                            "fields": {
+                                                                                              "NUM": 42
+                                                                                            }
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                    }
+                                                                                  }
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x": 24,
+        "y": 184
+      }
+    ]
+  },
+  "variables": [
+    {
+      "name": "score",
+      "id": "var_score"
+    },
+    {
+      "name": "scores",
+      "id": "var_scores"
+    },
+    {
+      "name": "s",
+      "id": "var_s"
+    },
+    {
+      "name": "total",
+      "id": "var_total"
+    },
+    {
+      "name": "i",
+      "id": "var_i"
+    },
+    {
+      "name": "n",
+      "id": "var_n"
+    },
+    {
+      "name": "word",
+      "id": "var_word"
+    }
+  ]
+}
