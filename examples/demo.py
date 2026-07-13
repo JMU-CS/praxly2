@@ -27,7 +27,7 @@ total += 5            # 15
 total -= 3            # 12
 total *= 2            # 24
 total /= 4            # 6.0  (Python division is always float)
-print(total)
+print("total", total)
 print(7 % 3, 2 ** 8, 10 / 4)      # 1 256 2.5
 
 # ---- UnaryExpression (-, not) + comparison + logical (and/or) --------------

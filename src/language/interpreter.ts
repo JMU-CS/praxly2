@@ -321,7 +321,9 @@ export class Interpreter {
           if (callee === 'float') return 'float';
           if (callee === 'bool' || callee === 'boolean') return 'boolean';
           if (callee === 'str' || callee === 'string') return 'String';
-          if (callee === 'random') return 'double';
+          // `random()` / `RANDOM()` yield a float; CSP `RANDOM(a, b)` (2 args)
+          // yields an inclusive integer.
+          if (callee === 'random') return call.arguments?.length === 2 ? 'int' : 'double';
           if (callee === 'randomint') return 'int';
         }
         if (call.callee?.type === 'MemberExpression') {
@@ -2412,6 +2414,12 @@ export class Interpreter {
       // Heuristic fallback: length 1 -> single quotes (char), otherwise double quotes (String)
       if (val.length === 1) return `'${val}'`;
       return `"${val}"`;
+    }
+
+    // A value whose declared type is float/double prints with a decimal point,
+    // matching Java/Praxis semantics: `float y = 1` prints `1.0`, not `1`.
+    if (typeof val === 'number' && Number.isInteger(val) && this.isFloatType(type)) {
+      return `${val}.0`;
     }
 
     return String(val);

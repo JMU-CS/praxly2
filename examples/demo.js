@@ -40,7 +40,7 @@ acc -= 3;                               // 12
 acc *= 2;                               // 24
 acc /= 4;                               // 6
 acc %= 4;                               // 2
-console.log(acc);                       // 2
+console.log("acc", acc);                // acc 2
 
 // ---- UpdateExpression (++ --) + UnaryExpression (-, !) + comparison/logic --
 let i = 5;
@@ -51,7 +51,7 @@ console.log(a > b && b > 0, a === 17 || active);   // true true
 
 // ---- ConditionalExpression (ternary) ---------------------------------------
 let bigger = (a > b) ? a : b;
-console.log(bigger);                    // 17
+console.log("bigger", bigger);          // bigger 17
 
 // ---- Supported String methods + conversions --------------------------------
 let s = "Hello";
@@ -92,7 +92,7 @@ let sum = 0;
 for (let j = 0; j < nums.length; j++) {
     sum += nums[j];                     // compound assignment executes in JS
 }
-console.log(sum);                       // 60
+console.log("sum", sum);                // sum 60
 
 // ---- For (for-of) over an array and over a string --------------------------
 for (const v of nums) {

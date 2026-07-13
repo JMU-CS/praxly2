@@ -590,7 +590,12 @@ export class PraxisParser {
     let elseBranch: Block | undefined = undefined;
 
     if (this.match('KEYWORD', 'else')) {
-      if (this.check('KEYWORD', 'if')) {
+      const elseTok = this.previous();
+      // `else if` on the SAME line is an else-if chain (recurse; the whole chain
+      // shares one trailing `end if`). An `else` followed by an `if` on a NEW
+      // line is a genuine nested if statement inside the else block — it carries
+      // its own `end if`, so parse the else as a normal block.
+      if (this.check('KEYWORD', 'if') && this.sameLine(elseTok, this.peek())) {
         const nested = this.ifBody();
         elseBranch = { id: generateId(), type: 'Block', body: [nested] };
       } else {
@@ -599,6 +604,11 @@ export class PraxisParser {
     }
 
     return { id: generateId(), type: 'If', condition, thenBranch, elseBranch };
+  }
+
+  /** True if no newline separates the two tokens in the source (i.e. same line). */
+  private sameLine(a: Token, b: Token): boolean {
+    return !this.sourceCode.slice(a.start, b.start).includes('\n');
   }
 
   private whileStatement(): While {

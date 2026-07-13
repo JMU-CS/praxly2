@@ -327,15 +327,16 @@ export class PraxisEmitter extends ASTVisitor {
     if (stmt.varType) {
       let type = stmt.varType;
       if (type === 'auto' || type === 'var') {
-        type = this.inferType(stmt.value);
-        if (type === 'var') type = 'int';
         // A dynamically-typed source (JS `let`/`const`/`var` all lower to
-        // `auto`) has float numbers, so an inferred `int` becomes `double` to
-        // keep `/` as float division after translation.
-        if (type === 'int') type = 'double';
+        // `auto`) stays untyped in Praxis: integer values keep their native
+        // display (no forced `.0`), and `/` still divides as float because the
+        // interpreter does not truncate untyped operands.
+        this.emit(`${targetStr} <- ${initVal}`, stmt.id);
+        this.context.symbolTable.set(name, 'auto');
+      } else {
+        this.emit(`${type} ${targetStr} <- ${initVal}`, stmt.id);
+        this.context.symbolTable.set(name, type);
       }
-      this.emit(`${type} ${targetStr} <- ${initVal}`, stmt.id);
-      this.context.symbolTable.set(name, type);
     } else if (this.context.symbolTable.get(name) !== undefined) {
       this.emit(`${targetStr} <- ${rVal}`, stmt.id);
     } else {
