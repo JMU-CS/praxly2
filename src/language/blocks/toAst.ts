@@ -117,12 +117,24 @@ class BlocksReader {
         };
       }
 
-      case 'praxly_print':
-        return {
+      case 'praxly_print': {
+        // NL sets what follows the value: a newline (default), a space (CSP
+        // DISPLAY's trailing space), or nothing.
+        const nl = String(block.fields?.NL ?? 'NEWLINE');
+        const print: Statement = {
           id: generateId(),
           type: 'Print',
           expressions: [this.expression(block, 'VALUE')],
         };
+        if (nl === 'SPACE') {
+          (print as any).separator = ' ';
+          (print as any).appendLineFeed = false;
+        } else if (nl === 'NONE') {
+          (print as any).separator = '';
+          (print as any).appendLineFeed = false;
+        }
+        return print;
+      }
 
       case 'controls_if':
         return this.ifStatement(block);
@@ -139,6 +151,24 @@ class BlocksReader {
           body: this.block(inputBlock(block, 'DO')),
         };
       }
+
+      case 'praxly_forever':
+        // "repeat forever" is while(true); a break inside stops it.
+        return {
+          id: generateId(),
+          type: 'While',
+          condition: { id: generateId(), type: 'Literal', value: true, raw: 'true' },
+          body: this.block(inputBlock(block, 'DO')),
+        };
+
+      case 'praxly_for_each':
+        return {
+          id: generateId(),
+          type: 'ForEach',
+          variable: this.variable(block, 'VAR'),
+          iterable: this.expression(block, 'LIST'),
+          body: this.block(inputBlock(block, 'DO')),
+        };
 
       case 'praxly_repeat_until':
         return {

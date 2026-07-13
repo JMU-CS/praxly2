@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as Blockly from 'blockly';
 import { Lexer as PythonLexer } from '../src/language/python/lexer';
 import { Parser as PythonParser } from '../src/language/python/parser';
+import { CSPLexer } from '../src/language/csp/lexer';
+import { CSPParser } from '../src/language/csp/parser';
 import { blocksToProgram } from '../src/language/blocks/toAst';
 import { programToBlocksJson } from '../src/language/blocks/fromAst';
 import { registerPraxlyBlocks } from '../src/language/blocks/blockDefs';
@@ -15,6 +17,26 @@ registerPraxlyBlocks();
 function parsePython(source: string): Program {
   const tokens = new PythonLexer(source).tokenize();
   return new PythonParser(tokens).parse();
+}
+
+/** Parses AP CSP source into a Universal AST program. */
+function parseCsp(source: string): Program {
+  const tokens = new CSPLexer(source).tokenize();
+  return new CSPParser(tokens).parse();
+}
+
+/**
+ * Option B fidelity check: interpreting a program directly must produce the
+ * same output as interpreting it after a full AST → blocks JSON → (real
+ * Blockly load/save) → AST round trip. Proves the blocks mapping is lossless
+ * for what the program actually computes, without dragging in any text-emitter
+ * display nuances.
+ */
+function assertInterpretsIdentically(program: Program): void {
+  const direct = new Interpreter().interpret(program, '');
+  const roundTripped = blocksToProgram(roundTripThroughBlockly(programToBlocksJson(program)));
+  const viaBlocks = new Interpreter().interpret(roundTripped, '');
+  expect(viaBlocks).toEqual(direct);
 }
 
 /**
@@ -245,5 +267,84 @@ describe('Blocks round trips', () => {
     // AST → blocks → AST keeps the same loop shape.
     const again = blocksToProgram(roundTripThroughBlockly(programToBlocksJson(program)));
     expect(again.body[1].type).toBe('RepeatUntil');
+  });
+});
+
+describe('Blocks Option B (interpret round trip)', () => {
+  it('interprets a CSP subset program identically through blocks', () => {
+    // Uses only the procedural, non-list/string subset supported so far:
+    // assignment, if/else, DISPLAY (space terminator), REPEAT n TIMES (counting
+    // For), REPEAT UNTIL (While NOT), procedures, calls.
+    const source = [
+      'x <- 5',
+      'IF (x > 3) { DISPLAY("big") } ELSE { DISPLAY("small") }',
+      'REPEAT 3 TIMES { DISPLAY("tick") }',
+      'i <- 0',
+      'REPEAT UNTIL (i >= 3) { DISPLAY(i) i <- i + 1 }',
+      'PROCEDURE add(a, b) { RETURN a + b }',
+      'DISPLAY(add(4, 5))',
+    ].join('\n');
+
+    const program = parseCsp(source);
+    // Sanity: the direct run produces the expected single space-separated line.
+    expect(new Interpreter().interpret(program, '')).toEqual(['big tick tick tick 0 1 2 9 ']);
+    assertInterpretsIdentically(program);
+  });
+
+  it('maps CSP REPEAT n TIMES onto the "repeat n times" block', () => {
+    const json = programToBlocksJson(parseCsp('REPEAT 3 TIMES { DISPLAY("hi") }'));
+    expect(JSON.parse(json).blocks.blocks[0].type).toBe('controls_repeat_ext');
+  });
+
+  it('round-trips DISPLAY as a space-terminated print', () => {
+    const json = JSON.parse(programToBlocksJson(parseCsp('DISPLAY("hi")')));
+    expect(json.blocks.blocks[0]).toMatchObject({ type: 'praxly_print', fields: { NL: 'SPACE' } });
+  });
+
+  it('maps while True + break onto the forever block and halts', () => {
+    const source = 'i = 0\nwhile True:\n  print(i)\n  i = i + 1\n  if i >= 3:\n    break';
+    const program = parsePython(source);
+    // Top chain is `i = 0` → the forever loop.
+    const top = JSON.parse(programToBlocksJson(program)).blocks.blocks[0];
+    expect(top.next.block.type).toBe('praxly_forever');
+    assertInterpretsIdentically(program);
+  });
+
+  it('round-trips a for-each loop over a list value', () => {
+    // No list-literal block yet (Commit 2), so drive the LIST socket from a
+    // variable and assert the AST shape survives real Blockly load/save.
+    const json = JSON.stringify({
+      variables: [
+        { name: 'items', id: 'v1' },
+        { name: 'item', id: 'v2' },
+      ],
+      blocks: {
+        languageVersion: 0,
+        blocks: [
+          {
+            type: 'praxly_for_each',
+            fields: { VAR: { id: 'v2' } },
+            inputs: {
+              LIST: { block: { type: 'variables_get', fields: { VAR: { id: 'v1' } } } },
+              DO: {
+                block: {
+                  type: 'praxly_print',
+                  fields: { NL: 'NEWLINE' },
+                  inputs: {
+                    VALUE: { block: { type: 'variables_get', fields: { VAR: { id: 'v2' } } } },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+    const program = blocksToProgram(roundTripThroughBlockly(json));
+    expect(program.body[0]).toMatchObject({
+      type: 'ForEach',
+      variable: 'item',
+      iterable: { type: 'Identifier', name: 'items' },
+    });
   });
 });

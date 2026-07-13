@@ -15,6 +15,7 @@ import type {
   Assignment,
   Block,
   Expression,
+  For,
   ForEach,
   FunctionDeclaration,
   If,
@@ -121,6 +122,13 @@ class BlocksWriter {
         return this.ifStatement(stmt);
 
       case 'While': {
+        // while (true) is the "repeat forever" block (stop it with a break).
+        if (stmt.condition.type === 'Literal' && stmt.condition.value === true) {
+          return this.withInputs(
+            { type: 'praxly_forever' },
+            { DO: this.statementInput(stmt.body) }
+          );
+        }
         // while (not c) reads better as Blockly's "repeat until c".
         const negated =
           stmt.condition.type === 'UnaryExpression' &&
@@ -152,6 +160,9 @@ class BlocksWriter {
             DO: this.statementInput(stmt.body),
           }
         );
+
+      case 'For':
+        return this.forStatement(stmt);
 
       case 'ForEach':
         return this.forEachStatement(stmt);
@@ -193,8 +204,13 @@ class BlocksWriter {
   }
 
   private print(stmt: Print): BlockState {
-    // print(a, b) joins its arguments with spaces, mirroring the default
-    // Print separator. A single argument prints as-is.
+    // print(a, b) joins its arguments with the separator into one value,
+    // mirroring the interpreter's Print rendering. A single argument prints
+    // as-is. The NL field carries what follows the value (newline / space /
+    // nothing) so appendLineFeed + separator round-trip.
+    const separator = typeof stmt.separator === 'string' ? stmt.separator : ' ';
+    const appendLineFeed = stmt.appendLineFeed !== false;
+
     let value: Expression = stmt.expressions[0] ?? {
       id: 'blocks-empty-print',
       type: 'Literal',
@@ -202,15 +218,31 @@ class BlocksWriter {
       raw: '""',
     };
     for (const expr of stmt.expressions.slice(1)) {
-      const spacer: Expression = {
-        id: `blocks-sep-${expr.id}`,
-        type: 'Literal',
-        value: ' ',
-        raw: '" "',
-      };
-      value = this.join(this.join(value, spacer), expr);
+      if (separator === '') {
+        value = this.join(value, expr);
+      } else {
+        const spacer: Expression = {
+          id: `blocks-sep-${expr.id}`,
+          type: 'Literal',
+          value: separator,
+          raw: JSON.stringify(separator),
+        };
+        value = this.join(this.join(value, spacer), expr);
+      }
     }
-    return this.withInputs({ type: 'praxly_print' }, { VALUE: this.value(value) });
+
+    // Terminator: a newline for normal prints; otherwise a single-argument
+    // print carries its terminator in `separator` (CSP DISPLAY's trailing
+    // space), and a multi-argument no-linefeed print adds nothing.
+    let nl: string;
+    if (appendLineFeed) nl = 'NEWLINE';
+    else if (stmt.expressions.length === 1 && separator === ' ') nl = 'SPACE';
+    else nl = 'NONE';
+
+    return this.withInputs(
+      { type: 'praxly_print', fields: { NL: nl } },
+      { VALUE: this.value(value) }
+    );
   }
 
   private join(left: Expression, right: Expression): Expression {
@@ -258,6 +290,67 @@ class BlocksWriter {
     return block;
   }
 
+  private forStatement(stmt: For): BlockState {
+    // Only counting loops map to blocks: `v = <low>; v < <high>; v = v + 1`.
+    const init = this.countingInit(stmt.init);
+    const high = init ? this.countingConditionHigh(stmt.condition, init.name) : undefined;
+    const increments = init ? this.incrementsByOne(stmt.update, init.name) : undefined;
+    if (!init || !high || !increments) {
+      throw new Error(
+        'Blocks view supports only counting for-loops (i = start; i < end; i = i + 1).'
+      );
+    }
+
+    const lowIsZero = init.low.type === 'Literal' && init.low.value === 0;
+    if (lowIsZero && !this.usesIdentifier(stmt.body, init.name)) {
+      // "for (i = 0; i < n; i++)" with an unused counter is "repeat n times".
+      return this.withInputs(
+        { type: 'controls_repeat_ext' },
+        { TIMES: this.value(high), DO: this.statementInput(stmt.body) }
+      );
+    }
+    return this.withInputs(
+      { type: 'praxly_for_range', fields: { VAR: { id: this.variableId(init.name) } } },
+      { FROM: this.value(init.low), TO: this.value(high), DO: this.statementInput(stmt.body) }
+    );
+  }
+
+  /** Matches `v = <expr>` init, returning the counter name and start value. */
+  private countingInit(init: For['init']): { name: string; low: Expression } | undefined {
+    if (init?.type === 'Assignment' && init.target.type === 'Identifier') {
+      return { name: init.target.name, low: init.value };
+    }
+    return undefined;
+  }
+
+  /** Matches `v < <expr>` condition, returning the exclusive upper bound. */
+  private countingConditionHigh(condition: For['condition'], name: string): Expression | undefined {
+    if (
+      condition?.type === 'BinaryExpression' &&
+      condition.operator === '<' &&
+      condition.left.type === 'Identifier' &&
+      condition.left.name === name
+    ) {
+      return condition.right;
+    }
+    return undefined;
+  }
+
+  /** Matches `v = v + 1` update. */
+  private incrementsByOne(update: For['update'], name: string): boolean {
+    return (
+      update?.type === 'Assignment' &&
+      update.target.type === 'Identifier' &&
+      update.target.name === name &&
+      update.value.type === 'BinaryExpression' &&
+      update.value.operator === '+' &&
+      update.value.left.type === 'Identifier' &&
+      update.value.left.name === name &&
+      update.value.right.type === 'Literal' &&
+      update.value.right.value === 1
+    );
+  }
+
   private forEachStatement(stmt: ForEach): BlockState {
     const iterable = stmt.iterable;
     const isRange =
@@ -265,7 +358,11 @@ class BlocksWriter {
       iterable.callee.type === 'Identifier' &&
       iterable.callee.name.toLowerCase() === 'range';
     if (!isRange) {
-      throw new Error('Blocks view only supports counted loops over range(…).');
+      // Iterating a list (or any non-range value) is the "for each" block.
+      return this.withInputs(
+        { type: 'praxly_for_each', fields: { VAR: { id: this.variableId(stmt.variable) } } },
+        { LIST: this.value(iterable), DO: this.statementInput(stmt.body) }
+      );
     }
 
     const args = iterable.arguments;

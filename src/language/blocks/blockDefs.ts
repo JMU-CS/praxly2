@@ -27,12 +27,29 @@ export function registerPraxlyBlocks(): void {
   Blockly.common.defineBlocksWithJsonArray([
     {
       type: 'praxly_print',
-      message0: 'print %1',
-      args0: [{ type: 'input_value', name: 'VALUE' }],
+      message0: 'print %1 %2',
+      args0: [
+        { type: 'input_value', name: 'VALUE' },
+        {
+          type: 'field_dropdown',
+          name: 'NL',
+          // What follows the printed value: a newline (normal print), a space
+          // (AP CSP's DISPLAY), or nothing. Round-trips Print.appendLineFeed /
+          // Print.separator faithfully.
+          options: [
+            ['↵ new line', 'NEWLINE'],
+            ['␣ space', 'SPACE'],
+            ['no break', 'NONE'],
+          ],
+        },
+      ],
+      inputsInline: true,
       previousStatement: null,
       nextStatement: null,
       style: 'text_blocks',
-      tooltip: 'Print a value to the output panel.',
+      tooltip:
+        'Print a value to the output panel. The dropdown sets what comes after it: ' +
+        'a new line, a space (like CSP DISPLAY), or nothing.',
     },
     {
       type: 'praxly_input',
@@ -82,6 +99,31 @@ export function registerPraxlyBlocks(): void {
         'Count from the first number up to (but not including) the second, ' +
         'like range(from, to).',
     },
+    {
+      type: 'praxly_forever',
+      message0: 'repeat forever %1',
+      args0: [{ type: 'input_statement', name: 'DO' }],
+      previousStatement: null,
+      nextStatement: null,
+      style: 'loop_blocks',
+      tooltip: 'Repeat the body forever. Put a "break" inside to stop.',
+    },
+    {
+      type: 'praxly_for_each',
+      message0: 'for each %1 in %2 %3',
+      args0: [
+        { type: 'field_variable', name: 'VAR', variable: 'item' },
+        { type: 'input_value', name: 'LIST' },
+        { type: 'input_statement', name: 'DO' },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      style: 'loop_blocks',
+      tooltip:
+        'Run the body once for each element of the list, with the variable set ' +
+        'to each element in turn.',
+    },
   ]);
 }
 
@@ -112,6 +154,7 @@ export const PRAXLY_TOOLBOX = {
           type: 'controls_repeat_ext',
           inputs: { TIMES: { shadow: { type: 'math_number', fields: { NUM: 10 } } } },
         },
+        { kind: 'block', type: 'praxly_forever' },
         { kind: 'block', type: 'controls_whileUntil' },
         { kind: 'block', type: 'praxly_repeat_until' },
         {
@@ -122,6 +165,7 @@ export const PRAXLY_TOOLBOX = {
             TO: { shadow: { type: 'math_number', fields: { NUM: 10 } } },
           },
         },
+        { kind: 'block', type: 'praxly_for_each' },
         { kind: 'block', type: 'controls_flow_statements' },
       ],
     },
