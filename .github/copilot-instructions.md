@@ -30,13 +30,24 @@ CSP and Praxis additionally have Lezer grammar files (`.grammar` → auto-compil
 
 When adding a new language, follow [docs/ADDING_A_LANGUAGE.md](../docs/ADDING_A_LANGUAGE.md).
 
+## Language specs & demos
+
+- [`specs/`](../specs/) is the **authority** for each language's supported syntax, semantics,
+  and standard library — one file per language (`praxis.md`, `csp.md`, `java.md`,
+  `javascript.md`, `python.md`) plus `stdlib.md` (shared built-ins mapped across all five
+  languages). Read the relevant spec before changing a language's behavior, and update it in the
+  same change. Do not restate language rules in this file.
+- [`examples/`](../examples/) holds one runnable demo per language (`demo.<lang>`); each
+  exercises every AST node its parser can produce and is round-tripped to every target by
+  `tests/round-trip.test.ts` (see `examples/README.md`).
+
 ## Build & Test
 
 ```bash
 npm run dev          # Vite dev server (http://localhost:5173/v2/)
 npm run build        # TypeScript check + Vite production build
-npm run test         # Vitest unit tests (tests/*.test.ts)
-npx tsx csv/selenium.test.ts  # Selenium integration tests (requires Chrome)
+npm run test:run     # Vitest unit tests, single run (`npm run test` = watch mode)
+npm run test-browser # Selenium csv/ regression suite (requires Chrome)
 ```
 
 - **Base URL**: `/v2/` (configured in `vite.config.js`)

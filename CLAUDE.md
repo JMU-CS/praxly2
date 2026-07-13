@@ -1,6 +1,6 @@
 # Praxly2 — Claude Agent Onboarding
 
-This is the fast-start guide for Claude agents. Read the full project guidelines in [copilot-instructions.md](.github/copilot-instructions.md) and the detailed docs in [docs/](docs/).
+This is the fast-start guide for Claude agents. Read the full project guidelines in [copilot-instructions.md](.github/copilot-instructions.md), the authoritative language definitions in [specs/](specs/), and the detailed architecture docs in [docs/](docs/).
 
 ## What this project is
 
@@ -46,11 +46,29 @@ The **Visitor pattern** (`src/language/visitor.ts`) is the spine. Every emitter 
 ```bash
 npm run dev          # Vite dev server → http://localhost:5173/v2/
 npm run build        # TypeScript check + production build
-npm run test         # Vitest unit tests (tests/*.test.ts)
+npm run test:run     # Vitest unit tests, single run (`npm run test` = watch mode)
+npm run test-browser # Selenium csv/ regression suite (needs Chrome; NOT run by test:run)
 npx tsc --noEmit     # Type-check only
 ```
 
-Tests live in `tests/` — one file per language: `python.test.ts`, `java.test.ts`, `csp.test.ts`, `praxis.test.ts`. Do **not** edit `csv/praxly.test.csv`; those are regression tests from the original test suite.
+Unit tests live in `tests/` — one file per language (`python.test.ts`, `java.test.ts`, `csp.test.ts`, `praxis.test.ts`, `javascript.test.ts`) plus `round-trip.test.ts` (translate each demo to every target, assert output equivalence) and `examples.test.ts`. The `csv/praxly.test.csv` matrix is the original regression suite, run in a browser via `npm run test-browser` (Selenium) — it is **not** part of `npm run test:run`, so verify against it after parser/interpreter changes. Do **not** edit that CSV.
+
+## Project directories
+
+- **`specs/`** — the **authoritative language definitions** and source of truth for what each
+  language supports (syntax, semantics, and deliberate omissions). One file per language
+  (`praxis.md`, `csp.md`, `java.md`, `javascript.md`, `python.md`) plus `stdlib.md` (the shared
+  built-in library mapped across all five languages, with notes on cross-language differences).
+  Read the relevant spec before changing a parser/interpreter/emitter, and update it when
+  language behavior changes. `praxis.md`/`csp.md`/`java.md` also have an **Extensions for
+  Praxly** section for anything beyond the original exam reference.
+- **`examples/`** — one runnable demo per language (`demo.praxis`, `demo.csp`, `demo.java`,
+  `demo.js`, `demo.py`), each exercising every AST node its parser can produce. `round-trip.test.ts`
+  translates each demo to every target and checks output equivalence; see `examples/README.md`
+  for the coverage policy. Random/`input()` are intentionally kept out of the auto-run demos
+  (non-deterministic / need stdin) and covered by unit tests instead.
+- **`docs/`** — deeper architecture references: `COMPILER_PIPELINE.md`, `AST_REFERENCE.md`,
+  `COMPONENT_REFERENCE.md`, `ADDING_A_LANGUAGE.md`, `COMMON_ISSUES.md`.
 
 ## Common tasks → skill files
 
@@ -58,27 +76,9 @@ Tests live in `tests/` — one file per language: `python.test.ts`, `java.test.t
 - [Adding a UI feature](.github/skills/add-ui-feature.md)
 - [Adding tests for a new feature](.github/skills/add-tests.md)
 
-## Language-specific notes
+## Language definitions
 
-**CSP pseudocode** (`src/language/csp/`)
-
-- Assignment: `x <- value` or `x ← value` (both valid)
-- Relational operators: `=`, `≠`/`<>`, `≤`/`<=`, `≥`/`>=`
-- No `ELSE IF` — the spec only defines `IF...ELSE`
-- `REPEAT UNTIL(cond)` is a **pre-condition** loop (while not cond); maps to `While(NOT(cond))` in the AST
-- `REPEAT n TIMES` is a count-based loop; maps to `For` in the AST
-
-**Praxis pseudocode** (`src/language/praxis/`)
-
-- Assignment: `x = value`
-- `repeat...until(cond)` is a **post-condition** loop (do-while not cond); maps to the `RepeatUntil` AST node
-- Class members need `public`/`private` access modifiers consumed before each member in the parser
-- Indentation-based block delimiters (`end` terminates blocks)
-
-**Python** (`src/language/python/`)
-
-- The lexer converts Python indentation to virtual `{`/`}` tokens so the parser treats it identically to a brace-delimited language
-
-**Java** (`src/language/java/`)
-
-- Type inference in `translator.ts` drives Java output; avoid `Object` fallbacks by using `inferBodyReturnType()` and `resolveFieldTypeFromValue()` in the Java emitter
+`specs/` is the authority for each language's supported syntax, semantics, and standard library
+— including what each front-end deliberately rejects. Do **not** duplicate or paraphrase
+language rules here (they drift): read the relevant `specs/*.md` file, and update it in the same
+change whenever you alter a language's behavior.
