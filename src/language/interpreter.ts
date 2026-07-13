@@ -1998,6 +1998,7 @@ export class Interpreter {
               case 'indexOf':
                 return obj.indexOf(String(args[0]));
               case 'contains':
+              case 'includes': // JS spelling (emitted for `x in s` membership)
                 return obj.includes(String(args[0]));
               case 'equals':
                 return obj === args[0];

@@ -8,7 +8,6 @@
 #   CompoundAssignment ...... += etc. desugar to Assignment + BinaryExpression.
 #   NewExpression ........... instantiation is a CallExpression, e.g. Dog("x").
 #   ThisExpression .......... `self` is an ordinary Identifier.
-#   ConditionalExpression ... `a if c else b` is not parsed.
 # ===========================================================================
 
 
@@ -35,11 +34,17 @@ print(7 % 3, 2 ** 8, 10 / 4)      # 1 256 2.5
 print(-count, not active)                          # -7 false
 print(count > 3 and pi < 4, count == 7 or active)  # true true
 
+# ---- ConditionalExpression (ternary) + != ----------------------------------
+label = "big" if count > 5 else "small"            # ternary
+print(label, count != 3)                           # big true
+
 # ---- ArrayLiteral / IndexExpression / MemberExpression / CallExpression ----
 values = [5, 2, 9, 1]
 values[0] = 50                    # index Assignment
 values.append(7)                  # method call (MemberExpression + Call)
 values.pop()                      # remove the last element
+values.insert(1, 99)              # insert 99 at index 1 -> [50, 99, 2, 9, 1]
+values.pop(1)                     # remove index 1        -> [50, 2, 9, 1]
 print(values, len(values), values[0])   # {50, 2, 9, 1} 4 50
 
 # ========================== STATEMENTS =====================================
@@ -122,6 +127,7 @@ print("fib", fib(7))              # fib 13
 # ---- ClassDeclaration / Constructor / MethodDeclaration / FieldDeclaration -
 class Animal:
     kind = "animal"               # class attribute => FieldDeclaration
+    legs: int = 4                 # typed class attribute (annotation + default)
 
     # Constructor (__init__); member Assignment via self
     def __init__(self, name):
@@ -129,6 +135,9 @@ class Animal:
 
     def full(self):
         return self.name + " (" + self.kind + ")"
+
+    def leg_count(self):
+        return self.legs          # reads the typed class attribute
 
     def label(self):
         return "name=" + self.name
@@ -143,6 +152,7 @@ class Dog(Animal):
 
 a = Animal("Rex")
 print(a.full())                   # Rex (animal)
+print("legs", a.leg_count())      # legs 4
 d = Dog("Fido")
 print(d.speak())                  # woof (Dog's own method)
 print(d.label())                  # name=Fido (method inherited from Animal)

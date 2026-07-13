@@ -158,6 +158,15 @@ export class Translator {
         case 'UnaryExpression':
           if (expr.operator === 'not' || expr.operator === '!') return 'boolean';
           return inferType(expr.argument);
+        case 'ConditionalExpression': {
+          // A ternary's type is its branches' type (String/double win on mismatch).
+          const cons = inferType((expr as any).consequent);
+          const alt = inferType((expr as any).alternate);
+          if (cons === alt) return cons;
+          if (cons === 'String' || alt === 'String') return 'String';
+          if (cons === 'double' || alt === 'double') return 'double';
+          return cons;
+        }
         case 'NewExpression':
           return (expr as any).className || 'Object';
         case 'IndexExpression':

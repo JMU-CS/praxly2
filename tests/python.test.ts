@@ -1461,5 +1461,18 @@ print(meow.x)`;
         expect(java).toContain('boolean x');
       });
     });
+
+    describe('input()', () => {
+      it('reads a line, and int(input()) parses a number', () => {
+        // The auto-running demo can't supply stdin, so input() lives here.
+        const src = `name = input("Enter name: ")\nage = int(input())\nprint("Hi", name)\nprint(age + 1)`;
+        const interp = new Interpreter();
+        interp.addInput('Alice');
+        interp.addInput('20');
+        const out = interp.interpret(parse(src), src);
+        // Drop the input-echo lines (prefixed with '>').
+        expect(out.filter((l) => !l.startsWith('>'))).toEqual(['Hi Alice', '21']);
+      });
+    });
   });
 });
