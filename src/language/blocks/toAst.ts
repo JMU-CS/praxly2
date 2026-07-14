@@ -237,6 +237,9 @@ class BlocksReader {
           body: this.block(inputBlock(block, 'DO')),
         };
 
+      case 'praxly_blank':
+        return { id: generateId(), type: 'BlankLine' };
+
       case 'controls_flow_statements':
         return block.fields?.FLOW === 'CONTINUE'
           ? { id: generateId(), type: 'Continue' }

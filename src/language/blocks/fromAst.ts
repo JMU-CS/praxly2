@@ -171,6 +171,10 @@ class BlocksWriter {
       case 'ForEach':
         return this.forEachStatement(stmt);
 
+      case 'BlankLine':
+        // A preserved source blank line — chains like any statement, no-op.
+        return { type: 'praxly_blank' };
+
       case 'Break':
         return { type: 'controls_flow_statements', fields: { FLOW: 'BREAK' } };
 

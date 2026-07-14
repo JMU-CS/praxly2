@@ -64,6 +64,17 @@ export function registerPraxlyBlocks(): void {
       tooltip: 'Pause the program and read a line of input from the user.',
     },
     {
+      // A no-op spacer that preserves a source blank line across translation,
+      // so a program built (or translated) into Blocks keeps its vertical
+      // spacing. Chains like any statement; does nothing when run.
+      type: 'praxly_blank',
+      message0: 'blank line',
+      previousStatement: null,
+      nextStatement: null,
+      colour: '#9aa0a6', // muted gray — reads as an inert spacer
+      tooltip: 'A blank line. Does nothing — it just adds vertical spacing.',
+    },
+    {
       type: 'praxly_repeat_until',
       message0: 'repeat %1 until %2',
       args0: [
@@ -386,6 +397,7 @@ export const PRAXLY_TOOLBOX = {
         { kind: 'block', type: 'math_number' },
         { kind: 'block', type: 'math_arithmetic' },
         { kind: 'block', type: 'text' },
+        { kind: 'block', type: 'praxly_blank' },
       ],
     },
     {
