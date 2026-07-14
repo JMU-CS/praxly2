@@ -32,6 +32,7 @@ Because Blocks is untyped, arithmetic follows the same rules as CSP: `/` is ordi
 | Math | absolute value, square root, smaller/larger of two |
 | Random | random number, random integer below _n_, random integer in a range (`RANDOM`), seed |
 | Conversion | to integer, to decimal, to text |
+| Layout | **blank line** — an inert spacer that preserves a source blank line across translation |
 
 ### Positions are 1-based
 
