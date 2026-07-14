@@ -25,7 +25,7 @@ import {
   generateId,
   makeIdentifier,
 } from '../ast';
-import { attachComments } from '../comments';
+import { attachComments, insertBlankLines } from '../comments';
 
 export class JavaParser {
   private tokens: Token[];
@@ -84,6 +84,7 @@ export class JavaParser {
     }
     const program: Program = { id: generateId(), type: 'Program', body };
     attachComments(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
+    insertBlankLines(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
     return program;
   }
 

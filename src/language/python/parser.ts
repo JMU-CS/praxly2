@@ -24,7 +24,7 @@ import {
   generateId,
   lvalueName,
 } from '../ast';
-import { attachComments } from '../comments';
+import { attachComments, insertBlankLines } from '../comments';
 
 /**
  * Thrown when the source uses a feature Praxly deliberately does not support
@@ -81,6 +81,7 @@ export class Parser {
     }
     const program: Program = { id: generateId(), type: 'Program', body };
     attachComments(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
+    insertBlankLines(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
     return program;
   }
 

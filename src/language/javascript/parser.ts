@@ -25,7 +25,7 @@ import {
   generateId,
   makeIdentifier,
 } from '../ast';
-import { attachComments } from '../comments';
+import { attachComments, insertBlankLines } from '../comments';
 
 export class JavaScriptParser {
   private tokens: Token[];
@@ -47,6 +47,7 @@ export class JavaScriptParser {
     }
     const program: Program = { id: generateId(), type: 'Program', body };
     attachComments(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
+    insertBlankLines(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
     return program;
   }
 
@@ -225,8 +226,8 @@ export class JavaScriptParser {
     if (this.check('KEYWORD', 'continue')) return this.withLoc(this.continueStatement(), si);
     if (this.check('KEYWORD', 'return')) return this.withLoc(this.returnStatement(), si);
     if (this.check('KEYWORD', 'try')) return this.withLoc(this.tryStatement(), si);
-    if (this.check('KEYWORD', 'function')) return this.functionDeclaration();
-    if (this.check('KEYWORD', 'class')) return this.classDeclaration();
+    if (this.check('KEYWORD', 'function')) return this.withLoc(this.functionDeclaration(), si);
+    if (this.check('KEYWORD', 'class')) return this.withLoc(this.classDeclaration(), si);
 
     // Variable declarations: let / const / var
     if (this.check('KEYWORD', 'let', 'const', 'var')) {
@@ -289,7 +290,7 @@ export class JavaScriptParser {
     const expr = this.expression();
     this.match('PUNCTUATION', ';');
 
-    if ((expr as any).type === 'Assignment') return expr as any as Statement;
+    if ((expr as any).type === 'Assignment') return this.withLoc(expr as any as Statement, si);
 
     return this.withLoc({ id: generateId(), type: 'ExpressionStatement', expression: expr }, si);
   }

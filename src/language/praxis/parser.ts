@@ -22,7 +22,7 @@ import {
   makeIdentifier,
   lvalueName,
 } from '../ast';
-import { attachComments } from '../comments';
+import { attachComments, insertBlankLines } from '../comments';
 
 export class PraxisParser {
   private tokens: Token[];
@@ -73,6 +73,12 @@ export class PraxisParser {
     }
     const program: Program = { id: generateId(), type: 'Program', body };
     attachComments(program, (this.tokens as any).comments, this.sourceCode, this.consumedComments);
+    insertBlankLines(
+      program,
+      (this.tokens as any).comments,
+      this.sourceCode,
+      this.consumedComments
+    );
     return program;
   }
 

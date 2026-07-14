@@ -14,6 +14,7 @@
  * translate along with the code.
  */
 import type { Program, Statement } from './ast';
+import { generateId } from './ast';
 
 export interface SourceComment {
   text: string; // content after the delimiter (delimiter and surrounding space stripped)
@@ -142,4 +143,137 @@ export function attachComments(
     program.headerComments = firstStmt.leadingComments;
     delete firstStmt.leadingComments;
   }
+}
+
+// Statement/declaration node types whose child bodies may contain blank lines.
+// (Blank lines inside these get their own recursion pass.)
+const childBodiesOf = (stmt: any): Statement[][] => {
+  const bodies: Statement[][] = [];
+  switch (stmt?.type) {
+    case 'If':
+      bodies.push(stmt.thenBranch.body);
+      if (stmt.elseBranch) bodies.push(stmt.elseBranch.body);
+      break;
+    case 'While':
+    case 'DoWhile':
+    case 'RepeatUntil':
+    case 'For':
+    case 'ForEach':
+      bodies.push(stmt.body.body);
+      break;
+    case 'Try':
+      bodies.push(stmt.body.body);
+      for (const h of stmt.handlers ?? []) bodies.push(h.body.body);
+      if (stmt.finallyBlock) bodies.push(stmt.finallyBlock.body);
+      break;
+    case 'Switch':
+      for (const c of stmt.cases ?? []) bodies.push(c.consequent);
+      break;
+    case 'FunctionDeclaration':
+    case 'MethodDeclaration':
+    case 'Constructor':
+      bodies.push(stmt.body.body);
+      break;
+    case 'ClassDeclaration':
+      bodies.push(stmt.body);
+      break;
+  }
+  return bodies;
+};
+
+/**
+ * Inserts `BlankLine` no-op nodes into `program` so translated output keeps the
+ * source's blank lines (for side-by-side comparison). Language-agnostic: keys
+ * off statement `loc` and the source, mirroring `attachComments`, and runs
+ * immediately after it.
+ *
+ * For each adjacent pair of statements in a body array (both must have `loc`),
+ * it counts the whitespace-only source lines that fall *before* the following
+ * statement's leading-comment run and inserts one `BlankLine` per such line.
+ * Blank lines *inside/after* a leading-comment run are intentionally dropped so
+ * the comment stays adjacent to its statement (never misplaced). Runs of blank
+ * lines are preserved verbatim (one node per line).
+ *
+ * `consumed` holds start offsets of comments the parser already claimed for
+ * other purposes; those are ignored when locating a leading-comment run, as in
+ * `attachComments`.
+ */
+export function insertBlankLines(
+  program: Program,
+  comments: SourceComment[] | undefined,
+  source: string,
+  consumed?: Set<number>
+): void {
+  // offset -> 0-based line number, via newline scan (as in attachComments).
+  const lineStarts: number[] = [0];
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] === '\n') lineStarts.push(i + 1);
+  }
+  const lineOf = (offset: number): number => {
+    let lo = 0;
+    let hi = lineStarts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (lineStarts[mid] <= offset) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo;
+  };
+
+  // True when source line `l` (0-based) contains only whitespace.
+  const isBlankLine = (l: number): boolean => {
+    const start = lineStarts[l];
+    const end = l + 1 < lineStarts.length ? lineStarts[l + 1] : source.length;
+    return source.slice(start, end).trim() === '';
+  };
+
+  // 0-based line numbers that hold an own-line comment (delimiter at line start
+  // after only whitespace). Used to locate a statement's leading-comment run.
+  const commentLines = new Set(
+    (comments ?? []).filter((c) => c.ownLine && !consumed?.has(c.start)).map((c) => lineOf(c.start))
+  );
+
+  // Number of blank lines between statement A and B that fall *before* B's
+  // leading-comment run. Works purely in line space (never uses `loc.end`,
+  // which can overshoot onto the next line via a trailing-newline token — see
+  // attachComments): walk up from B through its leading run (own-line comments
+  // and blanks, stopping at A's code) to find the run's topmost comment, then
+  // count the contiguous blank lines directly above it. Blanks *within/after*
+  // the comment run are left uncounted, so the comment stays glued to B.
+  const leadingBlankCount = (aStart: number, bStart: number): number => {
+    const floorLine = lineOf(aStart);
+    const bLine = lineOf(bStart);
+    let topComment = -1;
+    for (let l = bLine - 1; l > floorLine; l--) {
+      if (commentLines.has(l)) topComment = l;
+      else if (!isBlankLine(l)) break; // reached A's code
+    }
+    const anchorLine = topComment >= 0 ? topComment : bLine;
+    let count = 0;
+    for (let l = anchorLine - 1; l > floorLine && isBlankLine(l); l--) count++;
+    return count;
+  };
+
+  const processList = (list: Statement[]): void => {
+    // Recurse into child bodies first (they are distinct arrays).
+    for (const stmt of list) {
+      for (const body of childBodiesOf(stmt)) processList(body);
+    }
+    // Then splice BlankLine nodes between consecutive located statements.
+    const result: Statement[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const cur = list[i];
+      const prev = i > 0 ? list[i - 1] : undefined;
+      if (prev?.loc && cur.loc) {
+        const blanks = leadingBlankCount(prev.loc.start, cur.loc.start);
+        for (let b = 0; b < blanks; b++) {
+          result.push({ id: generateId(), type: 'BlankLine' });
+        }
+      }
+      result.push(cur);
+    }
+    list.splice(0, list.length, ...result);
+  };
+
+  processList(program.body);
 }

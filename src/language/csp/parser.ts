@@ -19,7 +19,7 @@ import {
   type Parameter,
   generateId,
 } from '../ast';
-import { attachComments } from '../comments';
+import { attachComments, insertBlankLines } from '../comments';
 
 export class CSPParser {
   private tokens: Token[];
@@ -63,6 +63,7 @@ export class CSPParser {
     }
     const program: Program = { id: generateId(), type: 'Program', body };
     attachComments(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
+    insertBlankLines(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
     return program;
   }
 
