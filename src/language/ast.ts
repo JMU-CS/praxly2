@@ -30,6 +30,7 @@ export type NodeType =
   | 'Return'
   | 'Break'
   | 'Continue'
+  | 'BlankLine'
   | 'Assignment'
   | 'Print'
   | 'ExpressionStatement'
@@ -89,6 +90,7 @@ export type Statement =
   | Return
   | Break
   | Continue
+  | BlankLine
   | Assignment
   | Print
   | ExpressionStatement;
@@ -239,6 +241,14 @@ export interface Break extends ASTNode {
 
 export interface Continue extends ASTNode {
   type: 'Continue';
+}
+
+// A source blank line, preserved across translation as a no-op statement so the
+// translated output keeps the source's vertical spacing for side-by-side
+// comparison. Inserted by the post-parse `insertBlankLines` pass (comments.ts),
+// executes as a no-op, and emits one empty line. Carries no loc.
+export interface BlankLine extends ASTNode {
+  type: 'BlankLine';
 }
 
 // `target` is the lvalue being assigned to: an Identifier for a plain variable

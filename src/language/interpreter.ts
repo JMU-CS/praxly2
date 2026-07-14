@@ -1520,6 +1520,9 @@ export class Interpreter {
         throw new BreakException();
       case 'Continue':
         throw new ContinueException();
+      case 'BlankLine':
+        break; // preserved source blank line — no-op at runtime
+
       case 'Switch': {
         const disc = this.evaluate((stmt as any).discriminant, env);
         const cases = (stmt as any).cases as any[];

@@ -8,6 +8,7 @@ import type {
   Statement,
   Expression,
   Block,
+  BlankLine,
   ClassDeclaration,
   MethodDeclaration,
   FieldDeclaration,
@@ -236,6 +237,16 @@ export abstract class ASTVisitor {
    */
   abstract visitTry(stmt: any): void;
 
+  /**
+   * Emits a preserved source blank line. Concrete (not abstract) because every
+   * target emits a blank line identically, and the correct emission must push
+   * '' directly — the indent-prepending `emit()` would produce whitespace
+   * rather than a truly empty line inside a block.
+   */
+  visitBlankLine(_stmt: BlankLine): void {
+    this.output.push('');
+  }
+
   // Dispatcher
   /**
    * Visits statement and returns the result.
@@ -279,6 +290,9 @@ export abstract class ASTVisitor {
         break;
       case 'Continue':
         this.visitContinue(stmt);
+        break;
+      case 'BlankLine':
+        this.visitBlankLine(stmt);
         break;
       case 'For':
         this.visitFor(stmt);
