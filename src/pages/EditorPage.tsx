@@ -48,12 +48,39 @@ const MOBILE_BREAKPOINT = 1024;
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
+const EDITOR_STATE_KEY = 'praxly-editor-state';
+
+type PersistedEditorState = {
+  code: string;
+  sourceLang: SupportedLang;
+  openLangs: SupportedLang[];
+  showAiSidePanel: boolean;
+  showMemDia: boolean;
+};
+
+/** An embed link (`?code=...`) is an explicit share — it should win over,
+ *  and not be clobbered into, any saved session in localStorage. */
+const hasEmbedParam = () => Boolean(new URLSearchParams(window.location.search).get('code'));
+
+const loadEditorState = (): PersistedEditorState | null => {
+  if (hasEmbedParam()) return null;
+  try {
+    const raw = localStorage.getItem(EDITOR_STATE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 export default function EditorPage() {
   const [searchParams] = useSearchParams();
-  const [code, setCode] = useState('');
+  const [loadedViaEmbedLink] = useState(hasEmbedParam);
+  const [code, setCode] = useState(() => loadEditorState()?.code ?? '');
   const [output, setOutput] = useState<string[]>([]);
   const [ast, setAst] = useState<Program | null>(null);
-  const [sourceLang, setSourceLang] = useState<SupportedLang>('praxis');
+  const [sourceLang, setSourceLang] = useState<SupportedLang>(
+    () => loadEditorState()?.sourceLang ?? 'praxis'
+  );
   const [error, setError] = useState<string | null>(null);
   const [showSourceLangDropdown, setShowSourceLangDropdown] = useState(false);
   const [showExamplesMenu, setShowExamplesMenu] = useState(false);
@@ -61,8 +88,10 @@ export default function EditorPage() {
   const [draggedPanelId, setDraggedPanelId] = useState<string | null>(null);
   const [dragOverPanelId, setDragOverPanelId] = useState<string | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [showAiSidePanel, setShowAiSidePanel] = useState(false);
-  const [showMemDia, setShowMemDia] = useState(false);
+  const [showAiSidePanel, setShowAiSidePanel] = useState(
+    () => loadEditorState()?.showAiSidePanel ?? false
+  );
+  const [showMemDia, setShowMemDia] = useState(() => loadEditorState()?.showMemDia ?? false);
   const [outputState, setOutputState] = useState<'open' | 'closed'>('open');
   const [textSize, setTextSize] = useState<TextSize>(
     () => Number(localStorage.getItem('praxly-text-size')) || 3
@@ -85,7 +114,24 @@ export default function EditorPage() {
   const [editorWidth, setEditorWidth] = useState(
     Math.max(MIN_SOURCE_WIDTH, Math.floor(window.innerWidth * 0.45))
   );
-  const [panels, setPanels] = useState<Panel[]>([]);
+  const [panels, setPanels] = useState<Panel[]>(() => {
+    const saved = loadEditorState();
+    if (!saved || saved.openLangs.length === 0) return [];
+
+    const defaultPanelWidth =
+      window.innerWidth < MOBILE_BREAKPOINT
+        ? Math.max(MIN_PANEL_WIDTH, Math.floor(window.innerWidth * 0.8))
+        : 350;
+
+    return saved.openLangs
+      .filter((lang) => lang !== saved.sourceLang)
+      .map((lang) => ({
+        id: randomId(),
+        lang,
+        width: defaultPanelWidth,
+        sourceMap: new Map(),
+      }));
+  });
 
   const [waitingForNormalInput, setWaitingForNormalInput] = useState(false);
   const [normalModeInputPrompt, setNormalModeInputPrompt] = useState<string>('');
@@ -290,6 +336,26 @@ export default function EditorPage() {
       console.error('Failed to decode embed:', e);
     }
   }, [searchParams]);
+
+  // Persist source code, language, and panel toggles so a reload (or a
+  // later visit) picks up where the user left off. Skipped for embed
+  // links — those are an explicit one-off share, not a session to save.
+  useEffect(() => {
+    if (loadedViaEmbedLink) return;
+
+    const id = window.setTimeout(() => {
+      const state: PersistedEditorState = {
+        code,
+        sourceLang,
+        openLangs: panels.map((panel) => panel.lang),
+        showAiSidePanel,
+        showMemDia,
+      };
+      localStorage.setItem(EDITOR_STATE_KEY, JSON.stringify(state));
+    }, 250);
+
+    return () => clearTimeout(id);
+  }, [code, sourceLang, panels, showAiSidePanel, showMemDia, loadedViaEmbedLink]);
 
   useEffect(() => {
     const handleResize = () => {
