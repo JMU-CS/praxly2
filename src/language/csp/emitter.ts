@@ -29,6 +29,21 @@ export class CSPEmitter extends ASTVisitor {
   protected override breakStr = 'BREAK';
   protected override continueStr = 'CONTINUE';
 
+  // The universal AST is 0-based; CSP lists are 1-based. Convert a 0-based
+  // position back to 1-based for emission. A negative literal (Python-style
+  // from-the-end index) maps to `LENGTH(obj) - n`.
+  private toOneBased(idx: any, objStr: string): string {
+    if (!idx) return '1';
+    if (idx.type === 'Literal' && typeof idx.value === 'number') {
+      if (idx.value < 0) return `LENGTH(${objStr}) - ${Math.abs(idx.value)}`;
+      return String(idx.value + 1);
+    }
+    if (idx.type === 'UnaryExpression' && idx.operator === '-' && idx.argument.type === 'Literal') {
+      return `LENGTH(${objStr}) - ${idx.argument.value}`;
+    }
+    return `${this.generateExpression(idx, Precedence.Additive)} + 1`;
+  }
+
   private isJavaMainClass(classDecl: ClassDeclaration): boolean {
     if (classDecl.name !== 'Main') return false;
     return classDecl.body.some(
@@ -329,6 +344,12 @@ export class CSPEmitter extends ASTVisitor {
   }
 
   visitExpressionStatement(stmt: any): void {
+    // A bare assignment expression (e.g. a C-style `for` update `i = i + 1`)
+    // has no expression form in CSP — emit it as an assignment statement.
+    if (stmt.expression?.type === 'Assignment') {
+      this.visitAssignment(stmt.expression);
+      return;
+    }
     this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
   }
 
@@ -396,22 +417,10 @@ export class CSPEmitter extends ASTVisitor {
       case 'IndexExpression': {
         currentPrecedence = Precedence.Member;
         const objStr = this.generateExpression(expr.object, currentPrecedence);
-        const convertIdx = (idx: any): string => {
-          if (!idx) return '0';
-          if (idx.type === 'Literal' && typeof idx.value === 'number' && idx.value < 0)
-            return `LENGTH(${objStr}) - ${Math.abs(idx.value)}`;
-          if (
-            idx.type === 'UnaryExpression' &&
-            idx.operator === '-' &&
-            idx.argument.type === 'Literal'
-          )
-            return `LENGTH(${objStr}) - ${idx.argument.value}`;
-          return this.generateExpression(idx, 0);
-        };
         if (expr.indexEnd) {
-          output = `${objStr}.SLICE(${convertIdx(expr.index)}, ${convertIdx(expr.indexEnd)})`;
+          output = `${objStr}.SLICE(${this.toOneBased(expr.index, objStr)}, ${this.toOneBased(expr.indexEnd, objStr)})`;
         } else {
-          output = `${objStr}[${convertIdx(expr.index)}]`;
+          output = `${objStr}[${this.toOneBased(expr.index, objStr)}]`;
         }
         break;
       }
@@ -478,11 +487,13 @@ export class CSPEmitter extends ASTVisitor {
           break;
         }
         if (calleeStr === 'INSERT' && expr.arguments.length === 3) {
-          output = `INSERT(${expr.arguments.map((a) => this.generateExpression(a, 0)).join(', ')})`;
+          const list = this.generateExpression(expr.arguments[0], 0);
+          output = `INSERT(${list}, ${this.toOneBased(expr.arguments[1], list)}, ${this.generateExpression(expr.arguments[2], 0)})`;
           break;
         }
         if (calleeStr === 'REMOVE' && expr.arguments.length === 2) {
-          output = `REMOVE(${this.generateExpression(expr.arguments[0], 0)}, ${this.generateExpression(expr.arguments[1], 0)})`;
+          const list = this.generateExpression(expr.arguments[0], 0);
+          output = `REMOVE(${list}, ${this.toOneBased(expr.arguments[1], list)})`;
           break;
         }
 

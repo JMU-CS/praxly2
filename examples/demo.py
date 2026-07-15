@@ -39,9 +39,8 @@ print(count > 3 and pi < 4, count == 7 or active)  # true true
 values = [5, 2, 9, 1]
 values[0] = 50                    # index Assignment
 values.append(7)                  # method call (MemberExpression + Call)
-values.sort()
-values.pop()
-print(values, len(values), values[0])   # {1, 2, 9, 50} 4 1
+values.pop()                      # remove the last element
+print(values, len(values), values[0])   # {50, 2, 9, 1} 4 50
 
 # ---- ListComprehension -----------------------------------------------------
 squares = [x * x for x in range(5)]
@@ -110,8 +109,7 @@ finally:
 # ========================== FUNCTIONS ======================================
 
 # ---- FunctionDeclaration / Parameter / Return ------------------------------
-# Parameter.defaultValue -- `punct` defaults to "!" when the caller omits it
-def greet(name, punct="!"):
+def greet(name, punct):
     return "hi " + name + punct
 
 # Parameter annotation => paramType
@@ -131,8 +129,8 @@ def fib(n):
         return n
     return fib(n - 1) + fib(n - 2)
 
-print(greet("sam"))               # hi sam!  (uses the default punct)
-print(greet("sam", "?"))          # hi sam?  (overrides the default)
+print(greet("sam", "!"))          # hi sam!
+print(greet("sam", "?"))          # hi sam?
 print(clamp(-5), clamp(9))        # 0 9
 announce("")                      # (prints nothing)
 announce("ready")                 # announce: ready

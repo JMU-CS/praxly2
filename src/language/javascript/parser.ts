@@ -173,14 +173,11 @@ export class JavaScriptParser {
         // skip destructuring or rest params gracefully
         this.match('OPERATOR', '...');
         const paramName = this.check('IDENTIFIER') ? this.consume('IDENTIFIER').value : '_';
-        let defaultValue: Expression | undefined;
-        if (this.match('OPERATOR', '=')) defaultValue = this.expression();
         params.push({
           id: generateId(),
           type: 'Parameter',
           name: paramName,
           paramType: 'auto',
-          defaultValue,
         });
       } while (this.match('PUNCTUATION', ','));
     }

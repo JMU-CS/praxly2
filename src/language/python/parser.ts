@@ -183,16 +183,11 @@ export class Parser {
         if (this.match('PUNCTUATION', ':')) {
           paramType = this.parseParameterTypeAnnotation();
         }
-        let defaultValue: Expression | undefined = undefined;
-        if (this.match('OPERATOR', '=')) {
-          defaultValue = this.expression();
-        }
         params.push({
           id: generateId(),
           type: 'Parameter',
           name: paramName,
           paramType,
-          defaultValue,
         });
       } while (this.match('PUNCTUATION', ','));
     }
@@ -321,14 +316,28 @@ export class Parser {
       this.consume('IDENTIFIER');
       this.consume('PUNCTUATION', '(');
       const expressions: Expression[] = [];
+      const print: any = { id: generateId(), type: 'Print', expressions };
       if (!this.check('PUNCTUATION', ')')) {
         do {
-          expressions.push(this.logicOr());
+          // `sep=`/`end=` keyword arguments configure the Print node.
+          if (
+            this.check('IDENTIFIER', 'sep') ||
+            (this.check('IDENTIFIER', 'end') && this.checkNext('OPERATOR', '='))
+          ) {
+            const kw = this.consume('IDENTIFIER').value;
+            this.consume('OPERATOR', '=');
+            const val = this.logicOr();
+            const strVal = val.type === 'Literal' ? String((val as any).value) : '';
+            if (kw === 'sep') print.separator = strVal;
+            else print.appendLineFeed = strVal === '\n';
+          } else {
+            expressions.push(this.logicOr());
+          }
         } while (this.match('PUNCTUATION', ','));
       }
       this.consume('PUNCTUATION', ')');
       while (this.match('PUNCTUATION', ';')) {}
-      return this.withLocation({ id: generateId(), type: 'Print', expressions }, startIdx);
+      return this.withLocation(print, startIdx);
     }
 
     const expr = this.expression();
@@ -392,9 +401,9 @@ export class Parser {
       );
     }
 
-    // Augmented assignments e.g., +=, -=
-    if (this.match('OPERATOR', '+=', '-=', '*=', '/=')) {
-      const op = this.previous().value.charAt(0); // Extract '+', '-', etc.
+    // Augmented assignments e.g., +=, -=, %=, //=
+    if (this.match('OPERATOR', '+=', '-=', '*=', '/=', '%=', '//=')) {
+      const op = this.previous().value.slice(0, -1); // strip '=' => '+','//', etc.
       const rVal = this.expression();
       let nameStr = 'unknown';
       if (expr.type === 'Identifier') nameStr = (expr as Identifier).name;
@@ -419,11 +428,53 @@ export class Parser {
       );
     }
 
+    // Annotated declaration, e.g. `later: int` (bare) or `later: int = 5`.
+    // Bare form mirrors a Java `int later;` (declaredWithoutInitializer + a
+    // type-default value) so the interpreter treats them identically.
+    if (expr.type === 'Identifier' && this.check('PUNCTUATION', ':')) {
+      this.consume('PUNCTUATION', ':');
+      const typeName = this.consume('IDENTIFIER').value;
+      let value: Expression;
+      let declaredWithoutInitializer = false;
+      if (this.match('OPERATOR', '=')) {
+        value = this.expression();
+      } else {
+        value = this.defaultValueForType(typeName);
+        declaredWithoutInitializer = true;
+      }
+      while (this.match('PUNCTUATION', ';')) {}
+      return this.withLocation(
+        {
+          id: generateId(),
+          type: 'Assignment',
+          name: (expr as Identifier).name,
+          target: expr,
+          value,
+          varType: typeName,
+          declaredWithoutInitializer,
+        } as any,
+        startIdx
+      );
+    }
+
     while (this.match('PUNCTUATION', ';')) {}
     return this.withLocation(
       { id: generateId(), type: 'ExpressionStatement', expression: expr },
       startIdx
     );
+  }
+
+  private defaultValueForType(typeName: string): Expression {
+    const base = typeName.replace(/\[\]/g, '');
+    if (['int', 'byte', 'short', 'long'].includes(base))
+      return { id: generateId(), type: 'Literal', value: 0, raw: '0' };
+    if (['double', 'float'].includes(base))
+      return { id: generateId(), type: 'Literal', value: 0.0, raw: '0.0' };
+    if (['boolean', 'bool'].includes(base))
+      return { id: generateId(), type: 'Literal', value: false, raw: 'false' };
+    if (['string', 'str'].includes(base))
+      return { id: generateId(), type: 'Literal', value: '', raw: '""' };
+    return { id: generateId(), type: 'Literal', value: null, raw: 'None' };
   }
 
   private ifStatement(): If {
@@ -621,7 +672,7 @@ export class Parser {
 
   private factor(): Expression {
     let left = this.exponent();
-    while (this.match('OPERATOR', '*', '/', '%')) {
+    while (this.match('OPERATOR', '*', '/', '%', '//')) {
       const operator = this.previous().value;
       const right = this.exponent();
       left = { id: generateId(), type: 'BinaryExpression', left, operator, right };

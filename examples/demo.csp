@@ -16,7 +16,7 @@
 //
 // CSP runtime facts honored below:
 //   * Assignment is `<-` (or the unicode arrow); `=` means EQUALITY.
-//   * Lists are 0-based; `FOR i FROM a TO b` is END-EXCLUSIVE.
+//   * Lists are 1-based (AP CSP); `FOR i FROM a TO b` is END-EXCLUSIVE.
 //   * `REPEAT UNTIL(c)` is a PRE-condition loop (runs while NOT c).
 //   * There is no unary minus -> write `0 - x`. There is no `null`.
 //   * DISPLAY prints its single argument followed by a newline.
@@ -54,18 +54,18 @@ DISPLAY(x ≠ 3)                  // true  (unicode not-equal)
 DISPLAY(x ≤ 5)                  // true  (unicode less-or-equal)
 DISPLAY(x ≥ 5)                  // true  (unicode greater-or-equal)
 
-// ---- ArrayLiteral + IndexExpression (0-based) + index Assignment -----------
+// ---- ArrayLiteral + IndexExpression (1-based) + index Assignment -----------
 nums <- [10, 20, 30]
-DISPLAY(nums[0])                // 10
-nums[1] <- 99
-DISPLAY(nums[1])                // 99
+DISPLAY(nums[1])                // 10  (first element is index 1)
+nums[2] <- 99
+DISPLAY(nums[2])                // 99
 
-// ---- List builtins: APPEND / INSERT / REMOVE / LENGTH ----------------------
+// ---- List builtins: APPEND / INSERT / REMOVE / LENGTH (1-based positions) --
 APPEND(nums, 40)                // [10, 99, 30, 40]
-INSERT(nums, 0, 5)              // [5, 10, 99, 30, 40]
-REMOVE(nums, 1)                 // [5, 99, 30, 40]
+INSERT(nums, 1, 5)              // [5, 10, 99, 30, 40]  (insert before position 1)
+REMOVE(nums, 2)                 // [5, 99, 30, 40]      (remove position 2, the 10)
 DISPLAY(LENGTH(nums))           // 4
-DISPLAY(nums[0])                // 5
+DISPLAY(nums[1])                // 5
 
 
 // ========================== STATEMENTS =====================================

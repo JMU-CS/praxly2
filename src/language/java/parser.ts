@@ -331,6 +331,7 @@ export class JavaParser {
     if (this.check('KEYWORD', 'do')) return this.withLocation(this.doWhileStatement(), startIdx);
     if (this.check('KEYWORD', 'switch')) return this.withLocation(this.switchStatement(), startIdx);
     if (this.check('KEYWORD', 'for')) return this.withLocation(this.forStatement(), startIdx);
+    if (this.check('KEYWORD', 'try')) return this.withLocation(this.tryStatement(), startIdx);
     if (this.check('KEYWORD', 'break')) return this.withLocation(this.breakStatement(), startIdx);
     if (this.check('KEYWORD', 'continue'))
       return this.withLocation(this.continueStatement(), startIdx);
@@ -381,8 +382,9 @@ export class JavaParser {
         return this.withLocation({ id: generateId(), type: 'Assignment', name, value }, startIdx);
       }
       // Check for type declarations: identifier identifier (e.g., "String name", "int x")
+      // or a generic type declaration (e.g. "ArrayList<Integer> nums").
       // NOT for: this.xxx, obj.xxx, or other member accesses
-      else if (this.checkNext('IDENTIFIER')) {
+      else if (this.checkNext('IDENTIFIER') || this.checkNext('OPERATOR', '<')) {
         // Peek two positions ahead to check if there's a dot after the next identifier
         const hasDotAfterNext =
           this.current + 2 < this.tokens.length && this.tokens[this.current + 2].value === '.';
@@ -404,6 +406,7 @@ export class JavaParser {
 
           if (isTypeKeyword || startsUppercase) {
             let typeStr = this.consume('IDENTIFIER').value;
+            this.skipGenerics();
             if (this.check('PUNCTUATION', '[')) {
               this.advance();
               this.consume('PUNCTUATION', ']');
@@ -471,12 +474,17 @@ export class JavaParser {
     this.consume('PUNCTUATION', '.');
     this.consume('IDENTIFIER', 'out');
     this.consume('PUNCTUATION', '.');
-    this.consume('IDENTIFIER', 'println');
+    // `println` appends a newline; `print` suppresses it.
+    const method = this.peek().value;
+    if (method === 'print') this.consume('IDENTIFIER', 'print');
+    else this.consume('IDENTIFIER', 'println');
     this.consume('PUNCTUATION', '(');
     const expr = this.expression();
     this.consume('PUNCTUATION', ')');
     this.consume('PUNCTUATION', ';');
-    return { id: generateId(), type: 'Print', expressions: [expr] };
+    const node: any = { id: generateId(), type: 'Print', expressions: [expr] };
+    if (method === 'print') node.appendLineFeed = false;
+    return node;
   }
 
   private ifStatement(): If {
@@ -556,6 +564,37 @@ export class JavaParser {
 
     this.consume('PUNCTUATION', '}');
     return { id: generateId(), type: 'Switch', discriminant, cases };
+  }
+
+  private tryStatement(): any {
+    this.consume('KEYWORD', 'try');
+    const body = this.block();
+    const handlers: any[] = [];
+    while (this.check('KEYWORD', 'catch')) {
+      this.consume('KEYWORD', 'catch');
+      this.consume('PUNCTUATION', '(');
+      let exceptionType: string | undefined;
+      let varName: string | undefined;
+      if (this.check('IDENTIFIER') || this.isTypeStart()) {
+        exceptionType = this.peek().value;
+        this.advance();
+      }
+      if (this.check('IDENTIFIER')) varName = this.consume('IDENTIFIER').value;
+      this.consume('PUNCTUATION', ')');
+      handlers.push({
+        id: generateId(),
+        type: 'ExceptionHandler',
+        exceptionType,
+        varName,
+        body: this.block(),
+      });
+    }
+    let finallyBlock: Block | undefined;
+    if (this.check('KEYWORD', 'finally')) {
+      this.consume('KEYWORD', 'finally');
+      finallyBlock = this.block();
+    }
+    return { id: generateId(), type: 'Try', body, handlers, finallyBlock };
   }
 
   private breakStatement(): any {
@@ -661,7 +700,13 @@ export class JavaParser {
       }
     } else if (this.check('IDENTIFIER')) {
       // Could be for-each with already-declared type or C-style with expression
-      const varName = this.consume('IDENTIFIER').value;
+      let varName = this.consume('IDENTIFIER').value;
+
+      // For-each with a class-name type, e.g. `for (Integer x : xs)`: the first
+      // identifier was the type; the real loop variable follows.
+      if (this.check('IDENTIFIER') && this.checkNext('PUNCTUATION', ':')) {
+        varName = this.consume('IDENTIFIER').value;
+      }
 
       if (this.check('PUNCTUATION', ':')) {
         // For-each: arr[item]
@@ -991,8 +1036,47 @@ export class JavaParser {
     return this.postfix();
   }
 
+  // Skip a balanced generic argument list `<...>` if present. Generics are not
+  // kept (the interpreter ignores them; the emitter re-derives element types).
+  private skipGenerics(): void {
+    if (!this.check('OPERATOR', '<')) return;
+    let depth = 0;
+    while (!this.isAtEnd()) {
+      const v = this.peek().value;
+      if (v === '<') depth += 1;
+      else if (v === '>') depth -= 1;
+      else if (v === '>>') depth -= 2;
+      else if (v === '>>>') depth -= 3;
+      this.advance();
+      if (depth <= 0) break;
+    }
+  }
+
   private newExpression(): Expression {
+    // Array creation expression: `new Type[] {elems}` or `new Type[size]`.
+    if ((this.isTypeStart() || this.check('IDENTIFIER')) && this.checkNext('PUNCTUATION', '[')) {
+      this.advance(); // element type
+      this.consume('PUNCTUATION', '[');
+      if (this.check('PUNCTUATION', ']')) {
+        this.advance();
+        this.consume('PUNCTUATION', '{');
+        const elements: Expression[] = [];
+        if (!this.check('PUNCTUATION', '}')) {
+          do {
+            elements.push(this.expression());
+          } while (this.match('PUNCTUATION', ','));
+        }
+        this.consume('PUNCTUATION', '}');
+        return { id: generateId(), type: 'ArrayLiteral', elements } as any;
+      }
+      // `new Type[size]` — size is evaluated but produces an (empty) array here.
+      this.expression();
+      this.consume('PUNCTUATION', ']');
+      return { id: generateId(), type: 'ArrayLiteral', elements: [] } as any;
+    }
+
     const className = this.consume('IDENTIFIER').value;
+    this.skipGenerics();
     this.consume('PUNCTUATION', '(');
     const args: Expression[] = [];
     if (!this.check('PUNCTUATION', ')')) {

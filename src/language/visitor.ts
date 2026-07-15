@@ -284,7 +284,10 @@ export abstract class ASTVisitor {
         if (['>', '<', '>=', '<=', '==', '!=', 'and', 'or'].includes(expr.operator))
           return 'boolean';
         const left = this.inferType(expr.left);
-        if (left === 'double') return 'double';
+        const right = this.inferType(expr.right);
+        // `+` with a String operand is concatenation, so the result is a String.
+        if (expr.operator === '+' && (left === 'String' || right === 'String')) return 'String';
+        if (left === 'double' || right === 'double') return 'double';
         return 'int';
       case 'UnaryExpression':
         if (expr.operator === 'not' || expr.operator === '!') return 'boolean';

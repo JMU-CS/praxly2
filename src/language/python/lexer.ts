@@ -202,17 +202,23 @@ export class Lexer {
         ].includes(char)
       ) {
         let value = char;
-        // Dual operators and ** operator
-        if (p + 1 < line.length) {
-          const next = line[p + 1];
-          if (['==', '!=', '>=', '<=', '+=', '-=', '*=', '/=', '**'].includes(char + next)) {
-            value = char + next;
-            p++;
-          }
+        // Three-character (`//=`), then two-character operators, then single.
+        const three = line.slice(p, p + 3);
+        const two = line.slice(p, p + 2);
+        if (three === '//=') {
+          value = three;
+          p += 2;
+        } else if (
+          ['==', '!=', '>=', '<=', '+=', '-=', '*=', '/=', '%=', '**', '//'].includes(two)
+        ) {
+          value = two;
+          p++;
         }
-        if (['+', '-', '*', '/', '%', '==', '!=', '>', '<', '>=', '<=', '**'].includes(value)) {
+        if (
+          ['+', '-', '*', '/', '%', '==', '!=', '>', '<', '>=', '<=', '**', '//'].includes(value)
+        ) {
           this.tokens.push({ type: 'OPERATOR', value, start: offset + p });
-        } else if (['+=', '-=', '*=', '/='].includes(value)) {
+        } else if (['+=', '-=', '*=', '/=', '%=', '//='].includes(value)) {
           this.tokens.push({ type: 'OPERATOR', value, start: offset + p });
         } else if (value === '=') {
           this.tokens.push({ type: 'OPERATOR', value, start: offset + p });

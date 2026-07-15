@@ -105,6 +105,9 @@ export class JavaLexer {
           'default',
           'break',
           'continue',
+          'try',
+          'catch',
+          'finally',
         ];
         const type = keywords.includes(value) ? 'KEYWORD' : 'IDENTIFIER';
         if (value === 'true' || value === 'false') tokens.push({ type: 'BOOLEAN', value, start });

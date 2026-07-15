@@ -577,8 +577,9 @@ REPEAT n TIMES
     });
 
     it('should keep fixed-size arrays as Java arrays when not appended', () => {
+      // CSP lists are 1-based, so nums[1] is the first element (Java nums[0]).
       const source = `nums <- [1, 2, 3]
-DISPLAY(nums[0])`;
+DISPLAY(nums[1])`;
       const lexer = new CSPLexer(source);
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
@@ -594,7 +595,7 @@ DISPLAY(nums[0])`;
     it('should emit Java ArrayList when a CSP list is appended', () => {
       const source = `nums <- [1, 2, 3]
 APPEND(nums, 4)
-DISPLAY(nums[0])`;
+DISPLAY(nums[1])`;
       const lexer = new CSPLexer(source);
       const tokens = lexer.tokenize();
       const parser = new CSPParser(tokens);
