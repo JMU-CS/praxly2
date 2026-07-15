@@ -5,7 +5,6 @@ import { LanguageLogo } from '../LanguageLogo';
 import type { Panel } from './types';
 
 interface AddPanelStripProps {
-  sourceLang: SupportedLang;
   panels: Panel[];
   showAiSidePanel: boolean;
   showMemDia: boolean;
@@ -32,7 +31,6 @@ const toggleButtonClasses = (active: boolean) =>
   }`;
 
 export function AddPanelStrip({
-  sourceLang,
   panels,
   showAiSidePanel,
   showMemDia,
@@ -44,20 +42,14 @@ export function AddPanelStrip({
     <div className="add-panel-dropdown w-16 h-full flex flex-col items-center gap-3 pt-4 overflow-y-auto bg-slate-900 border-r border-slate-800 shrink-0 relative z-[150] shadow-[10px_0_20px_rgba(0,0,0,0.5)]">
       {PANEL_LANGS.map((lang) => {
         const isOpen = panels.some((panel) => panel.lang === lang);
-        const isSourceLanguage = lang === sourceLang;
         const label = LANG_LABELS[lang];
 
         return (
           <button
             key={lang}
             onClick={() => onTogglePanel(lang)}
-            disabled={isSourceLanguage}
             aria-pressed={isOpen}
-            className={
-              isSourceLanguage
-                ? 'p-3 rounded-xl border bg-slate-800 text-slate-600 border-slate-700 opacity-50 cursor-not-allowed'
-                : toggleButtonClasses(isOpen)
-            }
+            className={toggleButtonClasses(isOpen)}
             title={label}
           >
             {lang === 'ast' ? <FileJson size={24} /> : <LanguageLogo lang={lang} size={24} />}

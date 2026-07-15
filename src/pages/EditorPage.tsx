@@ -235,7 +235,6 @@ export default function EditorPage() {
     (lang: SupportedLang, newCode: string) => {
       setSourceLang(lang);
       setCode(newCode);
-      setPanels((prev) => prev.filter((panel) => panel.lang !== lang));
       setIsDebugging(false);
       setIsDebugComplete(false);
       setHighlightedSourceLines([]);
@@ -789,7 +788,7 @@ export default function EditorPage() {
 
   const addPanel = (lang: SupportedLang) => {
     setPanels((prev) => {
-      if (lang === sourceLang || prev.some((panel) => panel.lang === lang)) {
+      if (prev.some((panel) => panel.lang === lang)) {
         return prev;
       }
 
@@ -1120,7 +1119,6 @@ export default function EditorPage() {
 
       <main id="main-content" className="flex-1 flex flex-row overflow-hidden min-h-0">
         <AddPanelStrip
-          sourceLang={sourceLang}
           panels={panels}
           showAiSidePanel={showAiSidePanel}
           showMemDia={showMemDia}
