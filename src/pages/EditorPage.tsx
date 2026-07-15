@@ -135,6 +135,15 @@ export default function EditorPage() {
     null
   );
   const aiResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const runTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (runTimeoutRef.current !== null) {
+        clearTimeout(runTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const isMobile = viewportWidth < MOBILE_BREAKPOINT;
 
@@ -437,11 +446,7 @@ export default function EditorPage() {
     return result;
   }, [code, sourceLang, ast, panels, getTranslation]);
 
-  const handleRun = () => {
-    setError(null);
-    setOutput([]);
-    setWaitingForNormalInput(false);
-
+  const executeRun = () => {
     try {
       const runLang = sourceLang === 'ast' ? 'python' : sourceLang;
       const program = parseCode(runLang as SupportedLang, code);
@@ -476,6 +481,20 @@ export default function EditorPage() {
       setError(e.message);
       setOutput((prev) => [...prev, `Error: ${e.message}`]);
     }
+  };
+
+  const handleRun = () => {
+    setError(null);
+    setOutput([]);
+    setWaitingForNormalInput(false);
+
+    if (runTimeoutRef.current !== null) {
+      clearTimeout(runTimeoutRef.current);
+    }
+    runTimeoutRef.current = window.setTimeout(() => {
+      runTimeoutRef.current = null;
+      executeRun();
+    }, 100);
   };
 
   const handleDebugStart = () => {
