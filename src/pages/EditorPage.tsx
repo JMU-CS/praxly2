@@ -54,7 +54,7 @@ type PersistedEditorState = {
   code: string;
   sourceLang: SupportedLang;
   openLangs: SupportedLang[];
-  showAiSidePanel: boolean;
+  showAiChat: boolean;
   showMemDia: boolean;
 };
 
@@ -77,6 +77,9 @@ export default function EditorPage() {
   const [loadedViaEmbedLink] = useState(hasEmbedParam);
   const [code, setCode] = useState(() => loadEditorState()?.code ?? '');
   const [output, setOutput] = useState<string[]>([]);
+  // Once true, the "Run code to see execution results..." placeholder never
+  // reappears — it's a first-run hint, not a state to flash on every re-run.
+  const [hasRun, setHasRun] = useState(false);
   const [ast, setAst] = useState<Program | null>(null);
   const [sourceLang, setSourceLang] = useState<SupportedLang>(
     () => loadEditorState()?.sourceLang ?? 'praxis'
@@ -89,7 +92,7 @@ export default function EditorPage() {
   const [dragOverPanelId, setDragOverPanelId] = useState<string | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showAiSidePanel, setShowAiSidePanel] = useState(
-    () => loadEditorState()?.showAiSidePanel ?? false
+    () => loadEditorState()?.showAiChat ?? false
   );
   const [showMemDia, setShowMemDia] = useState(() => loadEditorState()?.showMemDia ?? false);
   const [outputState, setOutputState] = useState<'open' | 'closed'>('open');
@@ -348,7 +351,7 @@ export default function EditorPage() {
         code,
         sourceLang,
         openLangs: panels.map((panel) => panel.lang),
-        showAiSidePanel,
+        showAiChat: showAiSidePanel,
         showMemDia,
       };
       localStorage.setItem(EDITOR_STATE_KEY, JSON.stringify(state));
@@ -551,6 +554,7 @@ export default function EditorPage() {
   const handleRun = () => {
     setError(null);
     setOutput([]);
+    setHasRun(true);
     setWaitingForNormalInput(false);
 
     if (runTimeoutRef.current !== null) {
@@ -565,6 +569,7 @@ export default function EditorPage() {
   const handleDebugStart = () => {
     setError(null);
     setOutput([]);
+    setHasRun(true);
 
     try {
       const runLang = sourceLang === 'ast' ? 'python' : sourceLang;
@@ -691,6 +696,7 @@ export default function EditorPage() {
     setAst(null);
     setOutput([]);
     setError(null);
+    setHasRun(false);
   };
 
   const handleLoadExample = (exampleId: string) => {
@@ -705,6 +711,7 @@ export default function EditorPage() {
     setPanels((prev) => prev.filter((panel) => panel.lang !== example.lang));
     setOutput([]);
     setError(null);
+    setHasRun(false);
     setIsDebugging(false);
     setIsDebugComplete(false);
     setHighlightedSourceLines([]);
@@ -1112,6 +1119,16 @@ export default function EditorPage() {
       />
 
       <main id="main-content" className="flex-1 flex flex-row overflow-hidden min-h-0">
+        <AddPanelStrip
+          sourceLang={sourceLang}
+          panels={panels}
+          showAiSidePanel={showAiSidePanel}
+          showMemDia={showMemDia}
+          onTogglePanel={togglePanel}
+          onToggleAiPanel={handleToggleAiPanel}
+          onToggleMemDia={handleToggleMemDia}
+        />
+
         <div className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
           <div className="flex-1 min-h-0 relative overflow-x-auto lg:overflow-visible">
             <div className={`flex min-h-0 h-full ${isMobile ? 'min-w-max' : 'w-full'}`}>
@@ -1255,6 +1272,7 @@ export default function EditorPage() {
           <OutputPanel
             output={output}
             error={error}
+            hasRun={hasRun}
             variables={currentVariables}
             showVariables={isDebugging}
             height={outputState === 'open' ? outputHeight : undefined}
@@ -1274,18 +1292,6 @@ export default function EditorPage() {
             onOpen={() => setOutputState('open')}
           />
         </div>
-
-        <AddPanelStrip
-          sourceLang={sourceLang}
-          panels={panels}
-          showAiSidePanel={showAiSidePanel}
-          showMemDia={showMemDia}
-          aiResizeActive={isResizingAiPanel}
-          onTogglePanel={togglePanel}
-          onToggleAiPanel={handleToggleAiPanel}
-          onToggleMemDia={handleToggleMemDia}
-          onStartAiResize={handleStartAiResize}
-        />
 
         {showAiSidePanel && (
           <AiSidePanel

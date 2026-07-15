@@ -1,5 +1,4 @@
 import { FileJson, Bot, BrainCircuit } from 'lucide-react';
-import type { MouseEvent } from 'react';
 
 import { LANG_LABELS, type SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
@@ -10,13 +9,9 @@ interface AddPanelStripProps {
   panels: Panel[];
   showAiSidePanel: boolean;
   showMemDia: boolean;
-  /** True while the AI panel is being resized (highlights the handle). */
-  aiResizeActive: boolean;
   onTogglePanel: (lang: SupportedLang) => void;
   onToggleAiPanel: () => void;
   onToggleMemDia: () => void;
-  /** Starts an AI-panel resize drag from this strip's left edge. */
-  onStartAiResize: (e: MouseEvent) => void;
 }
 
 const PANEL_LANGS: SupportedLang[] = [
@@ -41,26 +36,12 @@ export function AddPanelStrip({
   panels,
   showAiSidePanel,
   showMemDia,
-  aiResizeActive,
   onTogglePanel,
   onToggleAiPanel,
   onToggleMemDia,
-  onStartAiResize,
 }: AddPanelStripProps) {
   return (
-    <div className="add-panel-dropdown w-16 h-full flex flex-col items-center gap-3 pt-4 overflow-y-auto bg-slate-900 border-l border-slate-800 shrink-0 relative z-[150] shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">
-      {/* The strip sits between the code panes and the AI panel, so its left
-          edge doubles as a second resize handle for the AI panel. */}
-      {showAiSidePanel && (
-        <div
-          className={`absolute top-0 left-0 w-1 h-full cursor-col-resize z-[200] transition-colors ${
-            aiResizeActive ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/40'
-          }`}
-          onMouseDown={onStartAiResize}
-          aria-hidden="true"
-        />
-      )}
-
+    <div className="add-panel-dropdown w-16 h-full flex flex-col items-center gap-3 pt-4 overflow-y-auto bg-slate-900 border-r border-slate-800 shrink-0 relative z-[150] shadow-[10px_0_20px_rgba(0,0,0,0.5)]">
       {PANEL_LANGS.map((lang) => {
         const isOpen = panels.some((panel) => panel.lang === lang);
         const isSourceLanguage = lang === sourceLang;
