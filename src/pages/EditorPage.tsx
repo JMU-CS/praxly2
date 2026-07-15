@@ -653,6 +653,13 @@ export default function EditorPage() {
     setShowAiSidePanel((prev) => !prev);
   };
 
+  const handleToggleMemDia = () => {
+    setShowMemDia((prev) => {
+      if (!prev) setMemDiaStates(new Map()); // Reset all closed panes when enabling
+      return !prev;
+    });
+  };
+
   // Shared by both AI-panel resize handles (the panel's left edge and the
   // left edge of the add-panel strip): they move in lockstep because the
   // strip has a fixed width, so one drag math works for both.
@@ -1016,7 +1023,6 @@ export default function EditorPage() {
         embedCopied={embedCopied}
         showExamplesMenu={showExamplesMenu}
         showSettingsMenu={showSettingsMenu}
-        showMemDia={showMemDia}
         isDebugging={isDebugging}
         isDebugComplete={isDebugComplete}
         examples={EXAMPLE_PROGRAMS}
@@ -1031,12 +1037,6 @@ export default function EditorPage() {
         onToggleSettingsMenu={() => {
           setShowSettingsMenu((prev) => !prev);
           setShowExamplesMenu(false);
-        }}
-        onToggleMemDia={() => {
-          setShowMemDia((prev) => {
-            if (!prev) setMemDiaStates(new Map()); // Reset all closed panes when enabling
-            return !prev;
-          });
         }}
         onDebugStart={handleDebugStart}
         onRun={handleRun}
@@ -1213,9 +1213,11 @@ export default function EditorPage() {
           sourceLang={sourceLang}
           panels={panels}
           showAiSidePanel={showAiSidePanel}
+          showMemDia={showMemDia}
           aiResizeActive={isResizingAiPanel}
           onTogglePanel={togglePanel}
           onToggleAiPanel={handleToggleAiPanel}
+          onToggleMemDia={handleToggleMemDia}
           onStartAiResize={handleStartAiResize}
         />
 

@@ -1,4 +1,4 @@
-import { FileJson, Bot } from 'lucide-react';
+import { FileJson, Bot, BrainCircuit } from 'lucide-react';
 import type { MouseEvent } from 'react';
 
 import { LANG_LABELS, type SupportedLang } from '../LanguageSelector';
@@ -9,10 +9,12 @@ interface AddPanelStripProps {
   sourceLang: SupportedLang;
   panels: Panel[];
   showAiSidePanel: boolean;
+  showMemDia: boolean;
   /** True while the AI panel is being resized (highlights the handle). */
   aiResizeActive: boolean;
   onTogglePanel: (lang: SupportedLang) => void;
   onToggleAiPanel: () => void;
+  onToggleMemDia: () => void;
   /** Starts an AI-panel resize drag from this strip's left edge. */
   onStartAiResize: (e: MouseEvent) => void;
 }
@@ -38,9 +40,11 @@ export function AddPanelStrip({
   sourceLang,
   panels,
   showAiSidePanel,
+  showMemDia,
   aiResizeActive,
   onTogglePanel,
   onToggleAiPanel,
+  onToggleMemDia,
   onStartAiResize,
 }: AddPanelStripProps) {
   return (
@@ -86,6 +90,8 @@ export function AddPanelStrip({
         );
       })}
 
+      <div className="w-8 h-px bg-slate-700 shrink-0" aria-hidden="true" />
+
       {/* AI assistant — opens the side chat */}
       <button
         onClick={onToggleAiPanel}
@@ -94,6 +100,16 @@ export function AddPanelStrip({
         title={showAiSidePanel ? 'Close AI Assistant' : 'Open AI Assistant'}
       >
         <Bot size={24} />
+      </button>
+
+      {/* Memory Diagram — shows live variable state alongside each pane */}
+      <button
+        onClick={onToggleMemDia}
+        aria-pressed={showMemDia}
+        className={toggleButtonClasses(showMemDia)}
+        title={showMemDia ? 'Close Memory Diagram (MemDia)' : 'Open Memory Diagram (MemDia)'}
+      >
+        <BrainCircuit size={24} />
       </button>
     </div>
   );
