@@ -55,7 +55,6 @@ export default function EditorPage() {
   const [ast, setAst] = useState<Program | null>(null);
   const [sourceLang, setSourceLang] = useState<SupportedLang>('praxis');
   const [error, setError] = useState<string | null>(null);
-  const [showAddMenu, setShowAddMenu] = useState(false);
   const [showSourceLangDropdown, setShowSourceLangDropdown] = useState(false);
   const [showExamplesMenu, setShowExamplesMenu] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
@@ -952,7 +951,6 @@ export default function EditorPage() {
   );
   useClickOutside(showSettingsMenu, '.settings-dropdown', () => setShowSettingsMenu(false));
   useClickOutside(showExamplesMenu, '.examples-dropdown', () => setShowExamplesMenu(false));
-  useClickOutside(showAddMenu, '.add-panel-dropdown', () => setShowAddMenu(false));
 
   // F5/F10 shortcuts. The handlers close over fresh state each render, so we
   // read them through a ref — the listener itself is registered only once.
@@ -1212,12 +1210,10 @@ export default function EditorPage() {
         </div>
 
         <AddPanelStrip
-          showAddMenu={showAddMenu}
           sourceLang={sourceLang}
           panels={panels}
           showAiSidePanel={showAiSidePanel}
           aiResizeActive={isResizingAiPanel}
-          onToggleMenu={() => setShowAddMenu((prev) => !prev)}
           onTogglePanel={togglePanel}
           onToggleAiPanel={handleToggleAiPanel}
           onStartAiResize={handleStartAiResize}
