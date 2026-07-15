@@ -58,13 +58,7 @@ export function AddPanelStrip({
                 ? 'p-3 rounded-xl border bg-slate-800 text-slate-600 border-slate-700 opacity-50 cursor-not-allowed'
                 : toggleButtonClasses(isOpen)
             }
-            title={
-              isSourceLanguage
-                ? `Currently editing in ${label}`
-                : isOpen
-                  ? `Close ${label} view`
-                  : `Open ${label} view`
-            }
+            title={label}
           >
             {lang === 'ast' ? <FileJson size={24} /> : <LanguageLogo lang={lang} size={24} />}
           </button>
@@ -78,7 +72,7 @@ export function AddPanelStrip({
         onClick={onToggleAiPanel}
         aria-pressed={showAiSidePanel}
         className={toggleButtonClasses(showAiSidePanel)}
-        title={showAiSidePanel ? 'Close AI Assistant' : 'Open AI Assistant'}
+        title="AI Assistant"
       >
         <Bot size={24} />
       </button>
@@ -88,7 +82,7 @@ export function AddPanelStrip({
         onClick={onToggleMemDia}
         aria-pressed={showMemDia}
         className={toggleButtonClasses(showMemDia)}
-        title={showMemDia ? 'Close Memory Diagram (MemDia)' : 'Open Memory Diagram (MemDia)'}
+        title="Memory Diagram"
       >
         <BrainCircuit size={24} />
       </button>
