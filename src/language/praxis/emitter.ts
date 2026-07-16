@@ -393,7 +393,7 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitDoWhile(stmt: any): void {
-    this.emit(`do`);
+    this.emit(`do`, stmt.id);
     this.indent();
     this.context.symbolTable.enterScope();
     this.visitBlock(stmt.body);
@@ -445,11 +445,11 @@ export class PraxisEmitter extends ASTVisitor {
     this.emit('end if');
   }
 
-  visitBreak(_stmt: any): void {
-    this.emit('break');
+  visitBreak(stmt: any): void {
+    this.emit('break', stmt.id);
   }
-  visitContinue(_stmt: any): void {
-    this.emit('continue');
+  visitContinue(stmt: any): void {
+    this.emit('continue', stmt.id);
   }
 
   visitFor(stmt: any): void {
@@ -566,7 +566,7 @@ export class PraxisEmitter extends ASTVisitor {
   }
 
   visitTry(stmt: any): void {
-    this.emit('try');
+    this.emit('try', stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();

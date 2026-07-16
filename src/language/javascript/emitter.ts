@@ -252,7 +252,7 @@ export class JavaScriptEmitter extends ASTVisitor {
     let current = stmt.elseBranch;
     while (current && current.body.length === 1 && current.body[0].type === 'If') {
       const elif = current.body[0];
-      this.emit(`} else if (${this.generateExpression(elif.condition, 0)}) {`);
+      this.emit(`} else if (${this.generateExpression(elif.condition, 0)}) {`, elif.id);
       this.indent();
       this.visitBlock(elif.thenBranch);
       this.dedent();
@@ -278,7 +278,7 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitDoWhile(stmt: any): void {
-    this.emit('do {');
+    this.emit('do {', stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
@@ -310,11 +310,11 @@ export class JavaScriptEmitter extends ASTVisitor {
     this.emit('}');
   }
 
-  visitBreak(_stmt: any): void {
-    this.emit('break;');
+  visitBreak(stmt: any): void {
+    this.emit('break;', stmt.id);
   }
-  visitContinue(_stmt: any): void {
-    this.emit('continue;');
+  visitContinue(stmt: any): void {
+    this.emit('continue;', stmt.id);
   }
 
   visitFor(stmt: For): void {
@@ -425,7 +425,7 @@ export class JavaScriptEmitter extends ASTVisitor {
   }
 
   visitTry(stmt: any): void {
-    this.emit('try {');
+    this.emit('try {', stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();

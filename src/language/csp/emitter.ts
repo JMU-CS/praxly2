@@ -207,10 +207,13 @@ export class CSPEmitter extends ASTVisitor {
     stmt.cases.forEach((c: any) => {
       if (c.test) {
         const testStr = this.generateExpression(c.test, 0);
-        this.emit(first ? `IF (${disc} = ${testStr})` : `ELSE IF (${disc} = ${testStr})`);
+        this.emit(
+          first ? `IF (${disc} = ${testStr})` : `ELSE IF (${disc} = ${testStr})`,
+          first ? stmt.id : undefined
+        );
         first = false;
       } else {
-        this.emit('ELSE');
+        this.emit('ELSE', first ? stmt.id : undefined);
       }
       this.emit('{');
       this.indent();
@@ -220,12 +223,12 @@ export class CSPEmitter extends ASTVisitor {
     });
   }
 
-  visitBreak(_stmt: any): void {
-    this.emit('// BREAK');
+  visitBreak(stmt: any): void {
+    this.emit('// BREAK', stmt.id);
   }
 
-  visitContinue(_stmt: any): void {
-    this.emit('// CONTINUE');
+  visitContinue(stmt: any): void {
+    this.emit('// CONTINUE', stmt.id);
   }
 
   visitFor(stmt: any): void {
@@ -343,7 +346,7 @@ export class CSPEmitter extends ASTVisitor {
 
   visitTry(stmt: any): void {
     // CSP has no exception handling — emit as comment block
-    this.emit('// TRY');
+    this.emit('// TRY', stmt.id);
     this.emit('{');
     this.indent();
     this.visitBlock(stmt.body);

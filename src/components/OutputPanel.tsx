@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useId } from 'react';
 import { Terminal, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { ResizeHandle } from './ResizeHandle';
+import { VariableFrames, formatVariableValue } from './VariableFrames';
+import type { StackFrame } from '../language/debugger';
 
 export type OutputPanelState = 'open' | 'closed';
 
@@ -10,6 +12,8 @@ interface OutputPanelProps {
   /** False until the user's first Run/Debug — suppresses the placeholder after that. */
   hasRun?: boolean;
   variables?: Record<string, any>;
+  /** Debugger call stack (global scope first). When given, variables are shown per frame. */
+  callStack?: StackFrame[];
   showVariables?: boolean;
   height?: number;
   resizeActive?: boolean;
@@ -25,29 +29,12 @@ interface OutputPanelProps {
 const focusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900';
 
-const formatVariableValue = (value: any): string => {
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  if (typeof value === 'boolean') return value.toString();
-  if (typeof value === 'number') return value.toString();
-  if (typeof value === 'string') return `"${value}"`;
-  if (Array.isArray(value)) {
-    return `[${value.map((v) => formatVariableValue(v)).join(', ')}]`;
-  }
-  if (typeof value === 'object' && value.klass?.name) {
-    return `${value.klass.name} instance`;
-  }
-  if (typeof value === 'object' && value.klass) {
-    return `JavaClass(${(value as any).name || 'unknown'})`;
-  }
-  return String(value);
-};
-
 export const OutputPanel: React.FC<OutputPanelProps> = ({
   output,
   error,
   hasRun = false,
   variables = {},
+  callStack = [],
   showVariables = false,
   height,
   resizeActive = false,
@@ -214,25 +201,36 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
           className="flex flex-col border-t sm:border-t-0 sm:border-l border-slate-800 w-full sm:w-64 shrink-0 max-h-40 sm:max-h-none"
           aria-label="Debug variables"
         >
-          <div className="h-8 flex items-center px-4 bg-slate-900 border-b border-slate-800 shrink-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          <div className="h-8 flex items-center gap-2 px-4 bg-slate-900 border-b border-slate-800 shrink-0 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
               Variables
             </span>
+            {callStack.length > 1 && (
+              <span
+                className="text-[10px] font-semibold text-indigo-400 truncate"
+                title={`Currently inside ${callStack[callStack.length - 1].name}()`}
+              >
+                in {callStack[callStack.length - 1].name}()
+              </span>
+            )}
           </div>
           <div
-            className="flex-1 overflow-auto p-4 font-mono leading-5 bg-slate-950"
+            className="flex-1 overflow-auto p-2 font-mono leading-5 bg-slate-950"
             style={{ fontSize: 'var(--praxly-font-size, 12px)' }}
           >
-            {Object.keys(variables).length === 0 ? (
+            {callStack.length > 0 ? (
+              <VariableFrames frames={callStack} />
+            ) : Object.keys(variables).length === 0 ? (
               <div className="text-slate-500 italic">No variables</div>
             ) : (
               Object.entries(variables).map(([name, value]) => {
                 if (typeof value === 'function' || name.startsWith('_')) return null;
-                const valueStr = formatVariableValue(value);
                 return (
                   <div key={name} className="flex justify-between gap-2 py-1">
                     <span className="text-slate-400">{name}:</span>
-                    <span className="text-slate-300 font-semibold">{valueStr}</span>
+                    <span className="text-slate-300 font-semibold">
+                      {formatVariableValue(value)}
+                    </span>
                   </div>
                 );
               })
