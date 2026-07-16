@@ -41,7 +41,10 @@ export const EXAMPLE_PROGRAMS: ExampleProgram[] = [
       return oldScore + diceOne + diceTwo
     end if
   end if
-end newScore`,
+end newScore
+
+print newScore(1, 2, 3)
+`,
   },
   {
     id: 'praxis-for-loop',
@@ -51,7 +54,8 @@ end newScore`,
     lang: 'praxis',
     code: `for i <- 0; i < 5; i <- i + 1
   print(i)
-end for`,
+end for
+`,
   },
   {
     id: 'python-grade-check',
@@ -66,22 +70,26 @@ if score >= 90:
 elif score >= 80:
   print("B")
 else:
-  print("Keep practicing")`,
+  print("Keep practicing")
+`,
   },
   {
-    id: 'python-running-total',
-    title: 'Python Running Total',
-    description: 'While loop and assignment updates',
+    id: 'python-dice-roll',
+    title: 'Python Dice Roll',
+    description: 'While a random condition is met',
     category: 'loops',
     lang: 'python',
-    code: `i = 1
-total = 0
+    code: `randomSeed(7)
+roll = 0
+attempts = 0
 
-while i <= 5:
-  total = total + i
-  i = i + 1
+while roll != 6:
+  roll = randomInt(6) + 1
+  attempts = attempts + 1
+  print(roll)
 
-print(total)`,
+print("Rolled a 6 after", attempts, "tries")
+`,
   },
   {
     id: 'java-main-loop',
@@ -97,7 +105,8 @@ print(total)`,
     }
     System.out.println(sum);
   }
-}`,
+}
+`,
   },
   {
     id: 'java-if-branch',
@@ -110,7 +119,8 @@ if (x < 10) {
   System.out.println("small");
 } else {
   System.out.println("big");
-}`,
+}
+`,
   },
   {
     id: 'csp-repeat-until',
@@ -123,7 +133,8 @@ REPEAT UNTIL (x >= 5)
 {
   x <- x + 1
 }
-DISPLAY(x)`,
+DISPLAY(x)
+`,
   },
   {
     id: 'csp-procedure-greet',
@@ -136,40 +147,13 @@ DISPLAY(x)`,
   DISPLAY("Hello " + name)
 }
 
-greet("Praxly")`,
-  },
-  {
-    id: 'javascript-grade-check',
-    title: 'JS Grade Bands',
-    description: 'If / else if / else branching',
-    category: 'conditionals',
-    lang: 'javascript',
-    code: `let score = 84;
-
-if (score >= 90) {
-  console.log("A");
-} else if (score >= 80) {
-  console.log("B");
-} else {
-  console.log("Keep practicing");
-}`,
-  },
-  {
-    id: 'javascript-for-loop',
-    title: 'JS Running Sum',
-    description: 'C-style for loop with accumulator',
-    category: 'loops',
-    lang: 'javascript',
-    code: `let total = 0;
-for (let i = 1; i <= 5; i++) {
-  total = total + i;
-}
-console.log(total);`,
+greet("Praxly")
+`,
   },
   {
     id: 'javascript-function',
     title: 'JS Max Function',
-    description: 'Function declaration with conditional return',
+    description: 'Declare with conditional return',
     category: 'functions',
     lang: 'javascript',
     code: `function max(a, b) {
@@ -180,7 +164,8 @@ console.log(total);`,
   }
 }
 
-console.log(max(7, 3));`,
+console.log(max(7, 3));
+`,
   },
   {
     id: 'javascript-array-loop',
@@ -193,7 +178,8 @@ let sum = 0;
 for (const n of nums) {
   sum = sum + n;
 }
-console.log(sum);`,
+console.log(sum);
+`,
   },
 ];
 

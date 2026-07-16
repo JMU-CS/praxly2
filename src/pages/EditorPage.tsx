@@ -48,22 +48,53 @@ const MOBILE_BREAKPOINT = 1024;
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
+const EDITOR_STATE_KEY = 'praxly-editor-state';
+
+type PersistedEditorState = {
+  code: string;
+  sourceLang: SupportedLang;
+  openLangs: SupportedLang[];
+  showAiChat: boolean;
+  showMemDia: boolean;
+};
+
+/** An embed link (`?code=...`) is an explicit share — it should win over,
+ *  and not be clobbered into, any saved session in localStorage. */
+const hasEmbedParam = () => Boolean(new URLSearchParams(window.location.search).get('code'));
+
+const loadEditorState = (): PersistedEditorState | null => {
+  if (hasEmbedParam()) return null;
+  try {
+    const raw = localStorage.getItem(EDITOR_STATE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 export default function EditorPage() {
   const [searchParams] = useSearchParams();
-  const [code, setCode] = useState('');
+  const [loadedViaEmbedLink] = useState(hasEmbedParam);
+  const [code, setCode] = useState(() => loadEditorState()?.code ?? '');
   const [output, setOutput] = useState<string[]>([]);
+  // Once true, the "Run code to see execution results..." placeholder never
+  // reappears — it's a first-run hint, not a state to flash on every re-run.
+  const [hasRun, setHasRun] = useState(false);
   const [ast, setAst] = useState<Program | null>(null);
-  const [sourceLang, setSourceLang] = useState<SupportedLang>('praxis');
+  const [sourceLang, setSourceLang] = useState<SupportedLang>(
+    () => loadEditorState()?.sourceLang ?? 'praxis'
+  );
   const [error, setError] = useState<string | null>(null);
-  const [showAddMenu, setShowAddMenu] = useState(false);
   const [showSourceLangDropdown, setShowSourceLangDropdown] = useState(false);
   const [showExamplesMenu, setShowExamplesMenu] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
   const [draggedPanelId, setDraggedPanelId] = useState<string | null>(null);
   const [dragOverPanelId, setDragOverPanelId] = useState<string | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [showAiSidePanel, setShowAiSidePanel] = useState(false);
-  const [showMemDia, setShowMemDia] = useState(false);
+  const [showAiSidePanel, setShowAiSidePanel] = useState(
+    () => loadEditorState()?.showAiChat ?? false
+  );
+  const [showMemDia, setShowMemDia] = useState(() => loadEditorState()?.showMemDia ?? false);
   const [outputState, setOutputState] = useState<'open' | 'closed'>('open');
   const [textSize, setTextSize] = useState<TextSize>(
     () => Number(localStorage.getItem('praxly-text-size')) || 3
@@ -86,7 +117,24 @@ export default function EditorPage() {
   const [editorWidth, setEditorWidth] = useState(
     Math.max(MIN_SOURCE_WIDTH, Math.floor(window.innerWidth * 0.45))
   );
-  const [panels, setPanels] = useState<Panel[]>([]);
+  const [panels, setPanels] = useState<Panel[]>(() => {
+    const saved = loadEditorState();
+    if (!saved || saved.openLangs.length === 0) return [];
+
+    const defaultPanelWidth =
+      window.innerWidth < MOBILE_BREAKPOINT
+        ? Math.max(MIN_PANEL_WIDTH, Math.floor(window.innerWidth * 0.8))
+        : 350;
+
+    return saved.openLangs
+      .filter((lang) => lang !== saved.sourceLang)
+      .map((lang) => ({
+        id: randomId(),
+        lang,
+        width: defaultPanelWidth,
+        sourceMap: new Map(),
+      }));
+  });
 
   const [waitingForNormalInput, setWaitingForNormalInput] = useState(false);
   const [normalModeInputPrompt, setNormalModeInputPrompt] = useState<string>('');
@@ -135,6 +183,15 @@ export default function EditorPage() {
     null
   );
   const aiResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const runTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (runTimeoutRef.current !== null) {
+        clearTimeout(runTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const isMobile = viewportWidth < MOBILE_BREAKPOINT;
 
@@ -178,7 +235,6 @@ export default function EditorPage() {
     (lang: SupportedLang, newCode: string) => {
       setSourceLang(lang);
       setCode(newCode);
-      setPanels((prev) => prev.filter((panel) => panel.lang !== lang));
       setIsDebugging(false);
       setIsDebugComplete(false);
       setHighlightedSourceLines([]);
@@ -282,6 +338,26 @@ export default function EditorPage() {
       console.error('Failed to decode embed:', e);
     }
   }, [searchParams]);
+
+  // Persist source code, language, and panel toggles so a reload (or a
+  // later visit) picks up where the user left off. Skipped for embed
+  // links — those are an explicit one-off share, not a session to save.
+  useEffect(() => {
+    if (loadedViaEmbedLink) return;
+
+    const id = window.setTimeout(() => {
+      const state: PersistedEditorState = {
+        code,
+        sourceLang,
+        openLangs: panels.map((panel) => panel.lang),
+        showAiChat: showAiSidePanel,
+        showMemDia,
+      };
+      localStorage.setItem(EDITOR_STATE_KEY, JSON.stringify(state));
+    }, 250);
+
+    return () => clearTimeout(id);
+  }, [code, sourceLang, panels, showAiSidePanel, showMemDia, loadedViaEmbedLink]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -437,11 +513,7 @@ export default function EditorPage() {
     return result;
   }, [code, sourceLang, ast, panels, getTranslation]);
 
-  const handleRun = () => {
-    setError(null);
-    setOutput([]);
-    setWaitingForNormalInput(false);
-
+  const executeRun = () => {
     try {
       const runLang = sourceLang === 'ast' ? 'python' : sourceLang;
       const program = parseCode(runLang as SupportedLang, code);
@@ -478,9 +550,25 @@ export default function EditorPage() {
     }
   };
 
+  const handleRun = () => {
+    setError(null);
+    setOutput([]);
+    setHasRun(true);
+    setWaitingForNormalInput(false);
+
+    if (runTimeoutRef.current !== null) {
+      clearTimeout(runTimeoutRef.current);
+    }
+    runTimeoutRef.current = window.setTimeout(() => {
+      runTimeoutRef.current = null;
+      executeRun();
+    }, 100);
+  };
+
   const handleDebugStart = () => {
     setError(null);
     setOutput([]);
+    setHasRun(true);
 
     try {
       const runLang = sourceLang === 'ast' ? 'python' : sourceLang;
@@ -607,6 +695,7 @@ export default function EditorPage() {
     setAst(null);
     setOutput([]);
     setError(null);
+    setHasRun(false);
   };
 
   const handleLoadExample = (exampleId: string) => {
@@ -621,6 +710,7 @@ export default function EditorPage() {
     setPanels((prev) => prev.filter((panel) => panel.lang !== example.lang));
     setOutput([]);
     setError(null);
+    setHasRun(false);
     setIsDebugging(false);
     setIsDebugComplete(false);
     setHighlightedSourceLines([]);
@@ -633,6 +723,13 @@ export default function EditorPage() {
 
   const handleToggleAiPanel = () => {
     setShowAiSidePanel((prev) => !prev);
+  };
+
+  const handleToggleMemDia = () => {
+    setShowMemDia((prev) => {
+      if (!prev) setMemDiaStates(new Map()); // Reset all closed panes when enabling
+      return !prev;
+    });
   };
 
   // Shared by both AI-panel resize handles (the panel's left edge and the
@@ -691,7 +788,7 @@ export default function EditorPage() {
 
   const addPanel = (lang: SupportedLang) => {
     setPanels((prev) => {
-      if (lang === sourceLang || prev.some((panel) => panel.lang === lang)) {
+      if (prev.some((panel) => panel.lang === lang)) {
         return prev;
       }
 
@@ -933,7 +1030,6 @@ export default function EditorPage() {
   );
   useClickOutside(showSettingsMenu, '.settings-dropdown', () => setShowSettingsMenu(false));
   useClickOutside(showExamplesMenu, '.examples-dropdown', () => setShowExamplesMenu(false));
-  useClickOutside(showAddMenu, '.add-panel-dropdown', () => setShowAddMenu(false));
 
   // F5/F10 shortcuts. The handlers close over fresh state each render, so we
   // read them through a ref — the listener itself is registered only once.
@@ -999,7 +1095,6 @@ export default function EditorPage() {
         embedCopied={embedCopied}
         showExamplesMenu={showExamplesMenu}
         showSettingsMenu={showSettingsMenu}
-        showMemDia={showMemDia}
         isDebugging={isDebugging}
         isDebugComplete={isDebugComplete}
         examples={EXAMPLE_PROGRAMS}
@@ -1015,12 +1110,6 @@ export default function EditorPage() {
           setShowSettingsMenu((prev) => !prev);
           setShowExamplesMenu(false);
         }}
-        onToggleMemDia={() => {
-          setShowMemDia((prev) => {
-            if (!prev) setMemDiaStates(new Map()); // Reset all closed panes when enabling
-            return !prev;
-          });
-        }}
         onDebugStart={handleDebugStart}
         onRun={handleRun}
         onDebugStep={handleDebugStep}
@@ -1029,6 +1118,15 @@ export default function EditorPage() {
       />
 
       <main id="main-content" className="flex-1 flex flex-row overflow-hidden min-h-0">
+        <AddPanelStrip
+          panels={panels}
+          showAiSidePanel={showAiSidePanel}
+          showMemDia={showMemDia}
+          onTogglePanel={togglePanel}
+          onToggleAiPanel={handleToggleAiPanel}
+          onToggleMemDia={handleToggleMemDia}
+        />
+
         <div className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
           <div className="flex-1 min-h-0 relative overflow-x-auto lg:overflow-visible">
             <div className={`flex min-h-0 h-full ${isMobile ? 'min-w-max' : 'w-full'}`}>
@@ -1172,6 +1270,7 @@ export default function EditorPage() {
           <OutputPanel
             output={output}
             error={error}
+            hasRun={hasRun}
             variables={currentVariables}
             showVariables={isDebugging}
             height={outputState === 'open' ? outputHeight : undefined}
@@ -1191,18 +1290,6 @@ export default function EditorPage() {
             onOpen={() => setOutputState('open')}
           />
         </div>
-
-        <AddPanelStrip
-          showAddMenu={showAddMenu}
-          sourceLang={sourceLang}
-          panels={panels}
-          showAiSidePanel={showAiSidePanel}
-          aiResizeActive={isResizingAiPanel}
-          onToggleMenu={() => setShowAddMenu((prev) => !prev)}
-          onTogglePanel={togglePanel}
-          onToggleAiPanel={handleToggleAiPanel}
-          onStartAiResize={handleStartAiResize}
-        />
 
         {showAiSidePanel && (
           <AiSidePanel
