@@ -20,6 +20,7 @@ import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemi
 import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
 import { Debugger } from '../language/debugger';
+import { VariableFrames } from '../components/VariableFrames';
 
 const VALID_TO_LANGS = ['python', 'java', 'csp', 'praxis', 'javascript', 'ast'];
 
@@ -57,7 +58,7 @@ export default function EmbedPage() {
     setHighlightedSourceLines,
     highlightedTranslationLines,
     setHighlightedTranslationLines,
-    currentVariables,
+    currentCallStack,
     waitingForInput,
     inputPrompt,
     initDebugger,
@@ -232,7 +233,8 @@ export default function EmbedPage() {
 
         setHighlightedSourceLines(result.sourceHighlightedLines);
         setHighlightedTranslationLines(result.translationHighlightedLines);
-        setOutput((prev) => [...prev, ...result.outputLines]);
+        // outputLines is the cumulative program output, so replace rather than append.
+        setOutput(result.outputLines);
 
         if (result.isComplete) {
           setIsDebugComplete(true);
@@ -407,18 +409,23 @@ export default function EmbedPage() {
             <span className="font-bold">Error:</span> {error}
           </div>
         )}
-        {isDebugging && Object.keys(currentVariables).length > 0 && (
+        {isDebugging && currentCallStack.length > 0 && (
           <div className="mb-3 p-3 bg-slate-800/50 rounded border border-slate-700">
-            <div className="font-bold text-indigo-400 mb-2">Variables:</div>
-            {Object.entries(currentVariables).map(([key, value]) => (
-              <div key={key} className="text-slate-300 ml-2">
-                <span className="text-indigo-300">{key}</span>: {JSON.stringify(value)}
-              </div>
-            ))}
+            <div className="font-bold text-indigo-400 mb-2">
+              Variables
+              {currentCallStack.length > 1 && (
+                <span className="ml-2 font-semibold text-indigo-300">
+                  — in {currentCallStack[currentCallStack.length - 1].name}()
+                </span>
+              )}
+            </div>
+            <VariableFrames frames={currentCallStack} />
           </div>
         )}
         {output.length === 0 && !error ? (
-          <div className="text-slate-500 italic">Run code to see output...</div>
+          <div className="text-slate-500 italic">
+            {isDebugging ? 'No output yet — keep stepping…' : 'Run code to see output...'}
+          </div>
         ) : (
           output.map((line, idx) => (
             <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5">

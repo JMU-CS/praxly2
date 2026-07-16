@@ -148,6 +148,7 @@ export default function EditorPage() {
     highlightedSourceLines,
     setHighlightedSourceLines,
     currentVariables,
+    currentCallStack,
     waitingForInput,
     inputPrompt,
     initDebugger,
@@ -589,7 +590,7 @@ export default function EditorPage() {
         ast,
         panels,
         getTranslation,
-        result.step?.sourceLocation || null
+        result.step?.nodeId
       );
       setPanelHighlightedLines(panelHighlights);
       setOutput(result.outputLines);
@@ -629,10 +630,11 @@ export default function EditorPage() {
         ast,
         panels,
         getTranslation,
-        result.step?.sourceLocation || null
+        result.step?.nodeId
       );
       setPanelHighlightedLines(panelHighlights);
-      setOutput((prev) => [...prev, ...result.outputLines]);
+      // outputLines is the cumulative program output, so replace rather than append.
+      setOutput(result.outputLines);
 
       if (result.isComplete) {
         setIsDebugComplete(true);
@@ -1313,6 +1315,7 @@ export default function EditorPage() {
             error={error}
             hasRun={hasRun}
             variables={currentVariables}
+            callStack={currentCallStack}
             showVariables={isDebugging}
             height={outputState === 'open' ? outputHeight : undefined}
             resizeActive={resizingIdx === 'output'}

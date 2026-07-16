@@ -1,13 +1,16 @@
 /**
- * Debugger implementation that provides step-by-step code execution with variable inspection.
- * Tracks execution state and maps debug information back to source code locations.
+ * Debugger that provides step-by-step code execution with variable inspection.
+ * Wraps the interpreter's step-through generator, tracking the collected steps,
+ * the call stack, and input-pause state for the UI.
  */
 
-import type { Program, ASTNode } from './ast';
+import type { Program } from './ast';
 import { Interpreter, InputPrompt } from './interpreter';
-import { Translator } from './translator';
+import type { DebugStepEvent, StackFrame } from './interpreter';
 
 export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'blocks' | 'ast';
+
+export type { StackFrame } from './interpreter';
 
 /**
  * Represents a single execution step with all relevant debug information
@@ -18,24 +21,13 @@ export interface DebugStep {
   nodeType: string;
   sourceLocation: { start: number; end: number } | null;
   variables: Record<string, any>;
+  /** Call stack at this step: global scope first, innermost call last. */
+  callStack: StackFrame[];
   output: string[];
   isComplete: boolean;
   error?: string;
   waitingForInput?: boolean;
   inputPrompt?: string;
-}
-
-/**
- * Maps AST node IDs to line numbers in translated code
- */
-export interface SourceMap {
-  [nodeId: string]: {
-    language: SupportedLang;
-    lineStart: number;
-    lineEnd: number;
-    columnStart?: number;
-    columnEnd?: number;
-  };
 }
 
 /**
@@ -45,58 +37,38 @@ export interface DebugContext {
   program: Program;
   sourceLang: SupportedLang;
   interpreter: Interpreter;
-  translator: Translator;
   steps: DebugStep[];
   currentStep: number;
-  isRunning: boolean;
-  sourceMaps: Map<SupportedLang, SourceMap>;
   sourceCode: string;
-  waitingForInput?: boolean;
+  waitingForInput: boolean;
   inputPrompt?: string;
 }
 
 /**
  * Main debugger class that orchestrates stepping through code
- * with execution state tracking and source mapping
+ * with execution state tracking
  */
 export class Debugger {
   private context: DebugContext | null = null;
-  private executionGenerator: Generator<any, any, any> | null = null;
-  private stepCallCount: number = 0; // Counter for debugging
-  private pendingRetryAfterInput: boolean = false; // Track if we're retrying after input pause
+  private executionGenerator: Generator<DebugStepEvent, string[], void> | null = null;
 
   /**
    * Initialize debugger with a program and source language
    */
   init(program: Program, sourceLang: SupportedLang, sourceCode: string = ''): DebugContext {
     const interpreter = new Interpreter();
-    const translator = new Translator();
 
     this.context = {
       program,
       sourceLang,
       interpreter,
-      translator,
       steps: [],
       currentStep: 0,
-      isRunning: false,
-      sourceMaps: new Map(),
       sourceCode,
       waitingForInput: false,
     };
 
-    // Generate source maps for all target languages
-    const targetLanguages: SupportedLang[] = ['python', 'java', 'csp', 'praxis', 'javascript'];
-    for (const lang of targetLanguages) {
-      if (lang !== 'ast') {
-        const sourceMap = this.generateSourceMap(program, lang as any);
-        this.context.sourceMaps.set(lang, sourceMap);
-      }
-    }
-
-    // Initialize execution generator
-    this.executionGenerator = (interpreter as any).stepThroughWithState(program, sourceCode);
-    this.pendingRetryAfterInput = false;
+    this.executionGenerator = interpreter.stepThroughWithState(program, sourceCode);
 
     return this.context;
   }
@@ -107,122 +79,79 @@ export class Debugger {
   step(): DebugStep | null {
     if (!this.context || !this.executionGenerator) return null;
 
-    this.stepCallCount++;
-    // console.log(`\n=== Debugger.step() #${this.stepCallCount} START ===`);
-
     try {
-      if (this.pendingRetryAfterInput) {
-        // console.log(`Debugger.step() #${this.stepCallCount}: Retrying after input was provided`);
-      }
-
       const result = this.executionGenerator.next();
-      // console.log(
-      // `Debugger.step() #${this.stepCallCount}: generator.next() returned, done=${result.done}`
-      // );
-
-      // If we were retrying and it succeeded, clear the flag
-      if (this.pendingRetryAfterInput) {
-        this.pendingRetryAfterInput = false;
-      }
 
       if (result.done) {
         this.context.waitingForInput = false;
-        // console.log(`=== Debugger.step() #${this.stepCallCount} END (complete) ===\n`);
-        return {
-          stepNumber: this.context.steps.length,
+        return this.recordStep({
           nodeId: '',
           nodeType: 'Program',
           sourceLocation: null,
-          variables: this.extractVariables(),
-          output: (this.context.interpreter as any).getOutput?.() || [],
           isComplete: true,
-        };
+        });
       }
 
-      const { nodeId, nodeType, loc, variables, prompt } = result.value;
+      const event = result.value;
+      const waitingForInput = event.nodeType === 'InputPrompt';
+      this.context.waitingForInput = waitingForInput;
+      this.context.inputPrompt = waitingForInput ? event.prompt || '' : undefined;
 
-      // Handle InputPrompt yielded from interpreter
-      if (nodeType === 'InputPrompt') {
-        // console.log(
-        // `Debugger.step() #${this.stepCallCount}: Yielded InputPrompt, waiting for input`
-        // );
-        this.pendingRetryAfterInput = true;
-        this.context.waitingForInput = true;
-        this.context.inputPrompt = prompt || '';
-
-        const step: DebugStep = {
-          stepNumber: this.context.steps.length,
-          nodeId,
-          nodeType: 'InputPrompt',
-          sourceLocation: loc || null,
-          variables,
-          output: (this.context.interpreter as any).getOutput?.() || [],
-          isComplete: false,
-          waitingForInput: true,
-          inputPrompt: prompt || '',
-        };
-        this.context.steps.push(step);
-        // console.log(`=== Debugger.step() #${this.stepCallCount} END (InputPrompt) ===\n`);
-        return step;
-      }
-
-      const step: DebugStep = {
-        stepNumber: this.context.steps.length,
-        nodeId,
-        nodeType,
-        sourceLocation: loc || null,
-        variables,
-        output: (this.context.interpreter as any).getOutput?.() || [],
+      return this.recordStep({
+        nodeId: event.nodeId,
+        nodeType: event.nodeType,
+        sourceLocation: event.loc,
+        variables: event.variables,
+        callStack: event.callStack,
         isComplete: false,
-      };
-
-      this.context.steps.push(step);
-      this.context.currentStep = this.context.steps.length - 1;
-
-      // console.log(`=== Debugger.step() #${this.stepCallCount} END (step ${nodeType}) ===\n`);
-      return step;
+        ...(waitingForInput && { waitingForInput: true, inputPrompt: event.prompt || '' }),
+      });
     } catch (error: any) {
-      // console.log(
-      // `Debugger.step() #${this.stepCallCount}: Caught error:`,
-      // error.name,
-      // error.prompt || ''
-      // );
-      // Handle InputPrompt specially
+      // An InputPrompt escaping the generator means it can no longer resume —
+      // record the pause so the UI can collect input, though stepping past it
+      // requires the paths inside the generator (which all handle it there).
       if (error instanceof InputPrompt) {
-        this.pendingRetryAfterInput = true;
         this.context.waitingForInput = true;
         this.context.inputPrompt = error.prompt;
-        const step: DebugStep = {
-          stepNumber: this.context.steps.length,
+        return this.recordStep({
           nodeId: '',
           nodeType: 'InputPrompt',
           sourceLocation: null,
-          variables: this.extractVariables(),
-          output: (this.context.interpreter as any).getOutput?.() || [],
           isComplete: false,
           waitingForInput: true,
           inputPrompt: error.prompt,
-        };
-        this.context.steps.push(step);
-        // console.log(`=== Debugger.step() #${this.stepCallCount} END (InputPrompt) ===\n`);
-        return step;
+        });
       }
 
-      const errorStep: DebugStep = {
-        stepNumber: this.context.steps.length,
+      return this.recordStep({
         nodeId: '',
         nodeType: 'Error',
         sourceLocation: null,
-        variables: this.extractVariables(),
-        output: (this.context.interpreter as any).getOutput?.() || [],
         isComplete: true,
         error: error.message,
-      };
-
-      this.context.steps.push(errorStep);
-      // console.log(`=== Debugger.step() #${this.stepCallCount} END (error) ===\n`);
-      return errorStep;
+      });
     }
+  }
+
+  /** Fills in the shared step fields (variables, output, numbering) and stores the step. */
+  private recordStep(
+    partial: Omit<DebugStep, 'stepNumber' | 'output' | 'variables' | 'callStack'> &
+      Partial<Pick<DebugStep, 'variables' | 'callStack'>>
+  ): DebugStep {
+    const context = this.context!;
+    const callStack = partial.callStack ?? context.interpreter.getStackFrames();
+    const globals = callStack[0]?.variables ?? {};
+    const locals = callStack[callStack.length - 1]?.variables ?? {};
+    const step: DebugStep = {
+      variables: partial.variables ?? { ...globals, ...locals },
+      callStack,
+      output: [...context.interpreter.getOutput()],
+      stepNumber: context.steps.length,
+      ...partial,
+    };
+    context.steps.push(step);
+    context.currentStep = context.steps.length - 1;
+    return step;
   }
 
   /**
@@ -234,133 +163,10 @@ export class Debugger {
   }
 
   /**
-   * Get the line number range in the source language for a node
+   * Get all collected steps
    */
-  getSourceLineRange(): { start: number; end: number } | null {
-    const currentStep = this.getCurrentStep();
-    if (!currentStep || !currentStep.sourceLocation) return null;
-
-    return {
-      start: currentStep.sourceLocation.start,
-      end: currentStep.sourceLocation.end,
-    };
-  }
-
-  /**
-   * Get line number ranges in translated language
-   */
-  getTranslatedLineRange(
-    nodeId: string,
-    targetLang: SupportedLang
-  ): { start: number; end: number } | null {
-    if (!this.context) return null;
-
-    const sourceMap = this.context.sourceMaps.get(targetLang);
-    if (!sourceMap || !sourceMap[nodeId]) return null;
-
-    const mapping = sourceMap[nodeId];
-    return {
-      start: mapping.lineStart,
-      end: mapping.lineEnd,
-    };
-  }
-
-  /**
-   * Get all translated line ranges for current step
-   */
-  getAllTranslatedRanges(targetLang: SupportedLang): { start: number; end: number } | null {
-    const currentStep = this.getCurrentStep();
-    if (!currentStep) return null;
-
-    return this.getTranslatedLineRange(currentStep.nodeId, targetLang);
-  }
-
-  /**
-   * Generate a source map for a target language
-   * Maps AST node IDs to their positions in translated code
-   */
-  private generateSourceMap(program: Program, targetLang: SupportedLang): SourceMap {
-    const sourceMap: SourceMap = {};
-
-    try {
-      this.context!.translator.translate(
-        program,
-        targetLang === 'ast' ? 'python' : (targetLang as any)
-      );
-
-      // Parse the translated code to build line mappings
-      let currentLine = 1;
-
-      const walkAST = (node: ASTNode) => {
-        if (node?.loc) {
-          // Map this node to the corresponding line in translated code
-          // For now, use a simple heuristic: estimate line position based on node depth
-          // This can be enhanced with more sophisticated source mapping
-          sourceMap[node.id] = {
-            language: targetLang,
-            lineStart: currentLine,
-            lineEnd: currentLine,
-          };
-        }
-
-        // Recursively walk children
-        for (const key in node) {
-          const child = (node as any)[key];
-          if (child && typeof child === 'object') {
-            if (Array.isArray(child)) {
-              child.forEach((c) => {
-                if (c && typeof c === 'object' && 'type' in c) {
-                  walkAST(c);
-                  currentLine++;
-                }
-              });
-            } else if ('type' in child) {
-              walkAST(child);
-            }
-          }
-        }
-      };
-
-      walkAST(program);
-    } catch (e) {
-      // If source mapping fails, return empty map
-    }
-
-    return sourceMap;
-  }
-
-  /**
-   * Extract current variable state from the interpreter's environment
-   */
-  private extractVariables(): Record<string, any> {
-    if (!this.context) return {};
-
-    // Access the interpreter's environment
-    const interpreter = this.context.interpreter as any;
-    const env = interpreter.globalEnv || interpreter.currentEnv;
-
-    if (!env) return {};
-
-    try {
-      // Extract all variables from the current environment
-      const variables: Record<string, any> = {};
-
-      // Try to get values property from the environment
-      if (env.values) {
-        return { ...env.values };
-      }
-
-      // Fallback: try to extract via reflection
-      for (const key in env) {
-        if (key !== 'parent' && typeof env[key] !== 'function') {
-          variables[key] = env[key];
-        }
-      }
-
-      return variables;
-    } catch (e) {
-      return {};
-    }
+  getSteps(): DebugStep[] {
+    return this.context?.steps || [];
   }
 
   /**
@@ -375,32 +181,12 @@ export class Debugger {
   }
 
   /**
-   * Get debugging context
-   */
-  getContext(): DebugContext | null {
-    return this.context;
-  }
-
-  /**
-   * Get all collected steps
-   */
-  getSteps(): DebugStep[] {
-    return this.context?.steps || [];
-  }
-
-  /**
    * Provide input to the debugger and resume execution
    */
   provideInput(input: string): void {
-    // console.log('Debugger.provideInput called with:', input);
-    if (!this.context) {
-      // console.log('No context!');
-      return;
-    }
-    // console.log('Calling interpreter.addInput');
+    if (!this.context) return;
     this.context.interpreter.addInput(input);
     this.context.waitingForInput = false;
-    // console.log('provideInput complete');
   }
 
   /**

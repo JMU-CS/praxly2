@@ -120,6 +120,77 @@ export class InputPrompt extends Error {
   }
 }
 
+/** One entry of the debugger's call stack: a function/method invocation and the
+ *  variables local to it. The bottom entry is always the global scope. */
+export interface StackFrame {
+  name: string;
+  variables: Record<string, any>;
+}
+
+/** What the step-through generator yields to the debugger after each step. */
+export interface DebugStepEvent {
+  nodeId: string;
+  nodeType: string;
+  loc: { start: number; end: number } | null;
+  /** Flat "visible right now" view: globals shadowed by the current frame's locals. */
+  variables: Record<string, any>;
+  /** Global scope first, innermost call last. */
+  callStack: StackFrame[];
+  prompt?: string;
+}
+
+/** A user-written callable the debugger can step into. */
+interface ResolvedCallable {
+  name: string;
+  decl: FunctionDeclaration | MethodDeclaration;
+  thisInstance?: JavaInstance;
+}
+
+// Call names the identifier-call ladder in `evaluate` dispatches as built-ins
+// BEFORE looking up user functions. The debugger's resolveUserCallable must skip
+// them so debug-mode dispatch matches run mode. Keep in sync with that ladder.
+const BUILTIN_CALL_NAMES = new Set([
+  'Scanner',
+  'Random',
+  'super',
+  'input',
+  'INPUT',
+  'len',
+  'LENGTH',
+  'range',
+  'APPEND',
+  'INSERT',
+  'REMOVE',
+  'int',
+  'INT',
+  'float',
+  'FLOAT',
+  'str',
+  'String',
+  'STRING',
+  'bool',
+  'BOOL',
+  'boolean',
+  'parseInt',
+  'parseFloat',
+  'Number',
+  'Boolean',
+  'random',
+  'RANDOM',
+  'randomInt',
+  'RANDOMINT',
+  'randomSeed',
+  'RANDOMSEED',
+  'setSeed',
+  'ArrayList',
+  'List',
+  'Array',
+]);
+
+// Numeric built-ins that `evaluate` resolves after user functions but before
+// sibling methods — a sibling method with one of these names is never reached.
+const NUMERIC_BUILTIN_NAMES = new Set(['min', 'max', 'abs', 'sqrt', 'log']);
+
 // OOP Classes
 class JavaClass {
   name: string;
@@ -241,6 +312,14 @@ export class Interpreter {
   private isDebugging: boolean = false; // Flag to track if we're in debug mode
   private inputHandler?: (prompt: string) => string; // Callback for collecting input in normal mode
   private seededRandom: (() => number) | null = null;
+
+  // --- Debug-mode state (only used on the stepThroughWithState path) ---
+  /** Active user-function invocations, innermost last. */
+  private debugCallStack: Array<{ name: string; env: Environment }> = [];
+  /** Stack of per-expression caches of stepped-through call results, keyed by
+   *  CallExpression node id (see resolveUserCalls). `evaluate` consults the top
+   *  cache so a call whose body was already stepped through isn't run twice. */
+  private debugCallResults: Array<Map<string, any>> = [];
 
   setInputQueue(inputs: string[]) {
     this.inputQueue = [...inputs];
@@ -425,6 +504,8 @@ export class Interpreter {
     this.classes = new Map();
     this.isDebugging = false; // Not in debug mode for normal execution
     this.seededRandom = null;
+    this.debugCallStack = [];
+    this.debugCallResults = [];
 
     try {
       // First pass: register all classes and procedures
@@ -475,11 +556,7 @@ export class Interpreter {
   *stepThroughWithState(
     program: Program,
     sourceCode: string = ''
-  ): Generator<
-    { nodeId: string; nodeType: string; loc: any; variables: Record<string, any>; prompt?: string },
-    string[],
-    void
-  > {
+  ): Generator<DebugStepEvent, string[], void> {
     this.sourceCode = sourceCode;
     this.output = [];
     this.outputLineBuffer = '';
@@ -487,6 +564,8 @@ export class Interpreter {
     this.currentEnv = this.globalEnv;
     this.isDebugging = true; // We're in debug mode for step-through execution
     this.seededRandom = null;
+    this.debugCallStack = [];
+    this.debugCallResults = [];
 
     try {
       // First pass: register all classes and procedures
@@ -504,13 +583,29 @@ export class Interpreter {
       );
       yield* this.executeBlockGeneratorWithState(statements, this.globalEnv);
 
-      // Third pass: if there's a Main class, execute its main() method
+      // Third pass: if there's a Main class, execute its main() method. Mirror
+      // the normal-run path (callMethod): bind `this` so bare calls to sibling
+      // static methods resolve, and give main its own stack frame.
       if (this.classes.has('Main')) {
         const mainClass = this.classes.get('Main')!;
         const mainMethod = mainClass.getMethod('main');
         if (mainMethod) {
-          // Execute the main method's body directly instead of synthesizing a call
-          yield* this.executeBlockGeneratorWithState(mainMethod.body.body, this.globalEnv);
+          const mainInstance = new JavaInstance(mainClass);
+          const mainEnv = new Environment(this.globalEnv);
+          mainEnv.define('this', mainInstance);
+          mainEnv.define('self', mainInstance);
+          // Java's `main(String[] args)` receives an empty argument array.
+          if (mainMethod.params.length > 0) {
+            this.bindParams(mainMethod.params, [[]], mainEnv);
+          }
+          this.debugCallStack.push({ name: 'main', env: mainEnv });
+          try {
+            yield* this.executeBlockGeneratorWithState(mainMethod.body.body, mainEnv);
+          } catch (e) {
+            if (!(e instanceof ReturnException)) throw e; // `return` from main just ends it
+          } finally {
+            this.debugCallStack.pop();
+          }
         }
       }
     } catch (e: any) {
@@ -532,405 +627,481 @@ export class Interpreter {
     return this.output;
   }
 
+  /** Snapshot of the call stack for the debugger: global scope first, then one
+   *  frame per active user-function call, innermost last. */
+  getStackFrames(): StackFrame[] {
+    const frames: StackFrame[] = [
+      { name: 'global', variables: this.snapshotFrameVariables(this.globalEnv) },
+    ];
+    for (const frame of this.debugCallStack) {
+      frames.push({ name: frame.name, variables: this.snapshotFrameVariables(frame.env) });
+    }
+    return frames;
+  }
+
+  /** An environment's own variables, minus runtime bookkeeping (function/class
+   *  declarations, the bound `this`/`self`) that would clutter a variable table. */
+  private snapshotFrameVariables(env: Environment): Record<string, any> {
+    const variables: Record<string, any> = {};
+    for (const [name, value] of Object.entries(env.values)) {
+      if (name === 'this' || name === 'self') continue;
+      if (value && typeof value === 'object' && value.type === 'FunctionDeclaration') continue;
+      if (value instanceof JavaClass) continue;
+      variables[name] = value;
+    }
+    return variables;
+  }
+
+  /** Builds the event yielded to the debugger for one step at `stmt`. */
+  private debugEvent(stmt: Statement, overrides: Partial<DebugStepEvent> = {}): DebugStepEvent {
+    const callStack = this.getStackFrames();
+    const globals = callStack[0].variables;
+    const locals = callStack[callStack.length - 1].variables;
+    return {
+      nodeId: stmt.id,
+      nodeType: stmt.type,
+      loc: stmt.loc || null,
+      variables: callStack.length > 1 ? { ...globals, ...locals } : globals,
+      callStack,
+      ...overrides,
+    };
+  }
+
   private *executeBlockGeneratorWithState(
     statements: Statement[],
     env: Environment
-  ): Generator<
-    { nodeId: string; nodeType: string; loc: any; variables: Record<string, any>; prompt?: string },
-    void,
-    void
-  > {
-    // console.log('executeBlockGeneratorWithState: Processing', statements.length, 'statements');
-    let i = 0;
-    while (i < statements.length) {
-      const stmt = statements[i];
-      // console.log('Processing statement type:', stmt.type, 'index:', i);
+  ): Generator<DebugStepEvent, void, void> {
+    const MAX_ITERATIONS = 10000; // Safety limit to prevent truly infinite loops
+
+    for (const stmt of statements) {
       this.currentEnv = env;
 
-      // Handle control flow statements specially to yield steps for nested statements
-      if (stmt.type === 'If') {
-        const ifStmt = stmt as any;
-        // Yield the If statement itself (always, for debugging)
-        yield {
-          nodeId: ifStmt.id,
-          nodeType: ifStmt.type,
-          loc: ifStmt.loc || null,
-          variables: env.getAllVariables(),
-        };
-        // Evaluate condition and execute appropriate branch
-        try {
-          const truthy = this.evaluate(ifStmt.condition, env);
-          if (truthy) {
-            yield* this.executeBlockGeneratorWithState(ifStmt.thenBranch.body, env);
-          } else if (ifStmt.elseBranch) {
-            yield* this.executeBlockGeneratorWithState(ifStmt.elseBranch.body, env);
+      switch (stmt.type) {
+        case 'If': {
+          // Announce the `if` line, then evaluate the condition (stepping into
+          // any user function calls it contains) and walk the taken branch.
+          yield this.debugEvent(stmt);
+          const condition = yield* this.evaluateForDebug(stmt.condition, env, stmt, false);
+          if (condition) {
+            yield* this.executeBlockGeneratorWithState(stmt.thenBranch.body, env);
+          } else if (stmt.elseBranch) {
+            yield* this.executeBlockGeneratorWithState(stmt.elseBranch.body, env);
           }
-        } catch (e) {
-          if (e instanceof ReturnException) throw e;
-          throw e;
+          break;
         }
-        i++;
-      } else if (stmt.type === 'While') {
-        const whileStmt = stmt as any;
-        let isFirstIteration = true;
-        let iterationCount = 0;
-        const MAX_ITERATIONS = 10000; // Safety limit to prevent truly infinite loops during testing
 
-        while (true) {
-          // Check iteration count to prevent actual infinite loops during execution
-          iterationCount++;
-          if (iterationCount > MAX_ITERATIONS) {
-            const lineNum = this.getLineFromLocation(whileStmt.loc);
-            throw new Error(
-              `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
-            );
-          }
+        case 'While': {
+          // The infinite-loop heuristic compares condition variables across the
+          // first iteration; a condition that calls functions can change without
+          // any variable changing (and re-evaluating it here would repeat the
+          // call's side effects), so it only applies to call-free conditions.
+          const heuristicApplies = !this.expressionContainsCall(stmt.condition);
+          let isFirstIteration = true;
+          let iterationCount = 0;
 
-          // Yield the While statement itself for each iteration (always, for debugging)
-          yield {
-            nodeId: whileStmt.id,
-            nodeType: whileStmt.type,
-            loc: whileStmt.loc || null,
-            variables: env.getAllVariables(),
-          };
-          try {
-            const condition = this.evaluate(whileStmt.condition, env);
+          while (true) {
+            iterationCount++;
+            if (iterationCount > MAX_ITERATIONS) throw this.infiniteLoopError(stmt.loc);
+
+            // Announce the `while` line for each condition check.
+            yield this.debugEvent(stmt);
+            const condition = yield* this.evaluateForDebug(stmt.condition, env, stmt, false);
             if (!condition) break;
 
-            // On first iteration, prepare for infinite loop detection
             let conditionVars: Set<string> | null = null;
             let oldValues: Record<string, any> | null = null;
-            if (isFirstIteration) {
-              conditionVars = this.extractVariablesFromExpression(whileStmt.condition);
+            if (isFirstIteration && heuristicApplies) {
+              conditionVars = this.extractVariablesFromExpression(stmt.condition);
               oldValues = {};
               for (const varName of conditionVars) {
                 try {
                   oldValues[varName] = env.get(varName);
                 } catch {
-                  // Variable doesn't exist
+                  // Variable doesn't exist yet
                 }
               }
             }
 
-            // Execute one iteration
-            yield* this.executeBlockGeneratorWithState(whileStmt.body.body, env);
+            const signal = yield* this.runIterationGenerator(stmt.body.body, env);
+            if (signal === 'break') break;
 
-            // After first iteration, check if this might be an infinite loop
-            if (isFirstIteration && conditionVars !== null && oldValues !== null) {
+            if (isFirstIteration) {
               isFirstIteration = false;
-
-              // Check if condition is still true and no variables changed
-              const conditionStillTrue = this.evaluate(whileStmt.condition, env);
-              const varsChanged = this.hasVariablesChanged(conditionVars, oldValues, env);
-
-              // If condition is still true, variables haven't changed, and the body doesn't modify condition vars
-              if (conditionStillTrue && !varsChanged && conditionVars.size > 0) {
-                // Additional check: does the loop body modify any of these variables?
-                if (!this.blockModifiesVariables(whileStmt.body.body, conditionVars, env)) {
-                  const lineNum = this.getLineFromLocation(whileStmt.loc);
-                  throw new Error(
-                    `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
-                  );
+              // Run the heuristic only when the body ran to completion (a
+              // continue iteration is inconclusive).
+              if (signal === 'normal' && conditionVars && oldValues && conditionVars.size > 0) {
+                const conditionStillTrue = this.evaluate(stmt.condition, env);
+                const varsChanged = this.hasVariablesChanged(conditionVars, oldValues, env);
+                if (
+                  conditionStillTrue &&
+                  !varsChanged &&
+                  !this.blockModifiesVariables(stmt.body.body, conditionVars, env)
+                ) {
+                  throw this.infiniteLoopError(stmt.loc);
                 }
               }
             }
-          } catch (e) {
-            if (e instanceof ReturnException) throw e;
-            throw e;
           }
+          break;
         }
-        i++;
-      } else if (stmt.type === 'For') {
-        const forStmt = stmt as any;
-        try {
+
+        case 'For': {
           // C-style for loop; any clause may be absent (`for (;;)`).
-          if (forStmt.init) this.execute(forStmt.init, env);
+          if (stmt.init) this.execute(stmt.init, env);
+          let iterationCount = 0;
           while (true) {
-            // Yield the For statement itself for each iteration (always, for debugging)
-            yield {
-              nodeId: forStmt.id,
-              nodeType: forStmt.type,
-              loc: forStmt.loc || null,
-              variables: env.getAllVariables(),
-            };
-            if (forStmt.condition && !this.evaluate(forStmt.condition, env)) break;
-            yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
-            if (forStmt.update) this.execute(forStmt.update, env);
+            iterationCount++;
+            if (iterationCount > MAX_ITERATIONS) throw this.infiniteLoopError(stmt.loc);
+
+            yield this.debugEvent(stmt);
+            if (stmt.condition) {
+              const condition = yield* this.evaluateForDebug(stmt.condition, env, stmt, false);
+              if (!condition) break;
+            }
+            const signal = yield* this.runIterationGenerator(stmt.body.body, env);
+            if (signal === 'break') break;
+            // `continue` still runs the update clause (C semantics).
+            if (stmt.update) this.execute(stmt.update, env);
           }
-        } catch (e) {
-          if (e instanceof ReturnException) throw e;
-          throw e;
+          break;
         }
-        i++;
-      } else if (stmt.type === 'ForEach') {
-        const forStmt = stmt as any;
-        try {
-          const iterable = this.evaluate(forStmt.iterable, env);
+
+        case 'ForEach': {
+          const iterable = yield* this.evaluateForDebug(stmt.iterable, env, stmt);
           if (!Array.isArray(iterable) && typeof iterable !== 'string') {
             throw new Error('For-each loop requires array or string');
           }
           for (const item of iterable) {
-            env.define(forStmt.variable, item);
-            // Yield the ForEach statement itself for each iteration (always, for debugging)
-            yield {
-              nodeId: forStmt.id,
-              nodeType: forStmt.type,
-              loc: forStmt.loc || null,
-              variables: env.getAllVariables(),
-            };
-            yield* this.executeBlockGeneratorWithState(forStmt.body.body, env);
+            env.define(stmt.variable, item);
+            yield this.debugEvent(stmt);
+            if ((yield* this.runIterationGenerator(stmt.body.body, env)) === 'break') break;
           }
-        } catch (e) {
-          if (e instanceof ReturnException) throw e;
-          throw e;
+          break;
         }
-        i++;
-      } else if (stmt.type === 'DoWhile') {
-        const doWhileStmt = stmt as any;
-        let iterationCount = 0;
-        const MAX_ITERATIONS = 10000;
 
-        do {
-          iterationCount++;
-          if (iterationCount > MAX_ITERATIONS) {
-            const lineNum = this.getLineFromLocation(doWhileStmt.loc);
-            throw new Error(
-              `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
-            );
+        case 'DoWhile': {
+          let iterationCount = 0;
+          while (true) {
+            iterationCount++;
+            if (iterationCount > MAX_ITERATIONS) throw this.infiniteLoopError(stmt.loc);
+
+            yield this.debugEvent(stmt);
+            if ((yield* this.runIterationGenerator(stmt.body.body, env)) === 'break') break;
+            const condition = yield* this.evaluateForDebug(stmt.condition, env, stmt, false);
+            if (!condition) break;
           }
+          break;
+        }
 
-          yield {
-            nodeId: doWhileStmt.id,
-            nodeType: doWhileStmt.type,
-            loc: doWhileStmt.loc || null,
-            variables: env.getAllVariables(),
-          };
+        case 'RepeatUntil': {
+          // Post-condition loop: body runs first, stops when condition becomes TRUE.
+          let iterationCount = 0;
+          while (true) {
+            iterationCount++;
+            if (iterationCount > MAX_ITERATIONS) throw this.infiniteLoopError(stmt.loc);
+
+            yield this.debugEvent(stmt);
+            if ((yield* this.runIterationGenerator(stmt.body.body, env)) === 'break') break;
+            const condition = yield* this.evaluateForDebug(stmt.condition, env, stmt, false);
+            if (condition) break;
+          }
+          break;
+        }
+
+        case 'Return': {
+          const value = yield* this.evaluateForDebug(stmt.value, env, stmt);
+          // Show the `return` line while the function's locals are still alive;
+          // the next step lands back at the call site with this frame gone.
+          yield this.debugEvent(stmt);
+          throw new ReturnException(value);
+        }
+
+        case 'Break':
+          yield this.debugEvent(stmt);
+          throw new BreakException();
+
+        case 'Continue':
+          yield this.debugEvent(stmt);
+          throw new ContinueException();
+
+        case 'BlankLine':
+          break; // no runtime effect — not worth a debugger step
+
+        default: {
+          // Step into any user function calls in the statement's expressions
+          // first; their results are cached so executing the statement below
+          // doesn't run them a second time.
+          const cache = new Map<string, any>();
+          this.debugCallResults.push(cache);
           try {
-            yield* this.executeBlockGeneratorWithState(doWhileStmt.body.body, env);
-          } catch (e) {
-            if (e instanceof ReturnException) throw e;
-            throw e;
-          }
-        } while (this.evaluate(doWhileStmt.condition, env));
-
-        i++;
-      } else if (stmt.type === 'RepeatUntil') {
-        // Post-condition loop: body runs first, stops when condition becomes TRUE.
-        const repeatStmt = stmt as any;
-        let iterationCount = 0;
-        const MAX_ITERATIONS = 10000;
-
-        do {
-          iterationCount++;
-          if (iterationCount > MAX_ITERATIONS) {
-            const lineNum = this.getLineFromLocation(repeatStmt.loc);
-            throw new Error(
-              `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
-            );
-          }
-
-          yield {
-            nodeId: repeatStmt.id,
-            nodeType: repeatStmt.type,
-            loc: repeatStmt.loc || null,
-            variables: env.getAllVariables(),
-          };
-          try {
-            yield* this.executeBlockGeneratorWithState(repeatStmt.body.body, env);
-          } catch (e) {
-            if (e instanceof ReturnException) throw e;
-            throw e;
-          }
-        } while (!this.evaluate(repeatStmt.condition, env));
-
-        i++;
-      } else {
-        // --- Step-into user-defined function calls ---
-
-        if (stmt.type === 'ExpressionStatement') {
-          const callInfo = this.getUserFunctionCall((stmt as any).expression, env);
-          if (callInfo) {
-            yield {
-              nodeId: stmt.id,
-              nodeType: stmt.type,
-              loc: stmt.loc || null,
-              variables: env.getAllVariables(),
-            };
-            yield* this.callUserFunctionWithState(callInfo.func, callInfo.args, env);
-            i++;
-            continue;
-          }
-        } else if (stmt.type === 'Assignment') {
-          const stmtValue = (stmt as any).value;
-          const varName = lvalueName(stmt as any) ?? null;
-
-          // Direct user function call: score <- askQ(...)
-          let callInfo = this.getUserFunctionCall(stmtValue, env);
-          let binaryOp: string | null = null;
-          let binaryOtherSide: any = null;
-          let funcOnRight = false;
-
-          // Binary expression with a user function call on one side: score <- score + askQ(...)
-          if (!callInfo && stmtValue?.type === 'BinaryExpression') {
-            const rightInfo = this.getUserFunctionCall(stmtValue.right, env);
-            if (rightInfo) {
-              callInfo = rightInfo;
-              binaryOp = stmtValue.operator;
-              binaryOtherSide = stmtValue.left;
-              funcOnRight = true;
-            } else {
-              const leftInfo = this.getUserFunctionCall(stmtValue.left, env);
-              if (leftInfo) {
-                callInfo = leftInfo;
-                binaryOp = stmtValue.operator;
-                binaryOtherSide = stmtValue.right;
-                funcOnRight = false;
+            for (const expr of this.statementExpressions(stmt)) {
+              yield* this.resolveUserCalls(expr, env, stmt, cache, true);
+            }
+            // Execute, pausing (and later retrying) when console input is needed.
+            while (true) {
+              try {
+                this.execute(stmt, env);
+                break;
+              } catch (e) {
+                if (!(e instanceof InputPrompt)) throw e;
+                yield this.debugEvent(stmt, { nodeType: 'InputPrompt', prompt: e.prompt });
               }
             }
+          } finally {
+            this.debugCallResults.pop();
           }
-
-          if (callInfo && varName) {
-            yield {
-              nodeId: stmt.id,
-              nodeType: stmt.type,
-              loc: stmt.loc || null,
-              variables: env.getAllVariables(),
-            };
-            const funcResult = yield* this.callUserFunctionWithState(
-              callInfo.func,
-              callInfo.args,
-              env
-            );
-            let assignValue: any;
-            if (binaryOp !== null) {
-              const other = this.evaluate(binaryOtherSide, env);
-              const l = funcOnRight ? other : funcResult;
-              const r = funcOnRight ? funcResult : other;
-              switch (binaryOp) {
-                case '+':
-                  assignValue = l + r;
-                  break;
-                case '-':
-                  assignValue = l - r;
-                  break;
-                case '*':
-                  assignValue = l * r;
-                  break;
-                case '/':
-                  assignValue =
-                    this.isIntegerType(env.getType(varName)) && r !== 0 ? Math.trunc(l / r) : l / r;
-                  break;
-                case '%':
-                  assignValue = l % r;
-                  break;
-                default:
-                  assignValue = l + r;
-              }
-            } else {
-              assignValue = funcResult;
-            }
-            env.define(varName, assignValue, (stmt as any).varType, stmt.loc?.start);
-            i++;
-            continue;
-          }
-        } else if (stmt.type === 'Return' && (stmt as any).value) {
-          const callInfo = this.getUserFunctionCall((stmt as any).value, env);
-          if (callInfo) {
-            yield {
-              nodeId: stmt.id,
-              nodeType: stmt.type,
-              loc: stmt.loc || null,
-              variables: env.getAllVariables(),
-            };
-            const returnValue = yield* this.callUserFunctionWithState(
-              callInfo.func,
-              callInfo.args,
-              env
-            );
-            throw new ReturnException(returnValue);
-          }
+          yield this.debugEvent(stmt);
         }
+      }
+    }
+  }
 
-        // For all other statements, execute and yield
-        let needsRetry = false;
-        let lastError: any = null;
+  /** Runs one loop-body iteration in debug mode, translating break/continue
+   *  signals into a return code (the generator twin of runIteration). */
+  private *runIterationGenerator(
+    body: Statement[],
+    env: Environment
+  ): Generator<DebugStepEvent, 'normal' | 'continue' | 'break', void> {
+    try {
+      yield* this.executeBlockGeneratorWithState(body, env);
+      return 'normal';
+    } catch (e) {
+      if (e instanceof ContinueException) return 'continue';
+      if (e instanceof BreakException) return 'break';
+      throw e;
+    }
+  }
 
-        try {
-          this.execute(stmt, env);
-        } catch (e) {
-          if (e instanceof InputPrompt) {
-            needsRetry = true;
-            lastError = e;
-          } else if (e instanceof ReturnException) {
-            throw e;
-          } else {
-            throw e;
-          }
-        }
+  /** The expressions a statement evaluates directly — the places a user function
+   *  call the debugger should step into can appear. */
+  private statementExpressions(stmt: Statement): Expression[] {
+    switch (stmt.type) {
+      case 'Print':
+        return stmt.expressions;
+      case 'Assignment':
+        // Value first, then the target (matching execute's evaluation order —
+        // the target only holds expressions for member/index assignments).
+        return [stmt.value, stmt.target as Expression];
+      case 'ExpressionStatement':
+        return [stmt.expression];
+      case 'Switch':
+        return [(stmt as any).discriminant];
+      default:
+        return [];
+    }
+  }
 
-        // Yield the result (either success or InputPrompt)
-        yield {
-          nodeId: stmt.id,
-          nodeType: needsRetry ? 'InputPrompt' : stmt.type,
-          loc: stmt.loc || null,
-          variables: env.getAllVariables(),
-          prompt: needsRetry ? lastError?.prompt || '' : undefined,
-        };
+  /**
+   * Evaluates an expression during debugging: first steps through any user
+   * function calls inside it (caching their results so the final evaluation
+   * doesn't re-run them), then evaluates the whole expression, pausing and
+   * retrying when it needs console input. `announceCallSites` yields an extra
+   * step at `stmt` before entering each call — control-flow statements that
+   * already announced their own line pass false.
+   */
+  private *evaluateForDebug(
+    expr: Expression | undefined,
+    env: Environment,
+    stmt: Statement,
+    announceCallSites = true
+  ): Generator<DebugStepEvent, any, void> {
+    if (!expr) return null;
+    const cache = new Map<string, any>();
+    this.debugCallResults.push(cache);
+    try {
+      yield* this.resolveUserCalls(expr, env, stmt, cache, announceCallSites);
+      return yield* this.evaluateWithInputRetry(expr, env, stmt);
+    } finally {
+      this.debugCallResults.pop();
+    }
+  }
 
-        // If we need input, don't increment - next iteration will retry
-        if (!needsRetry) {
-          i++;
-        }
-        // If InputPrompt, DON'T increment i - next call to generator.next() will re-enter this try block
+  /** Evaluates during debugging, yielding an input-prompt step and retrying
+   *  whenever the expression asks for console input that isn't queued yet. */
+  private *evaluateWithInputRetry(
+    expr: Expression,
+    env: Environment,
+    stmt: Statement
+  ): Generator<DebugStepEvent, any, void> {
+    while (true) {
+      try {
+        return this.evaluate(expr, env);
+      } catch (e) {
+        if (!(e instanceof InputPrompt)) throw e;
+        yield this.debugEvent(stmt, { nodeType: 'InputPrompt', prompt: e.prompt });
       }
     }
   }
 
   /**
-   * Returns the FunctionDeclaration and evaluated args if expr is a direct call to a
-   * user-defined function, otherwise returns null.
+   * Walks an expression in evaluation order and steps through every user-written
+   * function/method call in it, caching each call's result by node id so the
+   * later "real" evaluation (which consults the cache via debugCallResults)
+   * reuses the results instead of running the calls again.
    */
-  private getUserFunctionCall(
+  private *resolveUserCalls(
     expr: any,
-    env: Environment
-  ): { func: FunctionDeclaration; args: any[] } | null {
-    if (!expr || expr.type !== 'CallExpression') return null;
-    if (expr.callee?.type !== 'Identifier') return null;
-    const calleeName = expr.callee.name;
-    try {
-      const callee = env.get(calleeName);
-      if (!callee || callee.type !== 'FunctionDeclaration') return null;
-      const func = callee as FunctionDeclaration;
-      const args = expr.arguments.map((a: any) => this.evaluate(a, env));
-      return { func, args };
-    } catch {
-      return null;
+    env: Environment,
+    stmt: Statement,
+    cache: Map<string, any>,
+    announceCallSites: boolean
+  ): Generator<DebugStepEvent, void, void> {
+    if (!expr || typeof expr !== 'object') return;
+
+    switch (expr.type) {
+      case 'CallExpression': {
+        // Arguments evaluate first, so calls inside them are stepped first.
+        for (const arg of expr.arguments ?? []) {
+          yield* this.resolveUserCalls(arg, env, stmt, cache, announceCallSites);
+        }
+        const target = this.resolveUserCallable(expr, env);
+        if (!target) return; // built-in or unresolvable — evaluate runs it normally
+        if (announceCallSites) yield this.debugEvent(stmt);
+        const args: any[] = [];
+        for (const arg of expr.arguments ?? []) {
+          args.push(yield* this.evaluateWithInputRetry(arg, env, stmt));
+        }
+        cache.set(expr.id, yield* this.stepIntoCall(target, args, env));
+        return;
+      }
+      case 'ConditionalExpression': {
+        // Mirror evaluate's laziness: only the taken branch runs.
+        yield* this.resolveUserCalls(expr.test, env, stmt, cache, announceCallSites);
+        const test = yield* this.evaluateWithInputRetry(expr.test, env, stmt);
+        const branch = test ? expr.consequent : expr.alternate;
+        yield* this.resolveUserCalls(branch, env, stmt, cache, announceCallSites);
+        return;
+      }
+      case 'Assignment': // expression-position assignment (e.g. a for-update `x = f(y)`)
+      case 'CompoundAssignment':
+        yield* this.resolveUserCalls(expr.value ?? expr.right, env, stmt, cache, announceCallSites);
+        return;
+      case 'BinaryExpression': // `and`/`or` are eager in evaluate, so both sides always run
+        yield* this.resolveUserCalls(expr.left, env, stmt, cache, announceCallSites);
+        yield* this.resolveUserCalls(expr.right, env, stmt, cache, announceCallSites);
+        return;
+      case 'UnaryExpression':
+        yield* this.resolveUserCalls(expr.argument, env, stmt, cache, announceCallSites);
+        return;
+      case 'IndexExpression':
+        yield* this.resolveUserCalls(expr.object, env, stmt, cache, announceCallSites);
+        yield* this.resolveUserCalls(expr.index, env, stmt, cache, announceCallSites);
+        return;
+      case 'MemberExpression':
+        yield* this.resolveUserCalls(expr.object, env, stmt, cache, announceCallSites);
+        return;
+      case 'ArrayLiteral':
+        for (const element of expr.elements ?? []) {
+          yield* this.resolveUserCalls(element, env, stmt, cache, announceCallSites);
+        }
+        return;
+      case 'NewExpression': // constructor bodies run without stepping, but their args may call
+        for (const arg of expr.arguments ?? []) {
+          yield* this.resolveUserCalls(arg, env, stmt, cache, announceCallSites);
+        }
+        return;
+      default:
+        return; // leaves (Literal, Identifier, ...) — nothing to step into
     }
   }
 
   /**
-   * Generator that steps through a user-defined function body one statement at a time.
-   * Catches ReturnException and returns the value as the generator's return value so the
-   * caller can use it (e.g. for assignments).
+   * Resolves a CallExpression to a user-written function or method the debugger
+   * can step into. Returns null for built-ins and for anything that can't be
+   * identified without side effects — those calls run normally in `evaluate`.
+   * Dispatch order deliberately mirrors evaluate's CallExpression handling.
    */
-  private *callUserFunctionWithState(
-    func: FunctionDeclaration,
+  private resolveUserCallable(expr: any, env: Environment): ResolvedCallable | null {
+    const callee = expr.callee;
+
+    if (callee?.type === 'Identifier') {
+      if (BUILTIN_CALL_NAMES.has(callee.name)) return null;
+      let target: any;
+      try {
+        target = env.get(callee.name);
+      } catch {
+        target = undefined;
+      }
+      if (target && target.type === 'FunctionDeclaration') {
+        return { name: callee.name, decl: target as FunctionDeclaration };
+      }
+      if (NUMERIC_BUILTIN_NAMES.has(callee.name)) return null;
+      // Bare call to a sibling method, e.g. a Main static method called from main().
+      const instance = this.boundInstance(env);
+      const method = instance?.klass.getMethod(callee.name);
+      if (instance && method) return { name: callee.name, decl: method, thisInstance: instance };
+      return null;
+    }
+
+    // obj.method(...) — only for side-effect-free receivers (a bare name or
+    // this/self), since detecting the method requires evaluating the receiver.
+    if (
+      callee?.type === 'MemberExpression' &&
+      (callee.object?.type === 'Identifier' || callee.object?.type === 'ThisExpression')
+    ) {
+      let receiver: any;
+      try {
+        receiver = this.evaluate(callee.object, env);
+      } catch {
+        return null; // e.g. `Math.floor(...)` — Math isn't a variable
+      }
+      if (!(receiver instanceof JavaInstance)) return null;
+      const method = receiver.klass.getMethod(callee.property?.name);
+      if (!method) return null;
+      return { name: callee.property.name, decl: method, thisInstance: receiver };
+    }
+
+    return null;
+  }
+
+  /**
+   * Steps through the body of a user-written function or method, giving it its
+   * own stack frame, and returns the call's return value.
+   */
+  private *stepIntoCall(
+    target: ResolvedCallable,
     args: any[],
-    parentEnv: Environment
-  ): Generator<
-    { nodeId: string; nodeType: string; loc: any; variables: Record<string, any>; prompt?: string },
-    any,
-    void
-  > {
-    const fnEnv = new Environment(parentEnv);
-    func.params.forEach((param, idx) => fnEnv.define(param.name, args[idx] ?? undefined));
+    callerEnv: Environment
+  ): Generator<DebugStepEvent, any, void> {
+    const fnEnv = new Environment(callerEnv);
+    if (target.thisInstance) {
+      fnEnv.define('this', target.thisInstance);
+      fnEnv.define('self', target.thisInstance);
+    }
+    this.bindParams(target.decl.params, args, fnEnv);
+    this.debugCallStack.push({ name: target.name, env: fnEnv });
     try {
-      yield* this.executeBlockGeneratorWithState(func.body.body, fnEnv);
+      yield* this.executeBlockGeneratorWithState(target.decl.body.body, fnEnv);
       return null;
     } catch (e) {
-      if (e instanceof ReturnException) return (e as ReturnException).value;
+      if (e instanceof ReturnException) return e.value;
       throw e;
+    } finally {
+      this.debugCallStack.pop();
     }
+  }
+
+  private infiniteLoopError(loc: any): Error {
+    const lineNum = this.getLineFromLocation(loc);
+    return new Error(
+      `runtime error occurred on line ${lineNum}:\nThis is probably an infinite loop.`
+    );
+  }
+
+  /** True when the expression contains any call or instantiation. */
+  private expressionContainsCall(expr: any): boolean {
+    if (!expr || typeof expr !== 'object') return false;
+    if (expr.type === 'CallExpression' || expr.type === 'NewExpression') return true;
+    for (const key of Object.keys(expr)) {
+      if (key === 'loc') continue;
+      const child = expr[key];
+      if (Array.isArray(child)) {
+        if (child.some((c) => this.expressionContainsCall(c))) return true;
+      } else if (this.expressionContainsCall(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private registerClass(classDecl: ClassDeclaration) {
@@ -1906,6 +2077,13 @@ export class Interpreter {
         throw new Error(`Cannot access member on non-object`);
 
       case 'CallExpression':
+        // Debug stepping may already have run this call (stepping through its
+        // body) and cached the result — reuse it instead of calling twice.
+        const steppedCalls = this.debugCallResults[this.debugCallResults.length - 1];
+        if (steppedCalls?.has(expr.id)) {
+          return steppedCalls.get(expr.id);
+        }
+
         if ((expr.callee as any).type === 'MemberExpression') {
           const memberExpr = expr.callee as any;
 
