@@ -20,7 +20,8 @@ Assume standard JavaScript semantics unless stated otherwise.
 
 - Declarations: `let`, `const`, `var` (all treated the same; block/function scoping is not
   modeled — the interpreter uses a flat scope like the other languages).
-- A bare `let x;` declares `x` with no initializer.
+- A bare `let x;` declares `x` as uninitialized — reading it before assigning a value is a
+  runtime error (rather than JavaScript's usual `undefined`).
 - JavaScript is dynamically typed; no type annotations.
 - Literals: `true`, `false`, `null`, `undefined`.
 

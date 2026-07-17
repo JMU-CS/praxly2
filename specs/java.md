@@ -21,6 +21,11 @@ compiles as-is in any other Java toolchain. Additional classes may be declared a
 `Main` (see `Extensions for Praxly` below for OOP support), and `import` declarations are
 accepted and ignored (Praxly's stdlib is always available without an explicit import).
 
+A variable or field declared without an initializer (`int x;`) is **uninitialized, not
+defaulted to `0`/`false`/`null`** — reading it before assigning a value is a runtime error.
+This mirrors Java's compile-time "variable might not have been initialized" check, enforced
+dynamically here since Praxly has no static definite-assignment pass.
+
 ## String Class
 
 - `String(String str)` – Constructs a new `String` object that represents the same sequence of characters as `str`

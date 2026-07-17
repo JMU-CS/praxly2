@@ -89,6 +89,26 @@ class ContinueException extends Error {
   }
 }
 
+/**
+ * Marks a declared-but-unassigned variable/field (`int x;`, an unassigned
+ * Praxis placeholder hole). Reading one is a runtime error — Praxly has no
+ * static definite-assignment check, so this is enforced dynamically at first
+ * use instead. Distinct from `Undefined variable`/`Undefined field` (which
+ * mean "this name doesn't exist at all").
+ */
+class UninitializedValue {
+  toString(): string {
+    return '<uninitialized>';
+  }
+}
+const UNINITIALIZED = new UninitializedValue();
+
+// Thrown when code reads a variable/field holding UNINITIALIZED. Kept distinct
+// from a plain lookup-failure Error so callers that tolerate "not found" (e.g.
+// the bare-identifier-might-be-a-field fallback) don't silently swallow a real
+// "you used this before assigning it" error.
+class UninitializedAccessError extends Error {}
+
 export class InputPrompt extends Error {
   prompt: string;
   /**
@@ -143,14 +163,21 @@ class JavaInstance {
   }
 
   getField(name: string): any {
-    if (this.fields.has(name)) return this.fields.get(name);
+    if (this.fields.has(name)) return this.checkInitializedField(name, this.fields.get(name));
     // Check class fields, walking up the superclass chain for inherited fields
     let klass: JavaClass | undefined = this.klass;
     while (klass) {
-      if (klass.fields.has(name)) return klass.fields.get(name);
+      if (klass.fields.has(name)) return this.checkInitializedField(name, klass.fields.get(name));
       klass = klass.superClass;
     }
     throw new Error(`Undefined field '${name}'`);
+  }
+
+  private checkInitializedField(name: string, value: any): any {
+    if (value === UNINITIALIZED) {
+      throw new UninitializedAccessError(`Uninitialized field '${name}'`);
+    }
+    return value;
   }
 
   setField(name: string, value: any) {
@@ -918,9 +945,15 @@ export class Interpreter {
       } else if (member.type === 'Constructor') {
         javaClass.setConstructor(member);
       } else if (member.type === 'FieldDeclaration') {
+        const isUnspecified =
+          (member as any).declaredWithoutInitializer || member.initializer?.type === 'Placeholder';
         javaClass.fields.set(
           member.name,
-          member.initializer ? this.evaluate(member.initializer, this.globalEnv) : null
+          isUnspecified
+            ? UNINITIALIZED
+            : member.initializer
+              ? this.evaluate(member.initializer, this.globalEnv)
+              : null
         );
       }
     }
@@ -1327,7 +1360,14 @@ export class Interpreter {
         // Prefer explicit declaration type, otherwise use existing variable type when reassigning.
         const assignmentType =
           (stmt as any).varType || (varName ? env.getType(varName) : undefined);
-        const value = this.evaluate(stmt.value, env, assignmentType);
+        // A bare declaration (`int x;`) or a Praxis placeholder hole (`x <- /* ... */`)
+        // has no real value yet — store the uninitialized sentinel instead of
+        // evaluating the parser-synthesized default/placeholder.
+        const isUnspecified =
+          Boolean((stmt as any).declaredWithoutInitializer) || stmt.value.type === 'Placeholder';
+        const value = isUnspecified
+          ? UNINITIALIZED
+          : this.evaluate(stmt.value, env, assignmentType);
         const declarationOrigin = stmt.loc?.start;
 
         // Typed assignments act as declarations and cannot redeclare in the same scope.
@@ -1345,8 +1385,9 @@ export class Interpreter {
           }
         }
 
-        // Type checking for typed assignments
-        if ((stmt as any).varType) {
+        // Type checking for typed assignments (skipped for a bare declaration —
+        // there's no real value yet to check).
+        if ((stmt as any).varType && !isUnspecified) {
           const typeError = this.checkTypeCompatibility(value, (stmt as any).varType);
           if (typeError) {
             const line = this.getLineFromLocation(stmt.loc);
@@ -1610,8 +1651,14 @@ export class Interpreter {
     }
     switch (expr.type) {
       case 'Placeholder':
-        // A `/* ... */` hole defaults to 0 so programs with placeholders run.
-        return 0;
+        // A `/* ... */` hole has no value. Assigning it to a variable is handled
+        // in execute()'s Assignment case (stores UNINITIALIZED without evaluating
+        // this node); any other direct use (a condition, an operand, a print
+        // argument, ...) reaches here and is a runtime error, same as reading an
+        // uninitialized variable.
+        throw new UninitializedAccessError(
+          `Uninitialized value: placeholder '/* ${(expr as any).text} */' was never given a value`
+        );
       case 'Literal':
         return expr.value;
       case 'ArrayLiteral':
@@ -1627,8 +1674,13 @@ export class Interpreter {
       }
       case 'Identifier': {
         try {
-          return env.get(expr.name);
-        } catch {
+          const value = env.get(expr.name);
+          if (value === UNINITIALIZED) {
+            throw new UninitializedAccessError(`Uninitialized variable '${expr.name}'`);
+          }
+          return value;
+        } catch (e) {
+          if (e instanceof UninitializedAccessError) throw e;
           // Bare field access inside a method: implicitly means this.fieldName
           let instance: any;
           try {
@@ -1644,8 +1696,12 @@ export class Interpreter {
             }
           if (instance instanceof JavaInstance) {
             try {
+              // getField() itself throws UninitializedAccessError for a field
+              // that exists but was never assigned — let that propagate; only
+              // "field doesn't exist at all" should fall through below.
               return instance.getField(expr.name);
-            } catch {
+            } catch (fieldErr) {
+              if (fieldErr instanceof UninitializedAccessError) throw fieldErr;
               /* fall through */
             }
           }
@@ -1662,6 +1718,9 @@ export class Interpreter {
       case 'UpdateExpression': {
         const argName = (expr.argument as any).name;
         const oldVal = env.get(argName);
+        if (oldVal === UNINITIALIZED) {
+          throw new UninitializedAccessError(`Uninitialized variable '${argName}'`);
+        }
         const newVal = expr.operator === '++' ? oldVal + 1 : oldVal - 1;
         env.assign(argName, newVal);
         return expr.prefix ? newVal : oldVal;
@@ -1669,6 +1728,9 @@ export class Interpreter {
       case 'CompoundAssignment': {
         const compName = (expr as any).name;
         const compLeft = env.get(compName);
+        if (compLeft === UNINITIALIZED) {
+          throw new UninitializedAccessError(`Uninitialized variable '${compName}'`);
+        }
         const compRight = this.evaluate((expr as any).right, env);
         let compResult: any;
         switch ((expr as any).operator) {

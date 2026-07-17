@@ -1,8 +1,12 @@
 /**
  * Praxis slash-star placeholder: a hole for missing exam-question code. It
- * parses to a Placeholder expression node, evaluates to a default 0 so programs
- * with holes still run, is preserved verbatim in Praxis output, and lowers to
- * `0` in every other target (which don't support the placeholder syntax).
+ * parses to a Placeholder expression node. Interpreting it is a runtime error —
+ * assigning it to a variable stores an uninitialized sentinel (reading the
+ * variable later is the error), and using it directly (a condition, an
+ * operand, ...) errors immediately. It is preserved verbatim in Praxis output,
+ * and still lowers to `0` when translated to every other target (which don't
+ * support the placeholder syntax) — translation is a text-emission concern,
+ * not interpretation, so the emitted default is unchanged.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -22,9 +26,14 @@ describe('Praxis placeholder', () => {
     expect(ast.body[0].value.text).toBe('fill me');
   });
 
-  it('evaluates to 0 so a program with holes still runs', () => {
-    expect(run('int x <- /* missing */\nprint(x)')).toEqual(['0']);
-    expect(run('if (/* cond */)\n    print("t")\nelse\n    print("f")\nend if')).toEqual(['f']);
+  it('assigning a placeholder is uninitialized; reading it later is an error', () => {
+    const out = run('int x <- /* missing */\nprint(x)');
+    expect(out.join('\n')).toMatch(/uninitialized variable 'x'/i);
+  });
+
+  it('using a placeholder directly (e.g. as a condition) is an immediate error', () => {
+    const out = run('if (/* cond */)\n    print("t")\nelse\n    print("f")\nend if');
+    expect(out.join('\n')).toMatch(/uninitialized value/i);
   });
 
   it('is preserved verbatim in Praxis output', () => {
