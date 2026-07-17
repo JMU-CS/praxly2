@@ -62,6 +62,12 @@ describe('CSP Lexer', () => {
       expect(tokens).toContainEqual(expect.objectContaining({ type: 'OPERATOR', value: '<>' }));
     });
 
+    it('should tokenize != as a not-equal operator variant', () => {
+      const lexer = new CSPLexer('x != y');
+      const tokens = lexer.tokenize();
+      expect(tokens).toContainEqual(expect.objectContaining({ type: 'OPERATOR', value: '!=' }));
+    });
+
     it('should tokenize comparison operators', () => {
       const lexer = new CSPLexer('a < b a > c a <= d a >= e');
       const tokens = lexer.tokenize();

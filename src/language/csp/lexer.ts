@@ -135,7 +135,9 @@ export class CSPLexer {
         continue;
       }
 
-      if (['+', '-', '*', '/', '=', '>', '<', '(', ')', '{', '}', '[', ']', ','].includes(char)) {
+      if (
+        ['+', '-', '*', '/', '=', '>', '<', '!', '(', ')', '{', '}', '[', ']', ','].includes(char)
+      ) {
         const start = this.pos;
         // Check for <-
         if (char === '<' && this.input[this.pos + 1] === '-') {

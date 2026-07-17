@@ -316,7 +316,7 @@ export class CSPParser {
 
   private equality(): Expression {
     let left = this.comparison();
-    while (this.match('OPERATOR', '=', '<>')) {
+    while (this.match('OPERATOR', '=', '<>', '!=')) {
       let op = this.previous().value;
       if (op === '=') op = '==';
       if (op === '<>') op = '!=';
