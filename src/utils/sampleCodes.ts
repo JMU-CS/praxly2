@@ -142,11 +142,15 @@ print("Rolled a 6 after", attempts, "tries")
     description: 'If / else with numeric comparison',
     category: 'conditionals',
     lang: 'java',
-    code: `int x = 7;
-if (x < 10) {
-  System.out.println("small");
-} else {
-  System.out.println("big");
+    code: `public class Main {
+  public static void main(String[] args) {
+    int x = 7;
+    if (x < 10) {
+      System.out.println("small");
+    } else {
+      System.out.println("big");
+    }
+  }
 }
 `,
   },

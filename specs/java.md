@@ -2,6 +2,25 @@
 
 The _AP Computer Science A_ exam may use the following methods from the Java library.
 
+## Program Structure
+
+Every Java program must define a class named `Main` with a runnable entry point:
+
+```java
+public class Main {
+  public static void main(String[] args) {
+    // your code here
+  }
+}
+```
+
+There is no bare-statement/script mode — top-level statements outside a class are
+a parse error, and a `Main` class without a matching `public static void main(String[] args)`
+method is also a parse error. This mirrors standard Java so that code written in Praxly
+compiles as-is in any other Java toolchain. Additional classes may be declared alongside
+`Main` (see `Extensions for Praxly` below for OOP support), and `import` declarations are
+accepted and ignored (Praxly's stdlib is always available without an explicit import).
+
 ## String Class
 
 - `String(String str)` – Constructs a new `String` object that represents the same sequence of characters as `str`

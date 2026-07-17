@@ -704,6 +704,9 @@ print(s.label())`;
     public String name;
     public Tag(String name) { this.name = name; }
     public String get() { return name; }
+}
+public class Main {
+    public static void main(String[] args) {}
 }`;
       const program = new JavaParser(new JavaLexer(src).tokenize()).parse();
       const praxis = new Translator().translate(program, 'praxis');
