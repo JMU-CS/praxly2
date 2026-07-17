@@ -127,18 +127,18 @@ end while
 
 // ---- For, C-style (init / condition / update) ------------------------------
 int total ← 0
-for j ← 0; j < xs.length; j ← j + 1
+for (j ← 0; j < xs.length; j ← j + 1)
     total ← total + xs[j]
 end for
 print(total)                   // 161
 
 // ---- For, iterate an array by index (Praxis has only the C-style for) ------
-for p ← 0; p < xs.length; p ← p + 1
+for (p ← 0; p < xs.length; p ← p + 1)
     print(xs[p])
 end for
 
 // ---- For, counting loop ----------------------------------------------------
-for k ← 1; k < 4; k ← k + 1
+for (k ← 1; k < 4; k ← k + 1)
     print(k)                   // 1 2 3
 end for
 
@@ -157,7 +157,7 @@ repeat
 until (r >= 3)
 
 // ---- Break / Continue ------------------------------------------------------
-for t ← 0; t < 5; t ← t + 1
+for (t ← 0; t < 5; t ← t + 1)
     if (t == 1)
         continue               // skip printing 1
     end if

@@ -24,6 +24,15 @@ import {
 } from '../ast';
 import { attachComments, insertBlankLines } from '../comments';
 
+/**
+ * Thrown when a required `(`/`)` is missing around an `if`/`while`/`do-while`/
+ * `repeat-until`/`for` header. Unlike an ordinary syntax error, this is NOT
+ * swallowed by `parse()`'s error recovery — it propagates so the user sees a
+ * real syntax error on Run, matching how Python's `UnsupportedFeatureError`
+ * and Java's `JavaEntryPointError` bypass recovery for their own hard errors.
+ */
+export class PraxisSyntaxError extends Error {}
+
 export class PraxisParser {
   private tokens: Token[];
   private current = 0;
@@ -66,6 +75,9 @@ export class PraxisParser {
       try {
         body.push(this.topLevelDeclaration());
       } catch (e) {
+        // A missing required header paren is a genuine syntax error and must
+        // reach the user — don't recover from it.
+        if (e instanceof PraxisSyntaxError) throw e;
         // Error recovery: skip to next valid statement
         this.synchronize();
         continue;
@@ -588,9 +600,9 @@ export class PraxisParser {
   // the chain is modeled as nested If nodes (there is no dedicated ElseIf node).
   private ifBody(): If {
     this.consume('KEYWORD', 'if');
-    this.match('PUNCTUATION', '(');
+    this.consumeHeaderParen('(');
     const condition = this.expression();
-    this.match('PUNCTUATION', ')');
+    this.consumeHeaderParen(')');
 
     const thenBranch = this.block();
     let elseBranch: Block | undefined = undefined;
@@ -619,9 +631,9 @@ export class PraxisParser {
 
   private whileStatement(): While {
     this.consume('KEYWORD', 'while');
-    this.match('PUNCTUATION', '(');
+    this.consumeHeaderParen('(');
     const condition = this.expression();
-    this.match('PUNCTUATION', ')');
+    this.consumeHeaderParen(')');
 
     const body = this.block();
 
@@ -635,9 +647,9 @@ export class PraxisParser {
     this.consume('KEYWORD', 'do');
     const body = this.block(['end', 'else', 'until', 'while']);
     this.consume('KEYWORD', 'while');
-    this.match('PUNCTUATION', '(');
+    this.consumeHeaderParen('(');
     const condition = this.expression();
-    this.match('PUNCTUATION', ')');
+    this.consumeHeaderParen(')');
 
     return { id: generateId(), type: 'DoWhile', body, condition };
   }
@@ -650,16 +662,16 @@ export class PraxisParser {
     this.consume('KEYWORD', 'repeat');
     const body = this.block();
     this.consume('KEYWORD', 'until');
-    this.match('PUNCTUATION', '(');
+    this.consumeHeaderParen('(');
     const condition = this.expression();
-    this.match('PUNCTUATION', ')');
+    this.consumeHeaderParen(')');
     return { id: generateId(), type: 'RepeatUntil', condition, body };
   }
 
   // Praxis has only the C-style `for (init; condition; update)` loop.
   private forStatement(): any {
     this.consume('KEYWORD', 'for');
-    const hasParen = this.match('PUNCTUATION', '(');
+    this.consumeHeaderParen('(');
 
     let initStmt: Statement;
     if (this.isTypeStart() || this.checkPeekAhead('IDENTIFIER', undefined, 1)) {
@@ -694,7 +706,7 @@ export class PraxisParser {
       updateStmt = { id: generateId(), type: 'ExpressionStatement', expression: updateExpr };
     }
 
-    if (hasParen) this.consume('PUNCTUATION', ')');
+    this.consumeHeaderParen(')');
     this.match('KEYWORD', 'do');
 
     const body = this.block();
@@ -1073,6 +1085,12 @@ export class PraxisParser {
     throw new Error(
       `Expected token ${type} ${value || ''} but found ${found.type} '${found.value}'`
     );
+  }
+  /** Requires the given `(`/`)` around an if/while/do-while/repeat-until/for header. */
+  private consumeHeaderParen(value: '(' | ')'): Token {
+    if (this.check('PUNCTUATION', value)) return this.advance();
+    const found = this.peek();
+    throw new PraxisSyntaxError(`Expected '${value}' but found ${found.type} '${found.value}'`);
   }
   private advance(): Token {
     if (!this.isAtEnd()) this.current++;
