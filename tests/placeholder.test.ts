@@ -34,6 +34,6 @@ describe('Praxis placeholder', () => {
   it('lowers to a default 0 in other targets', () => {
     expect(to('x <- /* hole */\nprint(x)', 'python')).toContain('x = 0');
     expect(to('int x <- /* hole */\nprint(x)', 'java')).toContain('int x = 0;');
-    expect(to('x <- /* hole */\nprint(x)', 'csp')).toContain('x <- 0');
+    expect(to('x <- /* hole */\nprint(x)', 'csp')).toContain('x ← 0');
   });
 });
