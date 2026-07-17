@@ -107,7 +107,7 @@ export function EditorHeader({
               id="examples-listbox"
               role="listbox"
               aria-label="Example programs"
-              className="absolute top-full right-0 mt-2 w-80 max-h-[360px] overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[220]"
+              className="absolute top-full right-0 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[220]"
             >
               <div className="px-4 py-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-widest text-slate-400">
                 Load Example Program

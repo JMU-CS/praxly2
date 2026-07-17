@@ -696,7 +696,6 @@ export default function EditorPage() {
 
     setSourceLang(example.lang);
     setCode(example.code);
-    setPanels((prev) => prev.filter((panel) => panel.lang !== example.lang));
     setOutput([]);
     setError(null);
     setHasRun(false);
