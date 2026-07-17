@@ -21,8 +21,9 @@ Assume standard Python semantics unless stated otherwise.
 - Dynamically typed. Assignment: `x = value`.
 - **Chained assignment**: `x = y = z = 0`.
 - **Augmented assignment**: `+=`, `-=`, `*=`, `/=`, `%=`, `//=`.
-- **Optional type annotations**: `x: int = 5`, or a bare `x: int` (which declares `x` with a
-  type-appropriate default). Annotations are accepted on variables and parameters.
+- **Optional type annotations**: `x: int = 5`, or a bare `x: int` (which declares `x` as
+  uninitialized — reading it before assigning a value is a runtime error). Annotations are
+  accepted on variables and parameters.
 - Literals: `True`, `False`, `None`.
 
 ## Operators

@@ -924,3 +924,34 @@ describe('Java random (seeded, deterministic)', () => {
     expect(out).toEqual(['true']);
   });
 });
+
+describe('Java uninitialized variables', () => {
+  const runJava = (src: string): string[] =>
+    new Interpreter().interpret(new JavaParser(new JavaLexer(src).tokenize()).parse(), src);
+
+  it('reading a declared-but-unassigned variable is a runtime error, not a default value', () => {
+    const out = runJava(wrapMain('int x;\nSystem.out.println(x);'));
+    expect(out.join('\n')).toMatch(/uninitialized variable 'x'/i);
+  });
+
+  it('assigning it first, then reading it, works fine', () => {
+    const out = runJava(wrapMain('int x;\nx = 5;\nSystem.out.println(x);'));
+    expect(out).toEqual(['5']);
+  });
+
+  it('an unassigned field read via `this` is also a runtime error', () => {
+    const out = runJava(`public class Counter {
+  private int count;
+  public int read() {
+    return this.count;
+  }
+}
+public class Main {
+  public static void main(String[] args) {
+    Counter c = new Counter();
+    System.out.println(c.read());
+  }
+}`);
+    expect(out.join('\n')).toMatch(/uninitialized field 'count'/i);
+  });
+});
