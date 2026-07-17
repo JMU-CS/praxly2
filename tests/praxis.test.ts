@@ -284,7 +284,7 @@ end add`;
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
-      expect(code).toContain('<-');
+      expect(code).toContain('←');
     });
 
     it('should emit if statement', () => {
@@ -341,7 +341,7 @@ describe('Praxis Translation', () => {
       const result = translator.translate(program, 'praxis');
       expect(result).toContain('int');
       expect(result).toContain('x');
-      expect(result).toContain('<-');
+      expect(result).toContain('←');
     });
 
     it('should translate print statement', () => {
@@ -670,7 +670,7 @@ end class Box`;
       const praxis = new Translator().translate(program, 'praxis');
       expect(praxis).toContain('public Box(int v)');
       expect(praxis).toContain('end Box');
-      expect(praxis).toContain('value <- v');
+      expect(praxis).toContain('value ← v');
       expect(praxis).not.toContain('this.');
       expect(praxis).not.toContain('procedure new');
     });
@@ -707,7 +707,7 @@ print(s.label())`;
 }`;
       const program = new JavaParser(new JavaLexer(src).tokenize()).parse();
       const praxis = new Translator().translate(program, 'praxis');
-      expect(praxis).toContain('this.name <- name'); // shadowed -> qualified
+      expect(praxis).toContain('this.name ← name'); // shadowed -> qualified
       expect(praxis).toContain('return name'); // not shadowed -> bare
     });
   });

@@ -151,7 +151,7 @@ kw<term> { @specialize[@name={term}]<Identifier, term> }
   Boolean { "true" | "false" | "TRUE" | "FALSE" }
   Null { "null" | "NULL" | "None" }
 
-  AssignOp { "<-" }
+  AssignOp { "<-" | "←" | "⟵" }
   Eq { "=" | "==" }
   Neq { "!=" | "<>" }
   Lt { "<" }

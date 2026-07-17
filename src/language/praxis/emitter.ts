@@ -34,7 +34,7 @@ export class PraxisEmitter extends ASTVisitor {
   private currentClassName = '';
   // Parameter names of the constructor/method currently being emitted. A field
   // access is qualified with `this.` only when the field name is shadowed by one
-  // of these (e.g. `this.name <- name`); otherwise the bare field name is used.
+  // of these (e.g. `this.name ← name`); otherwise the bare field name is used.
   private currentParams = new Set<string>();
   // Declared class names — used to render a bare constructor call (e.g. Python's
   // `Animal("Rex")`) as a Praxis `new Animal("Rex")` and to type the target.
@@ -193,7 +193,7 @@ export class PraxisEmitter extends ASTVisitor {
     if (type === 'auto') type = 'var';
 
     let line = `${field.access} ${type} ${field.name}`;
-    if (field.initializer) line += ` <- ${this.generateExpression(field.initializer, 0)}`;
+    if (field.initializer) line += ` ← ${this.generateExpression(field.initializer, 0)}`;
     this.emit(line);
   }
 
@@ -297,10 +297,10 @@ export class PraxisEmitter extends ASTVisitor {
           let type = this.inferType(values[i]);
           if (type === 'var') type = 'int';
           if (this.context.symbolTable.get(varName) === undefined) {
-            this.emit(`${type} ${varName} <- ${valStr}`, stmt.id);
+            this.emit(`${type} ${varName} ← ${valStr}`, stmt.id);
             this.context.symbolTable.set(varName, type);
           } else {
-            this.emit(`${varName} <- ${valStr}`, stmt.id);
+            this.emit(`${varName} ← ${valStr}`, stmt.id);
           }
         });
       }
@@ -318,9 +318,9 @@ export class PraxisEmitter extends ASTVisitor {
     const name = lvalueName(stmt);
     const targetStr = this.generateExpression(stmt.target, 0);
 
-    // Member/index mutation (e.g. obj.field <- v, arr[i] <- v) — never a declaration.
+    // Member/index mutation (e.g. obj.field ← v, arr[i] ← v) — never a declaration.
     if (name === undefined) {
-      this.emit(`${targetStr} <- ${rVal}`, stmt.id);
+      this.emit(`${targetStr} ← ${rVal}`, stmt.id);
       return;
     }
 
@@ -331,18 +331,18 @@ export class PraxisEmitter extends ASTVisitor {
         // `auto`) stays untyped in Praxis: integer values keep their native
         // display (no forced `.0`), and `/` still divides as float because the
         // interpreter does not truncate untyped operands.
-        this.emit(`${targetStr} <- ${initVal}`, stmt.id);
+        this.emit(`${targetStr} ← ${initVal}`, stmt.id);
         this.context.symbolTable.set(name, 'auto');
       } else {
-        this.emit(`${type} ${targetStr} <- ${initVal}`, stmt.id);
+        this.emit(`${type} ${targetStr} ← ${initVal}`, stmt.id);
         this.context.symbolTable.set(name, type);
       }
     } else if (this.context.symbolTable.get(name) !== undefined) {
-      this.emit(`${targetStr} <- ${rVal}`, stmt.id);
+      this.emit(`${targetStr} ← ${rVal}`, stmt.id);
     } else {
       let type = this.inferType(stmt.value);
       if (type === 'var') type = 'int';
-      this.emit(`${type} ${targetStr} <- ${initVal}`, stmt.id);
+      this.emit(`${type} ${targetStr} ← ${initVal}`, stmt.id);
       this.context.symbolTable.set(name, type);
     }
   }
@@ -460,7 +460,7 @@ export class PraxisEmitter extends ASTVisitor {
       const rVal = this.generateExpression(stmt.init.value, 0);
       let type = stmt.init.varType || this.inferType(stmt.init.value);
       if (type === 'var') type = 'int';
-      initCode = `${type} ${initName} <- ${rVal}`;
+      initCode = `${type} ${initName} ← ${rVal}`;
       this.context.symbolTable.set(initName, type);
     } else if (stmt.init) {
       initCode = this.generateExpression(stmt.init.expression, 0);
@@ -469,7 +469,7 @@ export class PraxisEmitter extends ASTVisitor {
     let updateCode = '';
     if (stmt.update?.type === 'Assignment') {
       const ut = this.generateExpression(stmt.update.target, 0);
-      updateCode = `${ut} <- ${this.generateExpression(stmt.update.value, 0)}`;
+      updateCode = `${ut} ← ${this.generateExpression(stmt.update.value, 0)}`;
     } else if (stmt.update) {
       updateCode = this.generateExpression(stmt.update.expression, 0);
     }
@@ -494,7 +494,7 @@ export class PraxisEmitter extends ASTVisitor {
       }
       if (args.length === 3) step = this.generateExpression(args[2], 0);
       this.emit(
-        `for (int ${stmt.variable} <- ${start}; ${stmt.variable} < ${end}; ${stmt.variable} <- ${stmt.variable} + ${step})`,
+        `for (int ${stmt.variable} ← ${start}; ${stmt.variable} < ${end}; ${stmt.variable} ← ${stmt.variable} + ${step})`,
         stmt.id
       );
       this.indent();
@@ -510,10 +510,10 @@ export class PraxisEmitter extends ASTVisitor {
       const arr = `_arr${n}`;
       const idx = `_i${n}`;
       this.context.symbolTable.enterScope();
-      this.emit(`${arr} <- ${this.generateExpression(stmt.iterable, 0)}`, stmt.id);
-      this.emit(`for (int ${idx} <- 0; ${idx} < ${arr}.length; ${idx} <- ${idx} + 1)`);
+      this.emit(`${arr} ← ${this.generateExpression(stmt.iterable, 0)}`, stmt.id);
+      this.emit(`for (int ${idx} ← 0; ${idx} < ${arr}.length; ${idx} ← ${idx} + 1)`);
       this.indent();
-      this.emit(`${stmt.variable} <- ${arr}[${idx}]`);
+      this.emit(`${stmt.variable} ← ${arr}[${idx}]`);
       this.context.symbolTable.set(stmt.variable, 'var');
       this.visitBlock(stmt.body);
       this.dedent();
@@ -554,12 +554,12 @@ export class PraxisEmitter extends ASTVisitor {
 
   visitExpressionStatement(stmt: any): void {
     // A bare `i++` / `--i` statement is ambiguous in Praxis (no statement
-    // terminators, so `i++\n--j` would re-associate); lower it to `i <- i ± 1`.
+    // terminators, so `i++\n--j` would re-associate); lower it to `i ← i ± 1`.
     const e = stmt.expression;
     if (e?.type === 'UpdateExpression') {
       const target = this.generateExpression(e.argument, 0);
       const op = e.operator === '++' ? '+' : '-';
-      this.emit(`${target} <- ${target} ${op} 1`, stmt.id);
+      this.emit(`${target} ← ${target} ${op} 1`, stmt.id);
       return;
     }
     this.emit(this.generateExpression(stmt.expression, 0), stmt.id);
@@ -748,12 +748,12 @@ export class PraxisEmitter extends ASTVisitor {
       }
 
       case 'CompoundAssignment': {
-        // Praxis has no `+=`; expand to `target <- target op right`.
+        // Praxis has no `+=`; expand to `target ← target op right`.
         const target = (expr as any).left
           ? this.generateExpression((expr as any).left, 0)
           : (expr as any).name;
         const op = (expr as any).operator;
-        output = `${target} <- ${target} ${op} ${this.generateExpression((expr as any).right, 0)}`;
+        output = `${target} ← ${target} ${op} ${this.generateExpression((expr as any).right, 0)}`;
         break;
       }
 
@@ -762,12 +762,10 @@ export class PraxisEmitter extends ASTVisitor {
         const tmp = `_tern${this.tempCounter++}`;
         this.preludeLines.push(`if (${this.generateExpression((expr as any).test, 0)})`);
         this.preludeLines.push(
-          `  ${tmp} <- ${this.generateExpression((expr as any).consequent, 0)}`
+          `  ${tmp} ← ${this.generateExpression((expr as any).consequent, 0)}`
         );
         this.preludeLines.push(`else`);
-        this.preludeLines.push(
-          `  ${tmp} <- ${this.generateExpression((expr as any).alternate, 0)}`
-        );
+        this.preludeLines.push(`  ${tmp} ← ${this.generateExpression((expr as any).alternate, 0)}`);
         this.preludeLines.push(`end if`);
         output = tmp;
         break;

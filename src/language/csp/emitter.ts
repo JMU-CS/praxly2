@@ -6,7 +6,7 @@
  *
  * Key dialect rules enforced here:
  *  - IF / ELSE IF / ELSE chains (single nested-IF else branch -> ELSE IF)
- *  - Assignment arrow is <- (spec uses ←, both accepted on input)
+ *  - Assignment arrow is ← (ASCII <- and long-arrow ⟵ also accepted on input)
  *  - Equality operator is = (not ==)
  *  - Not-equal is ≠, but <> is also emitted for ASCII compatibility
  *  - RETURN uses parens: RETURN(value)
@@ -103,7 +103,7 @@ export class CSPEmitter extends ASTVisitor {
         stmt.value.elements.forEach((val: any, i: number) => {
           const t = targets[i];
           if (t?.type === 'Identifier') {
-            this.emit(`${t.name} <- ${this.generateExpression(val, 0)}`, stmt.id);
+            this.emit(`${t.name} ← ${this.generateExpression(val, 0)}`, stmt.id);
           }
         });
       }
@@ -116,7 +116,7 @@ export class CSPEmitter extends ASTVisitor {
     }
 
     const targetStr = this.generateExpression(stmt.target, 0);
-    this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`, stmt.id);
+    this.emit(`${targetStr} ← ${this.generateExpression(stmt.value, 0)}`, stmt.id);
   }
 
   visitIf(stmt: any): void {
@@ -293,7 +293,7 @@ export class CSPEmitter extends ASTVisitor {
     }
   }
 
-  // Emits `var <- start; REPEAT UNTIL (var <cmp> end) { body; var <- var + step }`,
+  // Emits `var ← start; REPEAT UNTIL (var <cmp> end) { body; var ← var + step }`,
   // the spec-legal way to express a counting loop in CSP.
   private emitCounterLoop(
     variable: string,
@@ -305,12 +305,12 @@ export class CSPEmitter extends ASTVisitor {
     id: string
   ): void {
     this.context.symbolTable.enterScope();
-    this.emit(`${variable} <- ${start}`, id);
+    this.emit(`${variable} ← ${start}`, id);
     this.emit(`REPEAT UNTIL (${variable} ${cmp} ${end})`);
     this.emit('{');
     this.indent();
     this.visitBlock(body);
-    this.emit(`${variable} <- ${variable} + ${step}`);
+    this.emit(`${variable} ← ${variable} + ${step}`);
     this.dedent();
     this.emit('}');
     this.context.symbolTable.exitScope();
@@ -453,7 +453,7 @@ export class CSPEmitter extends ASTVisitor {
       case 'UpdateExpression': {
         const argStr = this.generateExpression((expr as any).argument, Precedence.Unary);
         const op = (expr as any).operator === '++' ? '+' : '-';
-        output = `${argStr} <- ${argStr} ${op} 1`;
+        output = `${argStr} ← ${argStr} ${op} 1`;
         break;
       }
 

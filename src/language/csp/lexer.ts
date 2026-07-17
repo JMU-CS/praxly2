@@ -118,7 +118,7 @@ export class CSPLexer {
       }
 
       // Unicode symbols for assignment and relational operators
-      if (char === '←') {
+      if (char === '←' || char === '⟵') {
         tokens.push({ type: 'OPERATOR', value: '<-', start: this.pos++ });
         continue;
       }

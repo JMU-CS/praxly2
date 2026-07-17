@@ -7,7 +7,7 @@
 // AST nodes NOT reachable from Praxis source (covered by the other demos):
 //   Switch / SwitchCase .. no switch/case keywords.
 //   ConditionalExpression  no ?: ternary operator.
-//   CompoundAssignment ... no +=/-=; write `x <- x + 1`.
+//   CompoundAssignment ... no +=/-=; write `x ← x + 1`.
 //   ForEach .............. no for-each; Praxis has only the C-style for loop.
 //
 // (Functions and classes are hoisted, so the driver calls them before their
@@ -19,27 +19,27 @@
 banner("literals and operators")
 
 // ---- Literal (int, float, string, boolean, null) + Assignment --------------
-int    whole  <- 42
-double frac   <- 3.14
-string label  <- "praxis"
-boolean flag  <- true
-string empty  <- null
+int    whole  ← 42
+double frac   ← 3.14
+string label  ← "praxis"
+boolean flag  ← true
+string empty  ← null
 print(whole, frac, label, flag, empty)   // Print with multiple expressions
 
-// `=` is also a valid assignment operator in Praxis (same as `<-`)
-int m <- 0
+// `=` is also a valid assignment operator in Praxis (same as `←`)
+int m ← 0
 m = 10
 print(m)
 
 // ---- char literal + string escape sequences --------------------------------
-char grade <- 'A'              // single-quoted, exactly one character
-string tabbed <- "col1\tcol2"  // \t \n \r \" \\ are recognized escapes
+char grade ← 'A'              // single-quoted, exactly one character
+string tabbed ← "col1\tcol2"  // \t \n \r \" \\ are recognized escapes
 print(grade)                   // A
 print(tabbed)                  // col1<tab>col2
 
 // ---- BinaryExpression: arithmetic (+ - * / % ^) ----------------------------
-int a <- 17
-int b <- 5
+int a ← 17
+int b ← 5
 print(a + b)      // 22
 print(a - b)      // 12
 print(a * b)      // 85
@@ -61,7 +61,7 @@ print(a ≠ b)             // true (unicode ≠)
 print(a < b or a > b)    // true
 
 // ---- UpdateExpression (++ and --, prefix and postfix) ----------------------
-int i <- 5
+int i ← 5
 i++
 print(i)      // 6
 print(++i)    // 7
@@ -69,8 +69,8 @@ i--
 print(i)      // 6
 
 // ---- ArrayLiteral / IndexExpression / MemberExpression / CallExpression ----
-int[] xs <- {5, 3, 8, 1}    // brace form (idiomatic); [5, 3, 8, 1] also works
-xs[0] <- 50                 // index Assignment
+int[] xs ← {5, 3, 8, 1}    // brace form (idiomatic); [5, 3, 8, 1] also works
+xs[0] ← 50                 // index Assignment
 print(xs[0])                // 50
 print(xs.length)            // 4  (MemberExpression)
 xs.append(99)               // method CallExpression as ExpressionStatement
@@ -78,8 +78,8 @@ print(xs.length)            // 5
 print(xs)                   // {50, 3, 8, 1, 99}
 
 // ---- ArrayCreation: new int[n] (n default-initialized elements) ------------
-int[] buffer <- new int[3]  // {0, 0, 0}
-buffer[1] <- 7
+int[] buffer ← new int[3]  // {0, 0, 0}
+buffer[1] ← 7
 print(buffer)               // {0, 7, 0}
 print(buffer.length)        // 3
 
@@ -109,7 +109,7 @@ print("tail")                  // -> "joined: tail" on one line
 banner("control flow")
 
 // ---- If / else if / else (a single `end if` closes the whole chain) --------
-int score <- 75
+int score ← 75
 if (score >= 90)
     print("A")
 else if (score >= 70)
@@ -119,45 +119,45 @@ else
 end if
 
 // ---- While (pre-condition loop) --------------------------------------------
-int w <- 0
+int w ← 0
 while (w < 3)
     print(w)                   // 0 1 2
-    w <- w + 1
+    w ← w + 1
 end while
 
 // ---- For, C-style (init / condition / update) ------------------------------
-int total <- 0
-for j <- 0; j < xs.length; j <- j + 1
-    total <- total + xs[j]
+int total ← 0
+for j ← 0; j < xs.length; j ← j + 1
+    total ← total + xs[j]
 end for
 print(total)                   // 161
 
 // ---- For, iterate an array by index (Praxis has only the C-style for) ------
-for p <- 0; p < xs.length; p <- p + 1
+for p ← 0; p < xs.length; p ← p + 1
     print(xs[p])
 end for
 
 // ---- For, counting loop ----------------------------------------------------
-for k <- 1; k < 4; k <- k + 1
+for k ← 1; k < 4; k ← k + 1
     print(k)                   // 1 2 3
 end for
 
 // ---- DoWhile (post-condition; repeats WHILE the condition is true) ---------
-int d <- 0
+int d ← 0
 do
     print(d)                   // 0 1 2
-    d <- d + 1
+    d ← d + 1
 while (d < 3)
 
 // ---- RepeatUntil (post-condition; repeats UNTIL the condition is true) -----
-int r <- 0
+int r ← 0
 repeat
     print(r)                   // 0 1 2
-    r <- r + 1
+    r ← r + 1
 until (r >= 3)
 
 // ---- Break / Continue ------------------------------------------------------
-for t <- 0; t < 5; t <- t + 1
+for t ← 0; t < 5; t ← t + 1
     if (t == 1)
         continue               // skip printing 1
     end if
@@ -225,12 +225,12 @@ class Counter
     private int step
 
     public Counter(int start)          // constructor named after the class
-        count <- start                 // bare field assignment (no `this`)
-        step <- 1
+        count ← start                 // bare field assignment (no `this`)
+        step ← 1
     end Counter
 
     public void increment()
-        count <- count + step
+        count ← count + step
     end increment
 
     public int getCount()
@@ -244,8 +244,8 @@ class Animal
     private int legs
 
     public Animal(string n)            // param `n` differs from field `name`
-        name <- n
-        legs <- 4
+        name ← n
+        legs ← 4
     end Animal
 
     public string describe()
@@ -265,7 +265,7 @@ end class Dog
 
 // ---- Default constructor + field initializer (no constructor defined) ------
 class Box
-    string contents <- "gift"          // field initialized at declaration
+    string contents ← "gift"          // field initialized at declaration
 
     public string open()
         return "opened " + contents
@@ -273,16 +273,16 @@ class Box
 end class Box
 
 // ---- NewExpression / methods / fields / inheritance ------------------------
-Counter c <- new Counter(5)
+Counter c ← new Counter(5)
 c.increment()
 c.increment()
 print(c.getCount())    // 7
 
-Dog dog <- new Dog("Rex")
+Dog dog ← new Dog("Rex")
 print(dog.speak())     // woof (Dog's own method)
 print(dog.describe())  // Rex has 4 legs (inherited field + method via super)
 
-Box box <- new Box()   // default constructor
+Box box ← new Box()   // default constructor
 print(box.open())      // opened gift
 
 banner("done")

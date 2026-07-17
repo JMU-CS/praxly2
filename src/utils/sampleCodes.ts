@@ -52,7 +52,7 @@ print newScore(1, 2, 3)
     description: 'Simple counting loop with output',
     category: 'loops',
     lang: 'praxis',
-    code: `for ( i <- 0; i < 5; i <- i + 1 )
+    code: `for ( i ← 0; i < 5; i ← i + 1 )
   print i
 end for
 `,
@@ -63,10 +63,10 @@ end for
     description: 'Repeat-until loop with arithmetic update',
     category: 'loops',
     lang: 'csp',
-    code: `x <- 0
+    code: `x ← 0
 REPEAT UNTIL (x >= 5)
 {
-  x <- x + 1
+  x ← x + 1
 }
 DISPLAY(x)
 `,
