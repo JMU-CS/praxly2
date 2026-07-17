@@ -43,6 +43,9 @@ Assume Java semantics unless stated otherwise.
 
 ## Conditional statements
 
+Parentheses around the condition (and around a `for` loop's `init; condition; increment`
+header) are required, as shown below — the interpreter rejects a header written without them.
+
 ```
 if (condition)
     block of statements
