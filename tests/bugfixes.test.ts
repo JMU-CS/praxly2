@@ -24,7 +24,9 @@ describe('bugs found while building the example demos', () => {
   // Bug 1: the Java parser built CompoundAssignment without `left`/`right`,
   // which the interpreter reads -> "Cannot read properties of undefined".
   it('Java compound assignment executes', () => {
-    const out = runJava('int acc = 10; acc += 5; acc *= 2; System.out.println(acc);');
+    const out = runJava(
+      'public class Main { public static void main(String[] args) { int acc = 10; acc += 5; acc *= 2; System.out.println(acc); } }'
+    );
     expect(out.join('\n')).not.toMatch(/runtime error/i);
     expect(out).toContain('30');
   });
@@ -33,7 +35,7 @@ describe('bugs found while building the example demos', () => {
   // parsed as an identifier -> "Undefined variable 'continue'".
   it('Java `continue` parses as a keyword rather than an undefined identifier', () => {
     const out = runJava(
-      'for (int t = 0; t < 3; t++) { if (t == 1) { continue; } System.out.println(t); }'
+      'public class Main { public static void main(String[] args) { for (int t = 0; t < 3; t++) { if (t == 1) { continue; } System.out.println(t); } } }'
     );
     expect(out.join('\n')).not.toMatch(/undefined variable/i);
   });

@@ -60,8 +60,38 @@ export class CSPEmitter extends ASTVisitor {
     return `${this.generateExpression(idx, Precedence.Additive)} + 1`;
   }
 
+  // Java requires every statement to live inside `class Main { public static
+  // void main(String[] args) { ... } }`. That wrapper carries no OOP meaning —
+  // unwrap it to its body rather than reporting it as unsupported (genuine
+  // user-defined classes still hit visitClassDeclaration's marker below).
+  private isJavaMainClass(c: ClassDeclaration): boolean {
+    return (
+      c.name === 'Main' &&
+      c.body.some(
+        (m) =>
+          m.type === 'MethodDeclaration' &&
+          (m as MethodDeclaration).name === 'main' &&
+          (m as MethodDeclaration).isStatic
+      )
+    );
+  }
+
   visitProgram(program: Program): void {
-    program.body.forEach((s) => this.visitStatement(s));
+    const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
+    const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
+
+    const mainClass = classes.find((c) => this.isJavaMainClass(c as ClassDeclaration));
+    const otherClasses = classes.filter((c) => !this.isJavaMainClass(c as ClassDeclaration));
+
+    otherClasses.forEach((c) => this.visitStatement(c));
+    nonClasses.forEach((s) => this.visitStatement(s));
+
+    if (mainClass) {
+      const mainMethod = (mainClass as ClassDeclaration).body.find(
+        (m) => m.type === 'MethodDeclaration' && (m as MethodDeclaration).name === 'main'
+      ) as MethodDeclaration | undefined;
+      if (mainMethod) this.visitBlock(mainMethod.body);
+    }
   }
 
   // CSP has no classes or object-oriented features (per specs/csp.md). These

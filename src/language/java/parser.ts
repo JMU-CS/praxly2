@@ -27,6 +27,14 @@ import {
 } from '../ast';
 import { attachComments, insertBlankLines } from '../comments';
 
+/**
+ * Thrown for structural violations of "real Java" program shape (missing/invalid
+ * Main class or entry point). Unlike ordinary statement-level parse errors, these
+ * are not recoverable via `synchronize()` — they describe the whole program, so
+ * parsing aborts and the error surfaces directly to the user.
+ */
+export class JavaEntryPointError extends Error {}
+
 export class JavaParser {
   private tokens: Token[];
   private current = 0;
@@ -74,18 +82,38 @@ export class JavaParser {
   parse(): Program {
     const body: Statement[] = [];
     while (!this.isAtEnd()) {
+      if (this.check('IDENTIFIER', 'import')) {
+        this.skipImportDeclaration();
+        continue;
+      }
       try {
         body.push(this.topLevelDeclaration());
       } catch (e) {
+        // A missing/invalid entry point describes the whole program, not one
+        // bad statement — there's nothing to synchronize past, so let it abort.
+        if (e instanceof JavaEntryPointError) throw e;
         // Error recovery: skip to next valid statement
         this.synchronize();
         continue;
       }
     }
+    this.validateEntryPoint(body);
     const program: Program = { id: generateId(), type: 'Program', body };
     attachComments(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
     insertBlankLines(program, (this.tokens as any).comments, (this.tokens as any).source ?? '');
     return program;
+  }
+
+  /**
+   * `import a.b.C;` / `import a.b.*;` / `import static a.b.C;` — consumed and
+   * discarded. Praxly's Java stdlib (Scanner/ArrayList/Arrays/etc.) is always
+   * available without an explicit import; this exists so the parser can accept
+   * real Java source (and its own emitter's output) that includes imports.
+   */
+  private skipImportDeclaration(): void {
+    this.consume('IDENTIFIER', 'import');
+    while (!this.isAtEnd() && !this.check('PUNCTUATION', ';')) this.advance();
+    if (this.check('PUNCTUATION', ';')) this.advance();
   }
 
   private topLevelDeclaration(): Statement {
@@ -97,8 +125,49 @@ export class JavaParser {
     ) {
       return this.classDeclaration();
     }
-    // Handle regular statements for non-class programs
-    return this.statement();
+    // Real Java has no free-floating statements: every statement must live inside
+    // a method body. Praxly used to auto-wrap bare top-level statements into an
+    // implicit main() for convenience, but that made editor code incompatible with
+    // a real Java compiler, so it's now a hard error.
+    const found = this.peek();
+    throw new JavaEntryPointError(
+      `Expected a class declaration at the top level, but found '${found.value}'. ` +
+        'Java statements must be inside a method, e.g.:\n' +
+        'public class Main {\n  public static void main(String[] args) {\n    // your code here\n  }\n}'
+    );
+  }
+
+  /**
+   * Real `java Main` requires a class literally named `Main` with a
+   * `public static void main(String[] args)` entry point. Enforced here (rather
+   * than left to the interpreter) so editor code is guaranteed to compile as-is
+   * if copied into a standard Java toolchain.
+   */
+  private validateEntryPoint(body: Statement[]): void {
+    const mainClass = body.find(
+      (s): s is ClassDeclaration => s.type === 'ClassDeclaration' && s.name === 'Main'
+    );
+    if (!mainClass) {
+      throw new JavaEntryPointError(
+        "Java programs must define a 'Main' class, e.g.:\n" +
+          'public class Main {\n  public static void main(String[] args) {\n    // your code here\n  }\n}'
+      );
+    }
+    const hasEntryPoint = mainClass.body.some(
+      (m) =>
+        m.type === 'MethodDeclaration' &&
+        m.name === 'main' &&
+        m.isStatic &&
+        m.access === 'public' &&
+        m.returnType === 'void' &&
+        m.params.length === 1 &&
+        m.params[0].paramType === 'String[]'
+    );
+    if (!hasEntryPoint) {
+      throw new JavaEntryPointError(
+        "Class 'Main' must define an entry point: public static void main(String[] args) { ... }"
+      );
+    }
   }
 
   /**

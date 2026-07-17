@@ -10,6 +10,25 @@ import { PraxisLexer } from '../src/language/praxis/lexer';
 import { PraxisParser } from '../src/language/praxis/parser';
 import { Interpreter } from '../src/language/interpreter';
 
+// Real Java requires every statement to live inside a method, and the runtime
+// entry point must be `public class Main { public static void main(String[] args) { ... } }`.
+// Most test sources below are single statements/expressions, so wrap them in that
+// boilerplate rather than repeating it inline everywhere.
+const wrapMain = (body: string): string =>
+  `public class Main {\n  public static void main(String[] args) {\n${body}\n  }\n}`;
+
+// Structural parser assertions used to check `program.body` directly; now that
+// top-level statements live inside Main.main, drill into that method's block.
+const mainBodyOf = (program: any): any[] => {
+  const mainClass = program.body.find(
+    (s: any) => s.type === 'ClassDeclaration' && s.name === 'Main'
+  );
+  const mainMethod = mainClass.body.find(
+    (m: any) => m.type === 'MethodDeclaration' && m.name === 'main'
+  );
+  return mainMethod.body.body;
+};
+
 describe('Java Lexer', () => {
   describe('Basic Tokens', () => {
     it('should tokenize numbers', () => {
@@ -110,53 +129,55 @@ describe('Java Parser', () => {
 
   describe('Statements', () => {
     it('should parse variable declaration', () => {
-      const lexer = new JavaLexer('int x = 5;');
+      const lexer = new JavaLexer(wrapMain('int x = 5;'));
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      expect(program.body).toHaveLength(1);
-      expect(program.body[0].type).toBe('Assignment');
+      const body = mainBodyOf(program);
+      expect(body).toHaveLength(1);
+      expect(body[0].type).toBe('Assignment');
     });
 
     it('should parse if statement', () => {
-      const source = `int x = 7;
+      const source = wrapMain(`int x = 7;
 if (x < 10) {
   x++;
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      expect(program.body.some((s) => s.type === 'If')).toBe(true);
+      expect(mainBodyOf(program).some((s) => s.type === 'If')).toBe(true);
     });
 
     it('should parse while loop', () => {
-      const source = `int i = 0;
+      const source = wrapMain(`int i = 0;
 while (i < 10) {
   i++;
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      expect(program.body.some((s) => s.type === 'While')).toBe(true);
+      expect(mainBodyOf(program).some((s) => s.type === 'While')).toBe(true);
     });
 
     it('should parse for loop', () => {
-      const source = `for (int i = 0; i < 10; i++) {
-}`;
+      const source = wrapMain(`for (int i = 0; i < 10; i++) {
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
       const program = parser.parse();
-      expect(program.body[0].type).toBe('For');
+      expect(mainBodyOf(program)[0].type).toBe('For');
     });
   });
 
   describe('Classes', () => {
     it('should parse class declaration', () => {
-      const source = `public class MyClass {
+      const source = `public class Main {
   int x = 0;
+  public static void main(String[] args) {}
 }`;
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
@@ -166,7 +187,8 @@ while (i < 10) {
     });
 
     it('should parse method', () => {
-      const source = `public class MyClass {
+      const source = `public class Main {
+  public static void main(String[] args) {}
   public void myMethod() {
     System.out.println("test");
   }
@@ -179,12 +201,65 @@ while (i < 10) {
       expect(classDecl.body.some((m: any) => m.type === 'MethodDeclaration')).toBe(true);
     });
   });
+
+  describe('Entry point requirement', () => {
+    it('rejects bare top-level statements', () => {
+      const source = `int x = 5;`;
+      expect(() => new JavaParser(new JavaLexer(source).tokenize()).parse()).toThrow(
+        /class declaration/
+      );
+    });
+
+    it('rejects a program with no Main class', () => {
+      const source = `public class Helper {
+  int x = 0;
+}`;
+      expect(() => new JavaParser(new JavaLexer(source).tokenize()).parse()).toThrow(
+        /must define a 'Main' class/
+      );
+    });
+
+    it('rejects a Main class without a valid main method', () => {
+      const source = `public class Main {
+  public void main(String[] args) {}
+}`;
+      expect(() => new JavaParser(new JavaLexer(source).tokenize()).parse()).toThrow(
+        /must define an entry point/
+      );
+    });
+
+    it('accepts a Main class alongside other classes', () => {
+      const source = `public class Helper {
+  int x;
+}
+public class Main {
+  public static void main(String[] args) {}
+}`;
+      const program = new JavaParser(new JavaLexer(source).tokenize()).parse();
+      expect(program.body.map((s: any) => s.type)).toEqual([
+        'ClassDeclaration',
+        'ClassDeclaration',
+      ]);
+    });
+
+    it('accepts and discards import declarations', () => {
+      const source = `import java.util.Scanner;
+import java.util.ArrayList;
+
+public class Main {
+  public static void main(String[] args) {}
+}`;
+      const program = new JavaParser(new JavaLexer(source).tokenize()).parse();
+      expect(program.body).toHaveLength(1);
+      expect(program.body[0].type).toBe('ClassDeclaration');
+    });
+  });
 });
 
 describe('Java Emitter', () => {
   describe('Expressions', () => {
     it('should emit arithmetic expression', () => {
-      const source = `5 + 3`;
+      const source = wrapMain(`System.out.println(5 + 3);`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -203,7 +278,7 @@ describe('Java Emitter', () => {
     });
 
     it('should emit power operation as Math.pow', () => {
-      const source = `2 ** 8`;
+      const source = wrapMain(`System.out.println(2 ** 8);`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -222,7 +297,7 @@ describe('Java Emitter', () => {
 
   describe('Statements', () => {
     it('should emit variable declaration', () => {
-      const source = `int x;`;
+      const source = wrapMain(`int x;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -240,9 +315,9 @@ describe('Java Emitter', () => {
     });
 
     it('should emit if statement', () => {
-      const source = `if (x < 10) {
+      const source = wrapMain(`if (x < 10) {
   x++;
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -265,7 +340,7 @@ describe('Java Emitter', () => {
 describe('Java Translation', () => {
   describe('Basic Programs', () => {
     it('should translate simple assignment', () => {
-      const source = `int x = 5;`;
+      const source = wrapMain(`int x = 5;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -277,7 +352,7 @@ describe('Java Translation', () => {
     });
 
     it('should translate print statement', () => {
-      const source = `System.out.println("hello");`;
+      const source = wrapMain(`System.out.println("hello");`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -288,7 +363,7 @@ describe('Java Translation', () => {
     });
 
     it('should not add implicit defaults for uninitialized Java declarations', () => {
-      const source = `int x;`;
+      const source = wrapMain(`int x;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -301,7 +376,7 @@ describe('Java Translation', () => {
     });
 
     it('should emit Python type hint only for uninitialized Java declarations', () => {
-      const source = `int x;\nint y = 3;`;
+      const source = wrapMain(`int x;\nint y = 3;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -317,10 +392,10 @@ describe('Java Translation', () => {
 
   describe('Control Flow', () => {
     it('should translate if statement correctly', () => {
-      const source = `int x = 7;
+      const source = wrapMain(`int x = 7;
 if (x < 10) {
   x++;
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -334,7 +409,7 @@ if (x < 10) {
 
   describe('Arrays', () => {
     it('should translate array declaration', () => {
-      const source = `int[] xs = {12, 103, 80};`;
+      const source = wrapMain(`int[] xs = {12, 103, 80};`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -346,8 +421,8 @@ if (x < 10) {
     });
 
     it('should translate array access', () => {
-      const source = `int[] xs = {12, 103, 80};
-System.out.println(xs[0]);`;
+      const source = wrapMain(`int[] xs = {12, 103, 80};
+System.out.println(xs[0]);`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -362,6 +437,9 @@ System.out.println(xs[0]);`;
     it('should translate simple class', () => {
       const source = `public class Count {
   public int count = 0;
+}
+public class Main {
+  public static void main(String[] args) {}
 }`;
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
@@ -380,6 +458,9 @@ System.out.println(xs[0]);`;
   public void inc() {
     this.count = this.count + 1;
   }
+}
+public class Main {
+  public static void main(String[] args) {}
 }`;
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
@@ -397,6 +478,9 @@ System.out.println(xs[0]);`;
   public int add(int x, double y) {
     return x;
   }
+}
+public class Main {
+  public static void main(String[] args) {}
 }`;
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
@@ -475,9 +559,9 @@ public class Main {
 
   describe('Advanced Features', () => {
     it('should translate multiple statements in c-style for loop', () => {
-      const source = `for (int i = 0, j = 10; i < j; i++, j--) {
+      const source = wrapMain(`for (int i = 0, j = 10; i < j; i++, j--) {
   System.out.println(i);
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -490,7 +574,9 @@ public class Main {
     });
 
     it('should translate switch-case with fall through', () => {
-      const source = `switch (x) {
+      const source = wrapMain(`int x = 1;
+int y = 0;
+switch (x) {
   case 1:
     y = 10;
   case 2:
@@ -498,7 +584,7 @@ public class Main {
     break;
   default:
     y = 0;
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -511,16 +597,19 @@ public class Main {
     });
 
     it('parses and re-emits a char literal', () => {
-      const source = `char grade = 'A';`;
+      const source = wrapMain(`char grade = 'A';`);
       const program = new JavaParser(new JavaLexer(source).tokenize()).parse();
       const result = new Translator().translate(program, 'java');
       expect(result).toContain("char grade = 'A'");
     });
 
     it('should translate other compound assignment operators', () => {
-      const source = `x *= 2;
+      const source = wrapMain(`int x = 0;
+int y = 10;
+int z = 20;
+x *= 2;
 y /= 3;
-z %= 5;`;
+z %= 5;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -533,7 +622,9 @@ z %= 5;`;
     });
 
     it('should translate ternary operator', () => {
-      const source = `int max = a > b ? a : b;`;
+      const source = wrapMain(`int a = 1;
+int b = 2;
+int max = a > b ? a : b;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -545,8 +636,8 @@ z %= 5;`;
     });
 
     it('should translate array element mutation', () => {
-      const source = `int[] nums = {1, 2, 3};
-nums[1] = 4;`;
+      const source = wrapMain(`int[] nums = {1, 2, 3};
+nums[1] = 4;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -559,8 +650,9 @@ nums[1] = 4;`;
     });
 
     it('should translate compound assignment correctly', () => {
-      const source = `int total = 0;
-total += k;`;
+      const source = wrapMain(`int total = 0;
+int k = 5;
+total += k;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -572,9 +664,10 @@ total += k;`;
     });
 
     it('should translate negated method call', () => {
-      const source = `if (!password.equals("ABC123")) {
+      const source = wrapMain(`String password = "abc";
+if (!password.equals("ABC123")) {
   System.out.println("Invalid");
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -586,10 +679,10 @@ total += k;`;
     });
 
     it('should use .equals() for String equality comparison', () => {
-      const source = `String name = "John";
+      const source = wrapMain(`String name = "John";
 if (name == "John") {
   System.out.println("Match");
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -600,11 +693,11 @@ if (name == "John") {
     });
 
     it('should handle String inequality with .equals()', () => {
-      const source = `String a = "test";
+      const source = wrapMain(`String a = "test";
 String b = "other";
 if (a != b) {
   System.out.println("Different");
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -616,7 +709,9 @@ if (a != b) {
     });
 
     it('should support ternary operators', () => {
-      const source = `int max = a > b ? a : b;`;
+      const source = wrapMain(`int a = 1;
+int b = 2;
+int max = a > b ? a : b;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -628,9 +723,9 @@ if (a != b) {
     });
 
     it('should handle multiple statements in c-style for loop', () => {
-      const source = `for (int i = 0, j = 10; i < j; i++, j--) {
+      const source = wrapMain(`for (int i = 0, j = 10; i < j; i++, j--) {
   System.out.println(i);
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -643,14 +738,15 @@ if (a != b) {
     });
 
     it('should add break statements in switch cases', () => {
-      const source = `switch (x) {
+      const source = wrapMain(`int x = 1;
+switch (x) {
   case 1:
     System.out.println("one");
   case 2:
     System.out.println("two");
   default:
     System.out.println("other");
-}`;
+}`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -660,9 +756,9 @@ if (a != b) {
       expect(result).toContain('break');
     });
 
-    it('should translate array element mutation', () => {
-      const source = `int[] nums = {1, 2, 3};
-nums[0] = 5;`;
+    it('should translate array element mutation (index 0)', () => {
+      const source = wrapMain(`int[] nums = {1, 2, 3};
+nums[0] = 5;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -674,11 +770,11 @@ nums[0] = 5;`;
     });
 
     it('should translate compound assignment operators', () => {
-      const source = `int x = 10;
+      const source = wrapMain(`int x = 10;
 x += 5;
 x -= 3;
 x *= 2;
-x /= 4;`;
+x /= 4;`);
       const lexer = new JavaLexer(source);
       const tokens = lexer.tokenize();
       const parser = new JavaParser(tokens);
@@ -762,35 +858,41 @@ describe('Java braceless control-flow bodies', () => {
   it('braceless if does not swallow the following statement (condition false)', () => {
     // Regression: `block()` used to read to EOF when no `{` was present, absorbing
     // the trailing println into the if-body so it was skipped when the guard failed.
-    expect(runJava('int x = -1; if (x > 0) x = 5; System.out.println(x);')).toEqual(['-1']);
+    expect(runJava(wrapMain('int x = -1; if (x > 0) x = 5; System.out.println(x);'))).toEqual([
+      '-1',
+    ]);
   });
 
   it('braceless if runs its body and the sibling (condition true)', () => {
-    expect(runJava('int x = 1; if (x > 0) x = 5; System.out.println(x);')).toEqual(['5']);
+    expect(runJava(wrapMain('int x = 1; if (x > 0) x = 5; System.out.println(x);'))).toEqual(['5']);
   });
 
   it('parses a braceless if body as exactly one statement', () => {
-    const program = parseJava('int x = 1; if (x > 0) x = 5; System.out.println(x);');
+    const program = parseJava(wrapMain('int x = 1; if (x > 0) x = 5; System.out.println(x);'));
     // Statements: the declaration, the if, and the println as a sibling (not absorbed).
-    expect(program.body.map((s: any) => s.type)).toEqual(['Assignment', 'If', 'Print']);
-    const ifStmt = program.body[1] as any;
+    const body = mainBodyOf(program);
+    expect(body.map((s: any) => s.type)).toEqual(['Assignment', 'If', 'Print']);
+    const ifStmt = body[1] as any;
     expect(ifStmt.thenBranch.body).toHaveLength(1);
     expect(ifStmt.thenBranch.body[0].type).toBe('Assignment');
   });
 
   it('braceless if/else picks the right branch and keeps the sibling', () => {
-    const src =
-      'int x = -1; if (x > 0) System.out.println("pos"); else System.out.println("neg"); System.out.println("after");';
+    const src = wrapMain(
+      'int x = -1; if (x > 0) System.out.println("pos"); else System.out.println("neg"); System.out.println("after");'
+    );
     expect(runJava(src)).toEqual(['neg', 'after']);
   });
 
   it('braceless while body does not swallow the following statement', () => {
-    expect(runJava('int i = 0; while (i < 3) i++; System.out.println(i);')).toEqual(['3']);
+    expect(runJava(wrapMain('int i = 0; while (i < 3) i++; System.out.println(i);'))).toEqual([
+      '3',
+    ]);
   });
 
   it('braceless for body does not swallow the following statement', () => {
     expect(
-      runJava('int s = 0; for (int i = 0; i < 3; i++) s += i; System.out.println(s);')
+      runJava(wrapMain('int s = 0; for (int i = 0; i < 3; i++) s += i; System.out.println(s);'))
     ).toEqual(['3']);
   });
 });
