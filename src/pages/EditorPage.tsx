@@ -13,6 +13,7 @@ import { computeMultiplePanelHighlighting } from '../utils/debugHandlers';
 import { decodeEmbed, encodeEmbed, copyToClipboard } from '../utils/embedCodec';
 import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import { EXAMPLE_PROGRAMS, getExampleById } from '../utils/sampleCodes';
+import { getDemoForLang } from '../utils/demoPrograms';
 import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useCodeDebugger } from '../hooks/useCodeDebugger';
 import { useClickOutside } from '../hooks/useClickOutside';
@@ -720,6 +721,24 @@ export default function EditorPage() {
     setShowExamplesMenu(false);
   };
 
+  const handleLoadDemo = () => {
+    const demo = getDemoForLang(sourceLang);
+    if (!demo) return;
+
+    setCode(demo);
+    setOutput([]);
+    setError(null);
+    setHasRun(false);
+    setIsDebugging(false);
+    setIsDebugComplete(false);
+    setHighlightedSourceLines([]);
+    setPanelHighlightedLines(new Map());
+    setWaitingForNormalInput(false);
+    setCurrentInterpreter(null);
+    setShowSettingsMenu(false);
+    setShowExamplesMenu(false);
+  };
+
   const handleToggleAiPanel = () => {
     setShowAiSidePanel((prev) => !prev);
   };
@@ -1097,10 +1116,12 @@ export default function EditorPage() {
         isDebugging={isDebugging}
         isDebugComplete={isDebugComplete}
         examples={EXAMPLE_PROGRAMS}
+        demoAvailable={getDemoForLang(sourceLang) !== undefined}
         textSize={textSize}
         onClear={handleClear}
         onShare={handleShare}
         onLoadExample={handleLoadExample}
+        onLoadDemo={handleLoadDemo}
         onToggleExamplesMenu={() => {
           setShowExamplesMenu((prev) => !prev);
           setShowSettingsMenu(false);
