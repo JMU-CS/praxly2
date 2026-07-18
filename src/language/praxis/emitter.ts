@@ -23,7 +23,7 @@ import type {
   Block,
   Expression,
 } from '../ast';
-import { lvalueName } from '../ast';
+import { lvalueName, isJavaMainClass, mainClassHelperStatements } from '../ast';
 
 export class PraxisEmitter extends ASTVisitor {
   // Statements hoisted ahead of the current one (Praxis has no expression-level
@@ -64,16 +64,6 @@ export class PraxisEmitter extends ASTVisitor {
     return super.inferType(expr);
   }
 
-  private isJavaMainClass(classDecl: ClassDeclaration): boolean {
-    if (classDecl.name !== 'Main') return false;
-    return classDecl.body.some(
-      (m) =>
-        m.type === 'MethodDeclaration' &&
-        (m as MethodDeclaration).name === 'main' &&
-        (m as MethodDeclaration).isStatic
-    );
-  }
-
   visitProgram(program: Program): void {
     const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
     const functions = program.body.filter((s) => s.type === 'FunctionDeclaration');
@@ -83,8 +73,8 @@ export class PraxisEmitter extends ASTVisitor {
 
     this.classNames = new Set(classes.map((c) => (c as ClassDeclaration).name));
 
-    const mainClass = classes.find((c) => this.isJavaMainClass(c as ClassDeclaration));
-    const otherClasses = classes.filter((c) => !this.isJavaMainClass(c as ClassDeclaration));
+    const mainClass = classes.find((c) => isJavaMainClass(c as ClassDeclaration));
+    const otherClasses = classes.filter((c) => !isJavaMainClass(c as ClassDeclaration));
 
     otherClasses.forEach((c) => {
       this.visitClassDeclaration(c as ClassDeclaration);
@@ -97,6 +87,12 @@ export class PraxisEmitter extends ASTVisitor {
     mainBody.forEach((s) => this.visitStatement(s));
 
     if (mainClass) {
+      // Unwrap Main: static fields and helper methods become top-level
+      // statements, then main's body runs as the program.
+      mainClassHelperStatements(mainClass as ClassDeclaration).forEach((stmt) => {
+        this.visitStatement(stmt);
+        if (stmt.type === 'FunctionDeclaration') this.emit('');
+      });
       const mainMethod = (mainClass as ClassDeclaration).body.find(
         (m) => m.type === 'MethodDeclaration' && (m as MethodDeclaration).name === 'main'
       ) as MethodDeclaration | undefined;

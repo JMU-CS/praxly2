@@ -526,3 +526,25 @@ describe('Blocks Option B (interpret round trip)', () => {
     });
   });
 });
+
+describe('Java Main class unwrapping in the Blocks view', () => {
+  it('converts a Java Main program (helper method + main body) to blocks and back', async () => {
+    const { JavaLexer } = await import('../src/language/java/lexer');
+    const { JavaParser } = await import('../src/language/java/parser');
+    const javaCode = `public class Main {
+  public static int doubleIt(int n) {
+    return n * 2;
+  }
+
+  public static void main(String[] args) {
+    System.out.println(doubleIt(5));
+  }
+}`;
+    const program = new JavaParser(new JavaLexer(javaCode).tokenize()).parse();
+    const workspaceJson = programToBlocksJson(program);
+    const roundTripped = blocksToProgram(workspaceJson);
+
+    expect(roundTripped.body.some((s: any) => s.type === 'FunctionDeclaration')).toBe(true);
+    expect(new Interpreter().interpret(roundTripped, '')).toEqual(['10']);
+  });
+});

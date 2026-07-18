@@ -24,7 +24,7 @@ import type {
   Program,
   Statement,
 } from '../ast';
-import { lvalueName } from '../ast';
+import { lvalueName, isJavaMainClass, javaMainMethod, mainClassHelperStatements } from '../ast';
 import type { BlockState, WorkspaceState } from './serialization';
 
 const COMPARE_OPS: Record<string, string> = {
@@ -58,9 +58,18 @@ class BlocksWriter {
   private variables = new Map<string, string>();
   /** Function name → parameter names, for building caller blocks. */
   private functionParams = new Map<string, string[]>();
+  /** Program body with Java's `Main` wrapper unwrapped: its static fields and
+   *  helper methods become top-level statements, main's body the program. */
+  private statements: Statement[];
 
-  constructor(private program: Program) {
-    for (const stmt of program.body) {
+  constructor(program: Program) {
+    this.statements = program.body.flatMap((stmt) => {
+      if (stmt.type === 'ClassDeclaration' && isJavaMainClass(stmt)) {
+        return [...mainClassHelperStatements(stmt), ...(javaMainMethod(stmt)?.body.body ?? [])];
+      }
+      return [stmt];
+    });
+    for (const stmt of this.statements) {
       if (stmt.type === 'FunctionDeclaration') {
         this.functionParams.set(
           stmt.name,
@@ -74,7 +83,7 @@ class BlocksWriter {
     const topBlocks: BlockState[] = [];
     const mainChain: Statement[] = [];
 
-    for (const stmt of this.program.body) {
+    for (const stmt of this.statements) {
       if (stmt.type === 'FunctionDeclaration') {
         topBlocks.push(this.functionDefinition(stmt));
       } else {

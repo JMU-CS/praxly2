@@ -24,7 +24,7 @@ import type {
   Expression,
   UnaryExpression,
 } from '../ast';
-import { lvalueName } from '../ast';
+import { lvalueName, isJavaMainClass, mainClassHelperStatements } from '../ast';
 
 export class CSPEmitter extends ASTVisitor {
   protected override breakStr = 'BREAK';
@@ -62,31 +62,26 @@ export class CSPEmitter extends ASTVisitor {
 
   // Java requires every statement to live inside `class Main { public static
   // void main(String[] args) { ... } }`. That wrapper carries no OOP meaning —
-  // unwrap it to its body rather than reporting it as unsupported (genuine
-  // user-defined classes still hit visitClassDeclaration's marker below).
-  private isJavaMainClass(c: ClassDeclaration): boolean {
-    return (
-      c.name === 'Main' &&
-      c.body.some(
-        (m) =>
-          m.type === 'MethodDeclaration' &&
-          (m as MethodDeclaration).name === 'main' &&
-          (m as MethodDeclaration).isStatic
-      )
-    );
-  }
-
+  // unwrap it (via the shared isJavaMainClass/mainClassHelperStatements) rather
+  // than reporting it as unsupported (genuine user-defined classes still hit
+  // visitClassDeclaration's marker below).
   visitProgram(program: Program): void {
     const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
     const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
 
-    const mainClass = classes.find((c) => this.isJavaMainClass(c as ClassDeclaration));
-    const otherClasses = classes.filter((c) => !this.isJavaMainClass(c as ClassDeclaration));
+    const mainClass = classes.find((c) => isJavaMainClass(c as ClassDeclaration));
+    const otherClasses = classes.filter((c) => !isJavaMainClass(c as ClassDeclaration));
 
     otherClasses.forEach((c) => this.visitStatement(c));
     nonClasses.forEach((s) => this.visitStatement(s));
 
     if (mainClass) {
+      // Unwrap Main: static fields and helper methods become top-level
+      // statements, then main's body runs as the program.
+      mainClassHelperStatements(mainClass as ClassDeclaration).forEach((stmt) => {
+        this.visitStatement(stmt);
+        if (stmt.type === 'FunctionDeclaration') this.emit('');
+      });
       const mainMethod = (mainClass as ClassDeclaration).body.find(
         (m) => m.type === 'MethodDeclaration' && (m as MethodDeclaration).name === 'main'
       ) as MethodDeclaration | undefined;

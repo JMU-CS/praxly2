@@ -26,6 +26,12 @@ defaulted to `0`/`false`/`null`** — reading it before assigning a value is a r
 This mirrors Java's compile-time "variable might not have been initialized" check, enforced
 dynamically here since Praxly has no static definite-assignment pass.
 
+When a Java program is translated to a language with free functions, the `Main` wrapper
+is unwrapped rather than emitted as a class: `main`'s body becomes the top-level program,
+each other **static method** of `Main` becomes a free function (e.g. a Python `def`, a CSP
+`PROCEDURE`), and each **static field** of `Main` becomes a top-level variable declaration.
+Classes other than `Main` translate as classes (where the target supports them).
+
 ## String Class
 
 - `String(String str)` – Constructs a new `String` object that represents the same sequence of characters as `str`
