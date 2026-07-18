@@ -955,3 +955,61 @@ public class Main {
     expect(out.join('\n')).toMatch(/uninitialized field 'count'/i);
   });
 });
+
+describe('Java Main class unwrapping in translations', () => {
+  const diceProgram = `public class Main {
+  static int bonus = 7;
+
+  public static int newScore(int diceOne, int diceTwo, int oldScore) {
+    if (diceOne == diceTwo) {
+      return 0;
+    } else if (diceOne == 6 || diceTwo == 6) {
+      return oldScore;
+    } else {
+      return oldScore + diceOne + diceTwo;
+    }
+  }
+
+  public static void main(String[] args) {
+    System.out.println(newScore(1, 2, 3));
+    System.out.println(newScore(4, 4, 3));
+    System.out.println(newScore(6, 2, 3) + bonus);
+  }
+}`;
+
+  const parseJava = (code: string) => new JavaParser(new JavaLexer(code).tokenize()).parse();
+
+  it('emits static helper methods as free functions in every target', () => {
+    const program = parseJava(diceProgram);
+    const expectations: Array<[string, RegExp]> = [
+      ['python', /def newScore\(/],
+      ['praxis', /int newScore\(/],
+      ['javascript', /function newScore\(/],
+      ['csp', /PROCEDURE newScore/],
+    ];
+    for (const [target, pattern] of expectations) {
+      const out = new Translator().translate(program, target as any);
+      expect(out, `${target} should keep newScore`).toMatch(pattern);
+    }
+  });
+
+  it('emits static fields as top-level declarations', () => {
+    const program = parseJava(diceProgram);
+    expect(new Translator().translate(program, 'python')).toMatch(/^bonus = 7$/m);
+    expect(new Translator().translate(program, 'praxis')).toMatch(/int bonus ← 7/);
+  });
+
+  it('translated programs reparse and produce the same output as the Java run', () => {
+    const program = parseJava(diceProgram);
+    const javaOutput = new Interpreter().interpret(program, diceProgram);
+    expect(javaOutput).toEqual(['6', '0', '10']);
+
+    const pyCode = new Translator().translate(program, 'python');
+    const pyProgram = new PythonParser(new PythonLexer(pyCode).tokenize()).parse();
+    expect(new Interpreter().interpret(pyProgram, pyCode)).toEqual(javaOutput);
+
+    const praxCode = new Translator().translate(program, 'praxis');
+    const praxProgram = new PraxisParser(new PraxisLexer(praxCode).tokenize()).parse();
+    expect(new Interpreter().interpret(praxProgram, praxCode)).toEqual(javaOutput);
+  });
+});

@@ -17,7 +17,7 @@ import type {
   ForEach,
   Expression,
 } from '../ast';
-import { lvalueName } from '../ast';
+import { lvalueName, isJavaMainClass, mainClassHelperStatements } from '../ast';
 
 export class JavaScriptEmitter extends ASTVisitor {
   // Track declared variable names so we only emit `let` on first assignment
@@ -64,8 +64,8 @@ export class JavaScriptEmitter extends ASTVisitor {
     const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
     const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
 
-    const mainClass = classes.find((c) => this.isJavaMainClass(c as ClassDeclaration));
-    const otherClasses = classes.filter((c) => !this.isJavaMainClass(c as ClassDeclaration));
+    const mainClass = classes.find((c) => isJavaMainClass(c as ClassDeclaration));
+    const otherClasses = classes.filter((c) => !isJavaMainClass(c as ClassDeclaration));
 
     otherClasses.forEach((c) => {
       this.visitClassDeclaration(c as ClassDeclaration);
@@ -82,23 +82,17 @@ export class JavaScriptEmitter extends ASTVisitor {
     mainBody.forEach((s) => this.visitStatement(s));
 
     if (mainClass) {
+      // Unwrap Main: static fields and helper methods become top-level
+      // statements, then main's body runs as the program.
+      mainClassHelperStatements(mainClass as ClassDeclaration).forEach((stmt) => {
+        this.visitStatement(stmt);
+        if (stmt.type === 'FunctionDeclaration') this.emit('');
+      });
       const mainMethod = (mainClass as ClassDeclaration).body.find(
         (m) => m.type === 'MethodDeclaration' && (m as MethodDeclaration).name === 'main'
       ) as MethodDeclaration | undefined;
       if (mainMethod) this.visitBlock(mainMethod.body);
     }
-  }
-
-  private isJavaMainClass(c: ClassDeclaration): boolean {
-    return (
-      c.name === 'Main' &&
-      c.body.some(
-        (m) =>
-          m.type === 'MethodDeclaration' &&
-          (m as MethodDeclaration).name === 'main' &&
-          (m as MethodDeclaration).isStatic
-      )
-    );
   }
 
   visitClassDeclaration(classDecl: ClassDeclaration): void {

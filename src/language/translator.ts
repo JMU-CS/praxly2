@@ -3,8 +3,8 @@
  * Analyzes the program for type and scope information, then dispatches to language-specific emitters.
  */
 
-import type { Program, Statement, Expression, Block } from './ast';
-import { lvalueName } from './ast';
+import type { Program, Statement, Expression, Block, ClassDeclaration } from './ast';
+import { lvalueName, isJavaMainClass } from './ast';
 import {
   type TargetLanguage,
   type TranslationContext,
@@ -346,6 +346,28 @@ export class Translator {
     };
 
     const functions = program.body.filter((s) => s.type === 'FunctionDeclaration');
+
+    // Static helper methods of Java's `Main` wrapper are unwrapped to free
+    // functions by the emitters — register their (declared) return types so
+    // calls from main's body infer correctly.
+    const mainWrapper = program.body.find(
+      (s): s is ClassDeclaration => s.type === 'ClassDeclaration' && isJavaMainClass(s)
+    );
+    if (mainWrapper) {
+      for (const member of mainWrapper.body) {
+        if (member.type !== 'MethodDeclaration' || !member.isStatic || member.name === 'main') {
+          continue;
+        }
+        const declared =
+          member.returnType && !['void', 'auto', 'var'].includes(member.returnType)
+            ? member.returnType
+            : '';
+        const returnType = declared || analyzeReturnType(member.body);
+        if (returnType && returnType !== 'void' && returnType !== 'var') {
+          context.functionReturnTypes.set(member.name, returnType);
+        }
+      }
+    }
 
     // Multi-pass dependency resolution for chained nested procedures (max_two -> max_three)
     let changed = true;
