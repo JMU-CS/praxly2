@@ -1,18 +1,19 @@
 /**
  * useCodeDebugger hook that manages debugging state and logic for stepping through code execution.
- * Tracks highlighted lines, variables, and debug step information for both source and translated code.
+ * Tracks highlighted lines, variables, and the call stack for both source and translated code.
  */
 
 import { useState, useCallback } from 'react';
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';
-import { Debugger, type DebugStep } from '../language/debugger';
-import { getRangeLines, findNodesAtLocation } from '../utils/debuggerUtils';
+import { Debugger, type DebugStep, type StackFrame } from '../language/debugger';
+import { getRangeLines } from '../utils/debuggerUtils';
 import type { SourceMap } from './useCodeParsing';
 
 interface DebugStepResult {
   sourceHighlightedLines: number[];
   translationHighlightedLines: number[];
+  /** Cumulative program output up to this step. */
   outputLines: string[];
   isComplete: boolean;
   step: DebugStep | null;
@@ -33,25 +34,23 @@ export const useCodeDebugger = (
   const [highlightedSourceLines, setHighlightedSourceLines] = useState<number[]>([]);
   const [highlightedTranslationLines, setHighlightedTranslationLines] = useState<number[]>([]);
   const [currentVariables, setCurrentVariables] = useState<Record<string, any>>({});
+  const [currentCallStack, setCurrentCallStack] = useState<StackFrame[]>([]);
   const [waitingForInput, setWaitingForInput] = useState(false);
   const [inputPrompt, setInputPrompt] = useState('');
 
   const initDebugger = useCallback(
     (ast: Program | null, lang: SupportedLang, sourceCode: string = '') => {
       if (!ast) return;
-      try {
-        const debugInstance = new Debugger();
-        debugInstance.init(ast, lang, sourceCode);
-        setDebuggerInstance(debugInstance);
-        setIsDebugging(true);
-        setIsDebugComplete(false);
-        setCurrentVariables({});
-        setHighlightedSourceLines([]);
-        setHighlightedTranslationLines([]);
-        return true;
-      } catch (e) {
-        throw e;
-      }
+      const debugInstance = new Debugger();
+      debugInstance.init(ast, lang, sourceCode);
+      setDebuggerInstance(debugInstance);
+      setIsDebugging(true);
+      setIsDebugComplete(false);
+      setCurrentVariables({});
+      setCurrentCallStack([]);
+      setHighlightedSourceLines([]);
+      setHighlightedTranslationLines([]);
+      return true;
     },
     []
   );
@@ -64,90 +63,39 @@ export const useCodeDebugger = (
     ): DebugStepResult | null => {
       if (!debuggerInstance || !ast || !sourceCode) return null;
 
-      try {
-        const step = debuggerInstance.step();
-        if (!step) return null;
+      const step = debuggerInstance.step();
+      if (!step) return null;
 
-        setCurrentVariables(step.variables);
+      setCurrentVariables(step.variables);
+      setCurrentCallStack(step.callStack);
+      setWaitingForInput(Boolean(step.waitingForInput));
+      setInputPrompt(step.waitingForInput ? step.inputPrompt || '' : '');
 
-        // Handle input prompt
-        if (step.waitingForInput) {
-          setWaitingForInput(true);
-          setInputPrompt(step.inputPrompt || '');
-          return {
-            sourceHighlightedLines: [],
-            translationHighlightedLines: [],
-            outputLines: [step.inputPrompt || 'Waiting for input...'],
-            isComplete: false,
-            step,
-          };
-        }
-
-        setWaitingForInput(false);
-        setInputPrompt('');
-
-        let sourceHighlightedLines: number[] = [];
-        let translationHighlightedLines: number[] = [];
-
-        if (step.sourceLocation) {
-          const nodesAtLocation = findNodesAtLocation(ast, step.sourceLocation.start);
-
-          // Highlight source lines
-          const sourceHighlights = new Set<number>();
-          for (const node of nodesAtLocation) {
-            if (node.loc) {
-              const nodeLines = getRangeLines(sourceCode, node.loc.start);
-              nodeLines.forEach((line) => sourceHighlights.add(line));
-            }
-          }
-          sourceHighlightedLines = Array.from(sourceHighlights);
-
-          // Highlight translation lines
-          const translation = getTranslation(ast, currentTargetLang);
-          const translationSourceMap = translation.sourceMap;
-          const nodeIds = nodesAtLocation.map((n) => n.id);
-
-          for (const nodeId of nodeIds) {
-            const mapEntry = translationSourceMap.get
-              ? translationSourceMap.get(nodeId)
-              : (translationSourceMap as any)[nodeId];
-
-            if (mapEntry !== undefined) {
-              if (typeof mapEntry === 'object' && 'lineStart' in mapEntry) {
-                translationHighlightedLines.push(mapEntry.lineStart - 1);
-              } else if (typeof mapEntry === 'number') {
-                translationHighlightedLines.push(mapEntry);
-              }
-            }
-          }
-        }
-
-        setHighlightedSourceLines(sourceHighlightedLines);
-        setHighlightedTranslationLines(translationHighlightedLines);
-
-        const outputLines: string[] = [];
-        outputLines.push(`--- Step ${step.stepNumber} ---`);
-        outputLines.push(`Node: ${step.nodeType}`);
-        if (step.sourceLocation) {
-          outputLines.push(`Location: ${step.sourceLocation.start} - ${step.sourceLocation.end}`);
-        }
-        outputLines.push('');
-
-        if (step.isComplete) {
-          setIsDebugComplete(true);
-          outputLines.push('Execution complete.');
-        }
-
-        return {
-          sourceHighlightedLines,
-          translationHighlightedLines,
-          outputLines,
-          isComplete: step.isComplete,
-          step,
-        };
-      } catch (e) {
-        throw e;
+      // Highlight exactly the node being executed — in the source via its
+      // character range, in the translation via the emitter's source map.
+      const sourceHighlightedLines = step.sourceLocation
+        ? getRangeLines(sourceCode, step.sourceLocation.start)
+        : [];
+      let translationHighlightedLines: number[] = [];
+      if (step.nodeId) {
+        const line = getTranslation(ast, currentTargetLang).sourceMap.get(step.nodeId);
+        if (line !== undefined) translationHighlightedLines = [line];
       }
+
+      setHighlightedSourceLines(sourceHighlightedLines);
+      setHighlightedTranslationLines(translationHighlightedLines);
+
+      if (step.isComplete) {
+        setIsDebugComplete(true);
+      }
+
+      return {
+        sourceHighlightedLines,
+        translationHighlightedLines,
+        outputLines: step.output,
+        isComplete: step.isComplete,
+        step,
+      };
     },
     [debuggerInstance, getTranslation]
   );
@@ -159,6 +107,7 @@ export const useCodeDebugger = (
     setHighlightedTranslationLines([]);
     setIsDebugComplete(false);
     setCurrentVariables({});
+    setCurrentCallStack([]);
     setWaitingForInput(false);
     setInputPrompt('');
   }, []);
@@ -185,6 +134,7 @@ export const useCodeDebugger = (
     setHighlightedTranslationLines,
     currentVariables,
     setCurrentVariables,
+    currentCallStack,
     waitingForInput,
     inputPrompt,
     initDebugger,

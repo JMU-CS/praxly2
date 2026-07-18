@@ -392,7 +392,7 @@ export class PythonEmitter extends ASTVisitor {
 
     while (currentElse && currentElse.body.length === 1 && currentElse.body[0].type === 'If') {
       const elifStmt = currentElse.body[0];
-      this.emit(`elif ${this.generateExpression(elifStmt.condition, 0)}:`);
+      this.emit(`elif ${this.generateExpression(elifStmt.condition, 0)}:`, elifStmt.id);
       this.indent();
       this.visitBlock(elifStmt.thenBranch);
       this.dedent();
@@ -422,7 +422,7 @@ export class PythonEmitter extends ASTVisitor {
    * Python lacks do-while, so implements as while True with break condition.
    */
   visitDoWhile(stmt: any): void {
-    this.emit(`while True:`);
+    this.emit(`while True:`, stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.emit(`if not (${this.generateExpression(stmt.condition, 0)}):`);
@@ -460,10 +460,13 @@ export class PythonEmitter extends ASTVisitor {
     stmt.cases.forEach((caseStmt: any) => {
       if (caseStmt.test) {
         const keyword = first ? 'if' : 'elif';
-        this.emit(`${keyword} ${discriminant} == ${this.generateExpression(caseStmt.test, 0)}:`);
+        this.emit(
+          `${keyword} ${discriminant} == ${this.generateExpression(caseStmt.test, 0)}:`,
+          first ? stmt.id : undefined
+        );
         first = false;
       } else {
-        this.emit(`else:`);
+        this.emit(`else:`, first ? stmt.id : undefined);
       }
       this.indent();
       let emittedBody = false;
@@ -480,15 +483,15 @@ export class PythonEmitter extends ASTVisitor {
   /**
    * Visits break and returns the result.
    */
-  visitBreak(_stmt: any): void {
-    this.emit('break');
+  visitBreak(stmt: any): void {
+    this.emit('break', stmt.id);
   }
 
   /**
    * Visits continue and returns the result.
    */
-  visitContinue(_stmt: any): void {
-    this.emit('continue');
+  visitContinue(stmt: any): void {
+    this.emit('continue', stmt.id);
   }
 
   /**
@@ -630,7 +633,7 @@ export class PythonEmitter extends ASTVisitor {
    * Supports multiple except blocks and optional finally cleanup block.
    */
   visitTry(stmt: any): void {
-    this.emit('try:');
+    this.emit('try:', stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();
