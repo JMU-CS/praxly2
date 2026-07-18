@@ -201,7 +201,7 @@ export function EditorHeader({
               <div className="px-4 py-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-widest text-slate-400">
                 Display
               </div>
-              <div className="px-4 pb-4">
+              <div className="px-4 pt-3 pb-4">
                 <label
                   htmlFor="text-size-slider"
                   className="flex items-center gap-2 text-sm text-slate-200 mb-3"
