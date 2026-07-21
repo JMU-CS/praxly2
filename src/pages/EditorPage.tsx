@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { DragEvent, MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
 import type { EditorView, ViewUpdate } from '@codemirror/view';
 
 import type { Program } from '../language/ast';
@@ -106,11 +105,8 @@ export default function EditorPage() {
   // Language the user asked to switch to when the program couldn't be
   // translated — non-null while the "start fresh?" dialog is open.
   const [pendingLangSwitch, setPendingLangSwitch] = useState<SupportedLang | null>(null);
-  // Highlight-to-chat: text selected in the source editor + where to float the button.
+  // Highlight-to-chat: text selected in the source editor, shown as a chip in the AI panel.
   const [aiSelection, setAiSelection] = useState('');
-  const [aiSelectionCoords, setAiSelectionCoords] = useState<{ top: number; left: number } | null>(
-    null
-  );
   const [resizingMemDiaPaneId, setResizingMemDiaPaneId] = useState<string | null>(null);
   const [memDiaHeights, setMemDiaHeights] = useState<Record<string, number>>({});
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
@@ -437,21 +433,13 @@ export default function EditorPage() {
 
   // Track the current source-editor selection so the user can chat about it.
   const handleEditorUpdate = useCallback((update: ViewUpdate) => {
-    if (!update.selectionSet && !update.docChanged && !update.geometryChanged) return;
+    if (!update.selectionSet && !update.docChanged) return;
     const sel = update.state.selection.main;
-    if (sel.empty) {
-      setAiSelection('');
-      setAiSelectionCoords(null);
-      return;
-    }
-    setAiSelection(update.state.sliceDoc(sel.from, sel.to));
-    const coords = update.view.coordsAtPos(sel.to);
-    setAiSelectionCoords(coords ? { top: coords.bottom + 4, left: coords.left } : null);
+    setAiSelection(sel.empty ? '' : update.state.sliceDoc(sel.from, sel.to));
   }, []);
 
   const clearAiSelection = useCallback(() => {
     setAiSelection('');
-    setAiSelectionCoords(null);
   }, []);
 
   useEffect(() => {
@@ -1349,25 +1337,6 @@ export default function EditorPage() {
             }}
             onCancel={() => setPendingLangSwitch(null)}
           />
-        )}
-
-        {/* Highlight-to-chat: floating button near the editor selection. */}
-        {aiSelection && aiSelectionCoords && (
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setShowAiSidePanel(true)}
-            style={{
-              position: 'fixed',
-              top: aiSelectionCoords.top,
-              left: aiSelectionCoords.left,
-              zIndex: 300,
-            }}
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-600 text-white text-xs font-medium shadow-lg hover:bg-indigo-500 transition-colors"
-            title="Ask the AI about the selected code"
-          >
-            <Sparkles size={12} />
-            Ask AI
-          </button>
         )}
       </main>
     </div>

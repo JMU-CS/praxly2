@@ -11,11 +11,9 @@ import {
   Check,
   Settings,
   Type,
-  UserCircle,
 } from 'lucide-react';
 import type { ExampleProgram } from '../../utils/sampleCodes';
 import { EXAMPLE_CATEGORIES } from '../../utils/sampleCodes';
-import keycloak from '../../api/keycloak';
 
 /** 1–5 integer controlling editor-wide font size (maps to 12–20 px). */
 export type TextSize = number;
@@ -221,27 +219,6 @@ export function EditorHeader({
             </div>
           )}
         </div>
-
-        {/* Account — Google-style account manager (sign-in required) */}
-        {keycloak.authenticated ? (
-          <Link
-            to="/v2/account"
-            aria-label="Manage your account"
-            title="Manage your account"
-            className={`p-1.5 rounded-full text-slate-300 hover:text-white hover:bg-slate-800 transition-colors ${focusRing}`}
-          >
-            <UserCircle size={22} aria-hidden="true" />
-          </Link>
-        ) : (
-          <button
-            onClick={() => keycloak.login()}
-            aria-label="Sign in"
-            title="Sign in"
-            className={`p-1.5 rounded-full text-slate-500 hover:text-white hover:bg-slate-800 transition-colors ${focusRing}`}
-          >
-            <UserCircle size={22} aria-hidden="true" />
-          </button>
-        )}
 
         {/* Debug / Run controls */}
         {!isDebugging ? (

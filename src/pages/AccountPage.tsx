@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Check,
+  Eye,
+  EyeOff,
   KeyRound,
   LogOut,
   MessageSquare,
@@ -22,7 +24,7 @@ import {
   type AccountUsage,
 } from '../api/account';
 import { listChats, deleteChatApi, renameChatApi, type SessionMeta } from '../api/chat';
-import { useChatStore } from '../store/appStore';
+import { useByokStore, useChatStore, type ByokProvider } from '../store/appStore';
 
 /**
  * Google-Account-style manager for the user's Keycloak account:
@@ -30,12 +32,13 @@ import { useChatStore } from '../store/appStore';
  * (usage stats + chat history management).
  */
 
-type Section = 'home' | 'personal' | 'security' | 'data';
+type Section = 'home' | 'personal' | 'security' | 'ai' | 'data';
 
 const NAV: Array<{ id: Section; label: string; icon: typeof User }> = [
   { id: 'home', label: 'Home', icon: User },
   { id: 'personal', label: 'Personal info', icon: Pencil },
   { id: 'security', label: 'Security', icon: ShieldCheck },
+  { id: 'ai', label: 'AI model & API key', icon: KeyRound },
   { id: 'data', label: 'Data & activity', icon: MessageSquare },
 ];
 
@@ -224,6 +227,8 @@ export default function AccountPage() {
             <PersonalSection profile={profile} setProfile={setProfile} notify={notify} />
           ) : section === 'security' ? (
             <SecuritySection notify={notify} />
+          ) : section === 'ai' ? (
+            <AiSettingsSection notify={notify} />
           ) : (
             <DataSection usage={usage} chats={chats} setChats={setChats} notify={notify} />
           )}
@@ -482,6 +487,128 @@ function SecuritySection({
         <div className="pt-2">
           <button onClick={handleSubmit} disabled={!canSubmit} className={primaryBtnCls}>
             {saving ? 'Changing…' : 'Change password'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AI model & API key ───────────────────────────────────────────────────────
+
+const PROVIDER_OPTIONS: Array<{ value: ByokProvider | ''; label: string; hint?: string }> = [
+  { value: '', label: 'School-provided model (default)' },
+  { value: 'gemini', label: 'Gemini', hint: 'aistudio.google.com/apikey' },
+  { value: 'anthropic', label: 'Claude', hint: 'console.anthropic.com' },
+  { value: 'openai', label: 'ChatGPT', hint: 'platform.openai.com/api-keys' },
+];
+
+function AiSettingsSection({
+  notify,
+}: {
+  notify: (kind: 'success' | 'error', text: string) => void;
+}) {
+  const { provider, apiKey, model, setByok, clearByok } = useByokStore();
+
+  const [draftProvider, setDraftProvider] = useState<ByokProvider | ''>(provider ?? '');
+  const [draftKey, setDraftKey] = useState(apiKey);
+  const [draftModel, setDraftModel] = useState(model);
+  const [showKey, setShowKey] = useState(false);
+
+  const needsKey = draftProvider !== '';
+  const canSave = !needsKey || draftKey.trim().length > 0;
+  const hint = PROVIDER_OPTIONS.find((o) => o.value === draftProvider)?.hint;
+
+  const handleSave = () => {
+    if (!canSave) return;
+    if (draftProvider === '') {
+      clearByok();
+      notify('success', 'Using the school-provided model.');
+    } else {
+      setByok({ provider: draftProvider, apiKey: draftKey.trim(), model: draftModel.trim() });
+      notify('success', 'API key saved.');
+    }
+  };
+
+  return (
+    <div className={`${cardCls} divide-y divide-slate-800`}>
+      <div className="p-6">
+        <h2 className="text-lg text-slate-100">AI model &amp; API key</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          The AI Assistant runs on the school-provided model by default. If you have your own API
+          key you can use it instead — it stays in this browser and is only used to make your
+          requests.
+        </p>
+      </div>
+      <div className="space-y-4 p-6 max-w-md">
+        <div>
+          <label htmlFor="byok-provider" className="mb-1 block text-xs font-medium text-slate-500">
+            Provider
+          </label>
+          <select
+            id="byok-provider"
+            value={draftProvider}
+            onChange={(e) => setDraftProvider(e.target.value as ByokProvider | '')}
+            className={inputCls}
+          >
+            {PROVIDER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {needsKey && (
+          <>
+            <div>
+              <label htmlFor="byok-key" className="mb-1 block text-xs font-medium text-slate-500">
+                API key
+              </label>
+              <div className="relative">
+                <input
+                  id="byok-key"
+                  type={showKey ? 'text' : 'password'}
+                  value={draftKey}
+                  onChange={(e) => setDraftKey(e.target.value)}
+                  placeholder="Paste your API key"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={`${inputCls} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-200 transition-colors"
+                  title={showKey ? 'Hide key' : 'Show key'}
+                >
+                  {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {hint && <p className="mt-1 text-xs text-slate-500">Get a key at {hint}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="byok-model" className="mb-1 block text-xs font-medium text-slate-500">
+                Model <span className="font-normal text-slate-500">(optional)</span>
+              </label>
+              <input
+                id="byok-model"
+                type="text"
+                value={draftModel}
+                onChange={(e) => setDraftModel(e.target.value)}
+                placeholder="Leave blank for the recommended model"
+                autoComplete="off"
+                spellCheck={false}
+                className={inputCls}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="pt-2">
+          <button onClick={handleSave} disabled={!canSave} className={primaryBtnCls}>
+            Save
           </button>
         </div>
       </div>

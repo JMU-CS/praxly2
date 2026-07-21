@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { History, KeyRound, LogIn, Plus, UserRound, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { History, LogIn, Plus, UserCircle, UserRound, X } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import Fuse from 'fuse.js';
 import keycloak from '../../api/keycloak';
 import { listChats, getChat, deleteChatApi, renameChatApi, toSimpleMessages } from '../../api/chat';
 import { type LlmPanel, type SimpleMessage, type TurnIds } from '../../api/llm';
-import { useByokStore, useChatStore, type SessionMeta } from '../../store/appStore';
+import { useChatStore, type SessionMeta } from '../../store/appStore';
 import { randomId } from '../../utils/id';
 import { ChatThread, type Chat } from '../ai/ChatThread';
 import { HistoryPanel } from '../ai/HistoryPanel';
-import { ApiKeySettings } from '../ai/ApiKeySettings';
 import { ProfileSettings } from '../ai/ProfileSettings';
 import { TypingDots } from '../ai/MessageComponents';
 
@@ -62,12 +62,10 @@ export function AiSidePanel({
     setMessages,
     getCachedMessages,
   } = useChatStore();
-  const byokProvider = useByokStore((s) => s.provider);
 
   const [localChats, setLocalChats] = useState<Chat[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [showKeySettings, setShowKeySettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [search, setSearch] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -188,7 +186,6 @@ export function AiSidePanel({
     setLocalChats((prev) => [c, ...prev]);
     setActiveId(c.id);
     setShowHistory(false);
-    setShowKeySettings(false);
     setShowProfile(false);
   }, []);
 
@@ -254,7 +251,6 @@ export function AiSidePanel({
           <button
             onClick={() => {
               setShowHistory((s) => !s);
-              setShowKeySettings(false);
               setShowProfile(false);
             }}
             className={`${iconBtn} ${showHistory ? 'text-indigo-300 bg-slate-800' : ''}`}
@@ -266,30 +262,21 @@ export function AiSidePanel({
             onClick={() => {
               setShowProfile((s) => !s);
               setShowHistory(false);
-              setShowKeySettings(false);
             }}
             className={`${iconBtn} ${showProfile ? 'text-indigo-300 bg-slate-800' : ''}`}
             title="Tutor profile"
           >
             <UserRound size={18} />
           </button>
-          <button
-            onClick={() => {
-              setShowKeySettings((s) => !s);
-              setShowHistory(false);
-              setShowProfile(false);
-            }}
-            className={`${iconBtn} relative ${showKeySettings ? 'text-indigo-300 bg-slate-800' : ''}`}
-            title="AI model & API key"
-          >
-            <KeyRound size={18} />
-            {byokProvider && (
-              <span
-                className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400"
-                title={`Using your ${byokProvider} key`}
-              />
-            )}
-          </button>
+          {keycloak.authenticated ? (
+            <Link to="/v2/account" className={iconBtn} title="Manage your account">
+              <UserCircle size={18} />
+            </Link>
+          ) : (
+            <button onClick={() => keycloak.login()} className={iconBtn} title="Sign in">
+              <UserCircle size={18} />
+            </button>
+          )}
           <button onClick={onClose} className={iconBtn} title="Close AI panel">
             <X size={18} />
           </button>
@@ -309,8 +296,6 @@ export function AiSidePanel({
         </div>
       ) : showProfile ? (
         <ProfileSettings onDone={() => setShowProfile(false)} />
-      ) : showKeySettings ? (
-        <ApiKeySettings onDone={() => setShowKeySettings(false)} />
       ) : showHistory ? (
         <HistoryPanel
           chats={filteredChats}
