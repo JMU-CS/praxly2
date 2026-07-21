@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { History, KeyRound, LogIn, Plus, X } from 'lucide-react';
+import { History, KeyRound, LogIn, Plus, UserRound, X } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import Fuse from 'fuse.js';
 import keycloak from '../../api/keycloak';
@@ -10,6 +10,7 @@ import { randomId } from '../../utils/id';
 import { ChatThread, type Chat } from '../ai/ChatThread';
 import { HistoryPanel } from '../ai/HistoryPanel';
 import { ApiKeySettings } from '../ai/ApiKeySettings';
+import { ProfileSettings } from '../ai/ProfileSettings';
 import { TypingDots } from '../ai/MessageComponents';
 
 interface AiSidePanelProps {
@@ -67,6 +68,7 @@ export function AiSidePanel({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showKeySettings, setShowKeySettings] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [search, setSearch] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
 
@@ -187,6 +189,7 @@ export function AiSidePanel({
     setActiveId(c.id);
     setShowHistory(false);
     setShowKeySettings(false);
+    setShowProfile(false);
   }, []);
 
   const openChat = useCallback((id: string) => {
@@ -252,6 +255,7 @@ export function AiSidePanel({
             onClick={() => {
               setShowHistory((s) => !s);
               setShowKeySettings(false);
+              setShowProfile(false);
             }}
             className={`${iconBtn} ${showHistory ? 'text-indigo-300 bg-slate-800' : ''}`}
             title="Chat history"
@@ -260,8 +264,20 @@ export function AiSidePanel({
           </button>
           <button
             onClick={() => {
+              setShowProfile((s) => !s);
+              setShowHistory(false);
+              setShowKeySettings(false);
+            }}
+            className={`${iconBtn} ${showProfile ? 'text-indigo-300 bg-slate-800' : ''}`}
+            title="Tutor profile"
+          >
+            <UserRound size={18} />
+          </button>
+          <button
+            onClick={() => {
               setShowKeySettings((s) => !s);
               setShowHistory(false);
+              setShowProfile(false);
             }}
             className={`${iconBtn} relative ${showKeySettings ? 'text-indigo-300 bg-slate-800' : ''}`}
             title="AI model & API key"
@@ -291,6 +307,8 @@ export function AiSidePanel({
             Sign in
           </button>
         </div>
+      ) : showProfile ? (
+        <ProfileSettings onDone={() => setShowProfile(false)} />
       ) : showKeySettings ? (
         <ApiKeySettings onDone={() => setShowKeySettings(false)} />
       ) : showHistory ? (

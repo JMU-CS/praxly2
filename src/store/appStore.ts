@@ -49,6 +49,52 @@ export const useByokStore = create<ByokStore>()(
   )
 );
 
+/** Who the user is and how the tutor should pitch its answers. */
+export type AiRole = 'student' | 'teacher';
+export type AiLevel = 'novice' | 'intermediate' | 'advanced';
+/** Which tutoring use case the panel is in; 'auto' lets the AI infer it. */
+export type AiUseCase = 'auto' | 'explain' | 'tutor' | 'practice';
+
+interface AiPrefsStore {
+  role: AiRole;
+  level: AiLevel;
+  useCase: AiUseCase;
+  setRole: (role: AiRole) => void;
+  setLevel: (level: AiLevel) => void;
+  setUseCase: (useCase: AiUseCase) => void;
+}
+
+/**
+ * Tutor profile preferences. Persisted so the choice survives refreshes; sent
+ * with every chat request so the backend can fill the prompt's user_role,
+ * user_level, and use_case variables.
+ */
+export const useAiPrefsStore = create<AiPrefsStore>()(
+  persist(
+    (set) => ({
+      role: 'student',
+      level: 'novice',
+      useCase: 'auto',
+      setRole: (role) => set({ role }),
+      setLevel: (level) => set({ level }),
+      setUseCase: (useCase) => set({ useCase }),
+    }),
+    { name: 'praxly-ai-prefs' }
+  )
+);
+
+interface EditorBridge {
+  /** Registered by EditorPage; lets AI chat code blocks open in the editor. */
+  openCode: ((code: string, language: string) => void) | null;
+  setOpenCode: (fn: EditorBridge['openCode']) => void;
+}
+
+/** Not persisted — just a live callback bridge between the chat panel and the editor. */
+export const useEditorBridge = create<EditorBridge>()((set) => ({
+  openCode: null,
+  setOpenCode: (openCode) => set({ openCode }),
+}));
+
 /**
  * Drops sessions whose id was already seen, keeping the first occurrence.
  * The store must never hold two entries for one backend session — duplicates

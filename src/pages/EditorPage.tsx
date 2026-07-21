@@ -32,6 +32,7 @@ import { SourcePane } from '../components/editor/SourcePane';
 import { TranslationPaneItem } from '../components/editor/TranslationPaneItem';
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
 import { AiSidePanel } from '../components/editor/AiSidePanel';
+import { useEditorBridge } from '../store/appStore';
 import type { LlmPanel } from '../api/llm';
 import type { Panel } from '../components/editor/types';
 
@@ -634,6 +635,38 @@ export default function EditorPage() {
   const handleToggleAiPanel = () => {
     setShowAiSidePanel((prev) => !prev);
   };
+
+  // "Open in editor" on AI chat code blocks: replaces the source editor's
+  // contents (same reset pattern as loading an example). The fence's language
+  // tag switches the source language when it names one Praxly supports.
+  useEffect(() => {
+    const fenceLangMap: Record<string, SupportedLang> = {
+      praxis: 'praxis',
+      python: 'python',
+      py: 'python',
+      java: 'java',
+      csp: 'csp',
+      javascript: 'javascript',
+      js: 'javascript',
+    };
+    useEditorBridge.getState().setOpenCode((newCode, fenceLang) => {
+      const lang = fenceLangMap[fenceLang.trim().toLowerCase()];
+      if (lang) {
+        setSourceLang(lang);
+        setPanels((prev) => prev.filter((panel) => panel.lang !== lang));
+      }
+      setCode(newCode);
+      setOutput([]);
+      setError(null);
+      setIsDebugging(false);
+      setIsDebugComplete(false);
+      setHighlightedSourceLines([]);
+      setPanelHighlightedLines(new Map());
+      setWaitingForNormalInput(false);
+      setCurrentInterpreter(null);
+    });
+    return () => useEditorBridge.getState().setOpenCode(null);
+  }, [setIsDebugging, setIsDebugComplete, setHighlightedSourceLines]);
 
   // Shared by both AI-panel resize handles (the panel's left edge and the
   // left edge of the add-panel strip): they move in lockstep because the

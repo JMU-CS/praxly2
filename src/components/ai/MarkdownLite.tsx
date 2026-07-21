@@ -1,4 +1,6 @@
 import { Fragment, useMemo } from 'react';
+import { SquareArrowOutUpRight } from 'lucide-react';
+import { useEditorBridge } from '../../store/appStore';
 
 /**
  * Minimal markdown renderer for chat messages — handles exactly what the
@@ -61,17 +63,28 @@ function InlineText({ text }: { text: string }) {
 
 export function MarkdownLite({ text }: { text: string }) {
   const segments = useMemo(() => splitFences(text), [text]);
+  const openCode = useEditorBridge((s) => s.openCode);
 
   return (
     <div className="space-y-2">
       {segments.map((segment, i) =>
         segment.kind === 'code' ? (
           <div key={i} className="overflow-hidden rounded-md border border-slate-700">
-            {segment.language && (
-              <div className="border-b border-slate-700 bg-slate-950/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                {segment.language}
-              </div>
-            )}
+            <div className="flex items-center justify-between border-b border-slate-700 bg-slate-950/80 px-2.5 py-1">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                {segment.language || 'code'}
+              </span>
+              {openCode && segment.content.trim().length > 0 && (
+                <button
+                  onClick={() => openCode(segment.content, segment.language ?? '')}
+                  title="Open this code in the editor (replaces what's there)"
+                  className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-indigo-300 transition-colors"
+                >
+                  <SquareArrowOutUpRight size={11} />
+                  Open in editor
+                </button>
+              )}
+            </div>
             <pre className="overflow-x-auto bg-slate-950/60 px-2.5 py-2">
               <code className="font-mono text-[0.9em] leading-relaxed text-slate-200">
                 {segment.content}

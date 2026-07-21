@@ -1,5 +1,5 @@
 import { BACKEND_URL, requireAuthHeaders } from './config';
-import { useByokStore } from '../store/appStore';
+import { useAiPrefsStore, useByokStore } from '../store/appStore';
 
 /**
  * Talks to the k12-llm-backend (Hono / Node) through Keycloak auth.
@@ -78,6 +78,11 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
       parentMessageId: opts.parentMessageId ?? undefined,
       code: primaryPanel?.code,
       language: primaryPanel?.language,
+      // Tutor profile — fills the prompt's user_role / user_level / use_case
+      // variables (ignored by the backend until it supports them).
+      role: useAiPrefsStore.getState().role,
+      level: useAiPrefsStore.getState().level,
+      useCase: useAiPrefsStore.getState().useCase,
     }),
     signal: opts.signal,
   });
