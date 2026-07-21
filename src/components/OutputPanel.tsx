@@ -7,6 +7,8 @@ export type OutputPanelState = 'open' | 'closed';
 interface OutputPanelProps {
   output: string[];
   error?: string | null;
+  /** False until the user's first Run/Debug — suppresses the placeholder after that. */
+  hasRun?: boolean;
   variables?: Record<string, any>;
   showVariables?: boolean;
   height?: number;
@@ -44,6 +46,7 @@ const formatVariableValue = (value: any): string => {
 export const OutputPanel: React.FC<OutputPanelProps> = ({
   output,
   error,
+  hasRun = false,
   variables = {},
   showVariables = false,
   height,
@@ -150,7 +153,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             aria-label="Program output"
             aria-atomic="false"
           >
-            {output.length === 0 && !error ? (
+            {!hasRun && output.length === 0 && !error ? (
               <div className="text-slate-400 italic">Run code to see execution results...</div>
             ) : (
               output.map((line, idx) => {

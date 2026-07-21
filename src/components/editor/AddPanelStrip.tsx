@@ -1,22 +1,16 @@
-import { Plus, FileJson, Check, Bot } from 'lucide-react';
-import type { MouseEvent } from 'react';
+import { FileJson, Bot, BrainCircuit } from 'lucide-react';
 
 import { LANG_LABELS, type SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
 import type { Panel } from './types';
 
 interface AddPanelStripProps {
-  showAddMenu: boolean;
-  sourceLang: SupportedLang;
   panels: Panel[];
   showAiSidePanel: boolean;
-  /** True while the AI panel is being resized (highlights the handle). */
-  aiResizeActive: boolean;
-  onToggleMenu: () => void;
+  showMemDia: boolean;
   onTogglePanel: (lang: SupportedLang) => void;
   onToggleAiPanel: () => void;
-  /** Starts an AI-panel resize drag from this strip's left edge. */
-  onStartAiResize: (e: MouseEvent) => void;
+  onToggleMemDia: () => void;
 }
 
 const PANEL_LANGS: SupportedLang[] = [
@@ -29,106 +23,60 @@ const PANEL_LANGS: SupportedLang[] = [
   'python',
 ];
 
+const toggleButtonClasses = (active: boolean) =>
+  `p-3 rounded-xl transition-all shadow-lg active:scale-90 border ${
+    active
+      ? 'bg-indigo-600 text-white border-indigo-500'
+      : 'bg-slate-800 hover:bg-indigo-600 text-indigo-400 hover:text-white border-slate-700'
+  }`;
+
 export function AddPanelStrip({
-  showAddMenu,
-  sourceLang,
   panels,
   showAiSidePanel,
-  aiResizeActive,
-  onToggleMenu,
+  showMemDia,
   onTogglePanel,
   onToggleAiPanel,
-  onStartAiResize,
+  onToggleMemDia,
 }: AddPanelStripProps) {
   return (
-    <div className="add-panel-dropdown w-16 flex flex-col items-center gap-3 pt-4 bg-slate-900 border-l border-slate-800 shrink-0 relative z-[150] shadow-[-10px_0_20px_rgba(0,0,0,0.5)]">
-      {/* The strip sits between the code panes and the AI panel, so its left
-          edge doubles as a second resize handle for the AI panel. */}
-      {showAiSidePanel && (
-        <div
-          className={`absolute top-0 left-0 w-1 h-full cursor-col-resize z-[200] transition-colors ${
-            aiResizeActive ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/40'
-          }`}
-          onMouseDown={onStartAiResize}
-          aria-hidden="true"
-        />
-      )}
-      <div className="relative">
-        <button
-          onClick={onToggleMenu}
-          className="p-3 bg-slate-800 hover:bg-indigo-600 rounded-xl text-indigo-400 hover:text-white transition-all shadow-lg active:scale-90 border border-slate-700"
-          title="Add Translation View"
-        >
-          <Plus size={24} />
-        </button>
+    <div className="add-panel-dropdown w-16 h-full flex flex-col items-center gap-3 pt-4 overflow-y-auto bg-slate-900 border-r border-slate-800 shrink-0 relative z-[150] shadow-[10px_0_20px_rgba(0,0,0,0.5)]">
+      {PANEL_LANGS.map((lang) => {
+        const isOpen = panels.some((panel) => panel.lang === lang);
+        const label = LANG_LABELS[lang];
 
-        {showAddMenu && (
-          <div className="absolute top-0 right-full mr-3 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.7)] overflow-hidden z-[999] animate-in fade-in slide-in-from-right-2 duration-200">
-            <div className="p-3 text-[11px] font-bold text-slate-400 border-b border-slate-700 bg-slate-900/50 uppercase tracking-widest">
-              Open View
-            </div>
-            <div className="p-1">
-              {PANEL_LANGS.map((lang) => {
-                const isOpen = panels.some((panel) => panel.lang === lang);
-                const isSourceLanguage = lang === sourceLang;
-                const isDisabled = isSourceLanguage;
+        return (
+          <button
+            key={lang}
+            onClick={() => onTogglePanel(lang)}
+            aria-pressed={isOpen}
+            className={toggleButtonClasses(isOpen)}
+            title={label}
+          >
+            {lang === 'ast' ? <FileJson size={24} /> : <LanguageLogo lang={lang} size={24} />}
+          </button>
+        );
+      })}
 
-                return (
-                  <button
-                    key={lang}
-                    onClick={() => !isDisabled && onTogglePanel(lang)}
-                    disabled={isDisabled}
-                    className={`flex items-center justify-between gap-3 w-full text-left px-3 py-2.5 text-xs rounded-md transition-colors group ${
-                      isDisabled
-                        ? 'text-slate-600 cursor-not-allowed opacity-50'
-                        : isOpen
-                          ? 'text-emerald-300 hover:bg-slate-700'
-                          : 'text-slate-300 hover:bg-indigo-600 hover:text-white'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      {lang === 'ast' ? (
-                        <FileJson
-                          size={14}
-                          className="opacity-60 group-hover:opacity-100 shrink-0"
-                        />
-                      ) : (
-                        <span className="shrink-0">
-                          <LanguageLogo lang={lang} size={14} />
-                        </span>
-                      )}
-                      {LANG_LABELS[lang]}
-                    </span>
-                    <span className="flex items-center gap-1.5 shrink-0">
-                      {isSourceLanguage && (
-                        <span className="text-[10px] uppercase tracking-wide text-slate-500">
-                          Source
-                        </span>
-                      )}
-                      {isOpen && !isSourceLanguage && (
-                        <Check size={12} className="text-emerald-400" />
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+      <div className="w-8 h-px bg-slate-700 shrink-0" aria-hidden="true" />
 
       {/* AI assistant — opens the side chat */}
       <button
         onClick={onToggleAiPanel}
         aria-pressed={showAiSidePanel}
-        className={`p-3 rounded-xl transition-all shadow-lg active:scale-90 border ${
-          showAiSidePanel
-            ? 'bg-indigo-600 text-white border-indigo-500'
-            : 'bg-slate-800 hover:bg-indigo-600 text-indigo-400 hover:text-white border-slate-700'
-        }`}
-        title={showAiSidePanel ? 'Close AI Assistant' : 'Open AI Assistant'}
+        className={toggleButtonClasses(showAiSidePanel)}
+        title="AI Assistant"
       >
         <Bot size={24} />
+      </button>
+
+      {/* Memory Diagram — shows live variable state alongside each pane */}
+      <button
+        onClick={onToggleMemDia}
+        aria-pressed={showMemDia}
+        className={toggleButtonClasses(showMemDia)}
+        title="Memory Diagram"
+      >
+        <BrainCircuit size={24} />
       </button>
     </div>
   );

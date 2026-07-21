@@ -24,7 +24,6 @@ interface EditorHeaderProps {
   embedCopied: boolean;
   showExamplesMenu: boolean;
   showSettingsMenu: boolean;
-  showMemDia: boolean;
   isDebugging: boolean;
   isDebugComplete: boolean;
   examples: ExampleProgram[];
@@ -34,7 +33,6 @@ interface EditorHeaderProps {
   onLoadExample: (exampleId: string) => void;
   onToggleExamplesMenu: () => void;
   onToggleSettingsMenu: () => void;
-  onToggleMemDia: () => void;
   onDebugStart: () => void;
   onRun: () => void;
   onDebugStep: () => void;
@@ -49,7 +47,6 @@ export function EditorHeader({
   embedCopied,
   showExamplesMenu,
   showSettingsMenu,
-  showMemDia,
   isDebugging,
   isDebugComplete,
   examples,
@@ -59,7 +56,6 @@ export function EditorHeader({
   onLoadExample,
   onToggleExamplesMenu,
   onToggleSettingsMenu,
-  onToggleMemDia,
   onDebugStart,
   onRun,
   onDebugStep,
@@ -187,29 +183,8 @@ export function EditorHeader({
               aria-label="Editor settings"
               className="absolute top-full right-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[220]"
             >
-              {/* Editor Panels section */}
-              <div className="px-4 py-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                Editor Panels
-              </div>
-              <div className="p-2">
-                <button
-                  onClick={onToggleMemDia}
-                  role="switch"
-                  aria-checked={showMemDia}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-left hover:bg-slate-800 transition-colors ${focusRing}`}
-                >
-                  <span className="text-sm text-slate-200">Memory Diagram (MemDia)</span>
-                  <span
-                    className={`text-[11px] font-bold uppercase tracking-wide ${showMemDia ? 'text-emerald-400' : 'text-slate-500'}`}
-                    aria-hidden="true"
-                  >
-                    {showMemDia ? 'On' : 'Off'}
-                  </span>
-                </button>
-              </div>
-
               {/* Text Size slider */}
-              <div className="px-4 py-3 border-t border-slate-800 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+              <div className="px-4 py-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-widest text-slate-400">
                 Display
               </div>
               <div className="px-4 pb-4">

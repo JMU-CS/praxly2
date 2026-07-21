@@ -69,5 +69,9 @@
     "*.{ts,tsx,js,jsx,json,md,css,html,yml,yaml}": [
       "prettier --check"
     ]
+  },
+  "allowScripts": {
+    "chromedriver@149.0.4": true,
+    "esbuild@0.28.1": true
   }
 }
