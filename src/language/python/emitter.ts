@@ -181,7 +181,7 @@ export class PythonEmitter extends ASTVisitor {
 
     // Emit non-Main classes
     otherClasses.forEach((classDecl) => {
-      this.visitClassDeclaration(classDecl as ClassDeclaration);
+      this.visitStatement(classDecl);
       this.emit('');
     });
 

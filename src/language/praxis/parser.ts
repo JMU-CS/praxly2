@@ -95,16 +95,17 @@ export class PraxisParser {
   }
 
   private topLevelDeclaration(): Statement {
+    const startIdx = this.current;
     // A class may carry an optional `public`/`private` modifier: `public class C`.
     if (
       this.check('KEYWORD', 'class') ||
       ((this.check('KEYWORD', 'public') || this.check('KEYWORD', 'private')) &&
         this.checkPeekAhead('KEYWORD', 'class', 1))
     ) {
-      return this.classDeclaration();
+      return this.withLocation(this.classDeclaration(), startIdx);
     }
     if (this.isFunctionDeclaration()) {
-      return this.functionDeclaration();
+      return this.withLocation(this.functionDeclaration(), startIdx);
     }
     return this.statement();
   }

@@ -68,8 +68,9 @@ export class CSPParser {
   }
 
   private topLevelDeclaration(): Statement {
+    const startIdx = this.current;
     if (this.check('KEYWORD', 'PROCEDURE')) {
-      return this.procedureDeclaration();
+      return this.withLocation(this.procedureDeclaration(), startIdx);
     }
     return this.statement();
   }

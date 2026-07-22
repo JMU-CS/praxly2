@@ -86,8 +86,10 @@ export class Parser {
   }
 
   private topLevelDeclaration(): Statement {
-    if (this.check('KEYWORD', 'class')) return this.classDeclaration();
-    if (this.check('KEYWORD', 'def')) return this.functionDeclaration();
+    const startIdx = this.current;
+    if (this.check('KEYWORD', 'class')) return this.withLocation(this.classDeclaration(), startIdx);
+    if (this.check('KEYWORD', 'def'))
+      return this.withLocation(this.functionDeclaration(), startIdx);
     return this.statement();
   }
 
@@ -262,9 +264,10 @@ export class Parser {
         }
 
         // Handle function/method declarations inside blocks
+        const stmtStartIdx = this.current;
         try {
           if (this.check('KEYWORD', 'def')) {
-            statements.push(this.functionDeclaration());
+            statements.push(this.withLocation(this.functionDeclaration(), stmtStartIdx));
           } else {
             statements.push(this.statement());
           }

@@ -83,8 +83,9 @@ export class JavaScriptParser {
   }
 
   private topLevel(): Statement {
-    if (this.check('KEYWORD', 'class')) return this.classDeclaration();
-    if (this.check('KEYWORD', 'function')) return this.functionDeclaration();
+    const si = this.current;
+    if (this.check('KEYWORD', 'class')) return this.withLoc(this.classDeclaration(), si);
+    if (this.check('KEYWORD', 'function')) return this.withLoc(this.functionDeclaration(), si);
     return this.statement();
   }
 

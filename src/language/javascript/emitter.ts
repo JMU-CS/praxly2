@@ -68,7 +68,7 @@ export class JavaScriptEmitter extends ASTVisitor {
     const otherClasses = classes.filter((c) => !isJavaMainClass(c as ClassDeclaration));
 
     otherClasses.forEach((c) => {
-      this.visitClassDeclaration(c as ClassDeclaration);
+      this.visitStatement(c);
       this.emit('');
     });
 
