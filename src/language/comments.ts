@@ -6,9 +6,8 @@
  *   - a comment sharing a statement's end line becomes that statement's
  *     `trailingComment` (inline comment after code);
  *   - a run of own-line comments directly above a statement becomes its
- *     `leadingComments`;
- *   - the leading run above the very first statement is pinned to the Program
- *     as `headerComments` so it stays put when an emitter reorders code.
+ *     `leadingComments`, including the leading run above the very first
+ *     statement (a file-top comment block).
  *
  * The emitters re-add each target language's comment delimiter, so comments
  * translate along with the code.
@@ -104,8 +103,6 @@ export function attachComments(
   collect(program.body);
   stmts.sort((a, b) => a.loc!.start - b.loc!.start || a.loc!.end - b.loc!.end);
 
-  const firstStmt = stmts[0];
-
   for (const c of comments) {
     if (consumed?.has(c.start)) continue;
     const cLine = lineOf(c.start);
@@ -135,13 +132,6 @@ export function attachComments(
     }
     if (!target) continue; // dangling comment at end of block/file — dropped
     (target.leadingComments ??= []).push(c.text);
-  }
-
-  // Pin the first statement's leading block to the program as a header so it
-  // stays at the top when an emitter hoists/reorders that statement.
-  if (firstStmt?.leadingComments) {
-    program.headerComments = firstStmt.leadingComments;
-    delete firstStmt.leadingComments;
   }
 }
 
