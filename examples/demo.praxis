@@ -1,43 +1,31 @@
-// ===========================================================================
-// Praxly2 feature demo -- PRAXIS        (shared notes: examples/README.md)
-// ---------------------------------------------------------------------------
-// Praxis maps most directly to the Universal AST, so it reaches the widest
-// set of nodes.
-//
-// AST nodes NOT reachable from Praxis source (covered by the other demos):
-//   Switch / SwitchCase .. no switch/case keywords.
-//   ConditionalExpression  no ?: ternary operator.
-//   CompoundAssignment ... no +=/-=; write `x ← x + 1`.
-//   ForEach .............. no for-each; Praxis has only the C-style for loop.
-//
-// (Functions and classes are hoisted, so the driver calls them before their
-// declarations appear further down the file.)
-// ===========================================================================
+// `procedure` keyword => a void FunctionDeclaration
+procedure banner(string text)
+    print("== " + text + " ==")
+end banner
 
-
-// ========================== EXPRESSIONS ====================================
+// ========================== EXPRESSIONS ======================================
 banner("literals and operators")
 
-// ---- Literal (int, float, string, boolean, null) + Assignment --------------
+// ---- Literal (int, float, string, boolean, null) + Assignment ---------------
 int    whole  ← 42
 double frac   ← 3.14
 string label  ← "praxis"
 boolean flag  ← true
 string empty  ← null
-print(whole, frac, label, flag, empty)   // Print with multiple expressions
+print(whole, frac, label, flag, empty)  // Print with multiple expressions
 
 // `=` is also a valid assignment operator in Praxis (same as `←`)
 int m ← 0
 m = 10
 print(m)
 
-// ---- char literal + string escape sequences --------------------------------
-char grade ← 'A'              // single-quoted, exactly one character
-string tabbed ← "col1\tcol2"  // \t \n \r \" \\ are recognized escapes
+// ---- char literal + string escape sequences ---------------------------------
+char grade ← 'A'               // single-quoted, exactly one character
+string tabbed ← "col1\tcol2"   // \t \n \r \" \\ are recognized escapes
 print(grade)                   // A
 print(tabbed)                  // col1<tab>col2
 
-// ---- BinaryExpression: arithmetic (+ - * / % ^) ----------------------------
+// ---- BinaryExpression: arithmetic (+ - * / % ^) -----------------------------
 int a ← 17
 int b ← 5
 print(a + b)      // 22
@@ -47,11 +35,11 @@ print(a / b)      // 3   (integer division: both operands are int)
 print(a % b)      // 2
 print(2 ^ 10)     // 1024 (exponent, right-associative)
 
-// ---- UnaryExpression (- and not) -------------------------------------------
+// ---- UnaryExpression (- and not) --------------------------------------------
 print(-a)         // -17
 print(not flag)   // false
 
-// ---- BinaryExpression: comparison + logical (and/or) + unicode forms -------
+// ---- BinaryExpression: comparison + logical (and/or) + unicode forms --------
 print(a > b and b > 0)   // true
 print(a == 17)           // true
 print(a != b)            // true
@@ -60,7 +48,7 @@ print(b ≤ a)             // true (unicode ≤)
 print(a ≠ b)             // true (unicode ≠)
 print(a < b or a > b)    // true
 
-// ---- UpdateExpression (++ and --, prefix and postfix) ----------------------
+// ---- UpdateExpression (++ and --, prefix and postfix) -----------------------
 int i ← 5
 i++
 print(i)      // 6
@@ -68,47 +56,47 @@ print(++i)    // 7
 i--
 print(i)      // 6
 
-// ---- ArrayLiteral / IndexExpression / MemberExpression / CallExpression ----
-int[] xs ← {5, 3, 8, 1}    // brace form (idiomatic); [5, 3, 8, 1] also works
-xs[0] ← 50                 // index Assignment
+// ---- ArrayLiteral / IndexExpression / MemberExpression / CallExpression -----
+int[] xs ← {5, 3, 8, 1}     // brace form (idiomatic); [5, 3, 8, 1] also works
+xs[0] ← 50                  // index Assignment
 print(xs[0])                // 50
 print(xs.length)            // 4  (MemberExpression)
 xs.append(99)               // method CallExpression as ExpressionStatement
 print(xs.length)            // 5
 print(xs)                   // {50, 3, 8, 1, 99}
 
-// ---- ArrayCreation: new int[n] (n default-initialized elements) ------------
-int[] buffer ← new int[3]  // {0, 0, 0}
+// ---- ArrayCreation: new int[n] (n default-initialized elements) -------------
+int[] buffer ← new int[3]   // {0, 0, 0}
 buffer[1] ← 7
 print(buffer)               // {0, 7, 0}
 print(buffer.length)        // 3
 
-// ---- Built-in functions (min/max/abs/sqrt/log, str/int/float, contains) ----
-print(min(3, 8))            // 3
-print(max(3, 8))            // 8
-print(abs(-7))              // 7
-print(sqrt(16.0))           // 4
-print(log(1.0))             // 0
-print(str(42))              // 42   (number -> string)
-print(int("7") + 1)         // 8    (string -> int)
-print(float("2.5"))         // 2.5  (string -> float)
+// ---- Built-in functions (min/max/abs/sqrt/log, str/int/float, contains) -----
+print(min(3, 8))                 // 3
+print(max(3, 8))                 // 8
+print(abs(-7))                   // 7
+print(sqrt(16.0))                // 4
+print(log(1.0))                  // 0
+print(str(42))                   // 42   (number -> string)
+print(int("7") + 1)              // 8    (string -> int)
+print(float("2.5"))              // 2.5  (string -> float)
 print("praxis".contains("rax"))  // true (String method)
 print("praxis".substring(0, 3))  // pra  (0-based, end-exclusive)
 print("praxis".charAt(0))        // p
 print("praxis".toUpperCase())    // PRAXIS
 print("praxis".indexOf("x"))     // 4
 
-// ---- Print: separator / appendLineFeed via trailing comment ----------------
-print("A", "B", "C")           // "A B C"  (default separator " ")
-print("X", "Y") // no separator // "XY"
-print("joined: ") // no line feed
-print("tail")                  // -> "joined: tail" on one line
+// ---- Print: separator / appendLineFeed via trailing comment -----------------
+print("A", "B", "C")             // "A B C"  (default separator " ")
+print("X", "Y")  // no separator
+print("joined: ")  // no line feed
+print("tail")                    // -> "joined: tail" on one line
 
 
-// ========================== STATEMENTS =====================================
+// ========================== STATEMENTS =======================================
 banner("control flow")
 
-// ---- If / else if / else (a single `end if` closes the whole chain) --------
+// ---- If / else if / else (a single `end if` closes the whole chain) ---------
 int score ← 75
 if (score >= 90)
     print("A")
@@ -118,45 +106,45 @@ else
     print("C")
 end if
 
-// ---- While (pre-condition loop) --------------------------------------------
+// ---- While (pre-condition loop) ---------------------------------------------
 int w ← 0
 while (w < 3)
     print(w)                   // 0 1 2
     w ← w + 1
 end while
 
-// ---- For, C-style (init / condition / update) ------------------------------
+// ---- For, C-style (init / condition / update) -------------------------------
 int total ← 0
 for (j ← 0; j < xs.length; j ← j + 1)
     total ← total + xs[j]
 end for
 print(total)                   // 161
 
-// ---- For, iterate an array by index (Praxis has only the C-style for) ------
+// ---- For, iterate an array by index (Praxis has only the C-style for) -------
 for (p ← 0; p < xs.length; p ← p + 1)
     print(xs[p])
 end for
 
-// ---- For, counting loop ----------------------------------------------------
+// ---- For, counting loop -----------------------------------------------------
 for (k ← 1; k < 4; k ← k + 1)
     print(k)                   // 1 2 3
 end for
 
-// ---- DoWhile (post-condition; repeats WHILE the condition is true) ---------
+// ---- DoWhile (post-condition; repeats WHILE the condition is true) ----------
 int d ← 0
 do
     print(d)                   // 0 1 2
     d ← d + 1
 while (d < 3)
 
-// ---- RepeatUntil (post-condition; repeats UNTIL the condition is true) -----
+// ---- RepeatUntil (post-condition; repeats UNTIL the condition is true) ------
 int r ← 0
 repeat
     print(r)                   // 0 1 2
     r ← r + 1
 until (r >= 3)
 
-// ---- Break / Continue ------------------------------------------------------
+// ---- Break / Continue -------------------------------------------------------
 for (t ← 0; t < 5; t ← t + 1)
     if (t == 1)
         continue               // skip printing 1
@@ -167,7 +155,7 @@ for (t ← 0; t < 5; t ← t + 1)
     print(t)                   // 0 2
 end for
 
-// ---- Try / Catch / Finally -------------------------------------------------
+// ---- Try / Catch / Finally --------------------------------------------------
 try
     print(missingValue)        // undefined variable raises an error
     print("not reached")
@@ -178,10 +166,10 @@ finally
 end try
 
 
-// ========================== FUNCTIONS ======================================
+// ========================== FUNCTIONS ========================================
 banner("functions and objects")
 
-// ---- FunctionDeclaration / Parameter / Return (with and without a value) ---
+// ---- FunctionDeclaration / Parameter / Return (with and without a value) ----
 int add(int a, int b)
     return a + b               // Return with a value
 end add
@@ -194,11 +182,6 @@ int fact(int n)
     end if
 end fact
 
-// `procedure` keyword => a void FunctionDeclaration
-procedure banner(string text)
-    print("== " + text + " ==")
-end banner
-
 procedure maybePrint(boolean show)
     if (not show)
         return                 // bare Return (Return.value omitted)
@@ -206,26 +189,26 @@ procedure maybePrint(boolean show)
     print("shown")
 end maybePrint
 
-// ---- Calls, recursion, void procedures -------------------------------------
+// ---- Calls, recursion, void procedures --------------------------------------
 print(add(3, 4))      // 7
 print(fact(5))        // 120
 maybePrint(false)     // (prints nothing)
 maybePrint(true)      // shown
 
 
-// ========================== CLASSES ========================================
+// ========================== CLASSES ==========================================
 // Praxis has no `this`/`self`: fields are accessed by their bare names, so
 // field and parameter names must be unique. A constructor is named after its
 // class; `super` calls the superclass constructor. `public`/`private` are
 // optional, and fields may be initialized where they are declared.
 
-// ---- ClassDeclaration / FieldDeclaration / Constructor / MethodDeclaration -
+// ---- ClassDeclaration / FieldDeclaration / Constructor / MethodDeclaration --
 class Counter
     private int count
     private int step
 
-    public Counter(int start)          // constructor named after the class
-        count ← start                 // bare field assignment (no `this`)
+    public Counter(int start)    // constructor named after the class
+        count ← start            // bare field assignment (no `this`)
         step ← 1
     end Counter
 
@@ -238,12 +221,12 @@ class Counter
     end getCount
 end class Counter
 
-// ---- Inheritance: `extends` + `super` --------------------------------------
+// ---- Inheritance: `extends` + `super` ---------------------------------------
 class Animal
     private string name
     private int legs
 
-    public Animal(string n)            // param `n` differs from field `name`
+    public Animal(string n)      // param `n` differs from field `name`
         name ← n
         legs ← 4
     end Animal
@@ -255,7 +238,7 @@ end class Animal
 
 class Dog extends Animal
     public Dog(string n)
-        super(n)                       // runs Animal's constructor on this instance
+        super(n)                 // runs Animal's constructor on this instance
     end Dog
 
     public string speak()
@@ -263,16 +246,16 @@ class Dog extends Animal
     end speak
 end class Dog
 
-// ---- Default constructor + field initializer (no constructor defined) ------
+// ---- Default constructor + field initializer (no constructor defined) -------
 class Box
-    string contents ← "gift"          // field initialized at declaration
+    string contents ← "gift"     // field initialized at declaration
 
     public string open()
         return "opened " + contents
     end open
 end class Box
 
-// ---- NewExpression / methods / fields / inheritance ------------------------
+// ---- NewExpression / methods / fields / inheritance -------------------------
 Counter c ← new Counter(5)
 c.increment()
 c.increment()
@@ -282,7 +265,7 @@ Dog dog ← new Dog("Rex")
 print(dog.speak())     // woof (Dog's own method)
 print(dog.describe())  // Rex has 4 legs (inherited field + method via super)
 
-Box box ← new Box()   // default constructor
+Box box ← new Box()    // default constructor
 print(box.open())      // opened gift
 
 banner("done")

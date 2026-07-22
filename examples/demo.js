@@ -1,20 +1,6 @@
-// ===========================================================================
-// Praxly2 feature demo -- JAVASCRIPT    (shared notes: examples/README.md)
-// ---------------------------------------------------------------------------
-// AST nodes NOT reachable from JavaScript source (covered by the other demos):
-//   RepeatUntil ......... no repeat/until syntax.
-//
-// Interpreter notes honored below:
-//   * Output is console.log(...) (multiple args are space-joined).
-//   * Standard JS: arrays use .push, conversions use parseInt/parseFloat/String,
-//     integer division uses Math.trunc, .length gives length.
-//   * `let`/`const`/`var` all behave identically (no block scoping enforced).
-// ===========================================================================
+// ========================== EXPRESSIONS ======================================
 
-
-// ========================== EXPRESSIONS ====================================
-
-// ---- Literal (number, string, boolean, null) + Assignment + console.log ----
+// ---- Literal (number, string, boolean, null) + Assignment + console.log -----
 let count = 7;
 const pi = 3.14;
 var title = "javascript";
@@ -22,18 +8,18 @@ let active = true;
 let nothing = null;
 console.log(count, pi, title, active, nothing);
 
-// ---- Bare declaration (declaredWithoutInitializer) then assign -------------
+// ---- Bare declaration (declaredWithoutInitializer) then assign --------------
 let later;
 later = 100;
 console.log(later);                     // 100
 
-// ---- BinaryExpression: arithmetic (JS division is float) + ** --------------
+// ---- BinaryExpression: arithmetic (JS division is float) + ** ---------------
 let a = 17;
 let b = 5;
 console.log(a + b, a - b, a * b);       // 22 12 85
 console.log(a / b, a % b, 2 ** 8);      // 3.4 2 256
 
-// ---- CompoundAssignment (+= -= *= /= %=) -----------------------------------
+// ---- CompoundAssignment (+= -= *= /= %=) ------------------------------------
 let acc = 10;
 acc += 5;                               // 15
 acc -= 3;                               // 12
@@ -42,29 +28,29 @@ acc /= 4;                               // 6
 acc %= 4;                               // 2
 console.log("acc", acc);                // acc 2
 
-// ---- UpdateExpression (++ --) + UnaryExpression (-, !) + comparison/logic --
+// ---- UpdateExpression (++ --) + UnaryExpression (-, !) + comparison/logic ---
 let i = 5;
 i++;
 --i;
-console.log(i, -a, !active);                 // 5 -17 false
-console.log(a > b && b > 0, a === 17 || active);   // true true
+console.log(i, -a, !active);                      // 5 -17 false
+console.log(a > b && b > 0, a === 17 || active);  // true true
 
-// ---- ConditionalExpression (ternary) ---------------------------------------
+// ---- ConditionalExpression (ternary) ----------------------------------------
 let bigger = (a > b) ? a : b;
-console.log("bigger", bigger);          // bigger 17
+console.log("bigger", bigger);                    // bigger 17
 
-// ---- Supported String methods + conversions --------------------------------
+// ---- Supported String methods + conversions ---------------------------------
 let s = "Hello";
-console.log(s.length, s.toUpperCase(), s.toLowerCase(), s.substring(1, 3), s.charAt(0)); // 5 HELLO hello el H
-console.log(s.indexOf("ll"), s.indexOf("l") >= 0);      // 2 true  (indexOf as "contains")
-let parts = "a,b,c".split(",");                         // split
-console.log(parts.length, parts[1]);                    // 3 b
-console.log(parseInt("42"), String(7), parseFloat("1.5"));               // 42 7 1.5
+console.log(s.length, s.toUpperCase(), s.toLowerCase(), s.substring(1, 3), s.charAt(0));  // 5 HELLO hello el H
+console.log(s.indexOf("ll"), s.indexOf("l") >= 0);          // 2 true  (indexOf as "contains")
+let parts = "a,b,c".split(",");                             // split
+console.log(parts.length, parts[1]);                        // 3 b
+console.log(parseInt("42"), String(7), parseFloat("1.5"));  // 42 7 1.5
 
 
-// ========================== STATEMENTS =====================================
+// ========================== STATEMENTS =======================================
 
-// ---- If / else if / else ---------------------------------------------------
+// ---- If / else if / else ----------------------------------------------------
 let score = 82;
 if (score >= 90) {
     console.log("A");
@@ -74,7 +60,7 @@ if (score >= 90) {
     console.log("C");
 }
 
-// ---- While / DoWhile -------------------------------------------------------
+// ---- While / DoWhile --------------------------------------------------------
 let w = 0;
 while (w < 3) {
     console.log("while " + w);
@@ -86,7 +72,7 @@ do {
     k++;
 } while (k < 2);
 
-// ---- For (C-style) + ArrayLiteral + IndexExpression + .length --------------
+// ---- For (C-style) + ArrayLiteral + IndexExpression + .length ---------------
 let nums = [10, 20, 30];
 let sum = 0;
 for (let j = 0; j < nums.length; j++) {
@@ -94,7 +80,7 @@ for (let j = 0; j < nums.length; j++) {
 }
 console.log("sum", sum);                // sum 60
 
-// ---- For (for-of) over an array and over a string --------------------------
+// ---- For (for-of) over an array and over a string ---------------------------
 for (const v of nums) {
     console.log("each " + v);
 }
@@ -102,19 +88,19 @@ for (const ch of "hi") {
     console.log("char " + ch);          // char h / char i
 }
 
-// ---- For (for-in over indices) ---------------------------------------------
+// ---- For (for-in over indices) ----------------------------------------------
 for (let idx in nums) {
     console.log("idx " + idx);          // idx 0 / idx 1 / idx 2
 }
 
-// ---- IndexExpression write + array methods (.push / .pop) + .length --------
+// ---- IndexExpression write + array methods (.push / .pop) + .length ---------
 nums[0] = 99;
 nums.push(40);
-console.log(nums[0], nums.length);   // 99 4
+console.log(nums[0], nums.length);      // 99 4
 nums.pop();
-console.log(nums.length);            // 3
+console.log(nums.length);               // 3
 
-// ---- Try / ExceptionHandler / finally --------------------------------------
+// ---- Try / ExceptionHandler / finally ---------------------------------------
 // Reading an undefined name throws; the catch clause handles it (binding the
 // message to `err`) and the finally block always runs.
 try {
@@ -125,7 +111,7 @@ try {
     console.log("cleanup");             // always runs
 }
 
-// ---- Switch / SwitchCase (matching case, default, break) -------------------
+// ---- Switch / SwitchCase (matching case, default, break) --------------------
 let day = 3;
 switch (day) {
     case 1:
@@ -138,7 +124,7 @@ switch (day) {
         console.log("other day");
 }
 
-// ---- Break / Continue ------------------------------------------------------
+// ---- Break / Continue -------------------------------------------------------
 for (let t = 0; t < 5; t++) {
     if (t === 1) {
         continue;                       // skip printing 1
@@ -150,14 +136,14 @@ for (let t = 0; t < 5; t++) {
 }
 
 
-// ========================== FUNCTIONS ======================================
+// ========================== FUNCTIONS ========================================
 
-// ---- FunctionDeclaration / Parameter / Return (with and without a value) ---
+// ---- FunctionDeclaration / Parameter / Return (with and without a value) ----
 function greet(name, punct) {
     return "hi " + name + punct;
 }
 
-function fib(n) {                     // recursion via CallExpression
+function fib(n) {                       // recursion via CallExpression
     if (n <= 1) {
         return n;
     }
@@ -166,12 +152,12 @@ function fib(n) {                     // recursion via CallExpression
 
 function announce(msg) {
     if (msg === "") {
-        return;                       // bare Return (Return.value omitted)
+        return;                         // bare Return (Return.value omitted)
     }
     console.log("announce: " + msg);
 }
 
-// ---- Function calls --------------------------------------------------------
+// ---- Function calls ---------------------------------------------------------
 console.log(greet("sam", "!"));         // hi sam!
 console.log(greet("sam", "?"));         // hi sam?
 announce("");                           // (prints nothing)
@@ -179,22 +165,22 @@ announce("ready");                      // announce: ready
 console.log("fib", fib(7));             // fib 13
 
 
-// ========================== CLASSES ========================================
+// ========================== CLASSES ==========================================
 
-// ---- Class fields (FieldDeclaration) + static field + method ---------------
+// ---- Class fields (FieldDeclaration) + static field + method ----------------
 class Counter {
-    n = 0;                            // instance FieldDeclaration with initializer
-    static total = 0;                 // static FieldDeclaration
+    n = 0;                              // instance FieldDeclaration with initializer
+    static total = 0;                   // static FieldDeclaration
     bump() {
         this.n = this.n + 1;
         return this.n;
     }
 }
 
-// ---- ClassDeclaration / Constructor / MethodDeclaration / this / super -----
+// ---- ClassDeclaration / Constructor / MethodDeclaration / this / super ------
 class Animal {
     constructor(name) {
-        this.name = name;             // ThisExpression + member Assignment
+        this.name = name;               // ThisExpression + member Assignment
     }
     describe() {
         return this.name + " the animal";
@@ -204,14 +190,14 @@ class Animal {
 // ClassDeclaration.superClass via `extends`
 class Dog extends Animal {
     constructor(name) {
-        super(name);                  // super() runs the parent constructor
+        super(name);                    // super() runs the parent constructor
     }
     speak() {
         return "woof";
     }
 }
 
-// ---- Objects: new (NewExpression) + methods + this + extends + super -------
+// ---- Objects: new (NewExpression) + methods + this + extends + super --------
 let c = new Counter();
 console.log(c.bump(), c.bump());        // 1 2
 console.log(c.n, c.total);              // 2 0  (instance field + static via instance)
