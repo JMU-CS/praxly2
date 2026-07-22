@@ -341,21 +341,26 @@ export class JavaEmitter extends ASTVisitor {
     if (imports.length > 0) this.emit('');
 
     classes.forEach((classDecl) => {
-      this.visitClassDeclaration(classDecl as ClassDeclaration);
+      this.visitStatement(classDecl);
       this.emit('');
     });
 
-    if (functions.length > 0 || mainBody.length > 0) {
+    // Blank-line separators between top-level classes end up in `mainBody`
+    // (they're neither a class nor a function) — they must not, on their own,
+    // trigger a synthetic `Main` wrapper for a program with no real main body.
+    const hasMainBodyContent = mainBody.some((s) => s.type !== 'BlankLine');
+
+    if (functions.length > 0 || hasMainBodyContent) {
       this.context.symbolTable = new SymbolTable();
       this.emit('public class Main {');
       this.indent();
 
       functions.forEach((func) => {
-        this.visitFunctionDeclaration(func as any);
+        this.visitStatement(func);
         this.emit('');
       });
 
-      if (mainBody.length > 0) {
+      if (hasMainBodyContent) {
         this.emit('public static void main(String[] args) {');
         this.indent();
 

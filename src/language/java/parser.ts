@@ -117,13 +117,14 @@ export class JavaParser {
   }
 
   private topLevelDeclaration(): Statement {
+    const startIdx = this.current;
     // Handle class declarations (with or without an access modifier)
     if (
       this.check('KEYWORD', 'public', 'private', 'protected') ||
       this.check('KEYWORD', 'class') ||
       this.checkPeekAhead('KEYWORD', 'class', 2)
     ) {
-      return this.classDeclaration();
+      return this.withLocation(this.classDeclaration(), startIdx);
     }
     // Real Java has no free-floating statements: every statement must live inside
     // a method body. Praxly used to auto-wrap bare top-level statements into an

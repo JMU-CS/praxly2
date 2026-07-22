@@ -77,11 +77,11 @@ export class PraxisEmitter extends ASTVisitor {
     const otherClasses = classes.filter((c) => !isJavaMainClass(c as ClassDeclaration));
 
     otherClasses.forEach((c) => {
-      this.visitClassDeclaration(c as ClassDeclaration);
+      this.visitStatement(c);
       this.emit('');
     });
     functions.forEach((f) => {
-      this.visitFunctionDeclaration(f as any);
+      this.visitStatement(f);
       this.emit('');
     });
     mainBody.forEach((s) => this.visitStatement(s));
