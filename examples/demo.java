@@ -1,30 +1,9 @@
-// ===========================================================================
-// Praxly2 feature demo -- JAVA          (shared notes: examples/README.md)
-// ---------------------------------------------------------------------------
-// AST nodes NOT reachable from Java source (covered by the other demos):
-//   FunctionDeclaration ..... Java has only methods, never free functions.
-//   RepeatUntil ............. no repeat/until syntax.
-//   NewExpression ........... `new X(...)` is encoded as a CallExpression.
-//   ThisExpression .......... `this` is encoded as an Identifier.
-//
-// Interpreter notes honored below:
-//   * System.out.println takes exactly ONE argument -> concatenate with '+'.
-//   * A C-style for-loop update should be `i++` (an embedded plain assignment
-//     like `i = i + 1` is a no-op).
-//   * Scanner reads System.in, which the auto-runner can't supply, so Scanner is
-//     exercised by the Java tests (with provided input) rather than here.
-//
-// The executable code lives in Main.main (auto-invoked by the interpreter);
-// the helper classes it uses are declared afterwards.
-// ===========================================================================
-
-
 public class Main {
     public static void main(String[] args) {
 
-        // ========================= EXPRESSIONS =========================
+        // ========================= EXPRESSIONS ===============================
 
-        // ---- Literal (int, double, String, boolean, null) + println --------
+        // ---- Literal (int, double, String, boolean, null) + println ---------
         int whole = 42;
         double frac = 3.14;
         String label = "java";
@@ -36,12 +15,12 @@ public class Main {
         System.out.println(flag);       // true
         System.out.println(nothing);    // None
 
-        // ---- Bare declaration (declaredWithoutInitializer) then assign -----
+        // ---- Bare declaration (declaredWithoutInitializer) then assign ------
         int later;
         later = 100;
         System.out.println(later);      // 100
 
-        // ---- BinaryExpression: arithmetic (int division truncates) ---------
+        // ---- BinaryExpression: arithmetic (int division truncates) ----------
         int a = 17;
         int b = 5;
         System.out.println(a + b);      // 22
@@ -50,7 +29,7 @@ public class Main {
         System.out.println(a / b);      // 3
         System.out.println(a % b);      // 2
 
-        // ---- CompoundAssignment (+= -= *= /= %=) ---------------------------
+        // ---- CompoundAssignment (+= -= *= /= %=) ----------------------------
         int acc = 10;
         acc += 5;                       // 15
         acc -= 3;                       // 12
@@ -59,7 +38,7 @@ public class Main {
         acc %= 4;                       // 2
         System.out.println(acc);        // 2
 
-        // ---- UpdateExpression (++ --), UnaryExpression (-, !) --------------
+        // ---- UpdateExpression (++ --), UnaryExpression (-, !) ---------------
         int i = 5;
         i++;
         --i;
@@ -67,15 +46,15 @@ public class Main {
         System.out.println(-a);         // -17
         System.out.println(!flag);      // false
 
-        // ---- Comparison + logical (&& ||) ----------------------------------
-        System.out.println(a > b && b > 0);    // true
-        System.out.println(a == 17 || flag);   // true
+        // ---- Comparison + logical (&& ||) -----------------------------------
+        System.out.println(a > b && b > 0);       // true
+        System.out.println(a == 17 || flag);      // true
 
-        // ---- ConditionalExpression (ternary ?:) ----------------------------
+        // ---- ConditionalExpression (ternary ?:) -----------------------------
         int bigger = (a > b) ? a : b;
-        System.out.println(bigger);          // 17
+        System.out.println(bigger);               // 17
 
-        // ---- AP CSA String methods -----------------------------------------
+        // ---- AP CSA String methods ------------------------------------------
         String s = "Hello";
         System.out.println(s.length());           // 5
         System.out.println(s.toUpperCase());      // HELLO
@@ -88,22 +67,22 @@ public class Main {
         String[] parts = "a,b,c".split(",");      // split around ","
         System.out.println(parts[1]);             // b
 
-        // ---- String equality via .equals() (AP CSA) ------------------------
+        // ---- String equality via .equals() (AP CSA) -------------------------
         if (label.equals("java")) {
             System.out.println("match");
         }
 
-        // ---- char literal --------------------------------------------------
+        // ---- char literal ---------------------------------------------------
         char grade = 'A';
         System.out.println(grade);                // A
 
-        // ---- Integer / Double statics --------------------------------------
-        System.out.println(Integer.parseInt("42") + 1);  // 43
-        System.out.println(Double.parseDouble("2.5"));    // 2.5
-        System.out.println(Integer.MAX_VALUE);            // 2147483647
-        System.out.println(Integer.MIN_VALUE);            // -2147483648
+        // ---- Integer / Double statics ---------------------------------------
+        System.out.println(Integer.parseInt("42") + 1);     // 43
+        System.out.println(Double.parseDouble("2.5"));      // 2.5
+        System.out.println(Integer.MAX_VALUE);              // 2147483647
+        System.out.println(Integer.MIN_VALUE);              // -2147483648
 
-        // ---- Math methods --------------------------------------------------
+        // ---- Math methods ---------------------------------------------------
         System.out.println(Math.abs(-7));         // 7
         System.out.println(Math.max(3, 8));       // 8
         System.out.println(Math.min(3, 8));       // 3
@@ -111,7 +90,7 @@ public class Main {
         System.out.println(Math.sqrt(16.0));      // 4
         System.out.println(Math.log(1.0));        // 0.0
 
-        // ---- ArrayList (add / add(i,x) / get / set / size / remove) --------
+        // ---- ArrayList (add / add(i,x) / get / set / size / remove) ---------
         ArrayList<Integer> list = new ArrayList<Integer>();
         list.add(10);
         list.add(20);
@@ -123,9 +102,10 @@ public class Main {
         list.remove(0);
         System.out.println(list.size());          // 2
 
-        // ========================= STATEMENTS ==========================
 
-        // ---- If / else if / else ------------------------------------------
+        // ========================= STATEMENTS ================================
+
+        // ---- If / else if / else --------------------------------------------
         int score = 82;
         if (score >= 90) {
             System.out.println("A");
@@ -135,74 +115,75 @@ public class Main {
             System.out.println("C");
         }
 
-        // ---- While ---------------------------------------------------------
+        // ---- While ----------------------------------------------------------
         int w = 0;
         while (w < 3) {
             System.out.println("while " + w);
             w++;
         }
 
-        // ---- DoWhile -------------------------------------------------------
+        // ---- DoWhile --------------------------------------------------------
         int k = 0;
         do {
             System.out.println("do " + k);
             k++;
         } while (k < 2);
 
-        // ---- For (C-style) + ArrayLiteral + IndexExpression + .length ------
+        // ---- For (C-style) + ArrayLiteral + IndexExpression + .length -------
         int[] nums = {10, 20, 30};
         int sum = 0;
         for (int j = 0; j < nums.length; j++) {
             sum = sum + nums[j];
         }
-        System.out.println(sum);        // 60
+        System.out.println(sum);                  // 60
 
-        // ---- For (for-each) ------------------------------------------------
+        // ---- For (for-each) -------------------------------------------------
         for (int v : nums) {
             System.out.println("each " + v);
         }
 
-        // ---- IndexExpression write + MemberExpression (.length) ------------
+        // ---- IndexExpression write + MemberExpression (.length) -------------
         nums[0] = 99;
-        System.out.println(nums[0]);    // 99
-        System.out.println(nums.length);// 3
+        System.out.println(nums[0]);              // 99
+        System.out.println(nums.length);          // 3
 
-        // ---- Switch / SwitchCase (matching case, default, break) -----------
+        // ---- Switch / SwitchCase (matching case, default, break) ------------
         int day = 3;
         switch (day) {
             case 1:
                 System.out.println("Mon");
                 break;
             case 3:
-                System.out.println("Wed");   // this runs
+                System.out.println("Wed");        // this runs
                 break;
             default:
                 System.out.println("other day");
         }
 
-        // ---- Break / Continue ----------------------------------------------
+        // ---- Break / Continue -----------------------------------------------
         for (int t = 0; t < 5; t++) {
             if (t == 1) {
-                continue;                    // skip printing 1
+                continue;                         // skip printing 1
             }
             if (t == 3) {
-                break;                       // stop the loop at 3
+                break;                            // stop the loop at 3
             }
-            System.out.println("flow " + t); // flow 0 / flow 2
+            System.out.println("flow " + t);      // flow 0 / flow 2
         }
 
-        // ---- Try / Catch / Finally -----------------------------------------
+        // ---- Try / Catch / Finally ------------------------------------------
         try {
-            System.out.println(missingValue);    // undefined variable -> error
+            System.out.println(1 / 0);            // division by zero -> error
         } catch (Exception e) {
-            System.out.println("caught");        // this runs
+            System.out.println("caught");         // this runs
         } finally {
-            System.out.println("cleanup");       // always runs
+            System.out.println("cleanup");        // always runs
         }
 
-        // ========================= OBJECTS =============================
 
-        // ---- new, methods, fields, static read, extends + super -----------
+        // ========================= OBJECTS ===================================
+
+        // ---- new, methods, fields, static read, extends + super -------------
         Counter c = new Counter(5);
         c.increment();
         c.increment();
@@ -217,23 +198,23 @@ public class Main {
 }
 
 
-// ============================= CLASSES =====================================
+// ============================= CLASSES =======================================
 
-// ---- ClassDeclaration / FieldDeclaration / Constructor / MethodDeclaration -
+// ---- ClassDeclaration / FieldDeclaration / Constructor / MethodDeclaration --
 class Counter {
-    private int count;          // FieldDeclaration, declaredWithoutInitializer
-    private int step = 1;       // private FieldDeclaration with initializer
-    static int created = 0;     // static FieldDeclaration with initializer
+    private int count;           // FieldDeclaration, declaredWithoutInitializer
+    private int step = 1;        // private FieldDeclaration with initializer
+    static int created = 0;      // static FieldDeclaration with initializer
 
-    public Counter(int start) { // Constructor + Parameter
-        this.count = start;     // member Assignment via `this`
+    public Counter(int start) {  // Constructor + Parameter
+        this.count = start;      // member Assignment via `this`
     }
 
-    public void increment() {   // void MethodDeclaration
+    public void increment() {    // void MethodDeclaration
         this.count = this.count + this.step;
     }
 
-    public int getCount() {     // non-void returnType + Return.value
+    public int getCount() {      // non-void returnType + Return.value
         return this.count;
     }
 }
@@ -243,7 +224,7 @@ class Animal {
     public String name;
 
     public Animal(String name) {
-        this.name = name;       // param shadows the field; `this.` disambiguates
+        this.name = name;        // param shadows the field; `this.` disambiguates
     }
 
     public String describe() {
@@ -253,7 +234,7 @@ class Animal {
 
 class Dog extends Animal {
     public Dog(String name) {
-        super(name);            // runs Animal's constructor on this instance
+        super(name);             // runs Animal's constructor on this instance
     }
 
     public String speak() {

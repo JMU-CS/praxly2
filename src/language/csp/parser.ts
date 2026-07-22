@@ -68,8 +68,9 @@ export class CSPParser {
   }
 
   private topLevelDeclaration(): Statement {
+    const startIdx = this.current;
     if (this.check('KEYWORD', 'PROCEDURE')) {
-      return this.procedureDeclaration();
+      return this.withLocation(this.procedureDeclaration(), startIdx);
     }
     return this.statement();
   }
@@ -316,7 +317,7 @@ export class CSPParser {
 
   private equality(): Expression {
     let left = this.comparison();
-    while (this.match('OPERATOR', '=', '<>')) {
+    while (this.match('OPERATOR', '=', '<>', '!=')) {
       let op = this.previous().value;
       if (op === '=') op = '==';
       if (op === '<>') op = '!=';

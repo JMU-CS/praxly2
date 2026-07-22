@@ -27,7 +27,7 @@ export const EXAMPLE_CATEGORIES: Record<ExampleCategory, string> = {
 export const EXAMPLE_PROGRAMS: ExampleProgram[] = [
   {
     id: 'praxis-dice-score',
-    title: 'Dice Score Function',
+    title: 'Praxis Dice Score',
     description: 'Nested conditionals and return values',
     category: 'functions',
     lang: 'praxis',
@@ -52,9 +52,37 @@ print newScore(1, 2, 3)
     description: 'Simple counting loop with output',
     category: 'loops',
     lang: 'praxis',
-    code: `for i <- 0; i < 5; i <- i + 1
-  print(i)
+    code: `for ( i ← 0; i < 5; i ← i + 1 )
+  print i
 end for
+`,
+  },
+  {
+    id: 'csp-repeat-until',
+    title: 'CSP Repeat Until',
+    description: 'Repeat-until loop with arithmetic update',
+    category: 'loops',
+    lang: 'csp',
+    code: `x ← 0
+REPEAT UNTIL (x >= 5)
+{
+  x ← x + 1
+}
+DISPLAY(x)
+`,
+  },
+  {
+    id: 'csp-procedure-greet',
+    title: 'CSP Procedure',
+    description: 'Procedure declaration and call',
+    category: 'functions',
+    lang: 'csp',
+    code: `PROCEDURE greet(name)
+{
+  DISPLAY("Hello " + name)
+}
+
+greet("Praxly")
 `,
   },
   {
@@ -110,44 +138,20 @@ print("Rolled a 6 after", attempts, "tries")
   },
   {
     id: 'java-if-branch',
-    title: 'Java Conditional Branch',
+    title: 'Java Conditional',
     description: 'If / else with numeric comparison',
     category: 'conditionals',
     lang: 'java',
-    code: `int x = 7;
-if (x < 10) {
-  System.out.println("small");
-} else {
-  System.out.println("big");
+    code: `public class Main {
+  public static void main(String[] args) {
+    int x = 7;
+    if (x < 10) {
+      System.out.println("small");
+    } else {
+      System.out.println("big");
+    }
+  }
 }
-`,
-  },
-  {
-    id: 'csp-repeat-until',
-    title: 'CSP Repeat Until',
-    description: 'Repeat-until loop with arithmetic update',
-    category: 'loops',
-    lang: 'csp',
-    code: `x <- 0
-REPEAT UNTIL (x >= 5)
-{
-  x <- x + 1
-}
-DISPLAY(x)
-`,
-  },
-  {
-    id: 'csp-procedure-greet',
-    title: 'CSP Procedure',
-    description: 'Procedure declaration and call',
-    category: 'functions',
-    lang: 'csp',
-    code: `PROCEDURE greet(name)
-{
-  DISPLAY("Hello " + name)
-}
-
-greet("Praxly")
 `,
   },
   {

@@ -17,9 +17,29 @@ interface BlocklyPaneProps {
 }
 
 /**
+ * Locks a translation pane's blocks: whole top-level chains stay draggable so
+ * the user can arrange them, but child blocks are pinned to their parents (a
+ * chain can't be taken apart), and nothing is deletable or editable.
+ *
+ * The workspace itself is injected editable rather than with Blockly's
+ * `readOnly` option — read-only workspaces make every block immovable, which
+ * both freezes the view and silently disables `cleanUp()` (it only arranges
+ * movable blocks), leaving freshly loaded chains overlapping.
+ */
+function lockBlocks(workspace: WorkspaceSvg): void {
+  for (const block of workspace.getAllBlocks(false)) {
+    block.setDeletable(false);
+    block.setEditable(false);
+    block.contextMenu = false;
+    block.setMovable(block.getParent() === null);
+  }
+}
+
+/**
  * Hosts a Blockly workspace inside a panel. Editable mode shows the block
  * toolbox and reports edits upward as serialization JSON; read-only mode
- * re-renders whenever the incoming translation JSON changes.
+ * re-renders whenever the incoming translation JSON changes, showing locked
+ * blocks (movable chains that can't be edited or taken apart).
  */
 export function BlocklyPane({
   value,
@@ -46,7 +66,6 @@ export function BlocklyPane({
     registerPraxlyDialogs();
 
     const workspace = Blockly.inject(container, {
-      readOnly,
       theme: praxlyTheme(fontSizeRef.current),
       renderer: 'zelos',
       toolbox: readOnly ? undefined : PRAXLY_TOOLBOX,
@@ -129,6 +148,7 @@ export function BlocklyPane({
       } else if (value.trim()) {
         Blockly.serialization.workspaces.load(JSON.parse(value), workspace);
         setLoadError(null);
+        if (readOnly) lockBlocks(workspace);
         workspace.cleanUp();
       } else {
         workspace.clear();
@@ -141,7 +161,7 @@ export function BlocklyPane({
       lastJsonRef.current = value;
       Blockly.Events.enable();
     }
-  }, [value]);
+  }, [value, readOnly]);
 
   return (
     <div className="relative h-full w-full">

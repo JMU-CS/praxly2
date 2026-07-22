@@ -141,7 +141,9 @@ else:
 def add(x, y):
     return x + y
 print(add(4, 5))`,
-  java: `String s = "hi " + "csp";
+  java: `public class Main {
+  public static void main(String[] args) {
+String s = "hi " + "csp";
 System.out.println(s);
 int a = 20;
 int b = 6;
@@ -171,6 +173,8 @@ if (a >= 100) {
     System.out.println("med");
 } else {
     System.out.println("small");
+}
+  }
 }`,
   javascript: `let s = "hi " + "csp";
 console.log(s);

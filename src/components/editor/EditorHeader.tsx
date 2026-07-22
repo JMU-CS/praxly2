@@ -4,6 +4,7 @@ import {
   Trash2,
   Home,
   BookOpen,
+  FileCode,
   Bug,
   FastForward,
   Square,
@@ -27,10 +28,12 @@ interface EditorHeaderProps {
   isDebugging: boolean;
   isDebugComplete: boolean;
   examples: ExampleProgram[];
+  demoAvailable: boolean;
   textSize: TextSize;
   onClear: () => void;
   onShare: () => void;
   onLoadExample: (exampleId: string) => void;
+  onLoadDemo: () => void;
   onToggleExamplesMenu: () => void;
   onToggleSettingsMenu: () => void;
   onDebugStart: () => void;
@@ -50,10 +53,12 @@ export function EditorHeader({
   isDebugging,
   isDebugComplete,
   examples,
+  demoAvailable,
   textSize,
   onClear,
   onShare,
   onLoadExample,
+  onLoadDemo,
   onToggleExamplesMenu,
   onToggleSettingsMenu,
   onDebugStart,
@@ -92,6 +97,15 @@ export function EditorHeader({
         className="flex items-center flex-wrap justify-end gap-2 sm:gap-3"
         aria-label="Editor controls"
       >
+        <button
+          onClick={onLoadDemo}
+          disabled={!demoAvailable}
+          aria-label="Load demo program for the current source language"
+          className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${focusRing}`}
+        >
+          <FileCode size={14} aria-hidden="true" /> Demo
+        </button>
+
         {/* Examples menu */}
         <div className="relative examples-dropdown">
           <button
@@ -109,7 +123,7 @@ export function EditorHeader({
               id="examples-listbox"
               role="listbox"
               aria-label="Example programs"
-              className="absolute top-full right-0 mt-2 w-80 max-h-[360px] overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[220]"
+              className="absolute top-full right-0 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-[220]"
             >
               <div className="px-4 py-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-widest text-slate-400">
                 Load Example Program
@@ -187,7 +201,7 @@ export function EditorHeader({
               <div className="px-4 py-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-widest text-slate-400">
                 Display
               </div>
-              <div className="px-4 pb-4">
+              <div className="px-4 pt-3 pb-4">
                 <label
                   htmlFor="text-size-slider"
                   className="flex items-center gap-2 text-sm text-slate-200 mb-3"

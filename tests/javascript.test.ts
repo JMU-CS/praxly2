@@ -583,34 +583,39 @@ describe('Translation to JavaScript', () => {
       const ast = new JavaParser(tokens).parse();
       return translateToJS(ast);
     }
+    const wrapMain = (body: string) =>
+      `public class Main {\n  public static void main(String[] args) {\n${body}\n  }\n}`;
 
     it('translates System.out.println to console.log', () => {
-      const out = javaToJS('System.out.println("hi");');
+      const out = javaToJS(wrapMain('System.out.println("hi");'));
       expect(out).toContain('console.log("hi")');
     });
 
     it('translates typed variable declaration', () => {
-      const out = javaToJS('int x = 5;');
+      const out = javaToJS(wrapMain('int x = 5;'));
       expect(out).toContain('5');
     });
 
     it('translates for loop', () => {
-      const out = javaToJS('for (int i = 0; i < 3; i++) { System.out.println(i); }');
+      const out = javaToJS(wrapMain('for (int i = 0; i < 3; i++) { System.out.println(i); }'));
       expect(out).toContain('for (');
       expect(out).toContain('console.log(i)');
     });
 
     it('translates if / else', () => {
       const out = javaToJS(
-        'if (x > 0) { System.out.println("pos"); } else { System.out.println("neg"); }'
+        wrapMain('if (x > 0) { System.out.println("pos"); } else { System.out.println("neg"); }')
       );
       expect(out).toContain('if (x > 0)');
     });
 
     it('translates function inside a class', () => {
       const src = `
-        public class Main {
+        public class MathUtil {
           public static int add(int a, int b) { return a + b; }
+        }
+        public class Main {
+          public static void main(String[] args) {}
         }
       `;
       const out = javaToJS(src);

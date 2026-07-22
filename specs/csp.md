@@ -4,6 +4,7 @@ The _AP Computer Science Principles_ exam uses the pseudocode notation described
 
 Notice that:
 - Assignment uses `←`, not `=`
+    - `<-` and `⟵` are also accepted by the interpreter (`=` is not — it is CSP's equality operator)
 - Indexes start at `1`, not `0`
 - Output uses `DISPLAY`, not `print`
 - Comparison uses `=`, not `==`

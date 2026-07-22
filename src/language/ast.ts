@@ -63,9 +63,6 @@ export interface ASTNode {
 export interface Program extends ASTNode {
   type: 'Program';
   body: Statement[];
-  // File-top comment block, pinned to the program so it stays at the top even
-  // when an emitter hoists/reorders the first statement.
-  headerComments?: string[];
 }
 
 export interface Block extends ASTNode {
@@ -141,6 +138,9 @@ export interface FunctionDeclaration extends ASTNode {
   name: string;
   params: Parameter[];
   body: Block;
+  // Declared return type where the source language has one (Praxis/Java);
+  // absent for Python/JS/CSP sources, whose emitters infer it from the body.
+  returnType?: string;
 }
 
 // Not a Statement — only appears in Constructor/MethodDeclaration/FunctionDeclaration param lists.
@@ -382,8 +382,11 @@ export interface ThisExpression extends ASTNode {
   type: 'ThisExpression';
 }
 
-// A Praxis `/* ... */` placeholder for missing exam-question code. It evaluates
-// to a default value (0) so a program with holes still compiles and runs.
+// A Praxis `/* ... */` placeholder for missing exam-question code. Standing
+// alone as a statement it's a no-op (a missing statement); used directly as
+// part of an expression (a condition, an operand, an assigned value's later
+// read) it's a runtime error — see interpreter.ts. Emitters lower it to a
+// type-appropriate default (`0`) when translating to another language.
 export interface Placeholder extends ASTNode {
   type: 'Placeholder';
   text: string;
@@ -398,6 +401,60 @@ export interface Literal extends ASTNode {
 }
 
 export const generateId = () => Math.random().toString(36).substring(2, 11);
+
+/**
+ * True when the class is Java's mandatory `Main` wrapper: a class named Main
+ * with a static main method. Targets with free functions unwrap it — main's
+ * body becomes the top-level program.
+ */
+export const isJavaMainClass = (classDecl: ClassDeclaration): boolean =>
+  classDecl.name === 'Main' &&
+  classDecl.body.some((m) => m.type === 'MethodDeclaration' && m.name === 'main' && m.isStatic);
+
+/** The static main method of a Java `Main` wrapper class, if present. */
+export const javaMainMethod = (classDecl: ClassDeclaration): MethodDeclaration | undefined =>
+  classDecl.body.find(
+    (m): m is MethodDeclaration => m.type === 'MethodDeclaration' && m.name === 'main'
+  );
+
+/**
+ * The members of the `Main` wrapper other than main itself, converted to
+ * top-level statements: static fields become variable declarations and static
+ * helper methods become free functions. Targets that unwrap Main must emit
+ * these ahead of main's body — otherwise helpers the program calls would be
+ * silently dropped from the translation. The original node ids are preserved
+ * so debugger source maps keep lining up.
+ */
+export const mainClassHelperStatements = (classDecl: ClassDeclaration): Statement[] => {
+  const statements: Statement[] = [];
+  for (const member of classDecl.body) {
+    if (member.type === 'FieldDeclaration' && member.isStatic) {
+      const nullLiteral: Literal = { id: generateId(), type: 'Literal', value: null, raw: 'null' };
+      const assignment: Assignment = {
+        id: member.id,
+        type: 'Assignment',
+        target: makeIdentifier(member.name),
+        value: member.initializer ?? nullLiteral,
+        varType: member.fieldType,
+        declaredWithoutInitializer: !member.initializer,
+        loc: member.loc,
+      };
+      statements.push(assignment);
+    } else if (member.type === 'MethodDeclaration' && member.isStatic && member.name !== 'main') {
+      const fn: FunctionDeclaration = {
+        id: member.id,
+        type: 'FunctionDeclaration',
+        name: member.name,
+        params: member.params,
+        body: member.body,
+        returnType: member.returnType,
+        loc: member.loc,
+      };
+      statements.push(fn);
+    }
+  }
+  return statements;
+};
 
 // Builds a fresh Identifier node — used by parsers/converters to construct an
 // Assignment `target` from a bare variable name.

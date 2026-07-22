@@ -6,7 +6,7 @@
  *
  * Key dialect rules enforced here:
  *  - IF / ELSE IF / ELSE chains (single nested-IF else branch -> ELSE IF)
- *  - Assignment arrow is <- (spec uses ←, both accepted on input)
+ *  - Assignment arrow is ← (ASCII <- and long-arrow ⟵ also accepted on input)
  *  - Equality operator is = (not ==)
  *  - Not-equal is ≠, but <> is also emitted for ASCII compatibility
  *  - RETURN uses parens: RETURN(value)
@@ -24,7 +24,7 @@ import type {
   Expression,
   UnaryExpression,
 } from '../ast';
-import { lvalueName } from '../ast';
+import { lvalueName, isJavaMainClass, mainClassHelperStatements } from '../ast';
 
 export class CSPEmitter extends ASTVisitor {
   protected override breakStr = 'BREAK';
@@ -60,8 +60,33 @@ export class CSPEmitter extends ASTVisitor {
     return `${this.generateExpression(idx, Precedence.Additive)} + 1`;
   }
 
+  // Java requires every statement to live inside `class Main { public static
+  // void main(String[] args) { ... } }`. That wrapper carries no OOP meaning —
+  // unwrap it (via the shared isJavaMainClass/mainClassHelperStatements) rather
+  // than reporting it as unsupported (genuine user-defined classes still hit
+  // visitClassDeclaration's marker below).
   visitProgram(program: Program): void {
-    program.body.forEach((s) => this.visitStatement(s));
+    const classes = program.body.filter((s) => s.type === 'ClassDeclaration');
+    const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
+
+    const mainClass = classes.find((c) => isJavaMainClass(c as ClassDeclaration));
+    const otherClasses = classes.filter((c) => !isJavaMainClass(c as ClassDeclaration));
+
+    otherClasses.forEach((c) => this.visitStatement(c));
+    nonClasses.forEach((s) => this.visitStatement(s));
+
+    if (mainClass) {
+      // Unwrap Main: static fields and helper methods become top-level
+      // statements, then main's body runs as the program.
+      mainClassHelperStatements(mainClass as ClassDeclaration).forEach((stmt) => {
+        this.visitStatement(stmt);
+        if (stmt.type === 'FunctionDeclaration') this.emit('');
+      });
+      const mainMethod = (mainClass as ClassDeclaration).body.find(
+        (m) => m.type === 'MethodDeclaration' && (m as MethodDeclaration).name === 'main'
+      ) as MethodDeclaration | undefined;
+      if (mainMethod) this.visitBlock(mainMethod.body);
+    }
   }
 
   // CSP has no classes or object-oriented features (per specs/csp.md). These
@@ -103,7 +128,7 @@ export class CSPEmitter extends ASTVisitor {
         stmt.value.elements.forEach((val: any, i: number) => {
           const t = targets[i];
           if (t?.type === 'Identifier') {
-            this.emit(`${t.name} <- ${this.generateExpression(val, 0)}`, stmt.id);
+            this.emit(`${t.name} ← ${this.generateExpression(val, 0)}`, stmt.id);
           }
         });
       }
@@ -116,7 +141,7 @@ export class CSPEmitter extends ASTVisitor {
     }
 
     const targetStr = this.generateExpression(stmt.target, 0);
-    this.emit(`${targetStr} <- ${this.generateExpression(stmt.value, 0)}`, stmt.id);
+    this.emit(`${targetStr} ← ${this.generateExpression(stmt.value, 0)}`, stmt.id);
   }
 
   visitIf(stmt: any): void {
@@ -207,10 +232,13 @@ export class CSPEmitter extends ASTVisitor {
     stmt.cases.forEach((c: any) => {
       if (c.test) {
         const testStr = this.generateExpression(c.test, 0);
-        this.emit(first ? `IF (${disc} = ${testStr})` : `ELSE IF (${disc} = ${testStr})`);
+        this.emit(
+          first ? `IF (${disc} = ${testStr})` : `ELSE IF (${disc} = ${testStr})`,
+          first ? stmt.id : undefined
+        );
         first = false;
       } else {
-        this.emit('ELSE');
+        this.emit('ELSE', first ? stmt.id : undefined);
       }
       this.emit('{');
       this.indent();
@@ -220,12 +248,12 @@ export class CSPEmitter extends ASTVisitor {
     });
   }
 
-  visitBreak(_stmt: any): void {
-    this.emit('// BREAK');
+  visitBreak(stmt: any): void {
+    this.emit('// BREAK', stmt.id);
   }
 
-  visitContinue(_stmt: any): void {
-    this.emit('// CONTINUE');
+  visitContinue(stmt: any): void {
+    this.emit('// CONTINUE', stmt.id);
   }
 
   visitFor(stmt: any): void {
@@ -293,7 +321,7 @@ export class CSPEmitter extends ASTVisitor {
     }
   }
 
-  // Emits `var <- start; REPEAT UNTIL (var <cmp> end) { body; var <- var + step }`,
+  // Emits `var ← start; REPEAT UNTIL (var <cmp> end) { body; var ← var + step }`,
   // the spec-legal way to express a counting loop in CSP.
   private emitCounterLoop(
     variable: string,
@@ -305,12 +333,12 @@ export class CSPEmitter extends ASTVisitor {
     id: string
   ): void {
     this.context.symbolTable.enterScope();
-    this.emit(`${variable} <- ${start}`, id);
+    this.emit(`${variable} ← ${start}`, id);
     this.emit(`REPEAT UNTIL (${variable} ${cmp} ${end})`);
     this.emit('{');
     this.indent();
     this.visitBlock(body);
-    this.emit(`${variable} <- ${variable} + ${step}`);
+    this.emit(`${variable} ← ${variable} + ${step}`);
     this.dedent();
     this.emit('}');
     this.context.symbolTable.exitScope();
@@ -343,7 +371,7 @@ export class CSPEmitter extends ASTVisitor {
 
   visitTry(stmt: any): void {
     // CSP has no exception handling — emit as comment block
-    this.emit('// TRY');
+    this.emit('// TRY', stmt.id);
     this.emit('{');
     this.indent();
     this.visitBlock(stmt.body);
@@ -453,7 +481,7 @@ export class CSPEmitter extends ASTVisitor {
       case 'UpdateExpression': {
         const argStr = this.generateExpression((expr as any).argument, Precedence.Unary);
         const op = (expr as any).operator === '++' ? '+' : '-';
-        output = `${argStr} <- ${argStr} ${op} 1`;
+        output = `${argStr} ← ${argStr} ${op} 1`;
         break;
       }
 

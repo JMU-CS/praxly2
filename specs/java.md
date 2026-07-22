@@ -2,6 +2,36 @@
 
 The _AP Computer Science A_ exam may use the following methods from the Java library.
 
+## Program Structure
+
+Every Java program must define a class named `Main` with a runnable entry point:
+
+```java
+public class Main {
+  public static void main(String[] args) {
+    // your code here
+  }
+}
+```
+
+There is no bare-statement/script mode — top-level statements outside a class are
+a parse error, and a `Main` class without a matching `public static void main(String[] args)`
+method is also a parse error. This mirrors standard Java so that code written in Praxly
+compiles as-is in any other Java toolchain. Additional classes may be declared alongside
+`Main` (see `Extensions for Praxly` below for OOP support), and `import` declarations are
+accepted and ignored (Praxly's stdlib is always available without an explicit import).
+
+A variable or field declared without an initializer (`int x;`) is **uninitialized, not
+defaulted to `0`/`false`/`null`** — reading it before assigning a value is a runtime error.
+This mirrors Java's compile-time "variable might not have been initialized" check, enforced
+dynamically here since Praxly has no static definite-assignment pass.
+
+When a Java program is translated to a language with free functions, the `Main` wrapper
+is unwrapped rather than emitted as a class: `main`'s body becomes the top-level program,
+each other **static method** of `Main` becomes a free function (e.g. a Python `def`, a CSP
+`PROCEDURE`), and each **static field** of `Main` becomes a top-level variable declaration.
+Classes other than `Main` translate as classes (where the target supports them).
+
 ## String Class
 
 - `String(String str)` – Constructs a new `String` object that represents the same sequence of characters as `str`

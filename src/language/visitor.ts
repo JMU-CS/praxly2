@@ -100,15 +100,6 @@ export abstract class ASTVisitor {
     return this.output.join('\n');
   }
 
-  /**
-   * Emits a program: the pinned file-header comments, then the body. The
-   * translator calls this rather than visitProgram directly.
-   */
-  emitProgram(program: Program): void {
-    this.emitComments(program.headerComments);
-    this.visitProgram(program);
-  }
-
   /** Emits comment lines (delimiter re-added; a blank entry becomes a bare delimiter). */
   protected emitComments(lines?: string[]): void {
     if (!lines) return;

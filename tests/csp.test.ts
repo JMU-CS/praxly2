@@ -49,10 +49,23 @@ describe('CSP Lexer', () => {
       expect(tokens).toContainEqual(expect.objectContaining({ type: 'OPERATOR', value: '<-' }));
     });
 
+    it('accepts ← and ⟵ as assignment operator variants (not =, which is equality)', () => {
+      for (const arrow of ['←', '⟵']) {
+        const tokens = new CSPLexer(`x ${arrow} 5`).tokenize();
+        expect(tokens).toContainEqual(expect.objectContaining({ type: 'OPERATOR', value: '<-' }));
+      }
+    });
+
     it('should tokenize not-equal operator', () => {
       const lexer = new CSPLexer('x <> y');
       const tokens = lexer.tokenize();
       expect(tokens).toContainEqual(expect.objectContaining({ type: 'OPERATOR', value: '<>' }));
+    });
+
+    it('should tokenize != as a not-equal operator variant', () => {
+      const lexer = new CSPLexer('x != y');
+      const tokens = lexer.tokenize();
+      expect(tokens).toContainEqual(expect.objectContaining({ type: 'OPERATOR', value: '!=' }));
     });
 
     it('should tokenize comparison operators', () => {
@@ -247,7 +260,7 @@ describe('CSP Emitter', () => {
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
-      expect(code).toContain('<-');
+      expect(code).toContain('←');
     });
 
     it('should emit display statement', () => {
@@ -364,7 +377,7 @@ describe('CSP Translation', () => {
       const translator = new Translator();
       const result = translator.translate(program, 'csp');
       expect(result).toContain('x');
-      expect(result).toContain('<-');
+      expect(result).toContain('←');
       expect(result).toContain('5');
     });
 
@@ -505,7 +518,7 @@ DISPLAY("after")`;
       const result = new Translator().translate(program, 'csp');
       expect(result).not.toContain('FROM');
       expect(result).toContain('REPEAT UNTIL');
-      expect(result).toContain('i <- i + 2');
+      expect(result).toContain('i ← i + 2');
     });
 
     it('should handle REPEAT n TIMES with variable', () => {

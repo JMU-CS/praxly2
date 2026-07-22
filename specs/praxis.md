@@ -7,7 +7,10 @@ Assume Java semantics unless stated otherwise.
 ## Basics
 
 - Comments: `// this is a single-line comment`
-- Placeholder for missing code: e.g., `/* missing code */` or `/* missing condition */`
+- Placeholder for missing code: e.g., `/* missing code */` or `/* missing condition */`.
+  A placeholder has no value — assigning one to a variable (`x ← /* missing */`) leaves
+  that variable uninitialized (reading it later is a runtime error), and using a
+  placeholder directly (e.g. `if (/* cond */)`) is an immediate runtime error.
 - Print: `print arg` or `print(arg)`
     - By default, a newline is appended to the output (i.e., like `println`).
     - A comment is used where necessary to indicate if a line feed or blank is appended to the argument.
@@ -33,10 +36,15 @@ Assume Java semantics unless stated otherwise.
 - Data types: `boolean`, `char`, `double`, `float`, `int`, `int[]`, `int[][]`, `short`, `String`
 - Array initialization
     - `int[] a ← {1, 2, 3}`
+- A bare declaration with no initializer (`int x`) leaves `x` uninitialized — reading it
+  before assigning a value is a runtime error.
 - Array reference
     - `b[0] = a[2]`
 
 ## Conditional statements
+
+Parentheses around the condition (and around a `for` loop's `init; condition; increment`
+header) are required, as shown below — the interpreter rejects a header written without them.
 
 ```
 if (condition)

@@ -13,8 +13,10 @@ import { JavaScriptLexer } from '../src/language/javascript/lexer';
 import { JavaScriptParser } from '../src/language/javascript/parser';
 import { Interpreter } from '../src/language/interpreter';
 
-const java = (src: string): string[] =>
-  new Interpreter().interpret(new JavaParser(new JavaLexer(src).tokenize()).parse(), src);
+const java = (body: string): string[] => {
+  const src = `public class Main {\n  public static void main(String[] args) {\n${body}\n  }\n}`;
+  return new Interpreter().interpret(new JavaParser(new JavaLexer(src).tokenize()).parse(), src);
+};
 const python = (src: string): string[] =>
   new Interpreter().interpret(new PythonParser(new PythonLexer(src).tokenize()).parse(), src);
 const js = (src: string): string[] =>

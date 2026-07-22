@@ -118,7 +118,7 @@ export class CSPLexer {
       }
 
       // Unicode symbols for assignment and relational operators
-      if (char === '←') {
+      if (char === '←' || char === '⟵') {
         tokens.push({ type: 'OPERATOR', value: '<-', start: this.pos++ });
         continue;
       }
@@ -135,7 +135,9 @@ export class CSPLexer {
         continue;
       }
 
-      if (['+', '-', '*', '/', '=', '>', '<', '(', ')', '{', '}', '[', ']', ','].includes(char)) {
+      if (
+        ['+', '-', '*', '/', '=', '>', '<', '!', '(', ')', '{', '}', '[', ']', ','].includes(char)
+      ) {
         const start = this.pos;
         // Check for <-
         if (char === '<' && this.input[this.pos + 1] === '-') {

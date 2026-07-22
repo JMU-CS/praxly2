@@ -341,21 +341,26 @@ export class JavaEmitter extends ASTVisitor {
     if (imports.length > 0) this.emit('');
 
     classes.forEach((classDecl) => {
-      this.visitClassDeclaration(classDecl as ClassDeclaration);
+      this.visitStatement(classDecl);
       this.emit('');
     });
 
-    if (functions.length > 0 || mainBody.length > 0) {
+    // Blank-line separators between top-level classes end up in `mainBody`
+    // (they're neither a class nor a function) — they must not, on their own,
+    // trigger a synthetic `Main` wrapper for a program with no real main body.
+    const hasMainBodyContent = mainBody.some((s) => s.type !== 'BlankLine');
+
+    if (functions.length > 0 || hasMainBodyContent) {
       this.context.symbolTable = new SymbolTable();
       this.emit('public class Main {');
       this.indent();
 
       functions.forEach((func) => {
-        this.visitFunctionDeclaration(func as any);
+        this.visitStatement(func);
         this.emit('');
       });
 
-      if (mainBody.length > 0) {
+      if (hasMainBodyContent) {
         this.emit('public static void main(String[] args) {');
         this.indent();
 
@@ -660,7 +665,7 @@ export class JavaEmitter extends ASTVisitor {
     // Unroll nested if blocks into else-if chains for compact syntax
     while (currentElse && currentElse.body.length === 1 && currentElse.body[0].type === 'If') {
       const elifStmt = currentElse.body[0];
-      this.emit(`} else if (${this.generateExpression(elifStmt.condition, 0)}) {`);
+      this.emit(`} else if (${this.generateExpression(elifStmt.condition, 0)}) {`, elifStmt.id);
       this.indent();
       this.context.symbolTable.enterScope();
       this.visitBlock(elifStmt.thenBranch);
@@ -701,7 +706,7 @@ export class JavaEmitter extends ASTVisitor {
    * Body guaranteed to execute at least once.
    */
   visitDoWhile(stmt: any): void {
-    this.emit(`do {`);
+    this.emit(`do {`, stmt.id);
     this.indent();
     this.context.symbolTable.enterScope();
     this.visitBlock(stmt.body);
@@ -730,7 +735,7 @@ export class JavaEmitter extends ASTVisitor {
    * Avoids breaks only when already present or for final case.
    */
   visitSwitch(stmt: any): void {
-    this.emit(`switch (${this.generateExpression(stmt.discriminant, 0)}) {`);
+    this.emit(`switch (${this.generateExpression(stmt.discriminant, 0)}) {`, stmt.id);
     this.indent();
     this.context.symbolTable.enterScope();
 
@@ -770,15 +775,15 @@ export class JavaEmitter extends ASTVisitor {
   /**
    * Emits break statement to exit loop or switch.
    */
-  visitBreak(_stmt: any): void {
-    this.emit('break;');
+  visitBreak(stmt: any): void {
+    this.emit('break;', stmt.id);
   }
 
   /**
    * Emits continue statement to skip to next loop iteration.
    */
-  visitContinue(_stmt: any): void {
-    this.emit('continue;');
+  visitContinue(stmt: any): void {
+    this.emit('continue;', stmt.id);
   }
 
   /**
@@ -932,7 +937,8 @@ export class JavaEmitter extends ASTVisitor {
       else if (this.isArrayListType(iterType)) varType = this.getArrayListElementType(iterType);
 
       this.emit(
-        `for (${varType} ${stmt.variable} : ${this.generateExpression(stmt.iterable, 0)}) {`
+        `for (${varType} ${stmt.variable} : ${this.generateExpression(stmt.iterable, 0)}) {`,
+        stmt.id
       );
       // A for-each header always declares its own variable (Java requires the
       // type), but record it so a later re-declaration drops its type.
@@ -1009,7 +1015,7 @@ export class JavaEmitter extends ASTVisitor {
    * Supports optional finally block.
    */
   visitTry(stmt: any): void {
-    this.emit('try {');
+    this.emit('try {', stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();

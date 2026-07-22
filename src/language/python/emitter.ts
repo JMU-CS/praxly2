@@ -17,7 +17,7 @@ import type {
   ForEach,
   Expression,
 } from '../ast';
-import { lvalueName } from '../ast';
+import { lvalueName, isJavaMainClass, mainClassHelperStatements } from '../ast';
 
 /**
  * Emitter for converting AST to Python source code.
@@ -166,21 +166,6 @@ export class PythonEmitter extends ASTVisitor {
   }
 
   /**
-   * Check if a ClassDeclaration is Java's special Main class wrapper
-   * (contains only a static main method)
-   */
-  private isJavaMainClass(classDecl: ClassDeclaration): boolean {
-    if (classDecl.name !== 'Main') return false;
-    const hasStaticMainMethod = classDecl.body.some(
-      (member) =>
-        member.type === 'MethodDeclaration' &&
-        (member as MethodDeclaration).name === 'main' &&
-        (member as MethodDeclaration).isStatic
-    );
-    return hasStaticMainMethod;
-  }
-
-  /**
    * Main entry point for translating a complete program.
    * Separates classes from functions and main body.
    * Handles Java Main class wrapper pattern by extracting its main method body.
@@ -191,12 +176,12 @@ export class PythonEmitter extends ASTVisitor {
     const nonClasses = program.body.filter((s) => s.type !== 'ClassDeclaration');
 
     // Split Main class from other classes
-    const mainClass = classes.find((c) => this.isJavaMainClass(c as ClassDeclaration));
-    const otherClasses = classes.filter((c) => !this.isJavaMainClass(c as ClassDeclaration));
+    const mainClass = classes.find((c) => isJavaMainClass(c as ClassDeclaration));
+    const otherClasses = classes.filter((c) => !isJavaMainClass(c as ClassDeclaration));
 
     // Emit non-Main classes
     otherClasses.forEach((classDecl) => {
-      this.visitClassDeclaration(classDecl as ClassDeclaration);
+      this.visitStatement(classDecl);
       this.emit('');
     });
 
@@ -211,9 +196,15 @@ export class PythonEmitter extends ASTVisitor {
     // Emit main body from non-class statements
     mainBody.forEach((stmt) => this.visitStatement(stmt));
 
-    // If there's a Java Main class, emit its main method body directly
+    // If there's a Java Main class, unwrap it: its static fields and helper
+    // methods become top-level statements, then main's body runs as the program.
     if (mainClass) {
       const mainClassDecl = mainClass as ClassDeclaration;
+      mainClassHelperStatements(mainClassDecl).forEach((stmt) => {
+        this.visitStatement(stmt);
+        if (stmt.type === 'FunctionDeclaration') this.emit('');
+      });
+
       const mainMethod = mainClassDecl.body.find(
         (m) => m.type === 'MethodDeclaration' && (m as MethodDeclaration).name === 'main'
       ) as MethodDeclaration | undefined;
@@ -401,7 +392,7 @@ export class PythonEmitter extends ASTVisitor {
 
     while (currentElse && currentElse.body.length === 1 && currentElse.body[0].type === 'If') {
       const elifStmt = currentElse.body[0];
-      this.emit(`elif ${this.generateExpression(elifStmt.condition, 0)}:`);
+      this.emit(`elif ${this.generateExpression(elifStmt.condition, 0)}:`, elifStmt.id);
       this.indent();
       this.visitBlock(elifStmt.thenBranch);
       this.dedent();
@@ -431,7 +422,7 @@ export class PythonEmitter extends ASTVisitor {
    * Python lacks do-while, so implements as while True with break condition.
    */
   visitDoWhile(stmt: any): void {
-    this.emit(`while True:`);
+    this.emit(`while True:`, stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.emit(`if not (${this.generateExpression(stmt.condition, 0)}):`);
@@ -469,10 +460,13 @@ export class PythonEmitter extends ASTVisitor {
     stmt.cases.forEach((caseStmt: any) => {
       if (caseStmt.test) {
         const keyword = first ? 'if' : 'elif';
-        this.emit(`${keyword} ${discriminant} == ${this.generateExpression(caseStmt.test, 0)}:`);
+        this.emit(
+          `${keyword} ${discriminant} == ${this.generateExpression(caseStmt.test, 0)}:`,
+          first ? stmt.id : undefined
+        );
         first = false;
       } else {
-        this.emit(`else:`);
+        this.emit(`else:`, first ? stmt.id : undefined);
       }
       this.indent();
       let emittedBody = false;
@@ -489,15 +483,15 @@ export class PythonEmitter extends ASTVisitor {
   /**
    * Visits break and returns the result.
    */
-  visitBreak(_stmt: any): void {
-    this.emit('break');
+  visitBreak(stmt: any): void {
+    this.emit('break', stmt.id);
   }
 
   /**
    * Visits continue and returns the result.
    */
-  visitContinue(_stmt: any): void {
-    this.emit('continue');
+  visitContinue(stmt: any): void {
+    this.emit('continue', stmt.id);
   }
 
   /**
@@ -639,7 +633,7 @@ export class PythonEmitter extends ASTVisitor {
    * Supports multiple except blocks and optional finally cleanup block.
    */
   visitTry(stmt: any): void {
-    this.emit('try:');
+    this.emit('try:', stmt.id);
     this.indent();
     this.visitBlock(stmt.body);
     this.dedent();

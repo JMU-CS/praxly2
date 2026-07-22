@@ -190,7 +190,7 @@ end while`;
     });
 
     it('should parse for loop', () => {
-      const source = `for i <- 0; i < 10; i <- i + 1
+      const source = `for (i <- 0; i < 10; i <- i + 1)
   print(i)
 end for`;
       const lexer = new PraxisLexer(source);
@@ -198,6 +198,26 @@ end for`;
       const parser = new PraxisParser(tokens);
       const program = parser.parse();
       expect(program.body[0].type).toBe('For');
+    });
+
+    it('should reject a for loop header missing parentheses', () => {
+      const source = `for i <- 0; i < 5; i <- i + 1
+  print(i)
+end for`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      expect(() => parser.parse()).toThrow();
+    });
+
+    it('should reject an if statement missing parentheses', () => {
+      const source = `if x > 5
+  print(x)
+end if`;
+      const lexer = new PraxisLexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new PraxisParser(tokens);
+      expect(() => parser.parse()).toThrow();
     });
 
     it('should parse an else-if chain as nested If nodes', () => {
@@ -284,7 +304,7 @@ end add`;
       });
       emitter.visitProgram(program);
       const code = emitter.getGeneratedCode();
-      expect(code).toContain('<-');
+      expect(code).toContain('←');
     });
 
     it('should emit if statement', () => {
@@ -341,7 +361,7 @@ describe('Praxis Translation', () => {
       const result = translator.translate(program, 'praxis');
       expect(result).toContain('int');
       expect(result).toContain('x');
-      expect(result).toContain('<-');
+      expect(result).toContain('←');
     });
 
     it('should translate print statement', () => {
@@ -482,7 +502,7 @@ print(numbers[2])`;
 
     it('should handle array iteration with 0-based indexing', () => {
       const source = `int[] xs <- {1, 2, 3}
-for i <- 0; i < 3; i <- i + 1
+for (i <- 0; i < 3; i <- i + 1)
   print(xs[i])
 end for`;
       const lexer = new PraxisLexer(source);
@@ -497,7 +517,7 @@ end for`;
 
     it('should correctly handle 0-based array access in for loops', () => {
       const source = `int[] items <- {10, 20, 30}
-for i <- 0; i < 3; i <- i + 1
+for (i <- 0; i < 3; i <- i + 1)
   print(items[i])
 end for`;
       const lexer = new PraxisLexer(source);
@@ -670,7 +690,7 @@ end class Box`;
       const praxis = new Translator().translate(program, 'praxis');
       expect(praxis).toContain('public Box(int v)');
       expect(praxis).toContain('end Box');
-      expect(praxis).toContain('value <- v');
+      expect(praxis).toContain('value ← v');
       expect(praxis).not.toContain('this.');
       expect(praxis).not.toContain('procedure new');
     });
@@ -704,10 +724,13 @@ print(s.label())`;
     public String name;
     public Tag(String name) { this.name = name; }
     public String get() { return name; }
+}
+public class Main {
+    public static void main(String[] args) {}
 }`;
       const program = new JavaParser(new JavaLexer(src).tokenize()).parse();
       const praxis = new Translator().translate(program, 'praxis');
-      expect(praxis).toContain('this.name <- name'); // shadowed -> qualified
+      expect(praxis).toContain('this.name ← name'); // shadowed -> qualified
       expect(praxis).toContain('return name'); // not shadowed -> bare
     });
   });

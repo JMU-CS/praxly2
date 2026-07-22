@@ -55,22 +55,39 @@ describe('blank-line preservation', () => {
   });
 
   it('inserts a BlankLine node for every text front-end', () => {
-    const cases: Array<[string, () => Program]> = [
-      ['python', () => py('x = 1\n\ny = 2')],
+    // Java statements must live inside Main.main; extract that method's block
+    // instead of the top-level program body (which is just [ClassDeclaration]).
+    const javaMainBody = (p: Program) =>
+      ((p.body[0] as any).body.find((m: any) => m.name === 'main').body as any).body.map(
+        (s: any) => s.type
+      );
+    const cases: Array<[string, () => Program, (p: Program) => string[]]> = [
+      ['python', () => py('x = 1\n\ny = 2'), bodyTypes],
       [
         'javascript',
         () =>
           new JavaScriptParser(new JavaScriptLexer('let x = 1;\n\nlet y = 2;').tokenize()).parse(),
+        bodyTypes,
       ],
-      ['java', () => new JavaParser(new JavaLexer('int x = 1;\n\nint y = 2;').tokenize()).parse()],
-      ['csp', () => new CSPParser(new CSPLexer('x <- 1\n\ny <- 2').tokenize()).parse()],
+      [
+        'java',
+        () =>
+          new JavaParser(
+            new JavaLexer(
+              'public class Main {\n  public static void main(String[] args) {\n    int x = 1;\n\n    int y = 2;\n  }\n}'
+            ).tokenize()
+          ).parse(),
+        javaMainBody,
+      ],
+      ['csp', () => new CSPParser(new CSPLexer('x <- 1\n\ny <- 2').tokenize()).parse(), bodyTypes],
       [
         'praxis',
         () => new PraxisParser(new PraxisLexer('int x <- 1\n\nint y <- 2').tokenize()).parse(),
+        bodyTypes,
       ],
     ];
-    for (const [lang, parse] of cases) {
-      expect(bodyTypes(parse()), `${lang} should insert a BlankLine`).toEqual([
+    for (const [lang, parse, extract] of cases) {
+      expect(extract(parse()), `${lang} should insert a BlankLine`).toEqual([
         'Assignment',
         'BlankLine',
         'Assignment',
