@@ -1726,7 +1726,14 @@ export class Interpreter {
         const retVal = stmt.value ? this.evaluate(stmt.value, env) : null;
         throw new ReturnException(retVal);
       case 'ExpressionStatement':
-        this.evaluate(stmt.expression, env);
+        // A bare `/* ... */` placeholder standing alone as a statement (e.g. a
+        // missing loop body line) represents a whole missing statement, not a
+        // missing value — a no-op, same as BlankLine. Using a placeholder as
+        // part of a real expression (an operand, a condition, an assigned
+        // value) still reaches evaluate()'s Placeholder case and errors.
+        if (stmt.expression.type !== 'Placeholder') {
+          this.evaluate(stmt.expression, env);
+        }
         break;
       case 'Break':
         throw new BreakException();
