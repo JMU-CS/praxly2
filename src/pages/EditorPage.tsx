@@ -106,6 +106,10 @@ export default function EditorPage() {
   // Language the user asked to switch to when the program couldn't be
   // translated — non-null while the "start fresh?" dialog is open.
   const [pendingLangSwitch, setPendingLangSwitch] = useState<SupportedLang | null>(null);
+  // Example id awaiting confirmation to replace a non-blank editor.
+  const [pendingExampleId, setPendingExampleId] = useState<string | null>(null);
+  // True while confirming replacing a non-blank editor with the demo program.
+  const [pendingDemoLoad, setPendingDemoLoad] = useState(false);
   // Highlight-to-chat: text selected in the source editor + where to float the button.
   const [aiSelection, setAiSelection] = useState('');
   const [aiSelectionCoords, setAiSelectionCoords] = useState<{ top: number; left: number } | null>(
@@ -701,12 +705,9 @@ export default function EditorPage() {
     setHasRun(false);
   };
 
-  const handleLoadExample = (exampleId: string) => {
+  const loadExample = (exampleId: string) => {
     const example = getExampleById(exampleId);
-    if (!example) {
-      setShowExamplesMenu(false);
-      return;
-    }
+    if (!example) return;
 
     setSourceLang(example.lang);
     setCode(example.code);
@@ -719,11 +720,20 @@ export default function EditorPage() {
     setPanelHighlightedLines(new Map());
     setWaitingForNormalInput(false);
     setCurrentInterpreter(null);
-    setShowSettingsMenu(false);
-    setShowExamplesMenu(false);
   };
 
-  const handleLoadDemo = () => {
+  const handleLoadExample = (exampleId: string) => {
+    setShowSettingsMenu(false);
+    setShowExamplesMenu(false);
+    // A non-blank editor is about to be discarded — confirm first.
+    if (code.trim()) {
+      setPendingExampleId(exampleId);
+      return;
+    }
+    loadExample(exampleId);
+  };
+
+  const loadDemo = () => {
     const demo = getDemoForLang(sourceLang);
     if (!demo) return;
 
@@ -737,8 +747,17 @@ export default function EditorPage() {
     setPanelHighlightedLines(new Map());
     setWaitingForNormalInput(false);
     setCurrentInterpreter(null);
+  };
+
+  const handleLoadDemo = () => {
     setShowSettingsMenu(false);
     setShowExamplesMenu(false);
+    // A non-blank editor is about to be discarded — confirm first.
+    if (code.trim()) {
+      setPendingDemoLoad(true);
+      return;
+    }
+    loadDemo();
   };
 
   const handleToggleAiPanel = () => {
@@ -1338,6 +1357,36 @@ export default function EditorPage() {
               setPendingLangSwitch(null);
             }}
             onCancel={() => setPendingLangSwitch(null)}
+          />
+        )}
+
+        {/* Asks before replacing a non-blank editor with an example program. */}
+        {pendingExampleId && (
+          <ConfirmModal
+            title="Replace current code?"
+            message={`Loading "${getExampleById(pendingExampleId)?.title ?? 'this example'}" will replace your current code. This can't be undone.`}
+            confirmLabel="Load example"
+            cancelLabel="Keep my code"
+            onConfirm={() => {
+              loadExample(pendingExampleId);
+              setPendingExampleId(null);
+            }}
+            onCancel={() => setPendingExampleId(null)}
+          />
+        )}
+
+        {/* Asks before replacing a non-blank editor with the demo program. */}
+        {pendingDemoLoad && (
+          <ConfirmModal
+            title="Replace current code?"
+            message="Loading the demo program will replace your current code. This can't be undone."
+            confirmLabel="Load demo"
+            cancelLabel="Keep my code"
+            onConfirm={() => {
+              loadDemo();
+              setPendingDemoLoad(false);
+            }}
+            onCancel={() => setPendingDemoLoad(false)}
           />
         )}
 
