@@ -1,7 +1,7 @@
 /**
  * Comment translation: comments captured by each lexer are attached to
  * statements and re-emitted in the target language's delimiter, so a source
- * program's comments survive translation (header block, leading, and trailing).
+ * program's comments survive translation (file-top, leading, and trailing).
  */
 import { describe, it, expect } from 'vitest';
 
@@ -16,15 +16,15 @@ const px = (src: string) => new PraxisParser(new PraxisLexer(src).tokenize()).pa
 const to = (parse: () => any, target: any) => new Translator().translate(parse(), target);
 
 describe('comment translation', () => {
-  it('translates a header block, a leading comment, and a trailing comment (python -> java)', () => {
+  it('translates a file-top comment block, a leading comment, and a trailing comment (python -> java)', () => {
     const src = `# banner one
 # banner two
 x = 5   # keeps x
 # describe y
 y = x + 1`;
     const java = to(() => py(src), 'java');
-    // Header is pinned to the top with the target delimiter.
-    expect(java.startsWith('// banner one\n// banner two\n')).toBe(true);
+    // File-top comments attach to the first statement as leading comments.
+    expect(java).toContain('// banner one\n    // banner two\n    double x = 5;');
     // Leading comment sits on its own line above its statement.
     expect(java).toContain('// describe y');
     // Trailing comment stays inline on the statement's line.

@@ -63,9 +63,6 @@ export interface ASTNode {
 export interface Program extends ASTNode {
   type: 'Program';
   body: Statement[];
-  // File-top comment block, pinned to the program so it stays at the top even
-  // when an emitter hoists/reorders the first statement.
-  headerComments?: string[];
 }
 
 export interface Block extends ASTNode {
