@@ -1,12 +1,14 @@
 /**
  * Praxis slash-star placeholder: a hole for missing exam-question code. It
- * parses to a Placeholder expression node. Interpreting it is a runtime error —
- * assigning it to a variable stores an uninitialized sentinel (reading the
- * variable later is the error), and using it directly (a condition, an
- * operand, ...) errors immediately. It is preserved verbatim in Praxis output,
- * and still lowers to `0` when translated to every other target (which don't
- * support the placeholder syntax) — translation is a text-emission concern,
- * not interpretation, so the emitted default is unchanged.
+ * parses to a Placeholder expression node. Standing alone as a statement
+ * (e.g. a missing loop body line) it's a no-op. Used directly as part of a
+ * real expression, interpreting it is a runtime error — assigning it to a
+ * variable stores an uninitialized sentinel (reading the variable later is
+ * the error), and using it directly (a condition, an operand, ...) errors
+ * immediately. It is preserved verbatim in Praxis output, and still lowers to
+ * `0` when translated to every other target (which don't support the
+ * placeholder syntax) — translation is a text-emission concern, not
+ * interpretation, so the emitted default is unchanged.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -34,6 +36,11 @@ describe('Praxis placeholder', () => {
   it('using a placeholder directly (e.g. as a condition) is an immediate error', () => {
     const out = run('if (/* cond */)\n    print("t")\nelse\n    print("f")\nend if');
     expect(out.join('\n')).toMatch(/uninitialized value/i);
+  });
+
+  it('standing alone as a statement is a no-op, not an error', () => {
+    const out = run('print "Before"\n/* missing code */\nprint "After"');
+    expect(out.join('\n')).toBe('Before\nAfter');
   });
 
   it('is preserved verbatim in Praxis output', () => {

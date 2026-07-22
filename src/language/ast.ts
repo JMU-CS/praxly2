@@ -382,8 +382,11 @@ export interface ThisExpression extends ASTNode {
   type: 'ThisExpression';
 }
 
-// A Praxis `/* ... */` placeholder for missing exam-question code. It evaluates
-// to a default value (0) so a program with holes still compiles and runs.
+// A Praxis `/* ... */` placeholder for missing exam-question code. Standing
+// alone as a statement it's a no-op (a missing statement); used directly as
+// part of an expression (a condition, an operand, an assigned value's later
+// read) it's a runtime error — see interpreter.ts. Emitters lower it to a
+// type-appropriate default (`0`) when translating to another language.
 export interface Placeholder extends ASTNode {
   type: 'Placeholder';
   text: string;
