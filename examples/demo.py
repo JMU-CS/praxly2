@@ -1,19 +1,6 @@
-# ===========================================================================
-# Praxly2 feature demo -- PYTHON        (shared notes: examples/README.md)
-# ---------------------------------------------------------------------------
-# AST nodes NOT reachable from Python source (covered by the other demos):
-#   DoWhile / RepeatUntil ... no do-while / repeat syntax.
-#   Switch / SwitchCase ..... no match/switch parsing.
-#   UpdateExpression ........ no ++ / -- in Python.
-#   CompoundAssignment ...... += etc. desugar to Assignment + BinaryExpression.
-#   NewExpression ........... instantiation is a CallExpression, e.g. Dog("x").
-#   ThisExpression .......... `self` is an ordinary Identifier.
-# ===========================================================================
+# ========================== EXPRESSIONS =======================================
 
-
-# ========================== EXPRESSIONS ====================================
-
-# ---- Literal (int, float, str, True, False, None) + multi-arg Print --------
+# ---- Literal (int, float, str, True, False, None) + multi-arg Print ----------
 count = 7
 pi = 3.14
 title = "python"
@@ -21,7 +8,7 @@ active = True
 missing = None
 print(count, pi, title, active, missing)
 
-# ---- BinaryExpression + augmented Assignment (desugars to `x = x <op> y`) ---
+# ---- BinaryExpression + augmented Assignment (de-sugars to `x = x <op> y`) ---
 total = 10
 total += 5            # 15
 total -= 3            # 12
@@ -30,21 +17,21 @@ total /= 4            # 6.0  (Python division is always float)
 print("total", total)
 print(7 % 3, 2 ** 8, 10 / 4)      # 1 256 2.5
 
-# ---- UnaryExpression (-, not) + comparison + logical (and/or) --------------
+# ---- UnaryExpression (-, not) + comparison + logical (and/or) ----------------
 print(-count, not active)                          # -7 false
 print(count > 3 and pi < 4, count == 7 or active)  # true true
 
-# ---- ConditionalExpression (ternary) + != ----------------------------------
+# ---- ConditionalExpression (ternary) + != ------------------------------------
 label = "big" if count > 5 else "small"            # ternary
 print(label, count != 3)                           # big true
 
-# ---- String methods (upper/lower/find/replace) -----------------------------
+# ---- String methods (upper/lower/find/replace) -------------------------------
 print(title.upper())              # PYTHON
 print(title.lower())              # python
 print(title.find("th"))           # 2   (index of "th")
 print(title.replace("p", "P"))    # Python
 
-# ---- ArrayLiteral / IndexExpression / MemberExpression / CallExpression ----
+# ---- ArrayLiteral / IndexExpression / MemberExpression / CallExpression ------
 values = [5, 2, 9, 1]
 values[0] = 50                    # index Assignment
 values.append(7)                  # method call (MemberExpression + Call)
@@ -53,9 +40,10 @@ values.insert(1, 99)              # insert 99 at index 1 -> [50, 99, 2, 9, 1]
 values.pop(1)                     # remove index 1        -> [50, 2, 9, 1]
 print(values, len(values), values[0])   # {50, 2, 9, 1} 4 50
 
-# ========================== STATEMENTS =====================================
 
-# ---- If / elif / else (elif => nested If in elseBranch) --------------------
+# ========================== STATEMENTS ========================================
+
+# ---- If / elif / else (elif => nested If in elseBranch) ----------------------
 score = 82
 if score >= 90:
     print("A")
@@ -64,13 +52,13 @@ elif score >= 80:
 else:
     print("C")
 
-# ---- While (pre-condition loop) --------------------------------------------
+# ---- While (pre-condition loop) ----------------------------------------------
 i = 0
 while i < 3:
     print("while", i)
     i += 1
 
-# ---- For over range() / a list literal / a string --------------------------
+# ---- For over range() / a list literal / a string ----------------------------
 for k in range(0, 6, 2):
     print("range", k)             # 0 2 4
 for item in [11, 22, 33]:
@@ -78,7 +66,7 @@ for item in [11, 22, 33]:
 for ch in "hi":
     print("char", ch)             # h i
 
-# ---- Break / Continue ------------------------------------------------------
+# ---- Break / Continue --------------------------------------------------------
 for n in range(5):
     if n == 3:
         break                     # stop the loop at 3
@@ -86,7 +74,7 @@ for n in range(5):
         continue                  # skip printing 1
     print("flow", n)              # flow 0 / flow 2
 
-# ---- Try / ExceptionHandler / finally --------------------------------------
+# ---- Try / ExceptionHandler / finally ----------------------------------------
 # Reading an undefined name raises; the handler catches it (binding the message
 # to `err`) and the finally block always runs.
 try:
@@ -97,9 +85,9 @@ finally:
     print("cleanup")              # always runs
 
 
-# ========================== FUNCTIONS ======================================
+# ========================== FUNCTIONS =========================================
 
-# ---- FunctionDeclaration / Parameter / Return ------------------------------
+# ---- FunctionDeclaration / Parameter / Return --------------------------------
 def greet(name, punct):
     return "hi " + name + punct
 
@@ -128,9 +116,9 @@ announce("ready")                 # announce: ready
 print("fib", fib(7))              # fib 13
 
 
-# ========================== CLASSES ========================================
+# ========================== CLASSES ===========================================
 
-# ---- ClassDeclaration / Constructor / MethodDeclaration / FieldDeclaration -
+# ---- ClassDeclaration / Constructor / MethodDeclaration / FieldDeclaration ---
 class Animal:
     kind = "animal"               # class attribute => FieldDeclaration
     legs: int = 4                 # typed class attribute (annotation + default)
