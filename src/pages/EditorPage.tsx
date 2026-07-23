@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { DragEvent, MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 import type { EditorView, ViewUpdate } from '@codemirror/view';
 
 import type { Program } from '../language/ast';
@@ -106,8 +107,15 @@ export default function EditorPage() {
   // Language the user asked to switch to when the program couldn't be
   // translated — non-null while the "start fresh?" dialog is open.
   const [pendingLangSwitch, setPendingLangSwitch] = useState<SupportedLang | null>(null);
-  // Highlight-to-chat: text selected in the source editor, shown as a chip in the AI panel.
+  // Example id awaiting confirmation to replace a non-blank editor.
+  const [pendingExampleId, setPendingExampleId] = useState<string | null>(null);
+  // True while confirming replacing a non-blank editor with the demo program.
+  const [pendingDemoLoad, setPendingDemoLoad] = useState(false);
+  // Highlight-to-chat: text selected in the source editor + where to float the button.
   const [aiSelection, setAiSelection] = useState('');
+  const [aiSelectionCoords, setAiSelectionCoords] = useState<{ top: number; left: number } | null>(
+    null
+  );
   const [resizingMemDiaPaneId, setResizingMemDiaPaneId] = useState<string | null>(null);
   const [memDiaHeights, setMemDiaHeights] = useState<Record<string, number>>({});
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
@@ -698,12 +706,9 @@ export default function EditorPage() {
     setHasRun(false);
   };
 
-  const handleLoadExample = (exampleId: string) => {
+  const loadExample = (exampleId: string) => {
     const example = getExampleById(exampleId);
-    if (!example) {
-      setShowExamplesMenu(false);
-      return;
-    }
+    if (!example) return;
 
     setSourceLang(example.lang);
     setCode(example.code);
@@ -718,11 +723,20 @@ export default function EditorPage() {
     setPanelHighlightedLines(new Map());
     setWaitingForNormalInput(false);
     setCurrentInterpreter(null);
-    setShowSettingsMenu(false);
-    setShowExamplesMenu(false);
   };
 
-  const handleLoadDemo = () => {
+  const handleLoadExample = (exampleId: string) => {
+    setShowSettingsMenu(false);
+    setShowExamplesMenu(false);
+    // A non-blank editor is about to be discarded — confirm first.
+    if (code.trim()) {
+      setPendingExampleId(exampleId);
+      return;
+    }
+    loadExample(exampleId);
+  };
+
+  const loadDemo = () => {
     const demo = getDemoForLang(sourceLang);
     if (!demo) return;
 
@@ -736,8 +750,17 @@ export default function EditorPage() {
     setPanelHighlightedLines(new Map());
     setWaitingForNormalInput(false);
     setCurrentInterpreter(null);
+  };
+
+  const handleLoadDemo = () => {
     setShowSettingsMenu(false);
     setShowExamplesMenu(false);
+    // A non-blank editor is about to be discarded — confirm first.
+    if (code.trim()) {
+      setPendingDemoLoad(true);
+      return;
+    }
+    loadDemo();
   };
 
   const handleToggleAiPanel = () => {
@@ -1370,6 +1393,55 @@ export default function EditorPage() {
             }}
             onCancel={() => setPendingLangSwitch(null)}
           />
+        )}
+
+        {/* Asks before replacing a non-blank editor with an example program. */}
+        {pendingExampleId && (
+          <ConfirmModal
+            title="Replace current code?"
+            message={`Loading "${getExampleById(pendingExampleId)?.title ?? 'this example'}" will replace your current code. This can't be undone.`}
+            confirmLabel="Load example"
+            cancelLabel="Keep my code"
+            onConfirm={() => {
+              loadExample(pendingExampleId);
+              setPendingExampleId(null);
+            }}
+            onCancel={() => setPendingExampleId(null)}
+          />
+        )}
+
+        {/* Asks before replacing a non-blank editor with the demo program. */}
+        {pendingDemoLoad && (
+          <ConfirmModal
+            title="Replace current code?"
+            message="Loading the demo program will replace your current code. This can't be undone."
+            confirmLabel="Load demo"
+            cancelLabel="Keep my code"
+            onConfirm={() => {
+              loadDemo();
+              setPendingDemoLoad(false);
+            }}
+            onCancel={() => setPendingDemoLoad(false)}
+          />
+        )}
+
+        {/* Highlight-to-chat: floating button near the editor selection. */}
+        {aiSelection && aiSelectionCoords && (
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShowAiSidePanel(true)}
+            style={{
+              position: 'fixed',
+              top: aiSelectionCoords.top,
+              left: aiSelectionCoords.left,
+              zIndex: 300,
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-600 text-white text-xs font-medium shadow-lg hover:bg-indigo-500 transition-colors"
+            title="Ask the AI about the selected code"
+          >
+            <Sparkles size={12} />
+            Ask AI
+          </button>
         )}
       </main>
     </div>
