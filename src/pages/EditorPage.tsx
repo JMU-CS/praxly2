@@ -435,13 +435,21 @@ export default function EditorPage() {
 
   // Track the current source-editor selection so the user can chat about it.
   const handleEditorUpdate = useCallback((update: ViewUpdate) => {
-    if (!update.selectionSet && !update.docChanged) return;
+    if (!update.selectionSet && !update.docChanged && !update.geometryChanged) return;
     const sel = update.state.selection.main;
-    setAiSelection(sel.empty ? '' : update.state.sliceDoc(sel.from, sel.to));
+    if (sel.empty) {
+      setAiSelection('');
+      setAiSelectionCoords(null);
+      return;
+    }
+    setAiSelection(update.state.sliceDoc(sel.from, sel.to));
+    const coords = update.view.coordsAtPos(sel.to);
+    setAiSelectionCoords(coords ? { top: coords.bottom + 4, left: coords.left } : null);
   }, []);
 
   const clearAiSelection = useCallback(() => {
     setAiSelection('');
+    setAiSelectionCoords(null);
   }, []);
 
   useEffect(() => {
@@ -699,6 +707,8 @@ export default function EditorPage() {
 
     setSourceLang(example.lang);
     setCode(example.code);
+    // Drop any translation panel that duplicates the example's own language.
+    setPanels((prev) => prev.filter((panel) => panel.lang !== example.lang));
     setOutput([]);
     setError(null);
     setHasRun(false);
