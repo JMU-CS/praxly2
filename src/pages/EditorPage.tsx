@@ -757,33 +757,6 @@ export default function EditorPage() {
     setShowExamplesMenu(false);
     // A non-blank editor is about to be discarded — confirm first.
     if (code.trim()) {
-      setPendingExampleId(exampleId);
-      return;
-    }
-    loadExample(exampleId);
-  };
-
-  const loadDemo = () => {
-    const demo = getDemoForLang(sourceLang);
-    if (!demo) return;
-
-    setCode(demo);
-    setOutput([]);
-    setError(null);
-    setHasRun(false);
-    setIsDebugging(false);
-    setIsDebugComplete(false);
-    setHighlightedSourceLines([]);
-    setPanelHighlightedLines(new Map());
-    setWaitingForNormalInput(false);
-    setCurrentInterpreter(null);
-  };
-
-  const handleLoadDemo = () => {
-    setShowSettingsMenu(false);
-    setShowExamplesMenu(false);
-    // A non-blank editor is about to be discarded — confirm first.
-    if (code.trim()) {
       setPendingDemoLoad(true);
       return;
     }
