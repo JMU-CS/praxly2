@@ -10,6 +10,8 @@ export interface AccountProfile {
   lastName: string | null;
   createdAt: string | null;
   roles: string[];
+  /** Which identity provider owns this account's credentials. */
+  provider: 'keycloak' | 'google';
 }
 
 export interface AccountUsage {

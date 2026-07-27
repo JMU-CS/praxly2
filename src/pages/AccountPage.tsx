@@ -15,7 +15,8 @@ import {
   User,
   X,
 } from 'lucide-react';
-import keycloak from '../api/keycloak';
+import { isAuthenticated, logout } from '../api/auth';
+import { SignInButtons } from '../components/auth/SignInButtons';
 import {
   getAccount,
   getUsage,
@@ -35,7 +36,8 @@ import {
 import { PROVIDER_OPTIONS, useByokDraft } from '../components/ai/byok';
 
 /**
- * Google-Account-style manager for the user's Keycloak account:
+ * Google-Account-style manager for the user's Praxly account (Keycloak or
+ * Google — whichever they signed in with):
  * personal info (email/name), security (password), and data & activity
  * (usage stats + chat history management).
  */
@@ -123,7 +125,7 @@ export default function AccountPage() {
   }, []);
 
   useEffect(() => {
-    if (!keycloak.authenticated) {
+    if (!isAuthenticated()) {
       setLoading(false);
       return;
     }
@@ -137,15 +139,15 @@ export default function AccountPage() {
     );
   }, []);
 
-  if (!keycloak.authenticated) {
+  if (!isAuthenticated()) {
     return (
       <div className="min-h-dvh bg-slate-950 flex items-center justify-center p-6">
         <div className={`${cardCls} max-w-sm w-full p-8 text-center`}>
           <h1 className="text-xl font-semibold text-slate-100">Praxly Account</h1>
           <p className="mt-2 text-sm text-slate-400">Sign in to manage your account.</p>
-          <button onClick={() => keycloak.login()} className={`${primaryBtnCls} mt-6 w-full`}>
-            Sign in
-          </button>
+          <div className="mt-6 flex justify-center">
+            <SignInButtons />
+          </div>
           <Link to="/v2/editor" className={`${textBtnCls} mt-2 inline-block`}>
             Back to editor
           </Link>
@@ -174,7 +176,7 @@ export default function AccountPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => keycloak.logout({ redirectUri: window.location.origin + '/v2/editor' })}
+            onClick={() => logout()}
             className="flex items-center gap-2 rounded-full border border-slate-700 px-4 py-1.5 text-sm text-slate-300 hover:bg-slate-800 transition-colors"
           >
             <LogOut size={14} />
@@ -235,7 +237,7 @@ export default function AccountPage() {
           ) : section === 'personal' ? (
             <PersonalSection profile={profile} setProfile={setProfile} notify={notify} />
           ) : section === 'security' ? (
-            <SecuritySection notify={notify} />
+            <SecuritySection profile={profile} notify={notify} />
           ) : section === 'ai' ? (
             <AiSettingsSection notify={notify} />
           ) : section === 'profile' ? (
@@ -329,8 +331,11 @@ function PersonalSection({
   const [lastName, setLastName] = useState(profile?.lastName ?? '');
   const [saving, setSaving] = useState(false);
 
+  // Google asserts the email on every sign-in; only Keycloak accounts own theirs.
+  const emailEditable = profile?.provider !== 'google';
+
   const dirty =
-    email !== (profile?.email ?? '') ||
+    (emailEditable && email !== (profile?.email ?? '')) ||
     firstName !== (profile?.firstName ?? '') ||
     lastName !== (profile?.lastName ?? '');
 
@@ -338,8 +343,8 @@ function PersonalSection({
     if (!profile) return;
     setSaving(true);
     try {
-      await updateProfile({ email, firstName, lastName });
-      setProfile({ ...profile, email, firstName, lastName });
+      await updateProfile({ ...(emailEditable ? { email } : {}), firstName, lastName });
+      setProfile({ ...profile, ...(emailEditable ? { email } : {}), firstName, lastName });
       notify('success', 'Profile updated. Changes to your email apply the next time you sign in.');
     } catch (e) {
       notify('error', e instanceof Error ? e.message : 'Failed to update profile');
@@ -359,11 +364,11 @@ function PersonalSection({
       <div className="space-y-4 p-6">
         <div>
           <label htmlFor="acct-username" className="mb-1 block text-xs font-medium text-slate-500">
-            Username
+            {emailEditable ? 'Username' : 'Signed in with'}
           </label>
           <input
             id="acct-username"
-            value={profile?.username ?? ''}
+            value={emailEditable ? (profile?.username ?? '') : `Google · ${profile?.email ?? ''}`}
             disabled
             className={`${inputCls} text-slate-500 opacity-70`}
           />
@@ -377,9 +382,15 @@ function PersonalSection({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={inputCls}
+            disabled={!emailEditable}
+            className={emailEditable ? inputCls : `${inputCls} text-slate-500 opacity-70`}
             placeholder="you@example.com"
           />
+          {!emailEditable && (
+            <p className="mt-1 text-xs text-slate-500">
+              Your email comes from your Google Account and can't be changed here.
+            </p>
+          )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -418,8 +429,10 @@ function PersonalSection({
 // ── Security ─────────────────────────────────────────────────────────────────
 
 function SecuritySection({
+  profile,
   notify,
 }: {
+  profile: AccountProfile | null;
   notify: (kind: 'success' | 'error', text: string) => void;
 }) {
   const [current, setCurrent] = useState('');
@@ -443,6 +456,31 @@ function SecuritySection({
       setSaving(false);
     }
   };
+
+  // Google owns the credentials for these accounts — there is no password here
+  // to change, and pretending otherwise would just fail at the backend.
+  if (profile?.provider === 'google') {
+    return (
+      <div className={`${cardCls} divide-y divide-slate-800`}>
+        <div className="p-6">
+          <h2 className="text-lg text-slate-100">Security</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            You sign in to Praxly with Google, so your password is managed by Google.
+          </p>
+        </div>
+        <div className="p-6">
+          <a
+            href="https://myaccount.google.com/security"
+            target="_blank"
+            rel="noreferrer"
+            className={primaryBtnCls}
+          >
+            Manage security on Google
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`${cardCls} divide-y divide-slate-800`}>
