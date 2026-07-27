@@ -80,16 +80,15 @@ export function AiSidePanel({
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   // Load session list from backend (skipped if sessions already in persisted
-  // store). Always ends with at least one chat selected — a fresh local chat
-  // is created when the user has no history, so the panel is ready to type
-  // into without pressing "+" first.
+  // store). Each page load starts on a brand-new chat rather than resuming the
+  // last one; past conversations stay available under Chat history.
   useEffect(() => {
     if (!keycloak.authenticated) return;
 
     const showChats = (chats: Chat[]) => {
-      const withFallback = chats.length > 0 ? chats : [makeNewChat()];
-      setLocalChats(withFallback);
-      setActiveId(withFallback[0].id);
+      const fresh = makeNewChat();
+      setLocalChats([fresh, ...chats]);
+      setActiveId(fresh.id);
     };
 
     if (sessions.length > 0) {
