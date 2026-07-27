@@ -1,5 +1,6 @@
 import { BACKEND_URL, requireAuthHeaders } from './config';
 import { useAiPrefsStore, useByokStore } from '../store/appStore';
+import { languageSpecFor } from '../components/ai/languageSpecs';
 
 /**
  * Talks to the k12-llm-backend (Hono / Node) through Keycloak auth.
@@ -78,8 +79,11 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
       parentMessageId: opts.parentMessageId ?? undefined,
       code: primaryPanel?.code,
       language: primaryPanel?.language,
-      // Tutor profile — fills the prompt's user_role / user_level / use_case
-      // variables (ignored by the backend until it supports them).
+      // Praxly specs for every open panel's language — fills {{language_spec}}
+      // so the tutor only describes what Praxly supports, and can compare the
+      // languages the student actually has open.
+      languageSpec: languageSpecFor(opts.panels.map((p) => p.language)),
+      // Tutor profile — fills the prompt's user_role / user_level / use_case.
       role: useAiPrefsStore.getState().role,
       level: useAiPrefsStore.getState().level,
       useCase: useAiPrefsStore.getState().useCase,
