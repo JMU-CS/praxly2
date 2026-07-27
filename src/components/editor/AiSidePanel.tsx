@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { History, LogIn, Plus, UserCircle, UserRound, X } from 'lucide-react';
+import { History, LogIn, Plus, UserCircle, X } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import Fuse from 'fuse.js';
 import keycloak from '../../api/keycloak';
 import { listChats, getChat, deleteChatApi, renameChatApi, toSimpleMessages } from '../../api/chat';
 import { type LlmPanel, type SimpleMessage, type TurnIds } from '../../api/llm';
-import { useChatStore, type SessionMeta } from '../../store/appStore';
+import {
+  useAiConsentStore,
+  useByokStore,
+  useChatStore,
+  type SessionMeta,
+} from '../../store/appStore';
 import { randomId } from '../../utils/id';
 import { ChatThread, type Chat } from '../ai/ChatThread';
 import { HistoryPanel } from '../ai/HistoryPanel';
-import { ProfileSettings } from '../ai/ProfileSettings';
+import { ApiKeyGate } from '../ai/ApiKeyGate';
+import { AiTermsModal } from '../ai/AiTermsModal';
 import { TypingDots } from '../ai/MessageComponents';
 
 interface AiSidePanelProps {
@@ -63,10 +69,13 @@ export function AiSidePanel({
     getCachedMessages,
   } = useChatStore();
 
+  const configured = useByokStore((s) => s.configured);
+  const termsAccepted = useAiConsentStore((s) => s.accepted);
+  const acceptTerms = useAiConsentStore((s) => s.accept);
+
   const [localChats, setLocalChats] = useState<Chat[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
   const [search, setSearch] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
 
@@ -186,7 +195,6 @@ export function AiSidePanel({
     setLocalChats((prev) => [c, ...prev]);
     setActiveId(c.id);
     setShowHistory(false);
-    setShowProfile(false);
   }, []);
 
   const openChat = useCallback((id: string) => {
@@ -245,29 +253,21 @@ export function AiSidePanel({
           AI Assistant
         </span>
         <div className="flex items-center gap-0.5">
-          <button onClick={newChat} className={iconBtn} title="New chat">
-            <Plus size={18} />
-          </button>
-          <button
-            onClick={() => {
-              setShowHistory((s) => !s);
-              setShowProfile(false);
-            }}
-            className={`${iconBtn} ${showHistory ? 'text-indigo-300 bg-slate-800' : ''}`}
-            title="Chat history"
-          >
-            <History size={18} />
-          </button>
-          <button
-            onClick={() => {
-              setShowProfile((s) => !s);
-              setShowHistory(false);
-            }}
-            className={`${iconBtn} ${showProfile ? 'text-indigo-300 bg-slate-800' : ''}`}
-            title="Tutor profile"
-          >
-            <UserRound size={18} />
-          </button>
+          {/* Chat controls appear only once the user has chosen a model. */}
+          {keycloak.authenticated && configured && (
+            <>
+              <button onClick={newChat} className={iconBtn} title="New chat">
+                <Plus size={18} />
+              </button>
+              <button
+                onClick={() => setShowHistory((s) => !s)}
+                className={`${iconBtn} ${showHistory ? 'text-indigo-300 bg-slate-800' : ''}`}
+                title="Chat history"
+              >
+                <History size={18} />
+              </button>
+            </>
+          )}
           {keycloak.authenticated ? (
             <Link to="/v2/account" className={iconBtn} title="Manage your account">
               <UserCircle size={18} />
@@ -294,8 +294,9 @@ export function AiSidePanel({
             Sign in
           </button>
         </div>
-      ) : showProfile ? (
-        <ProfileSettings onDone={() => setShowProfile(false)} />
+      ) : !configured ? (
+        // Onboarding gate: must pick a model before anything else is reachable.
+        <ApiKeyGate onDone={() => setShowHistory(false)} />
       ) : showHistory ? (
         <HistoryPanel
           chats={filteredChats}
@@ -323,6 +324,11 @@ export function AiSidePanel({
           />
         )
       ) : null}
+
+      {/* Usage-tracking consent — required before using the AI; must accept or the panel closes. */}
+      {keycloak.authenticated && !termsAccepted && (
+        <AiTermsModal onAccept={acceptTerms} onDecline={onClose} />
+      )}
     </div>
   );
 }

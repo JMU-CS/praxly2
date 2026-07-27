@@ -5,6 +5,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  GraduationCap,
   KeyRound,
   LogOut,
   MessageSquare,
@@ -24,7 +25,14 @@ import {
   type AccountUsage,
 } from '../api/account';
 import { listChats, deleteChatApi, renameChatApi, type SessionMeta } from '../api/chat';
-import { useByokStore, useChatStore, type ByokProvider } from '../store/appStore';
+import {
+  useAiPrefsStore,
+  useChatStore,
+  type AiLevel,
+  type AiRole,
+  type ByokProvider,
+} from '../store/appStore';
+import { PROVIDER_OPTIONS, useByokDraft } from '../components/ai/byok';
 
 /**
  * Google-Account-style manager for the user's Keycloak account:
@@ -32,13 +40,14 @@ import { useByokStore, useChatStore, type ByokProvider } from '../store/appStore
  * (usage stats + chat history management).
  */
 
-type Section = 'home' | 'personal' | 'security' | 'ai' | 'data';
+type Section = 'home' | 'personal' | 'security' | 'ai' | 'profile' | 'data';
 
 const NAV: Array<{ id: Section; label: string; icon: typeof User }> = [
   { id: 'home', label: 'Home', icon: User },
   { id: 'personal', label: 'Personal info', icon: Pencil },
   { id: 'security', label: 'Security', icon: ShieldCheck },
   { id: 'ai', label: 'AI model & API key', icon: KeyRound },
+  { id: 'profile', label: 'Tutor profile', icon: GraduationCap },
   { id: 'data', label: 'Data & activity', icon: MessageSquare },
 ];
 
@@ -229,6 +238,8 @@ export default function AccountPage() {
             <SecuritySection notify={notify} />
           ) : section === 'ai' ? (
             <AiSettingsSection notify={notify} />
+          ) : section === 'profile' ? (
+            <ProfileSection />
           ) : (
             <DataSection usage={usage} chats={chats} setChats={setChats} notify={notify} />
           )}
@@ -496,38 +507,20 @@ function SecuritySection({
 
 // ── AI model & API key ───────────────────────────────────────────────────────
 
-const PROVIDER_OPTIONS: Array<{ value: ByokProvider | ''; label: string; hint?: string }> = [
-  { value: '', label: 'School-provided model (default)' },
-  { value: 'gemini', label: 'Gemini', hint: 'aistudio.google.com/apikey' },
-  { value: 'anthropic', label: 'Claude', hint: 'console.anthropic.com' },
-  { value: 'openai', label: 'ChatGPT', hint: 'platform.openai.com/api-keys' },
-];
-
 function AiSettingsSection({
   notify,
 }: {
   notify: (kind: 'success' | 'error', text: string) => void;
 }) {
-  const { provider, apiKey, model, setByok, clearByok } = useByokStore();
-
-  const [draftProvider, setDraftProvider] = useState<ByokProvider | ''>(provider ?? '');
-  const [draftKey, setDraftKey] = useState(apiKey);
-  const [draftModel, setDraftModel] = useState(model);
+  const draft = useByokDraft();
   const [showKey, setShowKey] = useState(false);
 
-  const needsKey = draftProvider !== '';
-  const canSave = !needsKey || draftKey.trim().length > 0;
-  const hint = PROVIDER_OPTIONS.find((o) => o.value === draftProvider)?.hint;
-
   const handleSave = () => {
-    if (!canSave) return;
-    if (draftProvider === '') {
-      clearByok();
-      notify('success', 'Using the school-provided model.');
-    } else {
-      setByok({ provider: draftProvider, apiKey: draftKey.trim(), model: draftModel.trim() });
-      notify('success', 'API key saved.');
-    }
+    if (!draft.save()) return;
+    notify(
+      'success',
+      draft.draftProvider === '' ? 'Using the school-provided model.' : 'API key saved.'
+    );
   };
 
   return (
@@ -535,20 +528,20 @@ function AiSettingsSection({
       <div className="p-6">
         <h2 className="text-lg text-slate-100">AI model &amp; API key</h2>
         <p className="mt-1 text-sm text-slate-400">
-          The AI Assistant runs on the school-provided model by default. If you have your own API
-          key you can use it instead — it stays in this browser and is only used to make your
-          requests.
+          Pick which model powers the AI Assistant. Using your own API key gives the best experience
+          — it stays in this browser and is only used to make your requests. The school-provided
+          model works without a key.
         </p>
       </div>
       <div className="space-y-4 p-6 max-w-md">
         <div>
           <label htmlFor="byok-provider" className="mb-1 block text-xs font-medium text-slate-500">
-            Provider
+            Model
           </label>
           <select
             id="byok-provider"
-            value={draftProvider}
-            onChange={(e) => setDraftProvider(e.target.value as ByokProvider | '')}
+            value={draft.draftProvider}
+            onChange={(e) => draft.setDraftProvider(e.target.value as ByokProvider | '')}
             className={inputCls}
           >
             {PROVIDER_OPTIONS.map((o) => (
@@ -559,7 +552,7 @@ function AiSettingsSection({
           </select>
         </div>
 
-        {needsKey && (
+        {draft.needsKey && (
           <>
             <div>
               <label htmlFor="byok-key" className="mb-1 block text-xs font-medium text-slate-500">
@@ -569,8 +562,8 @@ function AiSettingsSection({
                 <input
                   id="byok-key"
                   type={showKey ? 'text' : 'password'}
-                  value={draftKey}
-                  onChange={(e) => setDraftKey(e.target.value)}
+                  value={draft.draftKey}
+                  onChange={(e) => draft.setDraftKey(e.target.value)}
                   placeholder="Paste your API key"
                   autoComplete="off"
                   spellCheck={false}
@@ -585,18 +578,30 @@ function AiSettingsSection({
                   {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {hint && <p className="mt-1 text-xs text-slate-500">Get a key at {hint}</p>}
+              {draft.hint && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Get a key at{' '}
+                  <a
+                    href={`https://${draft.hint}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-300 underline hover:text-indigo-200"
+                  >
+                    {draft.hint}
+                  </a>
+                </p>
+              )}
             </div>
 
             <div>
               <label htmlFor="byok-model" className="mb-1 block text-xs font-medium text-slate-500">
-                Model <span className="font-normal text-slate-500">(optional)</span>
+                Model name <span className="font-normal text-slate-500">(optional)</span>
               </label>
               <input
                 id="byok-model"
                 type="text"
-                value={draftModel}
-                onChange={(e) => setDraftModel(e.target.value)}
+                value={draft.draftModel}
+                onChange={(e) => draft.setDraftModel(e.target.value)}
                 placeholder="Leave blank for the recommended model"
                 autoComplete="off"
                 spellCheck={false}
@@ -607,9 +612,77 @@ function AiSettingsSection({
         )}
 
         <div className="pt-2">
-          <button onClick={handleSave} disabled={!canSave} className={primaryBtnCls}>
+          <button onClick={handleSave} disabled={!draft.canSave} className={primaryBtnCls}>
             Save
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tutor profile ────────────────────────────────────────────────────────────
+
+const ROLE_OPTIONS: Array<{ value: AiRole; label: string; hint: string }> = [
+  { value: 'student', label: 'Student', hint: 'Guides you toward answers with hints' },
+  { value: 'teacher', label: 'Teacher', hint: 'Direct answers plus teaching tips' },
+];
+
+const LEVEL_OPTIONS: Array<{ value: AiLevel; label: string; hint: string }> = [
+  { value: 'novice', label: 'Novice', hint: 'New to programming — explain everything' },
+  { value: 'intermediate', label: 'Intermediate', hint: 'Knows the basics' },
+  { value: 'advanced', label: 'Advanced', hint: 'Comfortable — skip the fundamentals' },
+];
+
+function ProfileSection() {
+  const { role, level, setRole, setLevel } = useAiPrefsStore();
+
+  const optionBtn = (selected: boolean) =>
+    `w-full text-left rounded-lg border px-3 py-2 transition-colors ${
+      selected
+        ? 'border-indigo-500 bg-indigo-500/10'
+        : 'border-slate-700 bg-slate-800 hover:border-slate-500'
+    }`;
+
+  return (
+    <div className={`${cardCls} divide-y divide-slate-800`}>
+      <div className="p-6">
+        <h2 className="text-lg text-slate-100">Tutor profile</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          The AI adjusts how it responds based on who you are and how much programming you already
+          know.
+        </p>
+      </div>
+      <div className="space-y-6 p-6 max-w-md">
+        <div>
+          <span className="mb-2 block text-xs font-medium text-slate-500">I am a…</span>
+          <div className="space-y-1.5">
+            {ROLE_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                onClick={() => setRole(o.value)}
+                className={optionBtn(role === o.value)}
+              >
+                <span className="block text-sm text-slate-200">{o.label}</span>
+                <span className="block text-[11px] text-slate-500">{o.hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <span className="mb-2 block text-xs font-medium text-slate-500">Experience level</span>
+          <div className="space-y-1.5">
+            {LEVEL_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                onClick={() => setLevel(o.value)}
+                className={optionBtn(level === o.value)}
+              >
+                <span className="block text-sm text-slate-200">{o.label}</span>
+                <span className="block text-[11px] text-slate-500">{o.hint}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -27,6 +27,9 @@ interface ByokStore {
   apiKey: string;
   /** Optional model override; empty string → backend default for the provider. */
   model: string;
+  /** True once the user has made an explicit model choice (any provider,
+   * including school-provided). Drives the panel's one-time onboarding gate. */
+  configured: boolean;
   setByok: (settings: { provider: ByokProvider | null; apiKey: string; model: string }) => void;
   clearByok: () => void;
 }
@@ -42,10 +45,20 @@ export const useByokStore = create<ByokStore>()(
       provider: null,
       apiKey: '',
       model: '',
-      setByok: ({ provider, apiKey, model }) => set({ provider, apiKey, model }),
-      clearByok: () => set({ provider: null, apiKey: '', model: '' }),
+      configured: false,
+      // Saving any choice (a real key or school-provided) counts as configured.
+      setByok: ({ provider, apiKey, model }) => set({ provider, apiKey, model, configured: true }),
+      clearByok: () => set({ provider: null, apiKey: '', model: '', configured: true }),
     }),
-    { name: 'praxly-byok' }
+    {
+      name: 'praxly-byok',
+      version: 1,
+      // Existing users who already picked a provider shouldn't be re-onboarded.
+      migrate: (persisted) => {
+        const s = persisted as Partial<ByokStore> | undefined;
+        return { ...s, configured: s?.configured ?? s?.provider != null } as ByokStore;
+      },
+    }
   )
 );
 
@@ -80,6 +93,23 @@ export const useAiPrefsStore = create<AiPrefsStore>()(
       setUseCase: (useCase) => set({ useCase }),
     }),
     { name: 'praxly-ai-prefs' }
+  )
+);
+
+interface AiConsentStore {
+  /** True once the user has accepted the AI usage-tracking notice. */
+  accepted: boolean;
+  accept: () => void;
+}
+
+/** One-time consent that AI interactions are logged for usage analysis. */
+export const useAiConsentStore = create<AiConsentStore>()(
+  persist(
+    (set) => ({
+      accepted: false,
+      accept: () => set({ accepted: true }),
+    }),
+    { name: 'praxly-ai-consent' }
   )
 );
 
