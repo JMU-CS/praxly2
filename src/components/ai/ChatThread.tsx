@@ -29,6 +29,12 @@ export interface Chat {
   sessionId: string | null;
   /** Id of the last persisted message — sent as parentMessageId on the next turn. */
   parentMessageId: string | null;
+  /**
+   * True once this chat's history is in `messages` — including when the answer
+   * was "no messages". Without it, an empty-but-real session is indistinguishable
+   * from one still loading, and the panel waits on it forever.
+   */
+  historyLoaded: boolean;
 }
 
 interface ChatThreadProps {

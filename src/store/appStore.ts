@@ -10,6 +10,15 @@ interface ChatStore {
   sessions: SessionMeta[];
   /** In-memory message cache — survives panel close/reopen within a session. */
   messageCache: Record<string, SimpleMessage[]>;
+  /** Account key (see currentUserKey) the cached sessions belong to. */
+  owner: string | null;
+  /**
+   * Points the cache at `userKey`, wiping it when that isn't who it was cached
+   * for. Returns true when it wiped, so callers know to re-fetch.
+   */
+  claimFor: (userKey: string | null) => boolean;
+  /** Drops everything — used on sign-out. */
+  clearChats: () => void;
   setSessions: (sessions: SessionMeta[]) => void;
   addSession: (session: SessionMeta) => void;
   removeSession: (id: string) => void;
@@ -140,6 +149,16 @@ export const useChatStore = create<ChatStore>()(
     (set, get) => ({
       sessions: [],
       messageCache: {},
+      owner: null,
+      claimFor: (userKey) => {
+        const { owner } = get();
+        if (owner === userKey) return false;
+        // Either a different account, or a cache written before we tracked
+        // ownership at all — in both cases it isn't safe to show.
+        set({ sessions: [], messageCache: {}, owner: userKey });
+        return true;
+      },
+      clearChats: () => set({ sessions: [], messageCache: {}, owner: null }),
       setSessions: (sessions) => set({ sessions: dedupeSessions(sessions) }),
       addSession: (session) =>
         set((s) =>
@@ -162,13 +181,18 @@ export const useChatStore = create<ChatStore>()(
     }),
     {
       name: 'praxly-chat-store',
-      // Only persist session metadata — message content is re-fetched on demand
-      partialize: (s) => ({ sessions: s.sessions }),
+      // Only persist session metadata — message content is re-fetched on demand.
+      // `owner` rides along so a reload can tell whose sessions these are.
+      partialize: (s) => ({ sessions: s.sessions, owner: s.owner }),
       // v1: scrub duplicate sessions that older builds persisted (they called
       // addSession from inside a React state updater, which can run twice).
-      version: 1,
-      migrate: (persisted) => {
-        const state = persisted as { sessions?: SessionMeta[] } | undefined;
+      // v2: sessions written before `owner` existed can't be attributed to an
+      // account, so drop them — the backend is the source of truth and the
+      // panel re-fetches immediately.
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = persisted as { sessions?: SessionMeta[]; owner?: string | null } | undefined;
+        if (version < 2) return { ...state, sessions: [], owner: null };
         return { ...state, sessions: dedupeSessions(state?.sessions ?? []) };
       },
     }
