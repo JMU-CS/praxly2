@@ -8,8 +8,16 @@ import {
   type ChatModelAdapter,
 } from '@assistant-ui/react';
 import { streamAssistant, type SimpleMessage, type LlmPanel, type TurnIds } from '../../api/llm';
+import { useAiPrefsStore, type AiUseCase } from '../../store/appStore';
 import { UserMessage, AssistantMessage, MessageSync } from './MessageComponents';
 import { threadMessageText } from './threadMessages';
+
+const USE_CASES: Array<{ value: AiUseCase; label: string; title: string }> = [
+  { value: 'auto', label: 'Auto', title: 'Let the AI figure out what you need' },
+  { value: 'explain', label: 'Explain', title: 'One clear explanation of your code' },
+  { value: 'tutor', label: 'Tutor', title: 'Learn step by step, back and forth' },
+  { value: 'practice', label: 'Practice', title: 'Exam-style practice questions' },
+];
 
 const MAX_INPUT_CHARS = 2000;
 
@@ -21,6 +29,12 @@ export interface Chat {
   sessionId: string | null;
   /** Id of the last persisted message — sent as parentMessageId on the next turn. */
   parentMessageId: string | null;
+  /**
+   * True once this chat's history is in `messages` — including when the answer
+   * was "no messages". Without it, an empty-but-real session is indistinguishable
+   * from one still loading, and the panel waits on it forever.
+   */
+  historyLoaded: boolean;
 }
 
 interface ChatThreadProps {
@@ -92,6 +106,8 @@ export function ChatThread({
 
   const runtime = useLocalRuntime(adapter, { initialMessages });
 
+  const { useCase, setUseCase } = useAiPrefsStore();
+
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <MessageSync chatId={chat.id} onMessages={onMessages} />
@@ -104,6 +120,22 @@ export function ChatThread({
         </ThreadPrimitive.Viewport>
 
         <div className="border-t border-slate-800 p-3 shrink-0">
+          <div className="mb-2 flex rounded-md border border-slate-700 bg-slate-800 p-0.5">
+            {USE_CASES.map((u) => (
+              <button
+                key={u.value}
+                onClick={() => setUseCase(u.value)}
+                title={u.title}
+                className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                  useCase === u.value
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {u.label}
+              </button>
+            ))}
+          </div>
           {selection.trim().length > 0 && (
             <div className="mb-2 flex items-start gap-2 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-1.5">
               <div className="min-w-0 flex-1">

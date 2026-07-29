@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Check,
+  Eye,
+  EyeOff,
+  GraduationCap,
   KeyRound,
   LogOut,
   MessageSquare,
@@ -12,7 +15,8 @@ import {
   User,
   X,
 } from 'lucide-react';
-import keycloak from '../api/keycloak';
+import { isAuthenticated, logout } from '../api/auth';
+import { SignInButtons } from '../components/auth/SignInButtons';
 import {
   getAccount,
   getUsage,
@@ -22,20 +26,30 @@ import {
   type AccountUsage,
 } from '../api/account';
 import { listChats, deleteChatApi, renameChatApi, type SessionMeta } from '../api/chat';
-import { useChatStore } from '../store/appStore';
+import {
+  useAiPrefsStore,
+  useChatStore,
+  type AiLevel,
+  type AiRole,
+  type ByokProvider,
+} from '../store/appStore';
+import { PROVIDER_OPTIONS, useByokDraft } from '../components/ai/byok';
 
 /**
- * Google-Account-style manager for the user's Keycloak account:
+ * Google-Account-style manager for the user's Praxly account (Keycloak or
+ * Google — whichever they signed in with):
  * personal info (email/name), security (password), and data & activity
  * (usage stats + chat history management).
  */
 
-type Section = 'home' | 'personal' | 'security' | 'data';
+type Section = 'home' | 'personal' | 'security' | 'ai' | 'profile' | 'data';
 
 const NAV: Array<{ id: Section; label: string; icon: typeof User }> = [
   { id: 'home', label: 'Home', icon: User },
   { id: 'personal', label: 'Personal info', icon: Pencil },
   { id: 'security', label: 'Security', icon: ShieldCheck },
+  { id: 'ai', label: 'AI model & API key', icon: KeyRound },
+  { id: 'profile', label: 'Tutor profile', icon: GraduationCap },
   { id: 'data', label: 'Data & activity', icon: MessageSquare },
 ];
 
@@ -111,7 +125,7 @@ export default function AccountPage() {
   }, []);
 
   useEffect(() => {
-    if (!keycloak.authenticated) {
+    if (!isAuthenticated()) {
       setLoading(false);
       return;
     }
@@ -125,15 +139,15 @@ export default function AccountPage() {
     );
   }, []);
 
-  if (!keycloak.authenticated) {
+  if (!isAuthenticated()) {
     return (
       <div className="min-h-dvh bg-slate-950 flex items-center justify-center p-6">
         <div className={`${cardCls} max-w-sm w-full p-8 text-center`}>
           <h1 className="text-xl font-semibold text-slate-100">Praxly Account</h1>
           <p className="mt-2 text-sm text-slate-400">Sign in to manage your account.</p>
-          <button onClick={() => keycloak.login()} className={`${primaryBtnCls} mt-6 w-full`}>
-            Sign in
-          </button>
+          <div className="mt-6 flex justify-center">
+            <SignInButtons />
+          </div>
           <Link to="/v2/editor" className={`${textBtnCls} mt-2 inline-block`}>
             Back to editor
           </Link>
@@ -162,7 +176,7 @@ export default function AccountPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => keycloak.logout({ redirectUri: window.location.origin + '/v2/editor' })}
+            onClick={() => logout()}
             className="flex items-center gap-2 rounded-full border border-slate-700 px-4 py-1.5 text-sm text-slate-300 hover:bg-slate-800 transition-colors"
           >
             <LogOut size={14} />
@@ -223,7 +237,11 @@ export default function AccountPage() {
           ) : section === 'personal' ? (
             <PersonalSection profile={profile} setProfile={setProfile} notify={notify} />
           ) : section === 'security' ? (
-            <SecuritySection notify={notify} />
+            <SecuritySection profile={profile} notify={notify} />
+          ) : section === 'ai' ? (
+            <AiSettingsSection notify={notify} />
+          ) : section === 'profile' ? (
+            <ProfileSection />
           ) : (
             <DataSection usage={usage} chats={chats} setChats={setChats} notify={notify} />
           )}
@@ -313,8 +331,11 @@ function PersonalSection({
   const [lastName, setLastName] = useState(profile?.lastName ?? '');
   const [saving, setSaving] = useState(false);
 
+  // Google asserts the email on every sign-in; only Keycloak accounts own theirs.
+  const emailEditable = profile?.provider !== 'google';
+
   const dirty =
-    email !== (profile?.email ?? '') ||
+    (emailEditable && email !== (profile?.email ?? '')) ||
     firstName !== (profile?.firstName ?? '') ||
     lastName !== (profile?.lastName ?? '');
 
@@ -322,8 +343,8 @@ function PersonalSection({
     if (!profile) return;
     setSaving(true);
     try {
-      await updateProfile({ email, firstName, lastName });
-      setProfile({ ...profile, email, firstName, lastName });
+      await updateProfile({ ...(emailEditable ? { email } : {}), firstName, lastName });
+      setProfile({ ...profile, ...(emailEditable ? { email } : {}), firstName, lastName });
       notify('success', 'Profile updated. Changes to your email apply the next time you sign in.');
     } catch (e) {
       notify('error', e instanceof Error ? e.message : 'Failed to update profile');
@@ -343,11 +364,11 @@ function PersonalSection({
       <div className="space-y-4 p-6">
         <div>
           <label htmlFor="acct-username" className="mb-1 block text-xs font-medium text-slate-500">
-            Username
+            {emailEditable ? 'Username' : 'Signed in with'}
           </label>
           <input
             id="acct-username"
-            value={profile?.username ?? ''}
+            value={emailEditable ? (profile?.username ?? '') : `Google · ${profile?.email ?? ''}`}
             disabled
             className={`${inputCls} text-slate-500 opacity-70`}
           />
@@ -361,9 +382,15 @@ function PersonalSection({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={inputCls}
+            disabled={!emailEditable}
+            className={emailEditable ? inputCls : `${inputCls} text-slate-500 opacity-70`}
             placeholder="you@example.com"
           />
+          {!emailEditable && (
+            <p className="mt-1 text-xs text-slate-500">
+              Your email comes from your Google Account and can't be changed here.
+            </p>
+          )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -402,8 +429,10 @@ function PersonalSection({
 // ── Security ─────────────────────────────────────────────────────────────────
 
 function SecuritySection({
+  profile,
   notify,
 }: {
+  profile: AccountProfile | null;
   notify: (kind: 'success' | 'error', text: string) => void;
 }) {
   const [current, setCurrent] = useState('');
@@ -427,6 +456,31 @@ function SecuritySection({
       setSaving(false);
     }
   };
+
+  // Google owns the credentials for these accounts — there is no password here
+  // to change, and pretending otherwise would just fail at the backend.
+  if (profile?.provider === 'google') {
+    return (
+      <div className={`${cardCls} divide-y divide-slate-800`}>
+        <div className="p-6">
+          <h2 className="text-lg text-slate-100">Security</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            You sign in to Praxly with Google, so your password is managed by Google.
+          </p>
+        </div>
+        <div className="p-6">
+          <a
+            href="https://myaccount.google.com/security"
+            target="_blank"
+            rel="noreferrer"
+            className={primaryBtnCls}
+          >
+            Manage security on Google
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`${cardCls} divide-y divide-slate-800`}>
@@ -483,6 +537,190 @@ function SecuritySection({
           <button onClick={handleSubmit} disabled={!canSubmit} className={primaryBtnCls}>
             {saving ? 'Changing…' : 'Change password'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AI model & API key ───────────────────────────────────────────────────────
+
+function AiSettingsSection({
+  notify,
+}: {
+  notify: (kind: 'success' | 'error', text: string) => void;
+}) {
+  const draft = useByokDraft();
+  const [showKey, setShowKey] = useState(false);
+
+  const handleSave = () => {
+    if (!draft.save()) return;
+    notify(
+      'success',
+      draft.draftProvider === '' ? 'Using the school-provided model.' : 'API key saved.'
+    );
+  };
+
+  return (
+    <div className={`${cardCls} divide-y divide-slate-800`}>
+      <div className="p-6">
+        <h2 className="text-lg text-slate-100">AI model &amp; API key</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Pick which model powers the AI Assistant. Using your own API key gives the best experience
+          — it stays in this browser and is only used to make your requests. The school-provided
+          model works without a key.
+        </p>
+      </div>
+      <div className="space-y-4 p-6 max-w-md">
+        <div>
+          <label htmlFor="byok-provider" className="mb-1 block text-xs font-medium text-slate-500">
+            Model
+          </label>
+          <select
+            id="byok-provider"
+            value={draft.draftProvider}
+            onChange={(e) => draft.setDraftProvider(e.target.value as ByokProvider | '')}
+            className={inputCls}
+          >
+            {PROVIDER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {draft.needsKey && (
+          <>
+            <div>
+              <label htmlFor="byok-key" className="mb-1 block text-xs font-medium text-slate-500">
+                API key
+              </label>
+              <div className="relative">
+                <input
+                  id="byok-key"
+                  type={showKey ? 'text' : 'password'}
+                  value={draft.draftKey}
+                  onChange={(e) => draft.setDraftKey(e.target.value)}
+                  placeholder="Paste your API key"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={`${inputCls} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-200 transition-colors"
+                  title={showKey ? 'Hide key' : 'Show key'}
+                >
+                  {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {draft.hint && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Get a key at{' '}
+                  <a
+                    href={`https://${draft.hint}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-300 underline hover:text-indigo-200"
+                  >
+                    {draft.hint}
+                  </a>
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="byok-model" className="mb-1 block text-xs font-medium text-slate-500">
+                Model name <span className="font-normal text-slate-500">(optional)</span>
+              </label>
+              <input
+                id="byok-model"
+                type="text"
+                value={draft.draftModel}
+                onChange={(e) => draft.setDraftModel(e.target.value)}
+                placeholder="Leave blank for the recommended model"
+                autoComplete="off"
+                spellCheck={false}
+                className={inputCls}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="pt-2">
+          <button onClick={handleSave} disabled={!draft.canSave} className={primaryBtnCls}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tutor profile ────────────────────────────────────────────────────────────
+
+const ROLE_OPTIONS: Array<{ value: AiRole; label: string; hint: string }> = [
+  { value: 'student', label: 'Student', hint: 'Guides you toward answers with hints' },
+  { value: 'teacher', label: 'Teacher', hint: 'Direct answers plus teaching tips' },
+];
+
+const LEVEL_OPTIONS: Array<{ value: AiLevel; label: string; hint: string }> = [
+  { value: 'novice', label: 'Novice', hint: 'New to programming — explain everything' },
+  { value: 'intermediate', label: 'Intermediate', hint: 'Knows the basics' },
+  { value: 'advanced', label: 'Advanced', hint: 'Comfortable — skip the fundamentals' },
+];
+
+function ProfileSection() {
+  const { role, level, setRole, setLevel } = useAiPrefsStore();
+
+  const optionBtn = (selected: boolean) =>
+    `w-full text-left rounded-lg border px-3 py-2 transition-colors ${
+      selected
+        ? 'border-indigo-500 bg-indigo-500/10'
+        : 'border-slate-700 bg-slate-800 hover:border-slate-500'
+    }`;
+
+  return (
+    <div className={`${cardCls} divide-y divide-slate-800`}>
+      <div className="p-6">
+        <h2 className="text-lg text-slate-100">Tutor profile</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          The AI adjusts how it responds based on who you are and how much programming you already
+          know.
+        </p>
+      </div>
+      <div className="space-y-6 p-6 max-w-md">
+        <div>
+          <span className="mb-2 block text-xs font-medium text-slate-500">I am a…</span>
+          <div className="space-y-1.5">
+            {ROLE_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                onClick={() => setRole(o.value)}
+                className={optionBtn(role === o.value)}
+              >
+                <span className="block text-sm text-slate-200">{o.label}</span>
+                <span className="block text-[11px] text-slate-500">{o.hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <span className="mb-2 block text-xs font-medium text-slate-500">Experience level</span>
+          <div className="space-y-1.5">
+            {LEVEL_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                onClick={() => setLevel(o.value)}
+                className={optionBtn(level === o.value)}
+              >
+                <span className="block text-sm text-slate-200">{o.label}</span>
+                <span className="block text-[11px] text-slate-500">{o.hint}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

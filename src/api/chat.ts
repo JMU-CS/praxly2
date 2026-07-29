@@ -14,15 +14,26 @@ export interface SessionDetail extends SessionMeta {
   messages: Array<{ id: string; role: 'user' | 'assistant'; content: string }>;
 }
 
+/** Carries the status code so callers can tell "gone" from "try again later". */
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
 export async function listChats(): Promise<SessionMeta[]> {
   const res = await fetch(`${BACKEND_URL}/api/chats`, { headers: await authHeaders() });
-  if (!res.ok) throw new Error(`Failed to load chats: ${res.status}`);
+  if (!res.ok) throw new HttpError(`Failed to load chats (${res.status})`, res.status);
   return res.json() as Promise<SessionMeta[]>;
 }
 
 export async function getChat(id: string): Promise<SessionDetail> {
   const res = await fetch(`${BACKEND_URL}/api/chats/${id}`, { headers: await authHeaders() });
-  if (!res.ok) throw new Error(`Failed to load chat: ${res.status}`);
+  if (!res.ok) throw new HttpError(`Failed to load chat (${res.status})`, res.status);
   return res.json() as Promise<SessionDetail>;
 }
 

@@ -1,5 +1,6 @@
 import { BACKEND_URL, requireAuthHeaders } from './config';
-import { useByokStore } from '../store/appStore';
+import { useAiPrefsStore, useByokStore } from '../store/appStore';
+import { languageSpecFor } from '../components/ai/languageSpecs';
 
 /**
  * Talks to the k12-llm-backend (Hono / Node) through Keycloak auth.
@@ -64,7 +65,15 @@ function byokHeaders(): Record<string, string> {
 export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<string> {
   const headers = { ...(await requireAuthHeaders()), ...byokHeaders() };
 
-  const primaryPanel = opts.panels.find((p) => p.code.trim().length > 0);
+  // Every panel the student actually has code in. The first is "primary" (its
+  // language names the request); any others are appended so the tutor can
+  // answer questions that compare the open panels.
+  const filledPanels = opts.panels.filter((p) => p.code.trim().length > 0);
+  const primaryPanel = filledPanels[0];
+  const editorCode = filledPanels
+    .map((p) => `${p.language}:\n\`\`\`${p.language}\n${p.code}\n\`\`\``)
+    .join('\n\n');
+
   const message = opts.selection?.trim()
     ? `${opts.message}\n\nI've highlighted this specific snippet:\n\`\`\`\n${opts.selection}\n\`\`\``
     : opts.message;
@@ -76,8 +85,17 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
       message,
       sessionId: opts.sessionId ?? undefined,
       parentMessageId: opts.parentMessageId ?? undefined,
-      code: primaryPanel?.code,
+      // All non-empty panels, each labelled with its language.
+      code: editorCode,
       language: primaryPanel?.language,
+      // Praxly specs for every open panel's language — fills {{language_spec}}
+      // so the tutor only describes what Praxly supports, and can compare the
+      // languages the student actually has open.
+      languageSpec: languageSpecFor(filledPanels.map((p) => p.language)),
+      // Tutor profile — fills the prompt's user_role / user_level / use_case.
+      role: useAiPrefsStore.getState().role,
+      level: useAiPrefsStore.getState().level,
+      useCase: useAiPrefsStore.getState().useCase,
     }),
     signal: opts.signal,
   });

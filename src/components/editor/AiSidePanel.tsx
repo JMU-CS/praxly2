@@ -1,15 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { History, KeyRound, LogIn, Plus, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { History, Plus, UserCircle, X } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import Fuse from 'fuse.js';
-import keycloak from '../../api/keycloak';
-import { listChats, getChat, deleteChatApi, renameChatApi, toSimpleMessages } from '../../api/chat';
+import { currentUserKey, isAuthenticated } from '../../api/auth';
+import {
+  listChats,
+  getChat,
+  deleteChatApi,
+  renameChatApi,
+  toSimpleMessages,
+  HttpError,
+} from '../../api/chat';
 import { type LlmPanel, type SimpleMessage, type TurnIds } from '../../api/llm';
-import { useByokStore, useChatStore, type SessionMeta } from '../../store/appStore';
+import {
+  useAiConsentStore,
+  useByokStore,
+  useChatStore,
+  type SessionMeta,
+} from '../../store/appStore';
 import { randomId } from '../../utils/id';
 import { ChatThread, type Chat } from '../ai/ChatThread';
 import { HistoryPanel } from '../ai/HistoryPanel';
-import { ApiKeySettings } from '../ai/ApiKeySettings';
+import { ApiKeyGate } from '../ai/ApiKeyGate';
+import { AiTermsModal } from '../ai/AiTermsModal';
+import { SignInButtons } from '../auth/SignInButtons';
 import { TypingDots } from '../ai/MessageComponents';
 
 interface AiSidePanelProps {
@@ -28,6 +43,7 @@ const makeNewChat = (): Chat => ({
   messages: [],
   sessionId: null,
   parentMessageId: null,
+  historyLoaded: true, // nothing to fetch — it exists only in this browser
 });
 
 const titleFrom = (text: string): string => {
@@ -35,12 +51,14 @@ const titleFrom = (text: string): string => {
   return clean.length > 40 ? `${clean.slice(0, 40)}…` : clean || 'New chat';
 };
 
-const sessionToChat = (s: SessionMeta, messages: SimpleMessage[] = []): Chat => ({
+const sessionToChat = (s: SessionMeta, messages?: SimpleMessage[]): Chat => ({
   id: s.id,
   title: s.title ?? 'New chat',
-  messages,
+  messages: messages ?? [],
   sessionId: s.id,
   parentMessageId: null,
+  // A cache hit is the history; anything else still needs fetching.
+  historyLoaded: messages !== undefined,
 });
 
 export function AiSidePanel({
@@ -60,31 +78,43 @@ export function AiSidePanel({
     updateSession,
     setMessages,
     getCachedMessages,
+    claimFor,
   } = useChatStore();
-  const byokProvider = useByokStore((s) => s.provider);
+
+  const signedIn = isAuthenticated();
+  const configured = useByokStore((s) => s.configured);
+  const termsAccepted = useAiConsentStore((s) => s.accepted);
+  const acceptTerms = useAiConsentStore((s) => s.accept);
 
   const [localChats, setLocalChats] = useState<Chat[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [showKeySettings, setShowKeySettings] = useState(false);
   const [search, setSearch] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Bumped by "Try again" to re-run the message load for the active chat.
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   // Load session list from backend (skipped if sessions already in persisted
-  // store). Always ends with at least one chat selected — a fresh local chat
-  // is created when the user has no history, so the panel is ready to type
-  // into without pressing "+" first.
+  // store). Each page load starts on a brand-new chat rather than resuming the
+  // last one; past conversations stay available under Chat history.
   useEffect(() => {
-    if (!keycloak.authenticated) return;
+    if (!signedIn) return;
 
     const showChats = (chats: Chat[]) => {
-      const withFallback = chats.length > 0 ? chats : [makeNewChat()];
-      setLocalChats(withFallback);
-      setActiveId(withFallback[0].id);
+      const fresh = makeNewChat();
+      setLocalChats([fresh, ...chats]);
+      setActiveId(fresh.id);
     };
 
-    if (sessions.length > 0) {
-      showChats(sessions.map((s) => sessionToChat(s, getCachedMessages(s.id))));
+    // The persisted store is one localStorage key shared by every account that
+    // has used this browser. Hand it to whoever is signed in now; if it was
+    // someone else's, it gets wiped and we fall through to a fresh fetch.
+    const switchedAccount = claimFor(currentUserKey());
+    const cachedSessions = switchedAccount ? [] : sessions;
+
+    if (cachedSessions.length > 0) {
+      showChats(cachedSessions.map((s) => sessionToChat(s, getCachedMessages(s.id))));
       return;
     }
     listChats()
@@ -107,24 +137,50 @@ export function AiSidePanel({
     const cached = getCachedMessages(chat.sessionId);
     if (cached && chat.parentMessageId) {
       setLocalChats((prev) =>
-        prev.map((c) => (c.id === activeId ? { ...c, messages: cached } : c))
+        prev.map((c) => (c.id === activeId ? { ...c, messages: cached, historyLoaded: true } : c))
       );
       return;
     }
 
+    const sessionId = chat.sessionId;
+    setLoadError(null);
     setLoadingMessages(true);
-    getChat(chat.sessionId)
+    getChat(sessionId)
       .then((detail) => {
         const messages = toSimpleMessages(detail.messages);
         const parentMessageId = detail.messages.at(-1)?.id ?? null;
-        setMessages(chat.sessionId!, messages);
+        setMessages(sessionId, messages);
         setLocalChats((prev) =>
-          prev.map((c) => (c.id === activeId ? { ...c, messages, parentMessageId } : c))
+          prev.map((c) =>
+            c.id === activeId ? { ...c, messages, parentMessageId, historyLoaded: true } : c
+          )
         );
       })
-      .catch(() => {})
+      .catch((e: unknown) => {
+        // 404 means the session isn't ours (or no longer exists) — a stale
+        // entry we should forget, not retry. Dropping it also stops the panel
+        // waiting on history that is never going to arrive.
+        if (e instanceof HttpError && (e.status === 404 || e.status === 403)) {
+          removeSession(sessionId);
+          setLocalChats((prev) => {
+            const next = prev.filter((c) => c.sessionId !== sessionId);
+            return next.length > 0 ? next : [makeNewChat()];
+          });
+          return;
+        }
+        setLoadError(e instanceof Error ? e.message : 'Failed to load this chat.');
+      })
       .finally(() => setLoadingMessages(false));
-  }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeId, reloadNonce]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const retryLoad = useCallback(() => setReloadNonce((n) => n + 1), []);
+
+  // Keep a valid selection when the active chat is dropped above.
+  useEffect(() => {
+    if (localChats.length > 0 && !localChats.some((c) => c.id === activeId)) {
+      setActiveId(localChats[0]!.id);
+    }
+  }, [localChats, activeId]);
 
   const activeChat = localChats.find((c) => c.id === activeId) ?? null;
 
@@ -186,7 +242,6 @@ export function AiSidePanel({
     setLocalChats((prev) => [c, ...prev]);
     setActiveId(c.id);
     setShowHistory(false);
-    setShowKeySettings(false);
   }, []);
 
   const openChat = useCallback((id: string) => {
@@ -245,54 +300,42 @@ export function AiSidePanel({
           AI Assistant
         </span>
         <div className="flex items-center gap-0.5">
-          <button onClick={newChat} className={iconBtn} title="New chat">
-            <Plus size={18} />
-          </button>
-          <button
-            onClick={() => {
-              setShowHistory((s) => !s);
-              setShowKeySettings(false);
-            }}
-            className={`${iconBtn} ${showHistory ? 'text-indigo-300 bg-slate-800' : ''}`}
-            title="Chat history"
-          >
-            <History size={18} />
-          </button>
-          <button
-            onClick={() => {
-              setShowKeySettings((s) => !s);
-              setShowHistory(false);
-            }}
-            className={`${iconBtn} relative ${showKeySettings ? 'text-indigo-300 bg-slate-800' : ''}`}
-            title="AI model & API key"
-          >
-            <KeyRound size={18} />
-            {byokProvider && (
-              <span
-                className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400"
-                title={`Using your ${byokProvider} key`}
-              />
-            )}
-          </button>
+          {/* Chat controls appear only once the user has chosen a model. */}
+          {signedIn && configured && (
+            <>
+              <button onClick={newChat} className={iconBtn} title="New chat">
+                <Plus size={18} />
+              </button>
+              <button
+                onClick={() => setShowHistory((s) => !s)}
+                className={`${iconBtn} ${showHistory ? 'text-indigo-300 bg-slate-800' : ''}`}
+                title="Chat history"
+              >
+                <History size={18} />
+              </button>
+            </>
+          )}
+          {/* Signed out, the panel body below is the sign-in surface — it has
+              to be, now that there is more than one provider to choose from. */}
+          {signedIn && (
+            <Link to="/v2/account" className={iconBtn} title="Manage your account">
+              <UserCircle size={18} />
+            </Link>
+          )}
           <button onClick={onClose} className={iconBtn} title="Close AI panel">
             <X size={18} />
           </button>
         </div>
       </div>
 
-      {!keycloak.authenticated ? (
+      {!signedIn ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
           <p className="text-sm text-slate-400">Sign in to use the AI assistant.</p>
-          <button
-            onClick={() => keycloak.login()}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-500 transition-colors"
-          >
-            <LogIn size={14} />
-            Sign in
-          </button>
+          <SignInButtons compact />
         </div>
-      ) : showKeySettings ? (
-        <ApiKeySettings onDone={() => setShowKeySettings(false)} />
+      ) : !configured ? (
+        // Onboarding gate: must pick a model before anything else is reachable.
+        <ApiKeyGate onDone={() => setShowHistory(false)} />
       ) : showHistory ? (
         <HistoryPanel
           chats={filteredChats}
@@ -303,7 +346,17 @@ export function AiSidePanel({
           onDelete={deleteChat}
         />
       ) : activeChat ? (
-        loadingMessages || (activeChat.sessionId !== null && activeChat.messages.length === 0) ? (
+        loadError ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
+            <p className="text-sm text-slate-400">{loadError}</p>
+            <button
+              onClick={retryLoad}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-xs text-white transition-colors hover:bg-indigo-500"
+            >
+              Try again
+            </button>
+          </div>
+        ) : loadingMessages || !activeChat.historyLoaded ? (
           <div className="flex-1 flex items-center justify-center">
             <TypingDots />
           </div>
@@ -320,6 +373,9 @@ export function AiSidePanel({
           />
         )
       ) : null}
+
+      {/* Usage-tracking consent — required before using the AI; must accept or the panel closes. */}
+      {signedIn && !termsAccepted && <AiTermsModal onAccept={acceptTerms} onDecline={onClose} />}
     </div>
   );
 }

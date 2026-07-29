@@ -33,6 +33,7 @@ import { SourcePane } from '../components/editor/SourcePane';
 import { TranslationPaneItem } from '../components/editor/TranslationPaneItem';
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
 import { AiSidePanel } from '../components/editor/AiSidePanel';
+import { useEditorBridge } from '../store/appStore';
 import type { LlmPanel } from '../api/llm';
 import type { Panel } from '../components/editor/types';
 
@@ -179,6 +180,10 @@ export default function EditorPage() {
     startEditorWidth: number;
     startPanelWidth: number;
     startOutputHeight: number;
+    /** Widest the dragged pane may get before it squeezes the elastic
+     *  last column under `MIN_PANEL_WIDTH`. Fixed for the whole drag —
+     *  only the dragged pane's own width changes. */
+    maxPaneWidth: number;
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -200,6 +205,13 @@ export default function EditorPage() {
   }, []);
 
   const isMobile = viewportWidth < MOBILE_BREAKPOINT;
+
+  const rootPanels = useMemo(() => panels.filter((panel) => !panel.stackedUnder), [panels]);
+  const rootPanelCount = rootPanels.length;
+  // The rightmost column stretches to fill whatever the panes to its left
+  // leave over, so dragging any divider can never expose a bare strip of the
+  // row's background. Its stored `width` goes unused while it holds this spot.
+  const elasticPanelId = rootPanelCount > 0 ? rootPanels[rootPanelCount - 1].id : null;
 
   const getMemDiaHeight = (paneId: string) => memDiaHeights[paneId] ?? 160;
 
@@ -402,10 +414,13 @@ export default function EditorPage() {
     });
   }, [getMaxSourceWidth, viewportWidth]);
 
+  // Re-split the row evenly when the number of side-by-side panes changes, or
+  // when the space they share does. Keyed on the pane *count*, not on `panels`
+  // itself: that array gets rebuilt on every keystroke (source maps are
+  // refreshed per AST), and depending on it here undid each resize drag the
+  // frame after it happened.
   useEffect(() => {
     const availableWidth = getContentAvailableWidth();
-
-    const rootPanelCount = panels.filter((p) => !p.stackedUnder).length;
 
     if (rootPanelCount === 0) {
       setEditorWidth((prev) => (prev === availableWidth ? prev : availableWidth));
@@ -413,28 +428,28 @@ export default function EditorPage() {
     }
 
     const totalPaneCount = rootPanelCount + 1;
+    const targetPanelWidth = Math.max(MIN_PANEL_WIDTH, Math.floor(availableWidth / totalPaneCount));
+    // The source pane absorbs the rounding remainder so the row fills exactly.
     const targetSourceWidth = Math.max(
       MIN_SOURCE_WIDTH,
-      Math.floor(availableWidth / totalPaneCount)
+      availableWidth - targetPanelWidth * rootPanelCount
     );
-    const targetPanelWidth = Math.max(MIN_PANEL_WIDTH, Math.floor(availableWidth / totalPaneCount));
 
     setEditorWidth((prev) => (prev === targetSourceWidth ? prev : targetSourceWidth));
 
     setPanels((prev) => {
       let changed = false;
       const next = prev.map((panel) => {
-        if (panel.stackedUnder) return panel;
-        if (panel.width !== targetPanelWidth) {
-          changed = true;
-          return { ...panel, width: targetPanelWidth };
-        }
-        return panel;
+        if (panel.width === targetPanelWidth) return panel;
+        changed = true;
+        // Stacked panels are sized too: they render at their column's width, so
+        // an un-synced one would jump if it later swapped places with its root.
+        return { ...panel, width: targetPanelWidth };
       });
 
       return changed ? next : prev;
     });
-  }, [getContentAvailableWidth, panels]);
+  }, [getContentAvailableWidth, rootPanelCount]);
 
   const handleCreateEditor = useCallback((view: EditorView) => {
     editorViewRef.current = view;
@@ -711,6 +726,8 @@ export default function EditorPage() {
 
     setSourceLang(example.lang);
     setCode(example.code);
+    // Drop any translation panel that duplicates the example's own language.
+    setPanels((prev) => prev.filter((panel) => panel.lang !== example.lang));
     setOutput([]);
     setError(null);
     setHasRun(false);
@@ -770,6 +787,38 @@ export default function EditorPage() {
       return !prev;
     });
   };
+
+  // "Open in editor" on AI chat code blocks: replaces the source editor's
+  // contents (same reset pattern as loading an example). The fence's language
+  // tag switches the source language when it names one Praxly supports.
+  useEffect(() => {
+    const fenceLangMap: Record<string, SupportedLang> = {
+      praxis: 'praxis',
+      python: 'python',
+      py: 'python',
+      java: 'java',
+      csp: 'csp',
+      javascript: 'javascript',
+      js: 'javascript',
+    };
+    useEditorBridge.getState().setOpenCode((newCode, fenceLang) => {
+      const lang = fenceLangMap[fenceLang.trim().toLowerCase()];
+      if (lang) {
+        setSourceLang(lang);
+        setPanels((prev) => prev.filter((panel) => panel.lang !== lang));
+      }
+      setCode(newCode);
+      setOutput([]);
+      setError(null);
+      setIsDebugging(false);
+      setIsDebugComplete(false);
+      setHighlightedSourceLines([]);
+      setPanelHighlightedLines(new Map());
+      setWaitingForNormalInput(false);
+      setCurrentInterpreter(null);
+    });
+    return () => useEditorBridge.getState().setOpenCode(null);
+  }, [setIsDebugging, setIsDebugComplete, setHighlightedSourceLines]);
 
   // Shared by both AI-panel resize handles (the panel's left edge and the
   // left edge of the add-panel strip): they move in lockstep because the
@@ -916,6 +965,15 @@ export default function EditorPage() {
       return;
     }
 
+    // Everything the dragged pane can't claim: the other fixed-width columns,
+    // the source pane (when a panel is being dragged), and the minimum the
+    // elastic last column has to keep.
+    const draggedId = typeof index === 'number' ? panels[index].id : null;
+    const otherFixedWidth = rootPanels
+      .slice(0, -1)
+      .filter((panel) => panel.id !== draggedId)
+      .reduce((sum, panel) => sum + panel.width, 0);
+
     resizeDragRef.current = {
       index,
       startX: e.clientX,
@@ -923,6 +981,11 @@ export default function EditorPage() {
       startEditorWidth: editorWidth,
       startPanelWidth: typeof index === 'number' ? panels[index].width : 0,
       startOutputHeight: outputHeight,
+      maxPaneWidth:
+        getContentAvailableWidth() -
+        otherFixedWidth -
+        MIN_PANEL_WIDTH -
+        (index === 'editor' ? 0 : editorWidth),
     };
 
     setResizingIdx(index);
@@ -949,7 +1012,7 @@ export default function EditorPage() {
         const nextWidth = clamp(
           drag.startEditorWidth + deltaX,
           MIN_SOURCE_WIDTH,
-          getMaxSourceWidth()
+          Math.max(MIN_SOURCE_WIDTH, drag.maxPaneWidth)
         );
         setEditorWidth(nextWidth);
       } else {
@@ -960,7 +1023,11 @@ export default function EditorPage() {
           }
 
           const deltaX = e.clientX - drag.startX;
-          const newWidth = Math.max(MIN_PANEL_WIDTH, drag.startPanelWidth + deltaX);
+          const newWidth = clamp(
+            drag.startPanelWidth + deltaX,
+            MIN_PANEL_WIDTH,
+            Math.max(MIN_PANEL_WIDTH, drag.maxPaneWidth)
+          );
           if (prev[panelIndex].width === newWidth) {
             return prev;
           }
@@ -986,7 +1053,7 @@ export default function EditorPage() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [getMaxSourceWidth, resizingIdx]);
+  }, [resizingIdx]);
 
   useEffect(() => {
     const handleMouseMove = (e: globalThis.MouseEvent) => {
@@ -1211,99 +1278,106 @@ export default function EditorPage() {
                 ref={containerRef}
               >
                 {/* Render root panels as columns; each column may have a stacked child below */}
-                {panels
-                  .filter((p) => !p.stackedUnder)
-                  .map((rootPanel) => {
-                    const rootIdx = panels.indexOf(rootPanel);
-                    const stackedPanel = panels.find((p) => p.stackedUnder === rootPanel.id);
-                    // "Stack below" button is shown on a root panel when:
-                    // - it has no stacked child yet (column isn't full)
-                    // - there is at least one other root panel that also has no stacked child
-                    //   (so this panel could move below that one)
-                    const otherFreeRoots = panels.filter(
-                      (p) =>
-                        !p.stackedUnder &&
-                        p.id !== rootPanel.id &&
-                        !panels.some((sp) => sp.stackedUnder === p.id)
-                    );
-                    const canStack = !stackedPanel && otherFreeRoots.length > 0;
+                {rootPanels.map((rootPanel) => {
+                  const rootIdx = panels.indexOf(rootPanel);
+                  const stackedPanel = panels.find((p) => p.stackedUnder === rootPanel.id);
+                  // The last column fills the leftover width instead of taking a
+                  // fixed one, so there is nothing to its right to resize against.
+                  // (On mobile the row scrolls horizontally, so it stays fixed.)
+                  const isElastic = rootPanel.id === elasticPanelId && !isMobile;
+                  const onResizeColumn = isElastic
+                    ? undefined
+                    : (e: MouseEvent) => onMouseDown(e, rootIdx);
+                  // "Stack below" button is shown on a root panel when:
+                  // - it has no stacked child yet (column isn't full)
+                  // - there is at least one other root panel that also has no stacked child
+                  //   (so this panel could move below that one)
+                  const otherFreeRoots = panels.filter(
+                    (p) =>
+                      !p.stackedUnder &&
+                      p.id !== rootPanel.id &&
+                      !panels.some((sp) => sp.stackedUnder === p.id)
+                  );
+                  const canStack = !stackedPanel && otherFreeRoots.length > 0;
 
-                    return (
+                  return (
+                    <div
+                      key={rootPanel.id}
+                      className={`flex flex-col border-r border-slate-800 last:border-0 ${
+                        isElastic ? 'flex-1' : 'shrink-0'
+                      }`}
+                      style={isElastic ? { minWidth: MIN_PANEL_WIDTH } : { width: rootPanel.width }}
+                    >
+                      {/* Top panel (root) */}
                       <div
-                        key={rootPanel.id}
-                        className="flex flex-col shrink-0 border-r border-slate-800 last:border-0"
-                        style={{ width: rootPanel.width }}
+                        className={
+                          stackedPanel
+                            ? 'flex-1 min-h-0 overflow-hidden border-b border-slate-700'
+                            : 'flex-1 min-h-0 overflow-hidden'
+                        }
                       >
-                        {/* Top panel (root) */}
-                        <div
-                          className={
-                            stackedPanel
-                              ? 'flex-1 min-h-0 overflow-hidden border-b border-slate-700'
-                              : 'flex-1 min-h-0 overflow-hidden'
+                        <TranslationPaneItem
+                          panel={rootPanel}
+                          ast={ast}
+                          draggedPanelId={draggedPanelId}
+                          dragOverPanelId={dragOverPanelId}
+                          translationCode={getTranslation(ast, rootPanel.lang).code}
+                          fontSize={fontSizePx}
+                          highlightedLines={panelHighlightedLines.get(rootPanel.id) || []}
+                          showMemDia={showMemDia}
+                          resizingMemDiaPaneId={resizingMemDiaPaneId}
+                          memDiaHeight={getMemDiaHeight(rootPanel.id)}
+                          currentVariables={currentVariables}
+                          resizeActive={resizingIdx === rootIdx}
+                          memDiaState={getMemDiaState(rootPanel.id)}
+                          onToggleStack={
+                            canStack ? () => togglePanelStack(rootPanel.id) : undefined
                           }
-                        >
+                          isStacked={false}
+                          onRemovePanel={removePanel}
+                          onResize={onResizeColumn}
+                          onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
+                          onToggleMemDiaCollapse={() => cycleMemDiaState(rootPanel.id)}
+                          onPanelDragStart={handlePanelDragStart}
+                          onPanelDragOver={handlePanelDragOver}
+                          onPanelDrop={handlePanelDrop}
+                          onPanelDragEnd={handlePanelDragEnd}
+                        />
+                      </div>
+
+                      {/* Bottom panel (stacked child) — same flex-1 height, shares column width */}
+                      {stackedPanel && (
+                        <div className="flex-1 min-h-0 overflow-hidden">
                           <TranslationPaneItem
-                            panel={rootPanel}
+                            panel={stackedPanel}
                             ast={ast}
                             draggedPanelId={draggedPanelId}
                             dragOverPanelId={dragOverPanelId}
-                            translationCode={getTranslation(ast, rootPanel.lang).code}
+                            translationCode={getTranslation(ast, stackedPanel.lang).code}
                             fontSize={fontSizePx}
-                            highlightedLines={panelHighlightedLines.get(rootPanel.id) || []}
+                            highlightedLines={panelHighlightedLines.get(stackedPanel.id) || []}
                             showMemDia={showMemDia}
                             resizingMemDiaPaneId={resizingMemDiaPaneId}
-                            memDiaHeight={getMemDiaHeight(rootPanel.id)}
+                            memDiaHeight={getMemDiaHeight(stackedPanel.id)}
                             currentVariables={currentVariables}
                             resizeActive={resizingIdx === rootIdx}
-                            memDiaState={getMemDiaState(rootPanel.id)}
-                            onToggleStack={
-                              canStack ? () => togglePanelStack(rootPanel.id) : undefined
-                            }
-                            isStacked={false}
+                            memDiaState={getMemDiaState(stackedPanel.id)}
+                            onToggleStack={() => togglePanelStack(stackedPanel.id)}
+                            isStacked={true}
                             onRemovePanel={removePanel}
-                            onResize={(e) => onMouseDown(e, rootIdx)}
+                            onResize={onResizeColumn}
                             onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
-                            onToggleMemDiaCollapse={() => cycleMemDiaState(rootPanel.id)}
+                            onToggleMemDiaCollapse={() => cycleMemDiaState(stackedPanel.id)}
                             onPanelDragStart={handlePanelDragStart}
                             onPanelDragOver={handlePanelDragOver}
                             onPanelDrop={handlePanelDrop}
                             onPanelDragEnd={handlePanelDragEnd}
                           />
                         </div>
-
-                        {/* Bottom panel (stacked child) — same flex-1 height, shares column width */}
-                        {stackedPanel && (
-                          <div className="flex-1 min-h-0 overflow-hidden">
-                            <TranslationPaneItem
-                              panel={stackedPanel}
-                              ast={ast}
-                              draggedPanelId={draggedPanelId}
-                              dragOverPanelId={dragOverPanelId}
-                              translationCode={getTranslation(ast, stackedPanel.lang).code}
-                              fontSize={fontSizePx}
-                              highlightedLines={panelHighlightedLines.get(stackedPanel.id) || []}
-                              showMemDia={showMemDia}
-                              resizingMemDiaPaneId={resizingMemDiaPaneId}
-                              memDiaHeight={getMemDiaHeight(stackedPanel.id)}
-                              currentVariables={currentVariables}
-                              resizeActive={resizingIdx === rootIdx}
-                              memDiaState={getMemDiaState(stackedPanel.id)}
-                              onToggleStack={() => togglePanelStack(stackedPanel.id)}
-                              isStacked={true}
-                              onRemovePanel={removePanel}
-                              onResize={(e) => onMouseDown(e, rootIdx)}
-                              onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
-                              onToggleMemDiaCollapse={() => cycleMemDiaState(stackedPanel.id)}
-                              onPanelDragStart={handlePanelDragStart}
-                              onPanelDragOver={handlePanelDragOver}
-                              onPanelDrop={handlePanelDrop}
-                              onPanelDragEnd={handlePanelDragEnd}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
