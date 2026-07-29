@@ -80,9 +80,12 @@ See [AST_REFERENCE.md](AST_REFERENCE.md) for a reference of all the node types.
 
 ```
 Python: x = 10 + 5    ──┐
-Java: int x = 10 + 5; ──┼──→ Same Universal AST
-CSP: SET x TO 10 + 5  ──┘
+Java:   int x = 10 + 5; ┼──→ Same Universal AST
+CSP:    x ← 10 + 5    ──┘
 ```
+
+(CSP assigns with `←`; `<-` and `⟵` are accepted too. `=` is CSP's _equality_
+operator — see [`specs/csp.md`](../specs/csp.md).)
 
 This design has profound implications:
 
@@ -147,13 +150,8 @@ src/
 │   ├── useMemDiaPanes.ts        # Per-pane memory diagram height/state
 │   ├── useEditorSession.ts      # localStorage persistence
 │   ├── useAccountData.ts        # Account profile/usage/chats + status banner
-│   └── …                        # menus, shortcuts, AI selection, embed links
-│─────────────────────────────────────────────────────────────
-├── utils/                       # Pure, DOM-free transforms (unit-testable)
-│   ├── panelLayout.ts           # Column/stacking rules
-│   ├── languageSwitch.ts        # Can this program survive a language change?
-│   ├── aiPanelContext.ts        # Builds the AI panel's code context
-│   └── debugHandlers.ts         # Per-panel debug line highlighting
+│   └── …                        # menus, shortcuts, AI selection, embed links,
+│                                # text size, click-outside, CodeMirror ref
 │─────────────────────────────────────────────────────────────
 ├── pages/                       # Route pages — composition only
 │   ├── EditorPage.tsx           # Main editor IDE
@@ -165,8 +163,9 @@ src/
 │   ├── lexer.ts                 # Base Token types
 │   ├── interpreter.ts           # AST interpreter (execution engine)
 │   ├── translator.ts            # Main translation orchestrator
-│   ├── visitor.ts               # Abstract ASTVisitor base class
-│   ├── debugger.ts              # Debugging support
+│   ├── visitor.ts               # Abstract ASTVisitor base class + Precedence
+│   ├── debugger.ts              # Step-through wrapper over the interpreter
+│   ├── comments.ts              # Attaches source comments to AST nodes
 │   │
 │   ├── python/                  # Python language support
 │   │   ├── lexer.ts             # Tokenizes Python (handles indentation!)
@@ -207,16 +206,29 @@ src/
 │       ├── blocklyDialogs.ts    # Blockly dialog UI
 │       └── serialization.ts     # Workspace JSON serialization
 │─────────────────────────────────────────────────────────────
-└── utils/                       # Utilities and helpers
-    ├── codemirrorConfig.ts      # CodeMirror extensions
-    ├── debuggerUtils.ts         # Debugging helper functions
-    ├── debugHandlers.ts         # Source map → line highlighting logic
-    ├── editorUtils.ts           # Editor-specific utilities (CodeMirror lang per SupportedLang)
+├── store/appStore.ts            # Zustand: chat, AI prefs, BYOK, editor bridge
+│                                # (NOT editor state — that lives in hooks/)
+├── api/                         # Backend clients: auth, account, chat, llm
+│─────────────────────────────────────────────────────────────
+└── utils/                       # Helpers; the first four are pure and
+    │                            # unit-testable with no DOM
+    ├── aiPanelContext.ts        # Builds the AI panel's code context
+    ├── codemirrorConfig.ts      # CodeMirror state fields + highlight dispatch
+    ├── debuggerUtils.ts         # Source range → line numbers
+    ├── debugHandlers.ts         # Source map → per-panel line highlighting
+    ├── demoPrograms.ts          # Per-language demos, re-exported from examples/
+    ├── editorUtils.ts           # CodeMirror language extension per SupportedLang
     ├── embedCodec.ts            # URL embedding/sharing logic
     ├── id.ts                    # ID generation helpers
-    ├── panelLayout.ts           # Translation panel layout logic
-    └── sampleCodes.ts           # Default sample code for each language
+    ├── languageSwitch.ts        # Can this program survive a language change?
+    ├── panelLayout.ts           # Translation panel column/stacking rules
+    └── sampleCodes.ts           # EXAMPLE_PROGRAMS catalog for the Examples menu
 ```
+
+Outside `src/`: [`specs/`](../specs/) holds the authoritative language
+definitions, [`examples/`](../examples/) the per-language demo programs,
+[`tests/`](../tests/) the Vitest suites, and [`csv/`](../csv/) the Selenium
+regression matrix.
 
 ## The Compilation Pipeline at a Glance
 
@@ -247,14 +259,18 @@ The parser verifies tokens follow valid grammar and builds a tree:
 
 ```
 Assignment {
-  name: 'x'
+  target: Identifier { name: 'x' }
   value: BinaryExpression {
-    left: Literal { value: 10 }
+    left: Literal { value: 10, raw: '10' }
     operator: '+'
-    right: Literal { value: 5 }
+    right: Literal { value: 5, raw: '5' }
   }
 }
 ```
+
+`target` is an expression, not a name — that is what lets `arr[i] = x` and
+`obj.field = x` reuse the same node with an `IndexExpression`/`MemberExpression`
+target.
 
 Parsers use **Recursive Descent**, which means:
 
@@ -268,11 +284,14 @@ The `Interpreter` class walks the AST and executes it:
 
 ```typescript
 // Execute the Assignment node
-this.values['x'] = this.evaluate(rightHandSide);
-// Now x = 15, and this.output = ['x is 15'] (if we printed it)
+env.define('x', this.evaluate(stmt.value, env));
+// Now x = 15, and getOutput() === ['x is 15'] (if we printed it)
 ```
 
-The interpreter maintains an `Environment` for variable scoping.
+The interpreter maintains an `Environment` for variable scoping — a chain of
+`values` records, each linked to its parent, so `get()` walks outward until it
+finds the name. `interpret()` returns the collected output as `string[]`, one
+entry per line.
 
 ### Phase 3B: Translation (Code Generation)
 
@@ -365,8 +384,16 @@ Quick summary:
 3. Implement `parser.ts` (build Universal AST)
 4. Implement `emitter.ts` (generate code from AST)
 5. Update `src/language/visitor.ts` (`TargetLanguage` union) and `src/language/translator.ts` to register your language
-6. Update `src/hooks/useCodeParsing.ts` to route parsing/translation for the new language
-7. Update `src/components/LanguageSelector.tsx`, `src/components/editor/AddPanelStrip.tsx`, and `src/utils/editorUtils.ts` to expose it in the UI
+6. Update `src/hooks/useCodeParsing.ts` to route parsing for the new language
+7. Expose it in the UI: `SupportedLang` **and** `LANG_LABELS` in
+   `src/components/LanguageSelector.tsx`, `SOURCE_OPTIONS` in
+   `src/components/editor/SourcePane.tsx`, `PANEL_LANGS` in
+   `src/components/editor/AddPanelStrip.tsx`, and a `case` in
+   `getCodeMirrorExtensions()` in `src/utils/editorUtils.ts`
+8. Add `examples/demo.<ext>` + `src/utils/demoPrograms.ts`, and `tests/<newlang>.test.ts`
+
+The [`add-language` skill](../.claude/skills/add-language/SKILL.md) has the same
+list with the symptom you'll see if you miss each step.
 
 ## Troubleshooting
 

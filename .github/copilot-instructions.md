@@ -61,7 +61,7 @@ UI-side, use the [`add-ui-feature` skill](../.claude/skills/add-ui-feature/SKILL
 
 - [`specs/`](../specs/) is the **authority** for each language's supported syntax, semantics,
   and standard library — one file per language (`praxis.md`, `csp.md`, `java.md`,
-  `javascript.md`, `python.md`) plus `stdlib.md` (shared built-ins mapped across all five
+  `javascript.md`, `python.md`, `blocks.md`) plus `stdlib.md` (shared built-ins mapped across all five
   languages). Read the relevant spec before changing a language's behavior, and update it in the
   same change. Do not restate language rules in this file.
 - [`examples/`](../examples/) holds one runnable demo per language (`demo.<lang>`); each

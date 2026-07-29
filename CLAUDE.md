@@ -60,7 +60,7 @@ Unit tests live in `tests/` — one file per language (`python.test.ts`, `java.t
 
 - **`specs/`** — the **authoritative language definitions** and source of truth for what each
   language supports (syntax, semantics, and deliberate omissions). One file per language
-  (`praxis.md`, `csp.md`, `java.md`, `javascript.md`, `python.md`) plus `stdlib.md` (the shared
+  (`praxis.md`, `csp.md`, `java.md`, `javascript.md`, `python.md`, `blocks.md`) plus `stdlib.md` (the shared
   built-in library mapped across all five languages, with notes on cross-language differences).
   Read the relevant spec before changing a parser/interpreter/emitter, and update it when
   language behavior changes. `praxis.md`/`csp.md`/`java.md` also have an **Extensions for
