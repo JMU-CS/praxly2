@@ -32,7 +32,9 @@ interface TranslationPaneItemProps {
   resizeActive: boolean;
   memDiaState: 'open' | 'closed';
   onRemovePanel: (id: string) => void;
-  onResize: (e: MouseEvent) => void;
+  /** Omitted for the column that stretches to fill the row — it has no
+   *  fixed width to drag, and nothing to its right to trade space with. */
+  onResize?: (e: MouseEvent) => void;
   onMemDiaResizeMouseDown: (e: MouseEvent, paneId: string) => void;
   onToggleMemDiaCollapse: () => void;
   onToggleStack?: () => void;
@@ -207,13 +209,15 @@ export function TranslationPaneItem({
       </div>
 
       {/* Horizontal resize handle */}
-      <div
-        className={`absolute top-0 right-0 w-1 h-full cursor-col-resize z-[20] transition-colors ${
-          resizeActive ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/30'
-        }`}
-        onMouseDown={onResize}
-        aria-hidden="true"
-      />
+      {onResize && (
+        <div
+          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize z-[20] transition-colors ${
+            resizeActive ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/30'
+          }`}
+          onMouseDown={onResize}
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 }
