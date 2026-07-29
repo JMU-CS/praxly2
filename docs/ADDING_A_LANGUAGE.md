@@ -74,7 +74,7 @@ interface Token {
 
 ### Example: JavaScript Lexer
 
-Create [src/language/javascript/lexer.ts](../../src/language/javascript/lexer.ts):
+Create [src/language/javascript/lexer.ts](../src/language/javascript/lexer.ts):
 
 ```typescript
 import type { Token } from '../lexer';
@@ -638,7 +638,7 @@ An emitter takes the universal AST and generates source code in your target lang
 
 ### Emitter Structure
 
-Create [src/language/javascript/emitter.ts](../../src/language/javascript/emitter.ts):
+Create [src/language/javascript/emitter.ts](../src/language/javascript/emitter.ts):
 
 ```typescript
 import { ASTVisitor } from '../visitor';
@@ -884,18 +884,19 @@ export class JavaScriptEmitter extends ASTVisitor {
 
 The `Translator` class orchestrates code generation. You must register your emitter there.
 
-Open [src/language/translator.ts](../../src/language/translator.ts):
+Open [src/language/translator.ts](../src/language/translator.ts):
 
 ### Step 5.1: Add to TargetLanguage type
 
-Find the `TargetLanguage` type (around line 7):
+`TargetLanguage` is exported from [src/language/visitor.ts](../src/language/visitor.ts)
+(not `translator.ts` — the translator imports it):
 
 ```typescript
 // BEFORE
-export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis';
+export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | 'blocks';
 
 // AFTER
-export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | 'javascript';
+export type TargetLanguage = 'java' | 'python' | 'csp' | 'praxis' | 'blocks' | 'javascript';
 ```
 
 ### Step 5.2: Import your emitter
@@ -912,6 +913,12 @@ Find the `translateWithMap()` method (around line 20):
 
 ```typescript
 translateWithMap(program: Program, targetLang: TargetLanguage): TranslationResult {
+  // Blocks isn't text — its "code" is Blockly workspace JSON, produced by a
+  // dedicated converter rather than a line-emitting ASTVisitor.
+  if (targetLang === 'blocks') {
+    return { code: programToBlocksJson(program), sourceMap: new Map() };
+  }
+
   const context = this.analyze(program);
 
   let emitter: ASTVisitor;
@@ -937,7 +944,7 @@ translateWithMap(program: Program, targetLang: TargetLanguage): TranslationResul
 
 ### Step 6.1: Update the hook
 
-Open [src/hooks/useCodeParsing.ts](../../src/hooks/useCodeParsing.ts):
+Open [src/hooks/useCodeParsing.ts](../src/hooks/useCodeParsing.ts):
 
 Add your language to the `parseCode()` function:
 
@@ -984,81 +991,72 @@ import { JavaScriptLexer } from '../language/javascript/lexer';
 import { JavaScriptParser } from '../language/javascript/parser';
 ```
 
-### Step 6.2: Update EditorPage.tsx
+### Step 6.2: Register the language in the UI
 
-Open [src/pages/EditorPage.tsx](../../src/pages/EditorPage.tsx):
+Three places, none of them in `EditorPage.tsx` — the pages are composition only,
+and each picker lives with the pane that renders it.
 
-Find the `SupportedLang` type (around line 30):
+**a. [src/components/LanguageSelector.tsx](../src/components/LanguageSelector.tsx)** —
+`SupportedLang` **and** `LANG_LABELS`. Despite the filename this module exports
+no component, only these two:
 
 ```typescript
 // BEFORE
-export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'ast';
+export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'blocks' | 'ast';
 
 // AFTER
-export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'ast';
+export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'blocks' | 'ast';
+
+export const LANG_LABELS: Record<SupportedLang, string> = {
+  ast: 'AST',
+  blocks: 'Blocks',
+  csp: 'CSP',
+  java: 'Java',
+  javascript: 'JavaScript', // ADD THIS
+  praxis: 'Praxis',
+  python: 'Python',
+};
 ```
 
-Then find the language dropdown UI and add your language. Search for where language options are rendered:
+`LANG_LABELS` is an exhaustive `Record`, so forgetting the label is a compile
+error. This is the one registration TypeScript catches for you.
 
-```tsx
-// In the UI rendering section (around line 200-300)
-<select value={sourceLang} onChange={(e) => setSourceLang(e.target.value as SupportedLang)}>
-  <option value="python">Python</option>
-  <option value="java">Java</option>
-  <option value="csp">CSP</option>
-  <option value="praxis">Praxis</option>
-  {/* ADD THIS: */}
-  <option value="javascript">JavaScript</option>
-</select>
+**b. [src/components/editor/SourcePane.tsx](../src/components/editor/SourcePane.tsx)** —
+`SOURCE_OPTIONS` controls the source-language dropdown:
+
+```typescript
+const SOURCE_OPTIONS: SupportedLang[] = [
+  'blocks',
+  'csp',
+  'java',
+  'javascript', // ADD THIS
+  'praxis',
+  'python',
+];
 ```
 
-Also find the "Add Panel" menu and add your language there:
+**c. [src/components/editor/AddPanelStrip.tsx](../src/components/editor/AddPanelStrip.tsx)** —
+`PANEL_LANGS` controls the left icon rail that opens translation panels:
 
-```tsx
-// Look for the menu that allows adding translation panels
-{
-  showAddMenu && (
-    <div className="menu">
-      <button
-        onClick={() => {
-          addPanel('python');
-        }}
-      >
-        Python
-      </button>
-      <button
-        onClick={() => {
-          addPanel('java');
-        }}
-      >
-        Java
-      </button>
-      <button
-        onClick={() => {
-          addPanel('csp');
-        }}
-      >
-        CSP
-      </button>
-      <button
-        onClick={() => {
-          addPanel('praxis');
-        }}
-      >
-        Praxis
-      </button>
-      {/* ADD THIS: */}
-      <button
-        onClick={() => {
-          addPanel('javascript');
-        }}
-      >
-        JavaScript
-      </button>
-    </div>
-  );
-}
+```typescript
+const PANEL_LANGS: SupportedLang[] = [
+  'ast',
+  'blocks',
+  'csp',
+  'java',
+  'javascript', // ADD THIS
+  'praxis',
+  'python',
+];
 ```
+
+Add a case to `LanguageLogo` too, or the rail button renders without an icon.
+
+**Embed links.** Two plain string arrays gate which languages a shared URL may
+name. They aren't typed unions, so nothing warns you:
+
+- `VALID_TARGET_LANGS` in [src/hooks/useEmbedLinkImport.ts](../src/hooks/useEmbedLinkImport.ts) — `?targetLang=`
+- `VALID_TO_LANGS` in [src/pages/EmbedPage.tsx](../src/pages/EmbedPage.tsx) — `?to=`
 
 ### Step 6.3: (Optional) Add CodeMirror Syntax Highlighting
 
@@ -1068,35 +1066,50 @@ For better syntax highlighting, install a CodeMirror extension for your language
 npm install @codemirror/lang-javascript
 ```
 
-Then update [src/utils/editorUtils.ts](../../src/utils/editorUtils.ts):
+Then update [src/utils/editorUtils.ts](../src/utils/editorUtils.ts):
 
 ```typescript
 import { javascript } from '@codemirror/lang-javascript';
 
-export function getCodeMirrorExtensions(lang: SupportedLang) {
+export const getCodeMirrorExtensions = (lang: SupportedLang | 'json'): any[] => {
+  const baseExtensions: any[] = [];
+
   switch (lang) {
-    case 'python':
-      return [python()];
     case 'java':
-      return [java()];
-    case 'csp':
-      return []; // No extension available
+      baseExtensions.push(java());
+      break;
+    case 'python':
+      baseExtensions.push(python());
+      break;
     case 'praxis':
-      return []; // Custom grammar
+      baseExtensions.push(praxis()); // Lezer grammar, see Step 6.4
+      break;
+    case 'csp':
+      baseExtensions.push(csp()); // Lezer grammar
+      break;
     // ADD THIS:
     case 'javascript':
-      return [javascript()];
-    case 'ast':
-      return [];
+      baseExtensions.push(javascript());
+      break;
+    case 'blocks':
+      // Rendered by BlocklyPane, not CodeMirror — no extensions needed.
+      break;
   }
-}
+
+  return baseExtensions;
+};
 ```
+
+There is no `case 'ast'`: the AST view renders through `JSONTree`, and the
+source pane maps `ast → python` before asking for extensions. Falling through
+with no case returns `[]`, which is valid — the pane just renders as plain text,
+so this step is safe to defer until the compiler side works.
 
 ## Step 7: Testing
 
 ### Unit Test Your Lexer
 
-Create [tests/javascript.test.ts](../../tests/javascript.test.ts):
+Create [tests/javascript.test.ts](../tests/javascript.test.ts):
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -1385,12 +1398,13 @@ Before considering your language "complete," ensure:
   - [ ] Generates executable code
 
 - [ ] **Integration**
-  - [ ] Added to `TargetLanguage` type in `translator.ts`
-  - [ ] Imported and registered in `translator.ts` switch
-  - [ ] Added to `useCodeParsing()` hook with lexer/parser imports
-  - [ ] Added to `SupportedLang` type in `EditorPage.tsx`
-  - [ ] Added to language dropdown in UI
-  - [ ] Added to "Add Panel" menu
+  - [ ] Added to `TargetLanguage` type in `visitor.ts`
+  - [ ] Imported and registered in the `translateWithMap()` switch in `translator.ts`
+  - [ ] Added to `parseCode()` in `useCodeParsing.ts` with lexer/parser imports
+  - [ ] Added to `SupportedLang` **and** `LANG_LABELS` in `LanguageSelector.tsx`
+  - [ ] Added to `SOURCE_OPTIONS` in `editor/SourcePane.tsx`
+  - [ ] Added to `PANEL_LANGS` in `editor/AddPanelStrip.tsx` (and `LanguageLogo`)
+  - [ ] Added to `VALID_TARGET_LANGS` / `VALID_TO_LANGS` if embed links should carry it
   - [ ] (Optional) Added CodeMirror extension in `editorUtils.ts`
 
 - [ ] **Testing**
@@ -1398,6 +1412,9 @@ Before considering your language "complete," ensure:
   - [ ] Unit tests for parser
   - [ ] Integration tests (lex → parse → interpret)
   - [ ] Translation tests (lex → parse → translate to other languages)
+  - [ ] `examples/demo.<ext>` added and registered in `utils/demoPrograms.ts`,
+        so `round-trip.test.ts` checks every target
+  - [ ] `npm run test-browser` passes (the Selenium suite is not part of `test:run`)
 
 ## Conclusion
 

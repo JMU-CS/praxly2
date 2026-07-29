@@ -442,7 +442,7 @@ Runtime Error: Undefined variable 'x'
 ```typescript
 const interpreter = new Interpreter();
 try {
-  const output = interpreter.interpret(ast);
+  const output = interpreter.interpret(ast, source);
   console.log(output);
 } catch (e) {
   console.error(e);
@@ -488,7 +488,7 @@ Ensure your parser creates `FunctionDeclaration` nodes and the interpreter handl
 
 ```typescript
 // Interpreter should have this logic
-interpret(program: Program): string[] {
+interpret(program: Program, sourceCode: string = ''): string[] {
   // First pass: register all functions
   for (const stmt of program.body) {
     if (stmt.type === 'FunctionDeclaration') {
@@ -690,62 +690,55 @@ export class YourEmitter extends ASTVisitor {
 Added the language to the parser, but it doesn't appear in the UI.
 
 **Root Cause:**
-Didn't update `SupportedLang` type or UI dropdown in [src/pages/EditorPage.tsx](../../src/pages/EditorPage.tsx).
+The language was added to the compiler but not to the UI registries. `SupportedLang`
+lives in [src/components/LanguageSelector.tsx](../src/components/LanguageSelector.tsx)
+(that module exports no component, despite the name) and the pickers live with
+their panes.
 
 **Fix:**
 
-1. Update the type:
+1. Update the type and the labels — `LANG_LABELS` is an exhaustive `Record`, so
+   a missing label is a compile error:
 
 ```typescript
-export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'yourNewLang' | 'ast';
+export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'blocks' | 'ast';
+
+export const LANG_LABELS: Record<SupportedLang, string> = {
+  /* … */ yourNewLang: 'Your New Language',
+};
 ```
 
-2. Update the dropdown:
-
-```tsx
-<select value={sourceLang} onChange={...}>
-  <option value="python">Python</option>
-  <option value="java">Java</option>
-  <option value="csp">CSP</option>
-  <option value="praxis">Praxis</option>
-  <option value="yourNewLang">Your New Language</option>
-</select>
-```
+2. Add it to `SOURCE_OPTIONS` in
+   [src/components/editor/SourcePane.tsx](../src/components/editor/SourcePane.tsx)
+   so it can be chosen as the _source_ language.
 
 ### Issue: Cannot add translation panel for new language
 
 **Symptom:**
-Dropdown shows the language, but "Add Panel" button doesn't work.
+The source dropdown shows the language, but no button for it appears in the left
+icon rail.
 
 **Root Cause:**
-Language not added to the "Add Panel" dropdown.
+The language is missing from `PANEL_LANGS`.
 
 **Fix:**
-Find the "Add Panel" menu in [src/pages/EditorPage.tsx](../../src/pages/EditorPage.tsx) and add:
+Add it to `PANEL_LANGS` in
+[src/components/editor/AddPanelStrip.tsx](../src/components/editor/AddPanelStrip.tsx):
 
-```tsx
-{
-  showAddMenu && (
-    <div className="language-menu">
-      <button
-        onClick={() => {
-          addPanel('python');
-        }}
-      >
-        Python
-      </button>
-      ...
-      <button
-        onClick={() => {
-          addPanel('yourNewLang');
-        }}
-      >
-        Your New Language
-      </button>
-    </div>
-  );
-}
+```typescript
+const PANEL_LANGS: SupportedLang[] = [
+  'ast',
+  'blocks',
+  'csp',
+  'java',
+  'javascript',
+  'praxis',
+  'python',
+  'yourNewLang', // ADD THIS
+];
 ```
+
+Add a case to `LanguageLogo` as well, or the button renders with no icon.
 
 ### Issue: Parsing works, but no output shown
 
@@ -765,28 +758,27 @@ const parseCode = useCallback((lang: SupportedLang, input: string): Program | nu
   return ast;
 }, []);
 
-// In EditorPage.tsx
+// Straight from a test or the console
 const interpreter = new Interpreter();
-const output = interpreter.interpret(ast);
-console.log('Output:', output); // ← Should show output
+const output = interpreter.interpret(ast, source);
+console.log('Output:', output); // ← string[], one entry per line
 ```
 
 **Fix:**
-Ensure the interpreter is called in the UI:
+In the app, running is driven by `useEditorExecution` (which delegates to
+`useProgramRunner` so `input()` can pause a run). If output never appears,
+check that hook rather than the page:
 
 ```typescript
-useEffect(() => {
-  try {
-    const ast = parseCode(sourceLang, code);
-    if (ast) {
-      const interpreter = new Interpreter();
-      const output = interpreter.interpret(ast);
-      setOutput(output); // ← Don't forget this!
-    }
-  } catch (e) {
-    setError(e.message);
-  }
-}, [code, sourceLang]);
+// src/hooks/useEditorExecution.ts
+const run = () => {
+  clearConsole();
+  setHasRun(true);
+  const program = parseCode(runLang, code);
+  if (!program) return;
+  setAst(program);
+  runner.run(program, runLang, code); // → onOutput(lines) → setOutput
+};
 ```
 
 ## Debugging Techniques

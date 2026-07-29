@@ -68,7 +68,7 @@ Notice the **virtual semicolons** — Python has no semicolons, but the lexer in
 
 ### How Lexers Work (token-by-token)
 
-In [src/language/python/lexer.ts](../../src/language/python/lexer.ts), the lexer uses a position pointer and scans characters:
+In [src/language/python/lexer.ts](../src/language/python/lexer.ts), the lexer uses a position pointer and scans characters:
 
 ```typescript
 // Simplified pseudocode of the lexer algorithm
@@ -114,11 +114,11 @@ while (pos < input.length) {
 
 ### Key Files
 
-- [src/language/lexer.ts](../../src/language/lexer.ts) — Base `Token` interface
-- [src/language/python/lexer.ts](../../src/language/python/lexer.ts) — Python lexer with indentation handling
-- [src/language/java/lexer.ts](../../src/language/java/lexer.ts) — Java lexer
-- [src/language/csp/lexer.ts](../../src/language/csp/lexer.ts) — CSP (pseudocode) lexer
-- [src/language/praxis/lexer.ts](../../src/language/praxis/lexer.ts) — Praxis lexer
+- [src/language/lexer.ts](../src/language/lexer.ts) — Base `Token` interface
+- [src/language/python/lexer.ts](../src/language/python/lexer.ts) — Python lexer with indentation handling
+- [src/language/java/lexer.ts](../src/language/java/lexer.ts) — Java lexer
+- [src/language/csp/lexer.ts](../src/language/csp/lexer.ts) — CSP (pseudocode) lexer
+- [src/language/praxis/lexer.ts](../src/language/praxis/lexer.ts) — Praxis lexer
 
 ### Special Case: Python Indentation
 
@@ -204,11 +204,11 @@ IDENTIFIER(x) OPERATOR(=) NUMBER(10) OPERATOR(+) NUMBER(5)
 4. `assignment()` returns:
    ```typescript
    Assignment {
-     name: 'x'
+     target: Identifier { name: 'x' }
      value: BinaryExpression {
-       left: Literal { value: 10 }
+       left: Literal { value: 10, raw: '10' }
        operator: '+'
-       right: Literal { value: 5 }
+       right: Literal { value: 5, raw: '5' }
      }
    }
    ```
@@ -242,7 +242,7 @@ isAtEnd(): boolean
 
 ### The AST Nodes
 
-The parser builds AST nodes defined in [src/language/ast.ts](../../src/language/ast.ts), such as:
+The parser builds AST nodes defined in [src/language/ast.ts](../src/language/ast.ts), such as:
 
 ```typescript
 // Core node structure
@@ -250,15 +250,19 @@ interface ASTNode {
   id: string; // Unique identifier for this node
   type: NodeType; // The specific node type (e.g., 'Assignment')
   loc?: { start: number; end: number }; // Character positions in source
+  leadingComments?: string[]; // Comments above this statement
+  trailingComment?: string; // Inline comment on the same line
 }
 
 // Example: Assignment statement
 interface Assignment extends ASTNode {
   type: 'Assignment';
-  name: string; // Variable name
-  target?: Expression; // For array/object assignment
+  // The lvalue. An Identifier for a plain variable, or an
+  // IndexExpression / MemberExpression for `arr[i] = x` / `obj.f = x`.
+  target: Expression;
   value: Expression; // The right-hand side
-  varType?: string; // Type annotation (if any)
+  varType?: string; // Declared type, where the language has one
+  declaredWithoutInitializer?: boolean; // e.g. Java's `int x;`
 }
 
 // Example: If statement
@@ -280,11 +284,11 @@ interface BinaryExpression extends ASTNode {
 
 ### Key Files
 
-- [src/language/ast.ts](../../src/language/ast.ts) — AST node definitions
-- [src/language/python/parser.ts](../../src/language/python/parser.ts) — Python parser (551 lines)
-- [src/language/java/parser.ts](../../src/language/java/parser.ts) — Java parser (797 lines)
-- [src/language/csp/parser.ts](../../src/language/csp/parser.ts) — CSP parser (445 lines)
-- [src/language/praxis/parser.ts](../../src/language/praxis/parser.ts) — Praxis parser
+- [src/language/ast.ts](../src/language/ast.ts) — AST node definitions
+- [src/language/python/parser.ts](../src/language/python/parser.ts) — Python parser
+- [src/language/java/parser.ts](../src/language/java/parser.ts) — Java parser
+- [src/language/csp/parser.ts](../src/language/csp/parser.ts) — CSP parser
+- [src/language/praxis/parser.ts](../src/language/praxis/parser.ts) — Praxis parser
 
 ## Phase 3A: Interpretation
 
@@ -298,7 +302,7 @@ The **Interpreter** walks the AST node-by-node and executes it. It maintains:
 
 ### How the Interpreter Works
 
-[src/language/interpreter.ts](../../src/language/interpreter.ts) implements a **tree-walking interpreter**:
+[src/language/interpreter.ts](../src/language/interpreter.ts) implements a **tree-walking interpreter**:
 
 ```typescript
 export class Interpreter {
@@ -306,7 +310,9 @@ export class Interpreter {
   private classes = new Map<string, JavaClass>();
   private output: string[] = [];
 
-  interpret(program: Program): string[] {
+  // `sourceCode` is retained for error locations. Returns one entry per
+  // output line — not a single joined string.
+  interpret(program: Program, sourceCode: string = ''): string[] {
     // Phase 1: Register all classes and functions
     for (const stmt of program.body) {
       if (stmt.type === 'ClassDeclaration') {
@@ -510,7 +516,7 @@ class JavaInstance {
 
 ### Key Files
 
-- [src/language/interpreter.ts](../../src/language/interpreter.ts) — Main interpreter class
+- [src/language/interpreter.ts](../src/language/interpreter.ts) — Main interpreter class
 
 ## Phase 3B: Translation
 
@@ -520,7 +526,7 @@ The **Translator** consumes the universal AST and generates equivalent source co
 
 ### The Visitor Pattern
 
-The `ASTVisitor` base class ([src/language/visitor.ts](../../src/language/visitor.ts)) defines abstract methods for each node type:
+The `ASTVisitor` base class ([src/language/visitor.ts](../src/language/visitor.ts)) defines abstract methods for each node type:
 
 ```typescript
 export abstract class ASTVisitor {
@@ -559,7 +565,7 @@ Each language has an **Emitter** that extends `ASTVisitor` and implements these 
 
 ### Example: Python Emitter
 
-[src/language/python/emitter.ts](../../src/language/python/emitter.ts):
+[src/language/python/emitter.ts](../src/language/python/emitter.ts):
 
 ```typescript
 export class PythonEmitter extends ASTVisitor {
@@ -614,7 +620,7 @@ export class PythonEmitter extends ASTVisitor {
 
 ### Example: Java Emitter
 
-[src/language/java/emitter.ts](../../src/language/java/emitter.ts) works similarly but generates Java syntax:
+[src/language/java/emitter.ts](../src/language/java/emitter.ts) works similarly but generates Java syntax:
 
 ```typescript
 export class JavaEmitter extends ASTVisitor {
@@ -648,7 +654,7 @@ export class JavaEmitter extends ASTVisitor {
 
 ### Type Inference for Translation
 
-Before translation, the `Translator` runs an analysis pass ([src/language/translator.ts](../../src/language/translator.ts)) to infer types:
+Before translation, the `Translator` runs an analysis pass ([src/language/translator.ts](../src/language/translator.ts)) to infer types:
 
 ```typescript
 private analyze(program: Program): TranslationContext {
@@ -707,12 +713,16 @@ This is essential for translating from **dynamically-typed languages (Python) to
 
 ### Key Files
 
-- [src/language/translator.ts](../../src/language/translator.ts) — Main translator orchestrator
-- [src/language/visitor.ts](../../src/language/visitor.ts) — Abstract ASTVisitor base class
-- [src/language/python/emitter.ts](../../src/language/python/emitter.ts) — Python code generator (369 lines)
-- [src/language/java/emitter.ts](../../src/language/java/emitter.ts) — Java code generator
-- [src/language/csp/emitter.ts](../../src/language/csp/emitter.ts) — CSP code generator
-- [src/language/praxis/emitter.ts](../../src/language/praxis/emitter.ts) — Praxis code generator
+- [src/language/translator.ts](../src/language/translator.ts) — Main translator orchestrator
+- [src/language/visitor.ts](../src/language/visitor.ts) — Abstract ASTVisitor base class
+- [src/language/python/emitter.ts](../src/language/python/emitter.ts) — Python code generator
+- [src/language/java/emitter.ts](../src/language/java/emitter.ts) — Java code generator
+- [src/language/csp/emitter.ts](../src/language/csp/emitter.ts) — CSP code generator
+- [src/language/praxis/emitter.ts](../src/language/praxis/emitter.ts) — Praxis code generator
+- [src/language/javascript/emitter.ts](../src/language/javascript/emitter.ts) — JavaScript code generator
+- [src/language/blocks/fromAst.ts](../src/language/blocks/fromAst.ts) — Blocks "emitter": produces
+  Blockly workspace JSON. Handled before the emitter switch in `translateWithMap()`,
+  because it is not an `ASTVisitor` and emits no line-based source map.
 
 ## Data Flow Example
 
@@ -832,7 +842,7 @@ greet("World");
 
 The pipeline is integrated into the React UI via hooks:
 
-### [src/hooks/useCodeParsing.ts](../../src/hooks/useCodeParsing.ts)
+### [src/hooks/useCodeParsing.ts](../src/hooks/useCodeParsing.ts)
 
 ```typescript
 export const useCodeParsing = () => {
@@ -862,41 +872,41 @@ export const useCodeParsing = () => {
 };
 ```
 
-### [src/pages/EditorPage.tsx](../../src/pages/EditorPage.tsx) snippet
+### [src/hooks/useEditorExecution.ts](../src/hooks/useEditorExecution.ts)
+
+`EditorPage` itself is composition only — it holds the source text and wires
+panes together. The pipeline is driven from `useEditorExecution`, which re-parses
+on every edit and runs on demand:
 
 ```typescript
-export default function EditorPage() {
-  const [code, setCode] = useState(SAMPLE_CODE_PYTHON);
-  const [ast, setAst] = useState<Program | null>(null);
-  const [output, setOutput] = useState<string[]>([]);
+// Step 1 + 2, on every keystroke: the AST feeds the translation panes,
+// the AST view, and the AI panel's context.
+useEffect(() => {
+  if (sourceLang === 'ast') return;
+  try {
+    setAst(parseCode(sourceLang, code));
+    setError(null);
+  } catch (e: any) {
+    setAst(null);
+    setError(e.message);
+  }
+}, [code, sourceLang, parseCode]);
 
-  const { parseCode, getTranslation } = useCodeParsing();
-
-  const { debuggerInstance, initDebugger } = useCodeDebugger(getTranslation);
-
-  // On code change: parse, translate, and interpret
-  useEffect(() => {
-    try {
-      const parsed = parseCode(sourceLang, code); // Lex + Parse
-      setAst(parsed);
-
-      const interpreter = new Interpreter();
-      const result = interpreter.interpret(parsed); // Step 3A
-      setOutput(result);
-
-      // Update all open translation panels
-      panels.forEach((panel) => {
-        const { code } = getTranslation(parsed, panel.lang); // Step 3B
-        // Display code in panel
-      });
-    } catch (e) {
-      setError(e.message);
-    }
-  }, [code, sourceLang]);
-
-  // Etc.
-}
+// Step 3A, on Run. Executed through `Debugger` rather than `Interpreter`
+// directly (see useProgramRunner) so a program that calls input() can pause
+// and resume instead of re-running from the top.
+const run = () => {
+  const program = parseCode(runLang, code);
+  if (!program) return;
+  setAst(program);
+  runner.run(program, runLang, code); // → onOutput(lines)
+};
 ```
+
+Step 3B happens per pane at render time — `getTranslation(ast, panel.lang)` —
+while [`usePanelSourceMaps`](../src/hooks/usePanelSourceMaps.ts) refreshes each
+panel's `nodeId → line` map whenever the AST changes, so debugger highlighting
+stays aligned across every open translation.
 
 ## Summary
 

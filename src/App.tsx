@@ -2,7 +2,7 @@
  * Main application component that sets up routing for the Praxly interface.
  */
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router';
 import EditorPage from './pages/EditorPage';
 import EmbedPage from './pages/EmbedPage';
 import AccountPage from './pages/AccountPage';

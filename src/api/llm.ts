@@ -84,7 +84,13 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
     body: JSON.stringify({
       message,
       sessionId: opts.sessionId ?? undefined,
-      parentMessageId: opts.parentMessageId ?? undefined,
+      // Deliberately omitted: with no parentMessageId the backend rebuilds the
+      // whole stored conversation for this session, which is the complete and
+      // correct transcript. Sending one made the backend cut history off just
+      // before the previous assistant reply, so the model saw two user
+      // questions in a row and answered the older one. Restore this only
+      // alongside message editing, which is what the cutoff exists for.
+      parentMessageId: undefined,
       // All non-empty panels, each labelled with its language.
       code: editorCode,
       language: primaryPanel?.language,
