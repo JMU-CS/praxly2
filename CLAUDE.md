@@ -25,7 +25,7 @@ The **Visitor pattern** (`src/language/visitor.ts`) is the spine. Every emitter 
 1. **One Universal AST** — parsers produce only nodes defined in `ast.ts`. Never add language-specific node types.
 2. **All AST nodes require `id: generateId()`** — the debugger and source maps depend on unique IDs.
 3. **TypeScript strict mode** — `noUnusedLocals` and `noUnusedParameters` are on. Every new `visit*` method must be listed as `abstract` in `ASTVisitor`.
-4. **No global state** — React components use local `useState`; logic lives in `useCodeParsing` and `useCodeDebugger` hooks.
+4. **No global store for editor state** — pages are composition only; behaviour lives in hooks under `src/hooks/`, pure transforms in `src/utils/`. Zustand (`src/store/appStore.ts`) covers only chat, AI prefs, BYOK, and the editor bridge.
 5. **When adding a new `Statement` node type**: update `ast.ts`, `visitor.ts` (abstract method + dispatch case), all 4+ emitters, `interpreter.ts`, and `translator.ts` (recurse into body in `analyzeBlock`).
 
 ## Key files to read first
@@ -36,10 +36,13 @@ The **Visitor pattern** (`src/language/visitor.ts`) is the spine. Every emitter 
 | `src/language/visitor.ts`                 | `ASTVisitor` base, `Precedence` constants, `TargetLanguage` type |
 | `src/language/interpreter.ts`             | How AST is executed                                              |
 | `src/language/translator.ts`              | Type inference + emitter dispatch                                |
-| `src/components/LanguageSelector.tsx`     | `SupportedLang` type (UI-facing)                                 |
+| `src/components/LanguageSelector.tsx`     | `SupportedLang` + `LANG_LABELS` (no component — types only)      |
 | `src/hooks/useCodeParsing.ts`             | Where lexers/parsers are wired to the UI                         |
+| `src/hooks/useEditorExecution.ts`         | Editor parse/run/debug orchestration                             |
+| `src/hooks/useTranslationPanels.ts`       | Which translation panels are open, and their layout              |
 | `src/utils/editorUtils.ts`                | CodeMirror language extensions                                   |
 | `src/components/editor/AddPanelStrip.tsx` | `PANEL_LANGS` array                                              |
+| `src/components/editor/SourcePane.tsx`    | `SOURCE_OPTIONS` array                                           |
 
 ## Build & Test
 
@@ -70,11 +73,16 @@ Unit tests live in `tests/` — one file per language (`python.test.ts`, `java.t
 - **`docs/`** — deeper architecture references: `COMPILER_PIPELINE.md`, `AST_REFERENCE.md`,
   `COMPONENT_REFERENCE.md`, `ADDING_A_LANGUAGE.md`, `COMMON_ISSUES.md`.
 
-## Common tasks → skill files
+## Common tasks → skills
 
-- [Adding a new language](.github/skills/add-language.md)
-- [Adding a UI feature](.github/skills/add-ui-feature.md)
-- [Adding tests for a new feature](.github/skills/add-tests.md)
+Invoke these by name; they load on demand rather than sitting in context.
+
+| Skill                                                      | Use it when                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| [`add-language`](.claude/skills/add-language/SKILL.md)     | Adding a source/target language, or it isn't showing in the UI     |
+| [`add-tests`](.claude/skills/add-tests/SKILL.md)           | Writing Vitest tests, or picking which test file a case belongs in |
+| [`add-ui-feature`](.claude/skills/add-ui-feature/SKILL.md) | Any UI change — deciding which hook or component owns the state    |
+| [`verify`](.claude/skills/verify/SKILL.md)                 | Driving the real app in Chrome to confirm a change end to end      |
 
 ## Language definitions
 

@@ -109,34 +109,54 @@ src/
 ├── main.tsx                     # Entry point
 ├── index.css                    # Global styles + Tailwind imports
 ├─────────────────────────────────────────────────────────────
-├── components/                  # Reusable React UI components
-│   ├── CodeEditorPanel.tsx      # Left-side editor (CodeMirror)
+├── components/                  # React UI components
 │   ├── ConfirmModal.tsx         # Confirmation dialog
-│   ├── HighlightableCodeMirror.tsx
+│   ├── HighlightableCodeMirror.tsx # Read-only pane w/ debug line highlighting
 │   ├── JSONTree.tsx             # Recursive AST viewer
 │   ├── LanguageLogo.tsx         # Per-language icon
-│   ├── LanguageSelector.tsx     # Dropdown for language selection
-│   ├── OutputPanel.tsx          # Shows console output + execution results
+│   ├── LanguageSelector.tsx     # SupportedLang + LANG_LABELS (types only)
+│   ├── OutputPanel.tsx          # Console output, stdin prompt, debug variables
 │   ├── ResizeHandle.tsx         # Draggable column dividers
-│   ├── TranslationPanel.tsx     # Right panels for translated code
+│   ├── VariableFrames.tsx       # Per-call-frame variable rendering
 │   ├── ai/                      # AI chat assistant components
+│   ├── account/                 # Account page sections (one file per pane)
+│   ├── embed/                   # Embed player panes
 │   └── editor/                  # Editor-specific sub-components
-│       ├── AddPanelStrip.tsx    # Strip for adding new language panels
+│       ├── AddPanelStrip.tsx    # Left rail; PANEL_LANGS lives here
 │       ├── AiSidePanel.tsx      # AI assistant side panel
+│       ├── AskAiButton.tsx      # Floating highlight-to-chat button
 │       ├── BlocklyPane.tsx      # Blocks (Blockly) workspace panel
 │       ├── BlocklyPaneLazy.tsx  # Lazy-loaded wrapper for BlocklyPane
+│       ├── EditorDialogs.tsx    # The three "discard your code?" confirmations
 │       ├── EditorHeader.tsx     # Toolbar, run/debug buttons
 │       ├── MemDia.tsx           # Memory diagram visualization
-│       ├── SourcePane.tsx       # Left source editor panel
-│       └── TranslationPaneItem.tsx # Right-side translation panels
+│       ├── SourcePane.tsx       # Source editor pane; SOURCE_OPTIONS lives here
+│       ├── TranslationPaneItem.tsx  # A single translation pane
+│       ├── TranslationPanelGrid.tsx # Columns, stacking, elastic last column
+│       ├── layoutConstants.ts   # Pixel budgets for every pane
+│       └── types.ts             # The Panel type
 │─────────────────────────────────────────────────────────────
-├── hooks/                       # React custom hooks
-│   ├── useCodeParsing.ts        # Handles parsing + translation
-│   ├── useCodeDebugger.ts       # Manages debug state + stepping
-│   └── useClickOutside.ts       # Dismiss-on-outside-click helper
+├── hooks/                       # All page behaviour lives here
+│   ├── useCodeParsing.ts        # Source text → AST → translation + source map
+│   ├── useCodeDebugger.ts       # Step-through debug state machine
+│   ├── useProgramRunner.ts      # Plain run that pauses on input() and resumes
+│   ├── useEditorExecution.ts    # Editor: parse-on-type, run, debug, console
+│   ├── useEmbedExecution.ts     # Embed: the same, without panels
+│   ├── useEditorLayout.ts       # Pane widths/heights + every resize drag
+│   ├── useTranslationPanels.ts  # Open panels, columns, drag-and-drop
+│   ├── useMemDiaPanes.ts        # Per-pane memory diagram height/state
+│   ├── useEditorSession.ts      # localStorage persistence
+│   ├── useAccountData.ts        # Account profile/usage/chats + status banner
+│   └── …                        # menus, shortcuts, AI selection, embed links
 │─────────────────────────────────────────────────────────────
-├── pages/                       # Route page components
-│   ├── EditorPage.tsx           # Main editor IDE (the heart of the UI)
+├── utils/                       # Pure, DOM-free transforms (unit-testable)
+│   ├── panelLayout.ts           # Column/stacking rules
+│   ├── languageSwitch.ts        # Can this program survive a language change?
+│   ├── aiPanelContext.ts        # Builds the AI panel's code context
+│   └── debugHandlers.ts         # Per-panel debug line highlighting
+│─────────────────────────────────────────────────────────────
+├── pages/                       # Route pages — composition only
+│   ├── EditorPage.tsx           # Main editor IDE
 │   ├── EmbedPage.tsx            # Shareable code embed view
 │   └── AccountPage.tsx          # Account page
 │─────────────────────────────────────────────────────────────
