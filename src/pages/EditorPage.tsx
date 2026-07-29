@@ -1,747 +1,157 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import type { DragEvent, MouseEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
-import type { EditorView, ViewUpdate } from '@codemirror/view';
+/**
+ * The full Praxly editor: a source pane plus any number of live translation
+ * panes, a console, memory diagrams, and the AI assistant.
+ *
+ * This file is composition only. The behaviour lives in focused hooks —
+ * `useEditorExecution` (parse/run/debug), `useTranslationPanels` (which panes
+ * are open), `useEditorLayout` (how big everything is), `useMemDiaPanes`,
+ * `useEditorSession` (persistence) — and the panes themselves live in
+ * `components/editor/`.
+ */
 
-import type { Program } from '../language/ast';
-import { LANG_LABELS, type SupportedLang } from '../components/LanguageSelector';
-import { ConfirmModal } from '../components/ConfirmModal';
+import { useMemo, useRef, useState } from 'react';
+
+import { type SupportedLang } from '../components/LanguageSelector';
 import { OutputPanel } from '../components/OutputPanel';
-import { highlightedLinesField, dispatchLineHighlighting } from '../utils/codemirrorConfig';
-import { computeMultiplePanelHighlighting } from '../utils/debugHandlers';
-import { decodeEmbed, encodeEmbed, copyToClipboard } from '../utils/embedCodec';
+import { highlightedLinesField } from '../utils/codemirrorConfig';
+import { encodeEmbed, copyToClipboard } from '../utils/embedCodec';
 import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import { EXAMPLE_PROGRAMS, getExampleById } from '../utils/sampleCodes';
 import { getDemoForLang } from '../utils/demoPrograms';
-import { useCodeParsing } from '../hooks/useCodeParsing';
-import { useCodeDebugger } from '../hooks/useCodeDebugger';
-import { useClickOutside } from '../hooks/useClickOutside';
-import { randomId } from '../utils/id';
-import {
-  inSameColumn,
-  removePanelById,
-  reorderPanel,
-  swapStacked,
-  toggleStack,
-} from '../utils/panelLayout';
-import { Debugger } from '../language/debugger';
+import { buildAiPanelContext } from '../utils/aiPanelContext';
+import { planLanguageSwitch } from '../utils/languageSwitch';
 
-import { EditorHeader } from '../components/editor/EditorHeader';
-import type { TextSize } from '../components/editor/EditorHeader';
-import { SourcePane } from '../components/editor/SourcePane';
-import { TranslationPaneItem } from '../components/editor/TranslationPaneItem';
+import { useCodeParsing } from '../hooks/useCodeParsing';
+import { useAiSelection } from '../hooks/useAiSelection';
+import { useEditorExecution } from '../hooks/useEditorExecution';
+import { useEditorLayout } from '../hooks/useEditorLayout';
+import { useEditorMenus } from '../hooks/useEditorMenus';
+import { useEditorShortcuts } from '../hooks/useEditorShortcuts';
+import { useEmbedLinkImport } from '../hooks/useEmbedLinkImport';
+import { useHighlightedEditor } from '../hooks/useHighlightedEditor';
+import { useMemDiaPanes } from '../hooks/useMemDiaPanes';
+import { useOpenCodeBridge } from '../hooks/useOpenCodeBridge';
+import { usePanelSourceMaps } from '../hooks/usePanelSourceMaps';
+import { useTextSize } from '../hooks/useTextSize';
+import { useTranslationPanels } from '../hooks/useTranslationPanels';
+import { hasEmbedParam, loadEditorState, usePersistEditorState } from '../hooks/useEditorSession';
+
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
 import { AiSidePanel } from '../components/editor/AiSidePanel';
-import { useEditorBridge } from '../store/appStore';
-import type { LlmPanel } from '../api/llm';
-import type { Panel } from '../components/editor/types';
-
-const MIN_SOURCE_WIDTH = 280;
-const MIN_PANEL_WIDTH = 240;
-const MIN_OUTPUT_HEIGHT = 120;
-const MIN_MEM_DIA_HEIGHT = 100;
-const MAX_MEM_DIA_HEIGHT = 360;
-const MIN_AI_PANEL_WIDTH = 260;
-const MAX_AI_PANEL_WIDTH = 560;
-const ADD_STRIP_WIDTH = 64;
-const MOBILE_BREAKPOINT = 1024;
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.min(Math.max(value, min), max);
-
-const EDITOR_STATE_KEY = 'praxly-editor-state';
-
-type PersistedEditorState = {
-  code: string;
-  sourceLang: SupportedLang;
-  openLangs: SupportedLang[];
-  showAiChat: boolean;
-  showMemDia: boolean;
-};
-
-/** An embed link (`?code=...`) is an explicit share — it should win over,
- *  and not be clobbered into, any saved session in localStorage. */
-const hasEmbedParam = () => Boolean(new URLSearchParams(window.location.search).get('code'));
-
-const loadEditorState = (): PersistedEditorState | null => {
-  if (hasEmbedParam()) return null;
-  try {
-    const raw = localStorage.getItem(EDITOR_STATE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
+import { AskAiButton } from '../components/editor/AskAiButton';
+import { EditorDialogs } from '../components/editor/EditorDialogs';
+import { EditorHeader } from '../components/editor/EditorHeader';
+import { SourcePane } from '../components/editor/SourcePane';
+import { TranslationPanelGrid } from '../components/editor/TranslationPanelGrid';
 
 export default function EditorPage() {
-  const [searchParams] = useSearchParams();
   const [loadedViaEmbedLink] = useState(hasEmbedParam);
   const [code, setCode] = useState(() => loadEditorState()?.code ?? '');
-  const [output, setOutput] = useState<string[]>([]);
-  // Once true, the "Run code to see execution results..." placeholder never
-  // reappears — it's a first-run hint, not a state to flash on every re-run.
-  const [hasRun, setHasRun] = useState(false);
-  const [ast, setAst] = useState<Program | null>(null);
   const [sourceLang, setSourceLang] = useState<SupportedLang>(
     () => loadEditorState()?.sourceLang ?? 'praxis'
   );
-  const [error, setError] = useState<string | null>(null);
-  const [showSourceLangDropdown, setShowSourceLangDropdown] = useState(false);
-  const [showExamplesMenu, setShowExamplesMenu] = useState(false);
-  const [embedCopied, setEmbedCopied] = useState(false);
-  const [draggedPanelId, setDraggedPanelId] = useState<string | null>(null);
-  const [dragOverPanelId, setDragOverPanelId] = useState<string | null>(null);
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showAiSidePanel, setShowAiSidePanel] = useState(
     () => loadEditorState()?.showAiChat ?? false
   );
   const [showMemDia, setShowMemDia] = useState(() => loadEditorState()?.showMemDia ?? false);
-  const [outputState, setOutputState] = useState<'open' | 'closed'>('open');
-  const [textSize, setTextSize] = useState<TextSize>(
-    () => Number(localStorage.getItem('praxly-text-size')) || 3
-  );
-  const [memDiaStates, setMemDiaStates] = useState<Map<string, 'open' | 'closed'>>(new Map());
-  const [aiPanelWidth, setAiPanelWidth] = useState(320);
-  const [isResizingAiPanel, setIsResizingAiPanel] = useState(false);
-  // Language the user asked to switch to when the program couldn't be
-  // translated — non-null while the "start fresh?" dialog is open.
+
+  // Pending "this will discard your code" confirmations (see EditorDialogs).
   const [pendingLangSwitch, setPendingLangSwitch] = useState<SupportedLang | null>(null);
-  // Example id awaiting confirmation to replace a non-blank editor.
   const [pendingExampleId, setPendingExampleId] = useState<string | null>(null);
-  // True while confirming replacing a non-blank editor with the demo program.
   const [pendingDemoLoad, setPendingDemoLoad] = useState(false);
-  // Highlight-to-chat: text selected in the source editor + where to float the button.
-  const [aiSelection, setAiSelection] = useState('');
-  const [aiSelectionCoords, setAiSelectionCoords] = useState<{ top: number; left: number } | null>(
-    null
-  );
-  const [resizingMemDiaPaneId, setResizingMemDiaPaneId] = useState<string | null>(null);
-  const [memDiaHeights, setMemDiaHeights] = useState<Record<string, number>>({});
-  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  const [embedCopied, setEmbedCopied] = useState(false);
 
-  const [editorWidth, setEditorWidth] = useState(
-    Math.max(MIN_SOURCE_WIDTH, Math.floor(window.innerWidth * 0.45))
-  );
-  const [panels, setPanels] = useState<Panel[]>(() => {
-    const saved = loadEditorState();
-    if (!saved || saved.openLangs.length === 0) return [];
-
-    const defaultPanelWidth =
-      window.innerWidth < MOBILE_BREAKPOINT
-        ? Math.max(MIN_PANEL_WIDTH, Math.floor(window.innerWidth * 0.8))
-        : 350;
-
-    return saved.openLangs
-      .filter((lang) => lang !== saved.sourceLang)
-      .map((lang) => ({
-        id: randomId(),
-        lang,
-        width: defaultPanelWidth,
-        sourceMap: new Map(),
-      }));
-  });
-
-  const [waitingForNormalInput, setWaitingForNormalInput] = useState(false);
-  const [normalModeInputPrompt, setNormalModeInputPrompt] = useState<string>('');
-  // The Debugger instance driving a non-debug run that paused for input().
-  const [currentInterpreter, setCurrentInterpreter] = useState<Debugger | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const { parseCode, getTranslation } = useCodeParsing();
-  const {
-    isDebugging,
-    setIsDebugging,
-    isDebugComplete,
-    setIsDebugComplete,
-    highlightedSourceLines,
-    setHighlightedSourceLines,
-    currentVariables,
-    currentCallStack,
-    waitingForInput,
-    inputPrompt,
-    initDebugger,
-    stepDebugger,
-    stopDebugger,
-    provideInput,
-  } = useCodeDebugger(getTranslation);
+  const panels = useTranslationPanels(getTranslation);
+  const exec = useEditorExecution({
+    code,
+    sourceLang,
+    panels: panels.panels,
+    parseCode,
+    getTranslation,
+  });
+  const layout = useEditorLayout({
+    panels: panels.panels,
+    setPanels: panels.setPanels,
+    rootPanels: panels.rootPanels,
+    showAiSidePanel,
+  });
+  const memDia = useMemDiaPanes();
+  const menus = useEditorMenus();
+  const aiSelection = useAiSelection();
+  const { textSize, setTextSize, fontSizePx } = useTextSize();
+  const onCreateEditor = useHighlightedEditor(exec.highlightedSourceLines);
 
-  const [resizingIdx, setResizingIdx] = useState<number | 'editor' | 'output' | null>(null);
-  const [outputHeight, setOutputHeight] = useState(
-    Math.max(176, Math.floor(window.innerHeight * 0.24))
+  usePanelSourceMaps(exec.ast, panels.setPanels, getTranslation);
+  useEmbedLinkImport({ setCode, setSourceLang, setPanels: panels.setPanels });
+  usePersistEditorState(
+    {
+      code,
+      sourceLang,
+      openLangs: panels.panels.map((panel) => panel.lang),
+      showAiChat: showAiSidePanel,
+      showMemDia,
+    },
+    !loadedViaEmbedLink
   );
-  const [panelHighlightedLines, setPanelHighlightedLines] = useState<Map<string, number[]>>(
-    new Map()
-  );
-
-  type ResizeDragSnapshot = {
-    index: number | 'editor' | 'output';
-    startX: number;
-    startY: number;
-    startEditorWidth: number;
-    startPanelWidth: number;
-    startOutputHeight: number;
-    /** Widest the dragged pane may get before it squeezes the elastic
-     *  last column under `MIN_PANEL_WIDTH`. Fixed for the whole drag —
-     *  only the dragged pane's own width changes. */
-    maxPaneWidth: number;
-  };
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<HTMLDivElement>(null);
-  const editorViewRef = useRef<EditorView | null>(null);
-  const resizeDragRef = useRef<ResizeDragSnapshot | null>(null);
-  const memDiaResizeRef = useRef<{ paneId: string; startY: number; startHeight: number } | null>(
-    null
-  );
-  const aiResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  const runTimeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (runTimeoutRef.current !== null) {
-        clearTimeout(runTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const isMobile = viewportWidth < MOBILE_BREAKPOINT;
-
-  const rootPanels = useMemo(() => panels.filter((panel) => !panel.stackedUnder), [panels]);
-  const rootPanelCount = rootPanels.length;
-  // The rightmost column stretches to fill whatever the panes to its left
-  // leave over, so dragging any divider can never expose a bare strip of the
-  // row's background. Its stored `width` goes unused while it holds this spot.
-  const elasticPanelId = rootPanelCount > 0 ? rootPanels[rootPanelCount - 1].id : null;
-
-  const getMemDiaHeight = (paneId: string) => memDiaHeights[paneId] ?? 160;
-
-  const getDefaultPanelWidth = useCallback(() => {
-    if (isMobile) {
-      return Math.max(MIN_PANEL_WIDTH, Math.floor(viewportWidth * 0.8));
-    }
-    return 350;
-  }, [isMobile, viewportWidth]);
-
-  const getMaxSourceWidth = useCallback(() => {
-    const reservedWidth =
-      ADD_STRIP_WIDTH +
-      (showAiSidePanel ? aiPanelWidth : 0) +
-      (panels.length > 0 ? MIN_PANEL_WIDTH : 0);
-
-    return Math.max(MIN_SOURCE_WIDTH, viewportWidth - reservedWidth);
-  }, [aiPanelWidth, panels.length, showAiSidePanel, viewportWidth]);
-
-  const getContentAvailableWidth = useCallback(() => {
-    return Math.max(
-      MIN_SOURCE_WIDTH,
-      viewportWidth - ADD_STRIP_WIDTH - (showAiSidePanel ? aiPanelWidth : 0)
-    );
-  }, [aiPanelWidth, showAiSidePanel, viewportWidth]);
-
-  const onMemDiaResizeMouseDown = (e: MouseEvent, paneId: string) => {
-    e.preventDefault();
-    memDiaResizeRef.current = {
-      paneId,
-      startY: e.clientY,
-      startHeight: getMemDiaHeight(paneId),
-    };
-    setResizingMemDiaPaneId(paneId);
-  };
+  useEditorShortcuts({
+    isDebugging: exec.isDebugging,
+    isDebugComplete: exec.isDebugComplete,
+    onRun: exec.run,
+    onDebugStart: exec.debugStart,
+    onDebugStep: exec.debugStep,
+    onDebugStop: exec.debugStop,
+  });
 
   /** Switches the source pane to `lang` with the given code and a clean slate. */
-  const applySourceLanguage = useCallback(
-    (lang: SupportedLang, newCode: string) => {
-      setSourceLang(lang);
-      setCode(newCode);
-      setIsDebugging(false);
-      setIsDebugComplete(false);
-      setHighlightedSourceLines([]);
-      setPanelHighlightedLines(new Map());
-      setError(null);
-    },
-    [setIsDebugging, setIsDebugComplete, setHighlightedSourceLines]
-  );
+  const applySourceLanguage = (lang: SupportedLang, newCode: string) => {
+    setSourceLang(lang);
+    setCode(newCode);
+    exec.stopSession();
+    exec.setError(null);
+  };
 
   const handleSourceLanguageChange = (lang: SupportedLang) => {
-    setShowSourceLangDropdown(false);
+    menus.closeSourceLangDropdown();
     if (lang === sourceLang) return;
 
-    try {
-      const sourceForTranslation = sourceLang === 'ast' ? 'python' : sourceLang;
-      // An empty program — blank text, or e.g. a Blocks workspace whose JSON
-      // holds no blocks — has nothing to translate; switch straight away.
-      const parsed = code.trim() ? parseCode(sourceForTranslation, code) : null;
-      if (!parsed || parsed.body.length === 0) {
-        applySourceLanguage(lang, '');
-        return;
-      }
-
-      const translated = getTranslation(parsed, lang).code;
-      let translationFailed =
-        !translated?.trim() ||
-        translated.startsWith('// Translation to') ||
-        translated.startsWith('// Valid source code required');
-
-      if (!translationFailed) {
-        try {
-          parseCode(lang, translated);
-        } catch {
-          translationFailed = true;
-        }
-      }
-
-      if (translationFailed) {
-        // Can't produce a working translation — ask before discarding the
-        // program (the ConfirmModal rendered below handles the answer).
-        setPendingLangSwitch(lang);
-        return;
-      }
-
-      applySourceLanguage(lang, translated);
-    } catch {
-      // The current source doesn't parse, so it can't be translated either.
+    const plan = planLanguageSwitch(code, sourceLang, lang, parseCode, getTranslation);
+    if (plan.kind === 'untranslatable') {
+      // Can't produce a working translation — ask before discarding the
+      // program (EditorDialogs handles the answer).
       setPendingLangSwitch(lang);
-    }
-  };
-
-  useEffect(() => {
-    const codeParam = searchParams.get('code');
-    const targetLangParam = searchParams.get('targetLang');
-
-    if (!codeParam) return;
-
-    try {
-      const decoded = decodeEmbed(codeParam);
-      if (!decoded) return;
-
-      setCode(decoded.code);
-      setSourceLang(decoded.lang as SupportedLang);
-
-      setPanels((prev) => {
-        const next = prev.filter((panel) => panel.lang !== decoded.lang);
-        const isValidTarget = [
-          'python',
-          'java',
-          'csp',
-          'praxis',
-          'javascript',
-          'blocks',
-          'ast',
-        ].includes(targetLangParam ?? '');
-
-        if (!isValidTarget || !targetLangParam || targetLangParam === decoded.lang) {
-          return next;
-        }
-
-        if (next.some((panel) => panel.lang === targetLangParam)) {
-          return next;
-        }
-
-        const defaultPanelWidth =
-          window.innerWidth < MOBILE_BREAKPOINT
-            ? Math.max(MIN_PANEL_WIDTH, Math.floor(window.innerWidth * 0.8))
-            : 350;
-
-        return [
-          ...next,
-          {
-            id: randomId(),
-            lang: targetLangParam as SupportedLang,
-            width: defaultPanelWidth,
-            sourceMap: new Map(),
-          },
-        ];
-      });
-    } catch (e) {
-      console.error('Failed to decode embed:', e);
-    }
-  }, [searchParams]);
-
-  // Persist source code, language, and panel toggles so a reload (or a
-  // later visit) picks up where the user left off. Skipped for embed
-  // links — those are an explicit one-off share, not a session to save.
-  useEffect(() => {
-    if (loadedViaEmbedLink) return;
-
-    const id = window.setTimeout(() => {
-      const state: PersistedEditorState = {
-        code,
-        sourceLang,
-        openLangs: panels.map((panel) => panel.lang),
-        showAiChat: showAiSidePanel,
-        showMemDia,
-      };
-      localStorage.setItem(EDITOR_STATE_KEY, JSON.stringify(state));
-    }, 250);
-
-    return () => clearTimeout(id);
-  }, [code, sourceLang, panels, showAiSidePanel, showMemDia, loadedViaEmbedLink]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setViewportWidth(window.innerWidth);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    const maxSourceWidth = getMaxSourceWidth();
-    const maxOutputHeight = Math.max(MIN_OUTPUT_HEIGHT, window.innerHeight - 120);
-    const maxAiWidth = Math.min(
-      MAX_AI_PANEL_WIDTH,
-      Math.max(MIN_AI_PANEL_WIDTH, viewportWidth - MIN_SOURCE_WIDTH - ADD_STRIP_WIDTH - 40)
-    );
-
-    setEditorWidth((prev) => clamp(prev, MIN_SOURCE_WIDTH, maxSourceWidth));
-    setOutputHeight((prev) => clamp(prev, MIN_OUTPUT_HEIGHT, maxOutputHeight));
-    setAiPanelWidth((prev) => clamp(prev, MIN_AI_PANEL_WIDTH, maxAiWidth));
-    setPanels((prev) => {
-      let changed = false;
-      const next = prev.map((panel) => {
-        const clampedWidth = Math.max(MIN_PANEL_WIDTH, panel.width);
-        if (clampedWidth !== panel.width) {
-          changed = true;
-          return { ...panel, width: clampedWidth };
-        }
-        return panel;
-      });
-
-      return changed ? next : prev;
-    });
-  }, [getMaxSourceWidth, viewportWidth]);
-
-  // Re-split the row evenly when the number of side-by-side panes changes, or
-  // when the space they share does. Keyed on the pane *count*, not on `panels`
-  // itself: that array gets rebuilt on every keystroke (source maps are
-  // refreshed per AST), and depending on it here undid each resize drag the
-  // frame after it happened.
-  useEffect(() => {
-    const availableWidth = getContentAvailableWidth();
-
-    if (rootPanelCount === 0) {
-      setEditorWidth((prev) => (prev === availableWidth ? prev : availableWidth));
       return;
     }
 
-    const totalPaneCount = rootPanelCount + 1;
-    const targetPanelWidth = Math.max(MIN_PANEL_WIDTH, Math.floor(availableWidth / totalPaneCount));
-    // The source pane absorbs the rounding remainder so the row fills exactly.
-    const targetSourceWidth = Math.max(
-      MIN_SOURCE_WIDTH,
-      availableWidth - targetPanelWidth * rootPanelCount
-    );
-
-    setEditorWidth((prev) => (prev === targetSourceWidth ? prev : targetSourceWidth));
-
-    setPanels((prev) => {
-      let changed = false;
-      const next = prev.map((panel) => {
-        if (panel.width === targetPanelWidth) return panel;
-        changed = true;
-        // Stacked panels are sized too: they render at their column's width, so
-        // an un-synced one would jump if it later swapped places with its root.
-        return { ...panel, width: targetPanelWidth };
-      });
-
-      return changed ? next : prev;
-    });
-  }, [getContentAvailableWidth, rootPanelCount]);
-
-  const handleCreateEditor = useCallback((view: EditorView) => {
-    editorViewRef.current = view;
-  }, []);
-
-  // Track the current source-editor selection so the user can chat about it.
-  const handleEditorUpdate = useCallback((update: ViewUpdate) => {
-    if (!update.selectionSet && !update.docChanged && !update.geometryChanged) return;
-    const sel = update.state.selection.main;
-    if (sel.empty) {
-      setAiSelection('');
-      setAiSelectionCoords(null);
-      return;
-    }
-    setAiSelection(update.state.sliceDoc(sel.from, sel.to));
-    const coords = update.view.coordsAtPos(sel.to);
-    setAiSelectionCoords(coords ? { top: coords.bottom + 4, left: coords.left } : null);
-  }, []);
-
-  const clearAiSelection = useCallback(() => {
-    setAiSelection('');
-    setAiSelectionCoords(null);
-  }, []);
-
-  useEffect(() => {
-    dispatchLineHighlighting(editorViewRef, highlightedSourceLines);
-  }, [highlightedSourceLines]);
-
-  useEffect(() => {
-    if (sourceLang === 'ast') return;
-
-    try {
-      const program = parseCode(sourceLang, code);
-      setAst(program);
-      setError(null);
-    } catch (e: any) {
-      setAst(null);
-      setError(e.message);
-    }
-  }, [code, sourceLang, parseCode]);
-
-  useEffect(() => {
-    if (!ast || panels.length === 0) return;
-
-    setPanels((prev) =>
-      prev.map((panel) => {
-        const { sourceMap } = getTranslation(ast, panel.lang);
-        return { ...panel, sourceMap };
-      })
-    );
-  }, [ast, getTranslation]);
-
-  // Gather every open code panel (source + translations) so the AI panel can
-  // send all of them as context, not just the source.
-  const aiPanelContext = useMemo<LlmPanel[]>(() => {
-    const result: LlmPanel[] = [];
-    if (code.trim()) {
-      if (sourceLang === 'blocks') {
-        // Blocks source is Blockly workspace JSON — meaningless to the LLM.
-        // Send the equivalent Praxis pseudocode string instead.
-        const readable = ast ? getTranslation(ast, 'praxis').code : '';
-        if (readable.trim()) result.push({ language: 'praxis', code: readable });
-      } else {
-        result.push({ language: sourceLang, code });
-      }
-    }
-    if (ast) {
-      for (const panel of panels) {
-        // A blocks panel shows the same program the source already covers,
-        // and its JSON would only waste the model's context.
-        if (panel.lang === 'blocks') continue;
-        try {
-          const translated = getTranslation(ast, panel.lang).code;
-          if (translated?.trim()) {
-            result.push({ language: panel.lang, code: translated });
-          }
-        } catch {
-          // Skip panels that can't currently be translated.
-        }
-      }
-    }
-    return result;
-  }, [code, sourceLang, ast, panels, getTranslation]);
-
-  const executeRun = () => {
-    try {
-      const runLang = sourceLang === 'ast' ? 'python' : sourceLang;
-      const program = parseCode(runLang as SupportedLang, code);
-      if (!program) return;
-
-      setAst(program);
-
-      const debuggerInstance = new Debugger();
-      debuggerInstance.init(program, runLang as SupportedLang, code);
-
-      let result = debuggerInstance.step();
-      while (result && !result.isComplete) {
-        setOutput(result.output);
-
-        if (result.waitingForInput) {
-          setCurrentInterpreter(debuggerInstance);
-          setWaitingForNormalInput(true);
-          setNormalModeInputPrompt(result.inputPrompt || '');
-          return;
-        }
-
-        result = debuggerInstance.step();
-      }
-
-      if (result) {
-        setOutput(result.output);
-      }
-
-      setCurrentInterpreter(null);
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message);
-      setOutput((prev) => [...prev, `Error: ${e.message}`]);
-    }
+    applySourceLanguage(lang, plan.kind === 'translated' ? plan.code : '');
   };
 
-  const handleRun = () => {
-    setError(null);
-    setOutput([]);
-    setHasRun(true);
-    setWaitingForNormalInput(false);
-
-    if (runTimeoutRef.current !== null) {
-      clearTimeout(runTimeoutRef.current);
+  /** Replaces the editor's contents, resetting the console and any session. */
+  const replaceProgram = (newCode: string, lang?: SupportedLang, keepHasRun = false) => {
+    if (lang) {
+      setSourceLang(lang);
+      // Drop any translation panel that duplicates the new source language.
+      panels.dropPanelsForLang(lang);
     }
-    runTimeoutRef.current = window.setTimeout(() => {
-      runTimeoutRef.current = null;
-      executeRun();
-    }, 100);
+    setCode(newCode);
+    exec.clearConsole({ resetHasRun: !keepHasRun });
+    exec.stopSession();
   };
 
-  const handleDebugStart = () => {
-    setError(null);
-    setOutput([]);
-    setHasRun(true);
-
-    try {
-      const runLang = sourceLang === 'ast' ? 'python' : sourceLang;
-      const program = parseCode(runLang as SupportedLang, code);
-      if (!program) return;
-
-      setAst(program);
-      initDebugger(program, runLang as SupportedLang, code);
-      setOutput(['Debugger initialized. Click Step to begin.']);
-      setHighlightedSourceLines([]);
-      setPanelHighlightedLines(new Map());
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message);
-    }
-  };
-
-  const handleDebugStep = () => {
-    if (!ast) return;
-
-    try {
-      const result = stepDebugger(ast, code, sourceLang === 'ast' ? 'python' : sourceLang);
-      if (!result) return;
-
-      setHighlightedSourceLines(result.sourceHighlightedLines);
-
-      const panelHighlights = computeMultiplePanelHighlighting(
-        ast,
-        panels,
-        getTranslation,
-        result.step?.nodeId
-      );
-      setPanelHighlightedLines(panelHighlights);
-      setOutput(result.outputLines);
-
-      if (result.isComplete) {
-        setIsDebugComplete(true);
-        setOutput((prev) => [...prev, 'Execution complete.']);
-      }
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message);
-      setOutput((prev) => [...prev, `Error: ${e.message}`]);
-      setIsDebugComplete(true);
-    }
-  };
-
-  const handleDebugStop = () => {
-    stopDebugger();
-    setIsDebugging(false);
-    setHighlightedSourceLines([]);
-    setPanelHighlightedLines(new Map());
-    setOutput((prev) => [...prev, 'Debugger stopped.']);
-  };
-
-  const handleSubmitInput = (input: string) => {
-    provideInput(input);
-
-    if (!ast) return;
-
-    setTimeout(() => {
-      const result = stepDebugger(ast, code, sourceLang === 'ast' ? 'python' : sourceLang);
-      if (!result) return;
-
-      setHighlightedSourceLines(result.sourceHighlightedLines);
-
-      const panelHighlights = computeMultiplePanelHighlighting(
-        ast,
-        panels,
-        getTranslation,
-        result.step?.nodeId
-      );
-      setPanelHighlightedLines(panelHighlights);
-      // outputLines is the cumulative program output, so replace rather than append.
-      setOutput(result.outputLines);
-
-      if (result.isComplete) {
-        setIsDebugComplete(true);
-        setOutput((prev) => [...prev, 'Execution complete.']);
-      }
-    }, 0);
-  };
-
-  const handleNormalModeInputSubmit = (input: string) => {
-    if (!currentInterpreter) return;
-
-    try {
-      currentInterpreter.provideInput(input);
-
-      let steps = currentInterpreter.step();
-      let cumulativeOutput: string[] = steps?.output || [];
-
-      while (steps && !steps.isComplete) {
-        if (steps.waitingForInput) {
-          setWaitingForNormalInput(true);
-          setNormalModeInputPrompt(steps.inputPrompt || '');
-          setOutput(cumulativeOutput);
-          return;
-        }
-
-        cumulativeOutput = [...(steps?.output || [])];
-        setOutput(cumulativeOutput);
-        steps = currentInterpreter.step();
-      }
-
-      if (steps) {
-        cumulativeOutput = [...(steps?.output || [])];
-        setOutput(cumulativeOutput);
-      }
-
-      setWaitingForNormalInput(false);
-      setNormalModeInputPrompt('');
-      setCurrentInterpreter(null);
-    } catch (e: any) {
-      console.error('Error in input submit:', e);
-      setError(e.message);
-      setOutput((prev) => [...prev, `Error: ${e.message}`]);
-      setWaitingForNormalInput(false);
-      setCurrentInterpreter(null);
-    }
-  };
-
-  const handleClear = () => {
-    setCode('');
-    setAst(null);
-    setOutput([]);
-    setError(null);
-    setHasRun(false);
-  };
+  // "Open in editor" on an AI chat code block. The fence's language tag
+  // switches the source language when it names one Praxly supports.
+  useOpenCodeBridge((newCode, lang) => replaceProgram(newCode, lang, true));
 
   const loadExample = (exampleId: string) => {
     const example = getExampleById(exampleId);
     if (!example) return;
-
-    setSourceLang(example.lang);
-    setCode(example.code);
-    // Drop any translation panel that duplicates the example's own language.
-    setPanels((prev) => prev.filter((panel) => panel.lang !== example.lang));
-    setOutput([]);
-    setError(null);
-    setHasRun(false);
-    setIsDebugging(false);
-    setIsDebugComplete(false);
-    setHighlightedSourceLines([]);
-    setPanelHighlightedLines(new Map());
-    setWaitingForNormalInput(false);
-    setCurrentInterpreter(null);
+    replaceProgram(example.code, example.lang);
   };
 
   const handleLoadExample = (exampleId: string) => {
-    setShowSettingsMenu(false);
-    setShowExamplesMenu(false);
+    menus.closeHeaderMenus();
     // A non-blank editor is about to be discarded — confirm first.
     if (code.trim()) {
       setPendingExampleId(exampleId);
@@ -753,22 +163,11 @@ export default function EditorPage() {
   const loadDemo = () => {
     const demo = getDemoForLang(sourceLang);
     if (!demo) return;
-
-    setCode(demo);
-    setOutput([]);
-    setError(null);
-    setHasRun(false);
-    setIsDebugging(false);
-    setIsDebugComplete(false);
-    setHighlightedSourceLines([]);
-    setPanelHighlightedLines(new Map());
-    setWaitingForNormalInput(false);
-    setCurrentInterpreter(null);
+    replaceProgram(demo);
   };
 
   const handleLoadDemo = () => {
-    setShowSettingsMenu(false);
-    setShowExamplesMenu(false);
+    menus.closeHeaderMenus();
     // A non-blank editor is about to be discarded — confirm first.
     if (code.trim()) {
       setPendingDemoLoad(true);
@@ -777,81 +176,16 @@ export default function EditorPage() {
     loadDemo();
   };
 
-  const handleToggleAiPanel = () => {
-    setShowAiSidePanel((prev) => !prev);
+  const handleClear = () => {
+    setCode('');
+    exec.setAst(null);
+    exec.clearConsole({ resetHasRun: true });
   };
 
   const handleToggleMemDia = () => {
-    setShowMemDia((prev) => {
-      if (!prev) setMemDiaStates(new Map()); // Reset all closed panes when enabling
-      return !prev;
-    });
-  };
-
-  // "Open in editor" on AI chat code blocks: replaces the source editor's
-  // contents (same reset pattern as loading an example). The fence's language
-  // tag switches the source language when it names one Praxly supports.
-  useEffect(() => {
-    const fenceLangMap: Record<string, SupportedLang> = {
-      praxis: 'praxis',
-      python: 'python',
-      py: 'python',
-      java: 'java',
-      csp: 'csp',
-      javascript: 'javascript',
-      js: 'javascript',
-    };
-    useEditorBridge.getState().setOpenCode((newCode, fenceLang) => {
-      const lang = fenceLangMap[fenceLang.trim().toLowerCase()];
-      if (lang) {
-        setSourceLang(lang);
-        setPanels((prev) => prev.filter((panel) => panel.lang !== lang));
-      }
-      setCode(newCode);
-      setOutput([]);
-      setError(null);
-      setIsDebugging(false);
-      setIsDebugComplete(false);
-      setHighlightedSourceLines([]);
-      setPanelHighlightedLines(new Map());
-      setWaitingForNormalInput(false);
-      setCurrentInterpreter(null);
-    });
-    return () => useEditorBridge.getState().setOpenCode(null);
-  }, [setIsDebugging, setIsDebugComplete, setHighlightedSourceLines]);
-
-  // Shared by both AI-panel resize handles (the panel's left edge and the
-  // left edge of the add-panel strip): they move in lockstep because the
-  // strip has a fixed width, so one drag math works for both.
-  const handleStartAiResize = useCallback(
-    (e: MouseEvent) => {
-      e.preventDefault();
-      aiResizeRef.current = {
-        startX: e.clientX,
-        startWidth: aiPanelWidth,
-      };
-      setIsResizingAiPanel(true);
-    },
-    [aiPanelWidth]
-  );
-
-  const handleTextSizeChange = (size: TextSize) => {
-    setTextSize(size);
-    localStorage.setItem('praxly-text-size', String(size));
-  };
-
-  const getMemDiaState = (paneId: string): 'open' | 'closed' => memDiaStates.get(paneId) ?? 'open';
-
-  const cycleMemDiaState = (paneId: string) => {
-    setMemDiaStates((prev) => {
-      const next = new Map(prev);
-      next.set(paneId, (next.get(paneId) ?? 'open') === 'open' ? 'closed' : 'open');
-      return next;
-    });
-  };
-
-  const cycleOutputState = () => {
-    setOutputState((prev) => (prev === 'open' ? 'closed' : 'open'));
+    // Reopen every collapsed pane when the diagrams come back on.
+    if (!showMemDia) memDia.resetStates();
+    setShowMemDia((prev) => !prev);
   };
 
   const handleShare = async () => {
@@ -861,327 +195,24 @@ export default function EditorPage() {
     });
 
     const embedUrl = `${window.location.origin}/v2/embed?code=${encoded}`;
-    const success = await copyToClipboard(embedUrl);
-    if (success) {
+    if (await copyToClipboard(embedUrl)) {
       setEmbedCopied(true);
       setTimeout(() => setEmbedCopied(false), 2000);
     }
   };
 
-  const getExtensions = (lang: SupportedLang) => {
-    const baseExtensions = getCodeMirrorExtensions(lang);
-    baseExtensions.push(highlightedLinesField);
-    return baseExtensions;
-  };
+  const sourceExtensions = useMemo(() => {
+    const extensions = getCodeMirrorExtensions(sourceLang === 'ast' ? 'python' : sourceLang);
+    extensions.push(highlightedLinesField);
+    return extensions;
+  }, [sourceLang]);
 
-  const addPanel = (lang: SupportedLang) => {
-    setPanels((prev) => {
-      if (prev.some((panel) => panel.lang === lang)) {
-        return prev;
-      }
-
-      const translation = getTranslation(ast, lang);
-
-      return [
-        ...prev,
-        {
-          id: randomId(),
-          lang,
-          width: getDefaultPanelWidth(),
-          sourceMap: translation.sourceMap,
-        },
-      ];
-    });
-  };
-
-  const removePanel = (id: string) => {
-    setPanels((prev) => removePanelById(prev, id));
-  };
-
-  /**
-   * Toggles a translation panel on or off without closing the add menu.
-   */
-  const togglePanel = (lang: SupportedLang) => {
-    const existing = panels.find((panel) => panel.lang === lang);
-    if (existing) {
-      removePanel(existing.id);
-    } else {
-      addPanel(lang);
-    }
-  };
-
-  const togglePanelStack = (id: string) => {
-    setPanels((prev) => toggleStack(prev, id));
-  };
-
-  const handlePanelDragStart = (e: DragEvent<HTMLDivElement>, panelId: string) => {
-    setDraggedPanelId(panelId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', panelId);
-  };
-
-  const handlePanelDragOver = (e: DragEvent<HTMLDivElement>, panelId: string) => {
-    if (!draggedPanelId || draggedPanelId === panelId) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverPanelId !== panelId) {
-      setDragOverPanelId(panelId);
-    }
-  };
-
-  const handlePanelDrop = (e: DragEvent<HTMLDivElement>, panelId: string) => {
-    e.preventDefault();
-    const sourceId = draggedPanelId || e.dataTransfer.getData('text/plain');
-
-    if (!sourceId || sourceId === panelId) {
-      setDragOverPanelId(null);
-      setDraggedPanelId(null);
-      return;
-    }
-
-    setPanels((prev) =>
-      inSameColumn(prev, sourceId, panelId)
-        ? swapStacked(prev, sourceId, panelId)
-        : reorderPanel(prev, sourceId, panelId)
-    );
-
-    setDragOverPanelId(null);
-    setDraggedPanelId(null);
-  };
-
-  const handlePanelDragEnd = () => {
-    setDraggedPanelId(null);
-    setDragOverPanelId(null);
-  };
-
-  const onMouseDown = (e: MouseEvent, index: number | 'editor' | 'output') => {
-    e.preventDefault();
-
-    if (index === 'editor' && panels.length === 0) {
-      return;
-    }
-
-    if (typeof index === 'number' && !panels[index]) {
-      return;
-    }
-
-    // Everything the dragged pane can't claim: the other fixed-width columns,
-    // the source pane (when a panel is being dragged), and the minimum the
-    // elastic last column has to keep.
-    const draggedId = typeof index === 'number' ? panels[index].id : null;
-    const otherFixedWidth = rootPanels
-      .slice(0, -1)
-      .filter((panel) => panel.id !== draggedId)
-      .reduce((sum, panel) => sum + panel.width, 0);
-
-    resizeDragRef.current = {
-      index,
-      startX: e.clientX,
-      startY: e.clientY,
-      startEditorWidth: editorWidth,
-      startPanelWidth: typeof index === 'number' ? panels[index].width : 0,
-      startOutputHeight: outputHeight,
-      maxPaneWidth:
-        getContentAvailableWidth() -
-        otherFixedWidth -
-        MIN_PANEL_WIDTH -
-        (index === 'editor' ? 0 : editorWidth),
-    };
-
-    setResizingIdx(index);
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: globalThis.MouseEvent) => {
-      const drag = resizeDragRef.current;
-      if (!drag || resizingIdx === null) return;
-
-      if (resizingIdx === 'output') {
-        const deltaY = e.clientY - drag.startY;
-        const maxOutputHeight = Math.max(MIN_OUTPUT_HEIGHT, window.innerHeight - 120);
-        const rawHeight = drag.startOutputHeight - deltaY;
-        if (rawHeight < MIN_OUTPUT_HEIGHT - 40) {
-          setOutputState('closed');
-        } else {
-          const nextHeight = clamp(rawHeight, MIN_OUTPUT_HEIGHT, maxOutputHeight);
-          setOutputHeight(nextHeight);
-          setOutputState('open');
-        }
-      } else if (resizingIdx === 'editor') {
-        const deltaX = e.clientX - drag.startX;
-        const nextWidth = clamp(
-          drag.startEditorWidth + deltaX,
-          MIN_SOURCE_WIDTH,
-          Math.max(MIN_SOURCE_WIDTH, drag.maxPaneWidth)
-        );
-        setEditorWidth(nextWidth);
-      } else {
-        const panelIndex = resizingIdx;
-        setPanels((prev) => {
-          if (!prev[panelIndex]) {
-            return prev;
-          }
-
-          const deltaX = e.clientX - drag.startX;
-          const newWidth = clamp(
-            drag.startPanelWidth + deltaX,
-            MIN_PANEL_WIDTH,
-            Math.max(MIN_PANEL_WIDTH, drag.maxPaneWidth)
-          );
-          if (prev[panelIndex].width === newWidth) {
-            return prev;
-          }
-
-          const next = [...prev];
-          next[panelIndex] = { ...prev[panelIndex], width: newWidth };
-          return next;
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      setResizingIdx(null);
-      resizeDragRef.current = null;
-    };
-
-    if (resizingIdx !== null) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [resizingIdx]);
-
-  useEffect(() => {
-    const handleMouseMove = (e: globalThis.MouseEvent) => {
-      const drag = memDiaResizeRef.current;
-      if (!drag) return;
-
-      const deltaY = e.clientY - drag.startY;
-      const rawHeight = drag.startHeight - deltaY;
-
-      if (rawHeight < MIN_MEM_DIA_HEIGHT - 40) {
-        setMemDiaStates((prev) => {
-          const next = new Map(prev);
-          next.set(drag.paneId, 'closed');
-          return next;
-        });
-      } else {
-        const nextHeight = clamp(rawHeight, MIN_MEM_DIA_HEIGHT, MAX_MEM_DIA_HEIGHT);
-        setMemDiaHeights((prev) =>
-          prev[drag.paneId] === nextHeight ? prev : { ...prev, [drag.paneId]: nextHeight }
-        );
-        setMemDiaStates((prev) => {
-          if ((prev.get(drag.paneId) ?? 'open') === 'open') return prev;
-          const next = new Map(prev);
-          next.set(drag.paneId, 'open');
-          return next;
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      memDiaResizeRef.current = null;
-      setResizingMemDiaPaneId(null);
-    };
-
-    if (resizingMemDiaPaneId) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [resizingMemDiaPaneId]);
-
-  useEffect(() => {
-    const handleMouseMove = (e: globalThis.MouseEvent) => {
-      const drag = aiResizeRef.current;
-      if (!isResizingAiPanel || !drag) return;
-
-      const deltaX = e.clientX - drag.startX;
-      const maxAiWidth = Math.min(
-        MAX_AI_PANEL_WIDTH,
-        Math.max(MIN_AI_PANEL_WIDTH, viewportWidth - MIN_SOURCE_WIDTH - ADD_STRIP_WIDTH - 40)
-      );
-      const nextWidth = clamp(drag.startWidth - deltaX, MIN_AI_PANEL_WIDTH, maxAiWidth);
-
-      setAiPanelWidth(nextWidth);
-    };
-
-    const handleMouseUp = () => {
-      aiResizeRef.current = null;
-      setIsResizingAiPanel(false);
-    };
-
-    if (isResizingAiPanel) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizingAiPanel, viewportWidth]);
-
-  // Close each dropdown when the user clicks anywhere outside it.
-  useClickOutside(showSourceLangDropdown, '.source-lang-dropdown', () =>
-    setShowSourceLangDropdown(false)
+  // Every open code pane, so the AI panel sends the whole workspace as context.
+  const aiPanelContext = useMemo(
+    () => buildAiPanelContext(code, sourceLang, exec.ast, panels.panels, getTranslation),
+    [code, sourceLang, exec.ast, panels.panels, getTranslation]
   );
-  useClickOutside(showSettingsMenu, '.settings-dropdown', () => setShowSettingsMenu(false));
-  useClickOutside(showExamplesMenu, '.examples-dropdown', () => setShowExamplesMenu(false));
 
-  // F5/F10 shortcuts. The handlers close over fresh state each render, so we
-  // read them through a ref — the listener itself is registered only once.
-  const keyActionsRef = useRef({
-    handleRun,
-    handleDebugStart,
-    handleDebugStep,
-    handleDebugStop,
-    isDebugging,
-    isDebugComplete,
-  });
-  keyActionsRef.current = {
-    handleRun,
-    handleDebugStart,
-    handleDebugStep,
-    handleDebugStop,
-    isDebugging,
-    isDebugComplete,
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const actions = keyActionsRef.current;
-      if (e.key === 'F5') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          if (actions.isDebugging) actions.handleDebugStop();
-          else actions.handleDebugStart();
-        } else {
-          if (!actions.isDebugging) actions.handleRun();
-        }
-      } else if (e.key === 'F10' && actions.isDebugging && !actions.isDebugComplete) {
-        e.preventDefault();
-        actions.handleDebugStep();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  const sourcePaneWidth = panels.length === 0 ? getContentAvailableWidth() : editorWidth;
-
-  // Settings → text size, in px. CodeMirror reads it via the CSS variable;
-  // Blockly panes take the numeric value to re-theme their SVG text.
-  const fontSizePx = 10 + textSize * 2;
   const fontSize = `${fontSizePx}px`;
 
   return (
@@ -1199,10 +230,10 @@ export default function EditorPage() {
 
       <EditorHeader
         embedCopied={embedCopied}
-        showExamplesMenu={showExamplesMenu}
-        showSettingsMenu={showSettingsMenu}
-        isDebugging={isDebugging}
-        isDebugComplete={isDebugComplete}
+        showExamplesMenu={menus.showExamplesMenu}
+        showSettingsMenu={menus.showSettingsMenu}
+        isDebugging={exec.isDebugging}
+        isDebugComplete={exec.isDebugComplete}
         examples={EXAMPLE_PROGRAMS}
         demoAvailable={getDemoForLang(sourceLang) !== undefined}
         textSize={textSize}
@@ -1210,277 +241,145 @@ export default function EditorPage() {
         onShare={handleShare}
         onLoadExample={handleLoadExample}
         onLoadDemo={handleLoadDemo}
-        onToggleExamplesMenu={() => {
-          setShowExamplesMenu((prev) => !prev);
-          setShowSettingsMenu(false);
-        }}
-        onToggleSettingsMenu={() => {
-          setShowSettingsMenu((prev) => !prev);
-          setShowExamplesMenu(false);
-        }}
-        onDebugStart={handleDebugStart}
-        onRun={handleRun}
-        onDebugStep={handleDebugStep}
-        onDebugStop={handleDebugStop}
-        onTextSizeChange={handleTextSizeChange}
+        onToggleExamplesMenu={menus.toggleExamplesMenu}
+        onToggleSettingsMenu={menus.toggleSettingsMenu}
+        onDebugStart={exec.debugStart}
+        onRun={exec.run}
+        onDebugStep={exec.debugStep}
+        onDebugStop={exec.debugStop}
+        onTextSizeChange={setTextSize}
       />
 
       <main id="main-content" className="flex-1 flex flex-row overflow-hidden min-h-0">
         <AddPanelStrip
-          panels={panels}
+          panels={panels.panels}
           showAiSidePanel={showAiSidePanel}
           showMemDia={showMemDia}
-          onTogglePanel={togglePanel}
-          onToggleAiPanel={handleToggleAiPanel}
+          onTogglePanel={(lang) => panels.togglePanel(lang, exec.ast)}
+          onToggleAiPanel={() => setShowAiSidePanel((prev) => !prev)}
           onToggleMemDia={handleToggleMemDia}
         />
 
         <div className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
           <div className="flex-1 min-h-0 relative overflow-x-auto lg:overflow-visible">
-            <div className={`flex min-h-0 h-full ${isMobile ? 'min-w-max' : 'w-full'}`}>
+            <div className={`flex min-h-0 h-full ${layout.isMobile ? 'min-w-max' : 'w-full'}`}>
               <SourcePane
-                width={sourcePaneWidth}
+                width={layout.sourcePaneWidth}
                 sourceLang={sourceLang}
-                showSourceLangDropdown={showSourceLangDropdown}
+                showSourceLangDropdown={menus.showSourceLangDropdown}
                 code={code}
                 showMemDia={showMemDia}
-                resizingMemDiaPaneId={resizingMemDiaPaneId}
-                memDiaHeight={getMemDiaHeight('source')}
-                currentVariables={currentVariables}
+                resizingMemDiaPaneId={memDia.resizingPaneId}
+                memDiaHeight={memDia.getHeight('source')}
+                currentVariables={exec.currentVariables}
                 editorRef={editorRef}
-                extensions={getExtensions(sourceLang === 'ast' ? 'python' : sourceLang)}
+                extensions={sourceExtensions}
                 fontSize={fontSizePx}
-                memDiaState={getMemDiaState('source')}
-                onToggleMemDiaCollapse={() => cycleMemDiaState('source')}
-                onToggleSourceLangDropdown={() => setShowSourceLangDropdown((prev) => !prev)}
+                memDiaState={memDia.getState('source')}
+                onToggleMemDiaCollapse={() => memDia.toggle('source')}
+                onToggleSourceLangDropdown={menus.toggleSourceLangDropdown}
                 onSelectSourceLang={handleSourceLanguageChange}
                 onCodeChange={(value) => {
                   setCode(value);
-                  if (isDebugging) {
-                    setHighlightedSourceLines([]);
-                    setPanelHighlightedLines(new Map());
-                  }
+                  exec.noteCodeEdited();
                 }}
-                onCreateEditor={handleCreateEditor}
-                onEditorUpdate={handleEditorUpdate}
-                onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
+                onCreateEditor={onCreateEditor}
+                onEditorUpdate={aiSelection.onEditorUpdate}
+                onMemDiaResizeMouseDown={memDia.startResize}
                 onResizeEditor={(e) => {
-                  if (panels.length === 0) {
-                    return;
-                  }
-                  onMouseDown(e, 'editor');
+                  if (panels.panels.length > 0) layout.startPaneResize(e, 'editor');
                 }}
-                editorResizeActive={panels.length > 0 && resizingIdx === 'editor'}
+                editorResizeActive={panels.panels.length > 0 && layout.resizingIdx === 'editor'}
               />
 
               <div
-                className={`${isMobile ? 'flex shrink-0' : 'flex-1'} flex overflow-x-auto scrollbar-hide relative z-[10] bg-slate-900 min-w-0`}
-                ref={containerRef}
+                className={`${
+                  layout.isMobile ? 'flex shrink-0' : 'flex-1'
+                } flex overflow-x-auto scrollbar-hide relative z-[10] bg-slate-900 min-w-0`}
               >
-                {/* Render root panels as columns; each column may have a stacked child below */}
-                {rootPanels.map((rootPanel) => {
-                  const rootIdx = panels.indexOf(rootPanel);
-                  const stackedPanel = panels.find((p) => p.stackedUnder === rootPanel.id);
-                  // The last column fills the leftover width instead of taking a
-                  // fixed one, so there is nothing to its right to resize against.
-                  // (On mobile the row scrolls horizontally, so it stays fixed.)
-                  const isElastic = rootPanel.id === elasticPanelId && !isMobile;
-                  const onResizeColumn = isElastic
-                    ? undefined
-                    : (e: MouseEvent) => onMouseDown(e, rootIdx);
-                  // "Stack below" button is shown on a root panel when:
-                  // - it has no stacked child yet (column isn't full)
-                  // - there is at least one other root panel that also has no stacked child
-                  //   (so this panel could move below that one)
-                  const otherFreeRoots = panels.filter(
-                    (p) =>
-                      !p.stackedUnder &&
-                      p.id !== rootPanel.id &&
-                      !panels.some((sp) => sp.stackedUnder === p.id)
-                  );
-                  const canStack = !stackedPanel && otherFreeRoots.length > 0;
-
-                  return (
-                    <div
-                      key={rootPanel.id}
-                      className={`flex flex-col border-r border-slate-800 last:border-0 ${
-                        isElastic ? 'flex-1' : 'shrink-0'
-                      }`}
-                      style={isElastic ? { minWidth: MIN_PANEL_WIDTH } : { width: rootPanel.width }}
-                    >
-                      {/* Top panel (root) */}
-                      <div
-                        className={
-                          stackedPanel
-                            ? 'flex-1 min-h-0 overflow-hidden border-b border-slate-700'
-                            : 'flex-1 min-h-0 overflow-hidden'
-                        }
-                      >
-                        <TranslationPaneItem
-                          panel={rootPanel}
-                          ast={ast}
-                          draggedPanelId={draggedPanelId}
-                          dragOverPanelId={dragOverPanelId}
-                          translationCode={getTranslation(ast, rootPanel.lang).code}
-                          fontSize={fontSizePx}
-                          highlightedLines={panelHighlightedLines.get(rootPanel.id) || []}
-                          showMemDia={showMemDia}
-                          resizingMemDiaPaneId={resizingMemDiaPaneId}
-                          memDiaHeight={getMemDiaHeight(rootPanel.id)}
-                          currentVariables={currentVariables}
-                          resizeActive={resizingIdx === rootIdx}
-                          memDiaState={getMemDiaState(rootPanel.id)}
-                          onToggleStack={
-                            canStack ? () => togglePanelStack(rootPanel.id) : undefined
-                          }
-                          isStacked={false}
-                          onRemovePanel={removePanel}
-                          onResize={onResizeColumn}
-                          onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
-                          onToggleMemDiaCollapse={() => cycleMemDiaState(rootPanel.id)}
-                          onPanelDragStart={handlePanelDragStart}
-                          onPanelDragOver={handlePanelDragOver}
-                          onPanelDrop={handlePanelDrop}
-                          onPanelDragEnd={handlePanelDragEnd}
-                        />
-                      </div>
-
-                      {/* Bottom panel (stacked child) — same flex-1 height, shares column width */}
-                      {stackedPanel && (
-                        <div className="flex-1 min-h-0 overflow-hidden">
-                          <TranslationPaneItem
-                            panel={stackedPanel}
-                            ast={ast}
-                            draggedPanelId={draggedPanelId}
-                            dragOverPanelId={dragOverPanelId}
-                            translationCode={getTranslation(ast, stackedPanel.lang).code}
-                            fontSize={fontSizePx}
-                            highlightedLines={panelHighlightedLines.get(stackedPanel.id) || []}
-                            showMemDia={showMemDia}
-                            resizingMemDiaPaneId={resizingMemDiaPaneId}
-                            memDiaHeight={getMemDiaHeight(stackedPanel.id)}
-                            currentVariables={currentVariables}
-                            resizeActive={resizingIdx === rootIdx}
-                            memDiaState={getMemDiaState(stackedPanel.id)}
-                            onToggleStack={() => togglePanelStack(stackedPanel.id)}
-                            isStacked={true}
-                            onRemovePanel={removePanel}
-                            onResize={onResizeColumn}
-                            onMemDiaResizeMouseDown={onMemDiaResizeMouseDown}
-                            onToggleMemDiaCollapse={() => cycleMemDiaState(stackedPanel.id)}
-                            onPanelDragStart={handlePanelDragStart}
-                            onPanelDragOver={handlePanelDragOver}
-                            onPanelDrop={handlePanelDrop}
-                            onPanelDragEnd={handlePanelDragEnd}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                <TranslationPanelGrid
+                  panels={panels.panels}
+                  rootPanels={panels.rootPanels}
+                  elasticPanelId={panels.elasticPanelId}
+                  isMobile={layout.isMobile}
+                  ast={exec.ast}
+                  draggedPanelId={panels.draggedPanelId}
+                  dragOverPanelId={panels.dragOverPanelId}
+                  getTranslationCode={(lang) => getTranslation(exec.ast, lang).code}
+                  fontSize={fontSizePx}
+                  panelHighlightedLines={exec.panelHighlightedLines}
+                  showMemDia={showMemDia}
+                  memDiaResizingPaneId={memDia.resizingPaneId}
+                  getMemDiaHeight={memDia.getHeight}
+                  getMemDiaState={memDia.getState}
+                  onToggleMemDia={memDia.toggle}
+                  onMemDiaResizeMouseDown={memDia.startResize}
+                  currentVariables={exec.currentVariables}
+                  resizingIdx={layout.resizingIdx}
+                  onResizeColumn={layout.startPaneResize}
+                  onRemovePanel={panels.removePanel}
+                  onToggleStack={panels.togglePanelStack}
+                  dragHandlers={panels.dragHandlers}
+                />
               </div>
             </div>
           </div>
 
           <OutputPanel
-            output={output}
-            error={error}
-            hasRun={hasRun}
-            variables={currentVariables}
-            callStack={currentCallStack}
-            showVariables={isDebugging}
-            height={outputState === 'open' ? outputHeight : undefined}
-            resizeActive={resizingIdx === 'output'}
-            onResize={(e) => onMouseDown(e, 'output')}
-            waitingForInput={waitingForInput || waitingForNormalInput}
-            inputPrompt={inputPrompt || normalModeInputPrompt}
-            onSubmitInput={(input) => {
-              if (waitingForNormalInput) {
-                handleNormalModeInputSubmit(input);
-              } else {
-                handleSubmitInput(input);
-              }
-            }}
-            panelState={outputState}
-            onToggle={cycleOutputState}
-            onOpen={() => setOutputState('open')}
+            output={exec.output}
+            error={exec.error}
+            hasRun={exec.hasRun}
+            variables={exec.currentVariables}
+            callStack={exec.currentCallStack}
+            showVariables={exec.isDebugging}
+            height={layout.outputState === 'open' ? layout.outputHeight : undefined}
+            resizeActive={layout.resizingIdx === 'output'}
+            onResize={(e) => layout.startPaneResize(e, 'output')}
+            waitingForInput={exec.waitingForInput}
+            inputPrompt={exec.inputPrompt}
+            onSubmitInput={exec.submitInput}
+            panelState={layout.outputState}
+            onToggle={layout.toggleOutputState}
+            onOpen={layout.openOutput}
           />
         </div>
 
         {showAiSidePanel && (
           <AiSidePanel
-            width={aiPanelWidth}
-            isResizing={isResizingAiPanel}
-            onStartResize={handleStartAiResize}
+            width={layout.aiPanelWidth}
+            isResizing={layout.isResizingAiPanel}
+            onStartResize={layout.startAiResize}
             onClose={() => setShowAiSidePanel(false)}
             panels={aiPanelContext}
-            selection={aiSelection}
-            onClearSelection={clearAiSelection}
+            selection={aiSelection.selection}
+            onClearSelection={aiSelection.clear}
           />
         )}
 
-        {/* Asks before discarding a program that can't be translated. */}
-        {pendingLangSwitch && (
-          <ConfirmModal
-            title="Translation not available"
-            message={`This program can't be translated to ${LANG_LABELS[pendingLangSwitch]}. You can start fresh with an empty ${LANG_LABELS[pendingLangSwitch]} program instead — your current code will be discarded.`}
-            confirmLabel="Start fresh"
-            cancelLabel="Keep my code"
-            onConfirm={() => {
-              applySourceLanguage(pendingLangSwitch, '');
-              setPendingLangSwitch(null);
-            }}
-            onCancel={() => setPendingLangSwitch(null)}
-          />
-        )}
-
-        {/* Asks before replacing a non-blank editor with an example program. */}
-        {pendingExampleId && (
-          <ConfirmModal
-            title="Replace current code?"
-            message={`Loading "${getExampleById(pendingExampleId)?.title ?? 'this example'}" will replace your current code. This can't be undone.`}
-            confirmLabel="Load example"
-            cancelLabel="Keep my code"
-            onConfirm={() => {
-              loadExample(pendingExampleId);
-              setPendingExampleId(null);
-            }}
-            onCancel={() => setPendingExampleId(null)}
-          />
-        )}
-
-        {/* Asks before replacing a non-blank editor with the demo program. */}
-        {pendingDemoLoad && (
-          <ConfirmModal
-            title="Replace current code?"
-            message="Loading the demo program will replace your current code. This can't be undone."
-            confirmLabel="Load demo"
-            cancelLabel="Keep my code"
-            onConfirm={() => {
-              loadDemo();
-              setPendingDemoLoad(false);
-            }}
-            onCancel={() => setPendingDemoLoad(false)}
-          />
-        )}
+        <EditorDialogs
+          pendingLangSwitch={pendingLangSwitch}
+          pendingExampleId={pendingExampleId}
+          pendingDemoLoad={pendingDemoLoad}
+          onConfirmLangSwitch={(lang) => {
+            applySourceLanguage(lang, '');
+            setPendingLangSwitch(null);
+          }}
+          onCancelLangSwitch={() => setPendingLangSwitch(null)}
+          onConfirmExample={(exampleId) => {
+            loadExample(exampleId);
+            setPendingExampleId(null);
+          }}
+          onCancelExample={() => setPendingExampleId(null)}
+          onConfirmDemo={() => {
+            loadDemo();
+            setPendingDemoLoad(false);
+          }}
+          onCancelDemo={() => setPendingDemoLoad(false)}
+        />
 
         {/* Highlight-to-chat: floating button near the editor selection. */}
-        {aiSelection && aiSelectionCoords && (
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setShowAiSidePanel(true)}
-            style={{
-              position: 'fixed',
-              top: aiSelectionCoords.top,
-              left: aiSelectionCoords.left,
-              zIndex: 300,
-            }}
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-600 text-white text-xs font-medium shadow-lg hover:bg-indigo-500 transition-colors"
-            title="Ask the AI about the selected code"
-          >
-            <Sparkles size={12} />
-            Ask AI
-          </button>
+        {aiSelection.selection && aiSelection.coords && (
+          <AskAiButton coords={aiSelection.coords} onClick={() => setShowAiSidePanel(true)} />
         )}
       </main>
     </div>
