@@ -13,6 +13,9 @@ import type {
   Constructor,
 } from './ast';
 import { lvalueName } from './ast';
+// Optional memory-diagram hook: the interpreter only reports events into it when
+// a caller has attached one via setMemdia(); all diagram logic lives in memdia.ts.
+import { Memdia } from './memdia';
 
 export class Environment {
   public values: Record<string, any> = {};
@@ -321,6 +324,14 @@ export class Interpreter {
    *  cache so a call whose body was already stepped through isn't run twice. */
   private debugCallResults: Array<Map<string, any>> = [];
 
+  // --- Memory-diagram (Memdia) connection state ---
+  /** Diagram to report declaration/assignment/call/return events to; unset means no diagram is attached. */
+  private memdia?: Memdia;
+  /** Names of plain function calls currently executing, so functionReturn can be
+   *  labeled correctly whether the call ends via an explicit `return` (case 'Return')
+   *  or by falling off the end of the function body (the plain-call branch in evaluate). */
+  private memdiaCallNames: string[] = [];
+
   setInputQueue(inputs: string[]) {
     this.inputQueue = [...inputs];
   }
@@ -361,6 +372,11 @@ export class Interpreter {
 
   setInputHandler(handler: (prompt: string) => string) {
     this.inputHandler = handler;
+  }
+
+  // Attaches a memory-diagram panel; until called, all this.memdia?.* hooks below are no-ops.
+  setMemdia(memdia: Memdia) {
+    this.memdia = memdia;
   }
 
   // Mulberry32 PRNG provides deterministic pseudo-random values for randomSeed().
@@ -506,6 +522,7 @@ export class Interpreter {
     this.seededRandom = null;
     this.debugCallStack = [];
     this.debugCallResults = [];
+    this.memdiaCallNames = []; // reset in-flight call names so a reused Interpreter starts clean
 
     try {
       // First pass: register all classes and procedures
@@ -1582,7 +1599,16 @@ export class Interpreter {
         } else if (varName) {
           // Identifier target — define the variable with type info. May target an
           // instance field (Praxis) via assignBareName.
+          // Own-property check (not the full scope chain) so shadowing in a nested
+          // scope reports as a new declaration, matching how a memory diagram draws it.
+          const isNewInScope = !Object.prototype.hasOwnProperty.call(env.values, varName);
           this.assignBareName(env, varName, value, (stmt as any).varType, declarationOrigin);
+          // Report to the attached memory diagram, if any (see setMemdia).
+          if ((stmt as any).varType || isNewInScope) {
+            this.memdia?.declaration(varName, value, (stmt as any).varType);
+          } else {
+            this.memdia?.assignment(varName, value, (stmt as any).varType);
+          }
         }
         break;
       }
@@ -1724,6 +1750,10 @@ export class Interpreter {
         break;
       case 'Return':
         const retVal = stmt.value ? this.evaluate(stmt.value, env) : null;
+        // Every explicit return, in any language, passes through here — report it
+        // to the memory diagram (see setMemdia) before unwinding via the exception.
+        if (this.memdiaCallNames.length > 0)
+          this.memdia?.functionReturn(this.memdiaCallNames.pop()!, retVal);
         throw new ReturnException(retVal);
       case 'ExpressionStatement':
         // A bare `/* ... */` placeholder standing alone as a statement (e.g. a
@@ -2589,12 +2619,23 @@ export class Interpreter {
           const args = expr.arguments.map((a) => this.evaluate(a, env));
           const fnEnv = new Environment(env);
           this.bindParams(func.params, args, fnEnv);
+          // Report the call to the attached memory diagram, if any (see setMemdia),
+          // and remember its name so the matching functionReturn can be labeled.
+          this.memdia?.functionCall(
+            calleeName,
+            func.params.map((p, i) => ({ name: p.name, value: args[i] }))
+          );
+          this.memdiaCallNames.push(calleeName);
           try {
             this.executeBlock(func.body.body, fnEnv);
           } catch (e) {
             if (e instanceof ReturnException) return e.value;
             throw e;
           }
+          // No explicit `return` ran (case 'Return' never fired for this call), so
+          // report the implicit return here instead — keeps every call balanced.
+          if (this.memdiaCallNames.length > 0)
+            this.memdia?.functionReturn(this.memdiaCallNames.pop()!, null);
           return null;
         }
 
