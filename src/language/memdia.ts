@@ -130,7 +130,16 @@ const FUNC_MIN_WIDTH = 60;
 const MIN_CANVAS_HEIGHT = 180;
 const MAX_STACK_SLOTS = 8;
 
-const HEADER_HEIGHT = 28; // space reserved at top for the STACK label
+const HEADER_HEIGHT = 28; // space reserved at top for the STACK/HEAP/DATA labels
+
+const HEAP_COLUMN_MIN_WIDTH = 100; // reserved width for an empty HEAP or DATA column
+const HEAP_LEFT_MARGIN = 40; // gap between adjacent columns (stack↔heap and heap↔data)
+
+// Fixed distance from a divider to its neighboring column's title, on either side —
+// matches STACK's original gap for an empty frame. Fixed rather than tracking a
+// box's actual width for now; making a title stay centered as its own box grows is
+// a later step.
+const COLUMN_TITLE_GAP = FUNC_MIN_WIDTH / 2 + HEAP_LEFT_MARGIN / 2;
 
 // Render-ready shapes: distinct from MemdiaFrame/MemdiaSlot above, which hold raw
 // interpreter values. toSvg() converts MemdiaFrame[] into FrameState[] with each
@@ -252,8 +261,11 @@ function renderFrame(frame: FrameState, x: number, y: number): RenderedFrame {
   return { svg, height, width };
 }
 
-// Lays out every frame in a vertical stack and wraps them in one self-contained <svg> document.
-function renderMemorySnapshotSvg(frames: FrameState[]): string {
+// Lays out every frame in a vertical stack, an always-visible HEAP column beside it
+// (empty until heap/reference support returns), and — only when the caller actually
+// has some — a DATA column (the old file's "static" column, renamed per your note)
+// to the right of HEAP. Everything is wrapped in one self-contained <svg> document.
+function renderMemorySnapshotSvg(frames: FrameState[], hasData: boolean = false): string {
   const maxNameWidth = frames.reduce((m, f) => Math.max(m, f.name.length * NAME_CHAR_WIDTH), 0);
   const stackX = Math.max(MARGIN + FUNC_NAME_DISTANCE, maxNameWidth + 18);
 
@@ -267,13 +279,66 @@ function renderMemorySnapshotSvg(frames: FrameState[]): string {
     maxStackWidth = Math.max(maxStackWidth, rf.width);
   }
 
-  const canvasWidth = Math.max(stackX + maxStackWidth + MARGIN, 200);
+  const stackColumnRight = stackX + maxStackWidth;
+  const heapDividerX = stackColumnRight + HEAP_LEFT_MARGIN / 2;
+  const heapX = stackColumnRight + HEAP_LEFT_MARGIN;
+  const heapColumnRight = heapX + HEAP_COLUMN_MIN_WIDTH;
+  const dataDividerX = heapColumnRight + HEAP_LEFT_MARGIN / 2;
+  const dataX = heapColumnRight + HEAP_LEFT_MARGIN;
+
+  const canvasWidth = Math.max(
+    (hasData ? dataX + HEAP_COLUMN_MIN_WIDTH : heapColumnRight) + MARGIN,
+    260
+  );
   const canvasHeight = Math.max(MIN_CANVAS_HEIGHT, stackY + MARGIN);
   const framesSvg = rendered.map((rf) => rf.svg).join('\n');
 
+  const headerY = MARGIN + 8; // raised up a bit for more gap above the boxes below
+  const dividerBottom = canvasHeight - MARGIN / 2;
+  // Bold + underlined to match the column headers in the original design.
+  const headerAttrs =
+    'font-weight="bold" text-decoration="underline" font-size="12" font-family="ui-sans-serif, system-ui" letter-spacing="1"';
+  const divider = (x: number) =>
+    `<line x1="${x}" y1="${MARGIN}" x2="${x}" y2="${dividerBottom}" stroke="#ffffff" stroke-width="1" stroke-dasharray="4,4" />`;
+
+  // Before anything has run, every column's title sits the same fixed distance from
+  // its divider (COLUMN_TITLE_GAP) for a clean, symmetric empty state. Once a column
+  // actually has content, its title re-centers over that content's real width instead.
+  // Only STACK can have content in this trimmed renderer today — HEAP/DATA stay on
+  // the fixed gap until heap/array/object rendering exists, at which point they get
+  // the same has-content check STACK uses here.
+  const stackHasContent = frames.some((f) => f.slots.length > 0);
+  const stackTitleX = stackHasContent
+    ? stackX + maxStackWidth / 2
+    : heapDividerX - COLUMN_TITLE_GAP;
+
+  const dataHeaderSvg = hasData
+    ? `<text x="${dataDividerX + COLUMN_TITLE_GAP}" y="${headerY}" text-anchor="middle" fill="#ffffff" ${headerAttrs}>DATA</text>
+  ${divider(dataDividerX)}`
+    : '';
+
+  // No background rect here on purpose — the SVG stays transparent so the MemDia
+  // panel's own navy background (MemDia.tsx's bg-slate-900/80) shows through instead
+  // of clashing with a separately-colored box.
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
-  <rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" fill="#1e1e1e" />
-  <text x="${MARGIN}" y="${MARGIN + 16}" fill="#aaaaaa" font-size="12" font-family="Georgia, serif">STACK</text>
+  <text x="${stackTitleX}" y="${headerY}" text-anchor="middle" fill="#ffffff" ${headerAttrs}>STACK</text>
+  <text x="${heapDividerX + COLUMN_TITLE_GAP}" y="${headerY}" text-anchor="middle" fill="#ffffff" ${headerAttrs}>HEAP</text>
+  ${divider(heapDividerX)}
+  ${dataHeaderSvg}
   ${framesSvg}
 </svg>`;
+}
+
+// Renders a memory diagram directly from a flat variable dict (e.g. the debugger's
+// currentVariables), for callers with no Memdia instance wired up — MemDia.tsx uses
+// this to show a live diagram from data it already receives.
+export function renderMemoryDiagramFromVariables(currentVariables: Record<string, any>): string {
+  const slots: StackSlot[] = Object.entries(currentVariables)
+    .slice(0, MAX_STACK_SLOTS)
+    .map(([name, value]) => ({
+      name,
+      value: { text: formatPrimitive(value) },
+      typeLabel: inferTypeLabel(value),
+    }));
+  return renderMemorySnapshotSvg([{ name: 'main', slots }]);
 }

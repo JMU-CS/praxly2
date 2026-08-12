@@ -1,4 +1,5 @@
 import type { SupportedLang } from '../LanguageSelector';
+import { renderMemoryDiagramFromVariables } from '../../language/memdia';
 
 interface MemDiaProps {
   paneTitle: string;
@@ -6,11 +7,15 @@ interface MemDiaProps {
   currentVariables: Record<string, any>;
 }
 
+// This panel used to list each variable as plain text (`name: JSON.stringify(value)`).
+// It now renders the real box-and-value memory diagram: renderMemoryDiagramFromVariables()
+// (in memdia.ts) converts the same currentVariables dict into an SVG string, and this
+// component just displays it.
 export function MemDia({ paneTitle, paneLang, currentVariables }: MemDiaProps) {
-  const variableEntries = Object.entries(currentVariables);
+  const svg = renderMemoryDiagramFromVariables(currentVariables);
 
   return (
-    <div className="h-full bg-slate-900/80 p-3 overflow-y-auto">
+    <div className="h-full bg-slate-900/80 p-3 overflow-hidden">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
           MemDia
@@ -19,28 +24,15 @@ export function MemDia({ paneTitle, paneLang, currentVariables }: MemDiaProps) {
           {paneTitle} ({paneLang})
         </span>
       </div>
-      {variableEntries.length === 0 ? (
-        <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-500">
-          No runtime memory yet. Run or debug to populate variables for this pane.
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {variableEntries.slice(0, 8).map(([name, value]) => (
-            <div
-              key={name}
-              className="flex items-start justify-between gap-3 rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2"
-            >
-              <span className="text-xs font-semibold text-slate-300">{name}</span>
-              <span className="max-w-[70%] break-words text-right text-xs text-indigo-300">
-                {typeof value === 'string' ? `\"${value}\"` : JSON.stringify(value)}
-              </span>
-            </div>
-          ))}
-          {variableEntries.length > 8 && (
-            <div className="text-[11px] text-slate-500">+ {variableEntries.length - 8} more</div>
-          )}
-        </div>
-      )}
+
+      {/* dangerouslySetInnerHTML is safe here: `svg` is markup in memdia.ts
+          (every variable name/value is passed through escapeXml there), never
+          raw user- or HTML-supplied content. */}
+      <div
+        className="h-[calc(100%-24px)] overflow-auto rounded-md border border-slate-800 bg-slate-900/80 p-2"
+        style={{ minHeight: 0, whiteSpace: 'nowrap' }}
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
     </div>
   );
 }
