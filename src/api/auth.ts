@@ -56,6 +56,10 @@ const AUTH_ERRORS: Record<string, string> = {
   missing_state: 'Google sign-in expired or was tampered with. Please try again.',
   missing_code: 'Google did not return an authorization code. Please try again.',
   nonce_mismatch: 'Google sign-in could not be matched to this browser. Please try again.',
+  // The backend refused to send the token back to this site's origin. Only a
+  // server-side configuration change fixes it, so point at a person rather
+  // than suggesting a retry.
+  origin_not_allowed: 'This site is not authorized for Google sign-in. Please report this.',
 };
 
 export function getAuthError(): string | null {
