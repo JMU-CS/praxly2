@@ -126,7 +126,7 @@ export function ChatThread({
                 key={u.value}
                 onClick={() => setUseCase(u.value)}
                 title={u.title}
-                className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                className={`flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
                   useCase === u.value
                     ? 'bg-indigo-600 text-white'
                     : 'text-slate-400 hover:text-slate-200'
@@ -139,10 +139,10 @@ export function ChatThread({
           {selection.trim().length > 0 && (
             <div className="mb-2 flex items-start gap-2 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-1.5">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-300">
                   Asking about selected code
                 </p>
-                <p className="truncate font-mono text-[11px] text-slate-300">{selection.trim()}</p>
+                <p className="truncate font-mono text-xs text-slate-300">{selection.trim()}</p>
               </div>
               <button
                 onClick={onClearSelection}

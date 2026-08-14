@@ -45,7 +45,7 @@ export function HistoryPanel({
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs text-slate-200">{c.title}</p>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 {c.messages.length === 0
                   ? 'Empty'
                   : `${c.messages.length} message${c.messages.length === 1 ? '' : 's'}`}

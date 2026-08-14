@@ -68,7 +68,7 @@ export function SourcePane({
     <div className="flex shrink-0 relative group/editor z-[10]" style={{ width }}>
       <div className="flex-1 flex flex-col border-r border-slate-800 overflow-hidden">
         {/* Pane header */}
-        <div className="h-10 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
+        <div className="h-10 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-800 text-xs font-bold uppercase tracking-widest text-slate-400 shrink-0">
           <div className="flex items-center relative h-full source-lang-dropdown">
             <button
               onClick={onToggleSourceLangDropdown}
@@ -133,7 +133,7 @@ export function SourcePane({
               role="button"
               aria-label="Open MemDia panel"
             >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300/60">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-300/60">
                 MemDia
               </span>
               <ChevronUp size={10} className="text-emerald-300/60 ml-auto" aria-hidden="true" />
@@ -161,7 +161,7 @@ export function SourcePane({
                 >
                   <ChevronDown size={12} aria-hidden="true" />
                 </button>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
+                <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">
                   MemDia
                 </span>
               </div>

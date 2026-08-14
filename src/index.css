@@ -5,6 +5,24 @@
 
 @import 'tailwindcss';
 
+/* ── Type scale ───────────────────────────────────────────────────────────
+   No UI text should render below 13px. Tailwind's default scale already
+   clears that everywhere except `text-xs` (12px), so this is the only step
+   that moves — every other token keeps its stock value, and `text-base`
+   stays the conventional 1rem/16px. Do not "shift the ramp": renaming what
+   sm/base mean breaks every Tailwind snippet and component you might paste
+   in, for no benefit here.
+
+   `--text-xs--line-height` is deliberately not overridden. Tailwind stores
+   it as a unitless ratio (calc(1 / 0.75) ≈ 1.333), so leading follows the
+   new size automatically — 13px × 1.333 ≈ 17.3px.
+
+   Arbitrary bracket sizes bypass this variable entirely, so a sub-13px one
+   would survive the scale — tests/text-size.test.ts bans them. Use tokens. */
+@theme {
+  --text-xs: 0.8125rem; /* 13px, was 12px */
+}
+
 /* Tailwind v4 gives buttons the default cursor; restore the pointer on
    clickable elements. Kept in @layer base so explicit cursor-* utilities
    (e.g. disabled:cursor-not-allowed) still win. */
@@ -119,7 +137,9 @@
 .blocklyTooltipDiv {
   @apply bg-slate-800 text-slate-200 border border-slate-700 rounded-md shadow-xl;
   font-family: ui-sans-serif, system-ui, sans-serif !important;
-  font-size: calc(var(--praxly-font-size, 14px) - 2px) !important;
+  /* Was `- 2px`, which made tooltips the smallest text in the app at every
+     setting. They now just track Settings → text size like the blocks do. */
+  font-size: var(--praxly-font-size, 14px) !important;
   opacity: 0.97 !important;
 }
 

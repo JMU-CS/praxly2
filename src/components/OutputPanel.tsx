@@ -81,7 +81,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
         onKeyDown={(e) => e.key === 'Enter' && onOpen?.()}
       >
         <Terminal size={12} className="text-indigo-400 mr-2 shrink-0" aria-hidden="true" />
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
           Console Output
         </span>
         <ChevronUp size={12} className="text-slate-500 ml-auto" aria-hidden="true" />
@@ -117,13 +117,13 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <Terminal size={14} className="text-indigo-400 shrink-0" aria-hidden="true" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400 shrink-0">
               Console Output
             </span>
             {error && (
               <div
                 role="alert"
-                className="ml-2 flex items-center gap-1 text-red-400 text-[10px] font-bold animate-pulse min-w-0"
+                className="ml-2 flex items-center gap-1 text-red-400 text-xs font-bold animate-pulse min-w-0"
               >
                 <AlertCircle size={12} aria-hidden="true" className="shrink-0" />
                 <span className="truncate">{error}</span>
@@ -202,12 +202,12 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
           aria-label="Debug variables"
         >
           <div className="h-8 flex items-center gap-2 px-4 bg-slate-900 border-b border-slate-800 shrink-0 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-500 shrink-0">
               Variables
             </span>
             {callStack.length > 1 && (
               <span
-                className="text-[10px] font-semibold text-indigo-400 truncate"
+                className="text-xs font-semibold text-indigo-400 truncate"
                 title={`Currently inside ${callStack[callStack.length - 1].name}()`}
               >
                 in {callStack[callStack.length - 1].name}()
@@ -216,7 +216,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
           </div>
           <div
             className="flex-1 overflow-auto p-2 font-mono leading-5 bg-slate-950"
-            style={{ fontSize: 'var(--praxly-font-size, 12px)' }}
+            style={{ fontSize: 'var(--praxly-font-size, 14px)' }}
           >
             {callStack.length > 0 ? (
               <VariableFrames frames={callStack} />

@@ -43,7 +43,7 @@ export function ProfileSection() {
                 className={optionBtn(role === o.value)}
               >
                 <span className="block text-sm text-slate-200">{o.label}</span>
-                <span className="block text-[11px] text-slate-500">{o.hint}</span>
+                <span className="block text-xs text-slate-500">{o.hint}</span>
               </button>
             ))}
           </div>
@@ -58,7 +58,7 @@ export function ProfileSection() {
                 className={optionBtn(level === o.value)}
               >
                 <span className="block text-sm text-slate-200">{o.label}</span>
-                <span className="block text-[11px] text-slate-500">{o.hint}</span>
+                <span className="block text-xs text-slate-500">{o.hint}</span>
               </button>
             ))}
           </div>

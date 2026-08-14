@@ -99,7 +99,7 @@ export function TranslationPaneItem({
             ) : (
               <ArrowRightLeft size={14} className="text-indigo-400" aria-hidden="true" />
             )}
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
               {panel.lang} View
             </span>
           </div>
@@ -164,7 +164,7 @@ export function TranslationPaneItem({
               role="button"
               aria-label="Open MemDia panel"
             >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300/60">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-300/60">
                 MemDia
               </span>
               <ChevronUp size={10} className="text-emerald-300/60 ml-auto" aria-hidden="true" />
@@ -192,7 +192,7 @@ export function TranslationPaneItem({
                 >
                   <ChevronDown size={12} aria-hidden="true" />
                 </button>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
+                <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">
                   MemDia
                 </span>
               </div>

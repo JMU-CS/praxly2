@@ -34,7 +34,7 @@ export function EmbedSourcePane({
       style={{ width }}
     >
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
+        <div className="h-10 bg-slate-900 flex items-center px-4 border-b border-slate-800 text-xs font-bold uppercase tracking-widest text-slate-400 shrink-0">
           Source ({lang})
         </div>
         <div className="flex-1 relative bg-slate-950 overflow-hidden">

@@ -56,14 +56,14 @@ export function VariableFrames({ frames }: VariableFramesProps) {
               }`}
             >
               <span
-                className={`text-[10px] font-bold uppercase tracking-widest ${
+                className={`text-xs font-bold uppercase tracking-widest ${
                   isCurrent ? 'text-indigo-300' : 'text-slate-500'
                 }`}
               >
                 {label}
               </span>
               {isCurrent && (
-                <span className="text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
+                <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
                   current
                 </span>
               )}
