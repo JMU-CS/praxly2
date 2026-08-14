@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
 import type { ByokProvider } from '../../store/appStore';
-import { PROVIDER_OPTIONS, useByokDraft } from '../ai/byok';
+import { useByokDraft } from '../ai/byok';
 import { cardCls, inputCls, primaryBtnCls } from './styles';
 import type { Notify } from './types';
 
@@ -15,7 +15,9 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
     if (!draft.save()) return;
     notify(
       'success',
-      draft.draftProvider === '' ? 'Using the school-provided model.' : 'API key saved.'
+      draft.draftProvider === '' && draft.schoolModelAllowed
+        ? 'Using the school-provided model.'
+        : 'API key saved.'
     );
   };
 
@@ -24,9 +26,11 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
       <div className="p-6">
         <h2 className="text-lg text-slate-100">AI model &amp; API key</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Choose the AI model you want to use. You will need to provide a key, which you can get at
-          the link below. The key will be stored in your browser, not on our server, and will only
-          be used to make requests to the AI model.
+          Pick which model powers the AI Assistant. Your API key stays in this browser and is only
+          used to make your requests.{' '}
+          {draft.schoolModelAllowed
+            ? 'The school-provided model works without a key.'
+            : 'The school-provided model is only available to Praxly school accounts, so this sign-in needs a key of its own.'}
         </p>
       </div>
       <div className="space-y-4 p-6 max-w-md">
@@ -40,7 +44,7 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
             onChange={(e) => draft.setDraftProvider(e.target.value as ByokProvider | '')}
             className={inputCls}
           >
-            {PROVIDER_OPTIONS.map((o) => (
+            {draft.options.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>

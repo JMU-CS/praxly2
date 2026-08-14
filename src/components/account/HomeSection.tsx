@@ -1,11 +1,16 @@
-import { KeyRound, MessageSquare, Pencil } from 'lucide-react';
+import { Lock } from 'lucide-react';
 
 import type { AccountProfile, AccountUsage } from '../../api/account';
+import { TILE_ITEMS } from './AccountNav';
 import { Avatar, displayName } from './Avatar';
 import { cardCls } from './styles';
 import type { Section } from './types';
 
-/** Landing pane: a greeting plus shortcut cards into the other sections. */
+/**
+ * Landing pane: a greeting plus one tile per account page, so everything the
+ * account manager can do is visible without opening the nav. Tiles come from
+ * the same NAV list the sidebar uses, so a new pane shows up in both at once.
+ */
 export function HomeSection({
   profile,
   usage,
@@ -15,6 +20,16 @@ export function HomeSection({
   usage: AccountUsage | null;
   onNavigate: (s: Section) => void;
 }) {
+  // A couple of tiles can say something concrete instead of the generic blurb.
+  const detailFor = (id: Section): string | null => {
+    if (id === 'personal') return profile?.email ?? null;
+    if (id === 'data' && usage) {
+      const last = usage.lastActivity ? new Date(usage.lastActivity).toLocaleDateString() : 'never';
+      return `${usage.sessions} chats · ${usage.messages} messages · last active ${last}`;
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-center py-6 text-center">
@@ -23,46 +38,35 @@ export function HomeSection({
           Welcome, {displayName(profile) || 'student'}
         </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Manage your info, security, and chat activity to make Praxly work better for you.
+          Manage your AI settings and chat activity to make Praxly work better for you.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <button
-          onClick={() => onNavigate('personal')}
-          className={`${cardCls} p-5 text-left hover:border-slate-600 transition-colors`}
-        >
-          <div className="flex items-center gap-2 text-slate-100 font-medium">
-            <Pencil size={16} className="text-indigo-400" /> Personal info
-          </div>
-          <p className="mt-2 text-sm text-slate-400 break-all">
-            {profile?.email ?? 'No email set'} · @{profile?.username}
-          </p>
-        </button>
-        <button
-          onClick={() => onNavigate('security')}
-          className={`${cardCls} p-5 text-left hover:border-slate-600 transition-colors`}
-        >
-          <div className="flex items-center gap-2 text-slate-100 font-medium">
-            <KeyRound size={16} className="text-indigo-400" /> Security
-          </div>
-          <p className="mt-2 text-sm text-slate-400">Change the password you use to sign in.</p>
-        </button>
-        <button
-          onClick={() => onNavigate('data')}
-          className={`${cardCls} p-5 text-left hover:border-slate-600 transition-colors sm:col-span-2`}
-        >
-          <div className="flex items-center gap-2 text-slate-100 font-medium">
-            <MessageSquare size={16} className="text-indigo-400" /> Data &amp; activity
-          </div>
-          <p className="mt-2 text-sm text-slate-400">
-            {usage
-              ? `${usage.sessions} chats · ${usage.messages} messages · last active ${
-                  usage.lastActivity ? new Date(usage.lastActivity).toLocaleDateString() : 'never'
-                }`
-              : 'Review your AI usage and manage chat history.'}
-          </p>
-        </button>
+        {TILE_ITEMS.map(({ id, label, icon: Icon, blurb, disabled, disabledNote }) => (
+          <button
+            key={id}
+            onClick={() => onNavigate(id)}
+            disabled={disabled}
+            title={disabled ? disabledNote : undefined}
+            className={`${cardCls} p-5 text-left transition-colors ${
+              disabled ? 'cursor-not-allowed opacity-60' : 'hover:border-slate-600'
+            }`}
+          >
+            <div
+              className={`flex items-center gap-2 font-medium ${
+                disabled ? 'text-slate-400' : 'text-slate-100'
+              }`}
+            >
+              <Icon size={16} className={disabled ? 'text-slate-500' : 'text-indigo-400'} />
+              {label}
+              {disabled && <Lock size={12} className="text-slate-500" aria-hidden="true" />}
+            </div>
+            <p className="mt-2 text-sm break-all text-slate-400">
+              {disabled ? disabledNote : (detailFor(id) ?? blurb)}
+            </p>
+          </button>
+        ))}
       </div>
     </div>
   );

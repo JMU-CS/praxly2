@@ -13,16 +13,12 @@ import {
   HttpError,
 } from '../../api/chat';
 import { type LlmPanel, type SimpleMessage, type TurnIds } from '../../api/llm';
-import {
-  useAiConsentStore,
-  useByokStore,
-  useChatStore,
-  type SessionMeta,
-} from '../../store/appStore';
+import { useAiConsentStore, useChatStore, type SessionMeta } from '../../store/appStore';
 import { randomId } from '../../utils/id';
 import { ChatThread, type Chat } from '../ai/ChatThread';
 import { HistoryPanel } from '../ai/HistoryPanel';
 import { ApiKeyGate } from '../ai/ApiKeyGate';
+import { useByokReady } from '../ai/byok';
 import { AiTermsModal } from '../ai/AiTermsModal';
 import { SignInButtons } from '../auth/SignInButtons';
 import { TypingDots } from '../ai/MessageComponents';
@@ -82,7 +78,8 @@ export function AiSidePanel({
   } = useChatStore();
 
   const signedIn = isAuthenticated();
-  const configured = useByokStore((s) => s.configured);
+  // Entitlement-aware: a Google sign-in with no key of its own still needs the gate.
+  const configured = useByokReady();
   const termsAccepted = useAiConsentStore((s) => s.accepted);
   const acceptTerms = useAiConsentStore((s) => s.accept);
 

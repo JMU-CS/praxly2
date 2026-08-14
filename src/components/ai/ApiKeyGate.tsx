@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
-import { PROVIDER_OPTIONS, useByokDraft } from './byok';
+import { useByokDraft } from './byok';
 import type { ByokProvider } from '../../store/appStore';
 
 /**
@@ -27,9 +27,9 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
         <h3 className="text-sm font-semibold">Choose your AI model</h3>
       </div>
       <p className="text-xs text-slate-400 leading-relaxed">
-        Choose the AI model you want to use. You will need to provide a key, which you can get at
-        the link below. The key will be stored in your browser, not on our server, and will only be
-        used to make requests to the AI model.
+        {draft.schoolModelAllowed
+          ? 'Pick a model to power the assistant. Use your own API key for the best experience, or the school-provided model to get started without one. You can change this later in your account.'
+          : 'Add your own API key to power the assistant. The school-provided model is only available to Praxly school accounts — signed in with Google, you supply your own key. You can change this later in your account.'}
       </p>
 
       <div>
@@ -42,7 +42,7 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
           onChange={(e) => draft.setDraftProvider(e.target.value as ByokProvider | '')}
           className={inputCls}
         >
-          {PROVIDER_OPTIONS.map((o) => (
+          {draft.options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>

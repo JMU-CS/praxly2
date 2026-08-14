@@ -47,6 +47,22 @@ export interface StreamOptions {
   onComplete?: (ids: TurnIds) => void;
 }
 
+/** Longest error text worth showing in a chat bubble. */
+const MAX_ERROR_CHARS = 300;
+
+/**
+ * Makes an error string safe to render in the chat.
+ *
+ * The backend already reduces provider failures to one sentence, but this is
+ * the last stop before the text reaches a bubble — an older backend, a proxy,
+ * or an unexpected code path can still hand us a wall of JSON. Collapsing the
+ * whitespace and capping the length keeps the bubble the size of a message.
+ */
+function displayableError(raw: string): string {
+  const flat = raw.replace(/\s+/g, ' ').trim();
+  return flat.length > MAX_ERROR_CHARS ? `${flat.slice(0, MAX_ERROR_CHARS - 1)}…` : flat;
+}
+
 /** BYOK headers — set only when the user configured their own provider key. */
 function byokHeaders(): Record<string, string> {
   const { provider, apiKey, model } = useByokStore.getState();
@@ -107,8 +123,20 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
   });
 
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`AI request failed (${response.status})${text ? `: ${text}` : ''}`);
+    // The backend explains itself in {"error": "..."} — surface that sentence
+    // rather than a raw JSON blob, because it lands in front of the student as
+    // the error bubble's text.
+    const raw = await response.text().catch(() => '');
+    let detail = raw;
+    try {
+      const parsed = JSON.parse(raw) as { error?: string };
+      if (parsed.error) detail = parsed.error;
+    } catch {
+      // Not JSON (a proxy error page, say) — fall back to the raw body.
+    }
+    throw new Error(
+      displayableError(detail) || `The AI service returned an error (${response.status}).`
+    );
   }
 
   const sessionId = response.headers.get('X-Session-Id');
@@ -158,7 +186,9 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
           assistantMessageId: parsed.assistantMessageId,
         });
       } else if (parsed.type === 'error') {
-        throw new Error(parsed.message ?? 'The AI service reported an error.');
+        throw new Error(
+          displayableError(parsed.message ?? '') || 'The AI service reported an error.'
+        );
       }
     }
   }
