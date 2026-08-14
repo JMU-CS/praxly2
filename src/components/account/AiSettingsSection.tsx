@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
 import type { ByokProvider } from '../../store/appStore';
-import { PROVIDER_OPTIONS, useByokDraft } from '../ai/byok';
+import { KEY_INPUT_PROPS, PROVIDER_OPTIONS, maskCls, useByokDraft } from '../ai/byok';
 import { cardCls, inputCls, primaryBtnCls } from './styles';
 import type { Notify } from './types';
 
@@ -57,13 +57,11 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
               <div className="relative">
                 <input
                   id="byok-key"
-                  type={showKey ? 'text' : 'password'}
+                  {...KEY_INPUT_PROPS}
                   value={draft.draftKey}
                   onChange={(e) => draft.setDraftKey(e.target.value)}
                   placeholder="Paste your API key"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className={`${inputCls} pr-10`}
+                  className={`${inputCls} pr-10 ${maskCls(!showKey)}`}
                 />
                 <button
                   type="button"
@@ -103,6 +101,19 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
                 spellCheck={false}
                 className={inputCls}
               />
+              {draft.docs && (
+                <p className="mt-1 text-xs text-slate-500 break-words">
+                  See models at{' '}
+                  <a
+                    href={`https://${draft.docs}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-300 underline hover:text-indigo-200"
+                  >
+                    {draft.docs}
+                  </a>
+                </p>
+              )}
             </div>
           </>
         )}

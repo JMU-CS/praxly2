@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
-import { PROVIDER_OPTIONS, useByokDraft } from './byok';
+import { KEY_INPUT_PROPS, PROVIDER_OPTIONS, maskCls, useByokDraft } from './byok';
 import type { ByokProvider } from '../../store/appStore';
 
 /**
@@ -59,13 +59,11 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
             <div className="relative">
               <input
                 id="gate-key"
-                type={showKey ? 'text' : 'password'}
+                {...KEY_INPUT_PROPS}
                 value={draft.draftKey}
                 onChange={(e) => draft.setDraftKey(e.target.value)}
                 placeholder="Paste your API key"
-                autoComplete="off"
-                spellCheck={false}
-                className={`${inputCls} pr-9`}
+                className={`${inputCls} pr-9 ${maskCls(!showKey)}`}
               />
               <button
                 type="button"
@@ -105,6 +103,19 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
               spellCheck={false}
               className={inputCls}
             />
+            {draft.docs && (
+              <p className="mt-1 text-[11px] text-slate-500 break-words">
+                See models at{' '}
+                <a
+                  href={`https://${draft.docs}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-indigo-300 underline hover:text-indigo-200"
+                >
+                  {draft.docs}
+                </a>
+              </p>
+            )}
           </div>
         </>
       )}
