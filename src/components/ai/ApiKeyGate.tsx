@@ -27,8 +27,9 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
         <h3 className="text-sm font-semibold">Choose your AI model</h3>
       </div>
       <p className="text-xs text-slate-400 leading-relaxed">
-        Pick a model to power the assistant. Use your own API key for the best experience, or the
-        school-provided model to get started without one. You can change this later in your account.
+        Choose the AI model you want to use. You will need to provide a key, which you can get at
+        the link below. The key will be stored in your browser, not on our server, and will only be
+        used to make requests to the AI model.
       </p>
 
       <div>

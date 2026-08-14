@@ -24,9 +24,9 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
       <div className="p-6">
         <h2 className="text-lg text-slate-100">AI model &amp; API key</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Pick which model powers the AI Assistant. Using your own API key gives the best experience
-          — it stays in this browser and is only used to make your requests. The school-provided
-          model works without a key.
+          Choose the AI model you want to use. You will need to provide a key, which you can get at
+          the link below. The key will be stored in your browser, not on our server, and will only
+          be used to make requests to the AI model.
         </p>
       </div>
       <div className="space-y-4 p-6 max-w-md">
