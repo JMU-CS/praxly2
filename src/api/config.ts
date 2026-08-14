@@ -3,14 +3,11 @@ import { getToken } from './auth';
 /**
  * Shared configuration for every k12-llm-backend call.
  *
- * Config (optional — defaults point to the shared dev server):
- *   VITE_BACKEND_URL - k12-llm-backend base URL
+ * BACKEND_URL is defined in backend.ts and re-exported here so callers keep
+ * importing their base URL and headers from one place.
  */
 
-const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ??
-  {}) as Record<string, string | undefined>;
-
-export const BACKEND_URL = env.VITE_BACKEND_URL ?? 'https://k12api.torta-server.duckdns.org';
+export { BACKEND_URL } from './backend';
 
 /**
  * Standard request headers, carrying whichever bearer token the current

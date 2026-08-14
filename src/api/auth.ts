@@ -1,4 +1,5 @@
 import keycloak from './keycloak';
+import { BACKEND_URL } from './backend';
 import { useByokStore, useChatStore } from '../store/appStore';
 
 /**
@@ -11,11 +12,6 @@ import { useByokStore, useChatStore } from '../store/appStore';
  * Components should call these helpers instead of touching `keycloak`
  * directly, so both providers stay interchangeable everywhere.
  */
-
-const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ??
-  {}) as Record<string, string | undefined>;
-
-const BACKEND_URL = env.VITE_BACKEND_URL ?? 'https://k12api.torta-server.duckdns.org';
 
 export type AuthProvider = 'keycloak' | 'google';
 
