@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
 import type { ByokProvider } from '../../store/appStore';
-import { KEY_INPUT_PROPS, PROVIDER_OPTIONS, maskCls, useByokDraft } from '../ai/byok';
+import { KEY_INPUT_PROPS, maskCls, useByokDraft } from '../ai/byok';
 import { cardCls, inputCls, primaryBtnCls } from './styles';
 import type { Notify } from './types';
 
@@ -15,7 +15,9 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
     if (!draft.save()) return;
     notify(
       'success',
-      draft.draftProvider === '' ? 'Using the school-provided model.' : 'API key saved.'
+      draft.draftProvider === '' && draft.schoolModelAllowed
+        ? 'Using the school-provided model.'
+        : 'API key saved.'
     );
   };
 
@@ -40,7 +42,7 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
             onChange={(e) => draft.setDraftProvider(e.target.value as ByokProvider | '')}
             className={inputCls}
           >
-            {PROVIDER_OPTIONS.map((o) => (
+            {draft.options.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>

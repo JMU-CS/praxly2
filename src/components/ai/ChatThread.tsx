@@ -154,9 +154,15 @@ export function ChatThread({
             </div>
           )}
           <ComposerPrimitive.Root className="flex gap-2 items-end">
+            {/* The input auto-grows (react-textarea-autosize under the hood).
+                maxRows caps it at 5 lines and hands over to a scrollbar — it
+                has to be maxRows rather than a max-h class, because autosize
+                writes an inline height/overflow that a class can't override.
+                Without it a long question pushes the send button off-screen. */}
             <ComposerPrimitive.Input
               placeholder="Ask about your code… (Enter to send)"
               rows={2}
+              maxRows={5}
               maxLength={MAX_INPUT_CHARS}
               className="flex-1 resize-none rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-500 px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
             />

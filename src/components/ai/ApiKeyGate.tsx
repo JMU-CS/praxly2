@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
-import { KEY_INPUT_PROPS, PROVIDER_OPTIONS, maskCls, useByokDraft } from './byok';
+import { KEY_INPUT_PROPS, maskCls, useByokDraft } from './byok';
 import type { ByokProvider } from '../../store/appStore';
 
 /**
@@ -42,7 +42,7 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
           onChange={(e) => draft.setDraftProvider(e.target.value as ByokProvider | '')}
           className={inputCls}
         >
-          {PROVIDER_OPTIONS.map((o) => (
+          {draft.options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>

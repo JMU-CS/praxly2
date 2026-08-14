@@ -1,4 +1,5 @@
-import { FileJson, Bot, BrainCircuit } from 'lucide-react';
+// BrainCircuit is the Memory Diagram icon — restore it with the button below.
+import { FileJson, Bot /*, BrainCircuit */ } from 'lucide-react';
 
 import { LANG_LABELS, type SupportedLang } from '../LanguageSelector';
 import { LanguageLogo } from '../LanguageLogo';
@@ -30,13 +31,15 @@ const toggleButtonClasses = (active: boolean) =>
       : 'bg-slate-800 hover:bg-indigo-600 text-indigo-400 hover:text-white border-slate-700'
   }`;
 
+// showMemDia and onToggleMemDia are still declared above and still passed in by
+// EditorPage — destructure them again when the Memory Diagram button below is
+// restored. They stay out of the signature only because `noUnusedParameters`
+// rejects bindings the commented-out button no longer reads.
 export function AddPanelStrip({
   panels,
   showAiSidePanel,
-  showMemDia,
   onTogglePanel,
   onToggleAiPanel,
-  onToggleMemDia,
 }: AddPanelStripProps) {
   return (
     <div className="add-panel-dropdown w-16 h-full flex flex-col items-center gap-3 pt-4 overflow-y-auto bg-slate-900 border-r border-slate-800 shrink-0 relative z-[150] shadow-[10px_0_20px_rgba(0,0,0,0.5)]">
@@ -69,7 +72,10 @@ export function AddPanelStrip({
         <Bot size={24} />
       </button>
 
-      {/* Memory Diagram — shows live variable state alongside each pane */}
+      {/* Memory Diagram — shows live variable state alongside each pane.
+          Hidden until the feature ships; restore this button to bring it back.
+          Everything behind it (useMemDiaPanes, the MemDia panes themselves) is
+          still wired up, so uncommenting is the only step needed.
       <button
         onClick={onToggleMemDia}
         aria-pressed={showMemDia}
@@ -78,6 +84,7 @@ export function AddPanelStrip({
       >
         <BrainCircuit size={24} />
       </button>
+      */}
     </div>
   );
 }

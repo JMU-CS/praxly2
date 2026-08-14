@@ -26,7 +26,7 @@ import { useAccountData } from '../hooks/useAccountData';
  */
 export default function AccountPage() {
   const [section, setSection] = useState<Section>('home');
-  const { profile, setProfile, usage, chats, setChats, loading, status, notify, dismissStatus } =
+  const { profile, usage, chats, setChats, loading, status, notify, dismissStatus } =
     useAccountData();
 
   if (!isAuthenticated()) {
@@ -50,9 +50,9 @@ export default function AccountPage() {
           ) : section === 'home' ? (
             <HomeSection profile={profile} usage={usage} onNavigate={setSection} />
           ) : section === 'personal' ? (
-            <PersonalSection profile={profile} setProfile={setProfile} notify={notify} />
+            <PersonalSection profile={profile} />
           ) : section === 'security' ? (
-            <SecuritySection profile={profile} notify={notify} />
+            <SecuritySection profile={profile} />
           ) : section === 'ai' ? (
             <AiSettingsSection notify={notify} />
           ) : section === 'profile' ? (
