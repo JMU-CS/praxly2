@@ -84,11 +84,19 @@ export class Debugger {
 
       if (result.done) {
         this.context.waitingForInput = false;
+        // The function frame for the last statement is already popped (by the
+        // generator's own `finally`) by the time it reports done, so a fresh
+        // getStackFrames() snapshot here would show empty variables. Reuse the
+        // last real step's snapshot instead — nothing user-visible changes
+        // between that step and the generator actually returning.
+        const lastStep = this.context.steps[this.context.steps.length - 1];
         return this.recordStep({
           nodeId: '',
           nodeType: 'Program',
           sourceLocation: null,
           isComplete: true,
+          variables: lastStep?.variables,
+          callStack: lastStep?.callStack,
         });
       }
 

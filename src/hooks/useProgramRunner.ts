@@ -25,17 +25,26 @@ export interface ProgramRunner {
   waitingForInput: boolean;
   /** Prompt text for the pending `input()` call, if any. */
   inputPrompt: string;
+  /** Variables visible at the most recent step of the current (or just-finished) run. */
+  currentVariables: Record<string, any>;
   /** Runs `program` to completion, or until it pauses for input. */
   run: (program: Program, lang: SupportedLang, sourceCode: string) => void;
   /** Answers the pending `input()` call and resumes to completion. */
   submitInput: (input: string) => void;
-  /** Abandons any paused run — used when the editor's program is replaced. */
+  /** Abandons any paused run and clears the diagram — used when switching modes (Debug start/stop). */
   reset: () => void;
+  /** Abandons any paused run without touching the diagram — used right before a
+   *  new Run's own result is about to replace it, so the diagram doesn't blank
+   *  out and flash back in. */
+  clearInputState: () => void;
 }
 
 export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
   const [waitingForInput, setWaitingForInput] = useState(false);
   const [inputPrompt, setInputPrompt] = useState('');
+  // Mirrors what the debugger already exposes for step-through mode, so a plain
+  // Run can feed the same memory-diagram panel instead of leaving it empty.
+  const [currentVariables, setCurrentVariables] = useState<Record<string, any>>({});
 
   // The Debugger instance behind a run that paused for input(). Held in a ref
   // rather than state: nothing renders from it, and the input handler needs
@@ -47,11 +56,19 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
 
-  const reset = useCallback(() => {
+  const clearInputState = useCallback(() => {
     pausedRunRef.current = null;
     setWaitingForInput(false);
     setInputPrompt('');
   }, []);
+
+  const reset = useCallback(() => {
+    clearInputState();
+    // Also clear the diagram data: reset() means "abandon this run's state",
+    // and callers (Debug starting/stopping) rely on this to stop showing a
+    // previous run's leftover variables.
+    setCurrentVariables({});
+  }, [clearInputState]);
 
   /** Steps `instance` until it finishes or parks on input(). */
   const drain = useCallback(
@@ -65,6 +82,7 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
           // `step.output` is the cumulative output so far, so replace rather
           // than append.
           onOutput(step.output);
+          setCurrentVariables(step.variables);
 
           if (step.waitingForInput) {
             pausedRunRef.current = instance;
@@ -76,19 +94,26 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
           step = instance.step();
         }
 
-        if (step) onOutput(step.output);
-        reset();
+        if (step) {
+          onOutput(step.output);
+          setCurrentVariables(step.variables);
+        }
+        // Clear only the input-pause bookkeeping here, not via reset() —
+        // reset() also clears currentVariables, which would immediately wipe
+        // out the final-state variables just set above (same render batch).
+        clearInputState();
       } catch (e: any) {
         console.error(e);
         reset();
         callbacksRef.current.onError(e.message);
       }
     },
-    [reset]
+    [reset, clearInputState]
   );
 
   const run = useCallback(
     (program: Program, lang: SupportedLang, sourceCode: string) => {
+      setCurrentVariables({});
       drain(() => {
         const instance = new Debugger();
         instance.init(program, lang, sourceCode);
@@ -110,5 +135,13 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
     [drain]
   );
 
-  return { waitingForInput, inputPrompt, run, submitInput, reset };
+  return {
+    waitingForInput,
+    inputPrompt,
+    currentVariables,
+    run,
+    submitInput,
+    reset,
+    clearInputState,
+  };
 }

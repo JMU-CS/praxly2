@@ -149,7 +149,11 @@ export function useEditorExecution({
   const run = () => {
     clearConsole();
     setHasRun(true);
-    runner.reset();
+    // clearInputState(), not reset(): this fires immediately on click, while
+    // the actual run (with the diagram's new result) only starts after the
+    // deferred timeout below — clearing the diagram here too would make it
+    // blank out and then flash back in once the real run replaces it.
+    runner.clearInputState();
 
     if (runTimeoutRef.current !== null) clearTimeout(runTimeoutRef.current);
     runTimeoutRef.current = window.setTimeout(() => {
@@ -170,6 +174,9 @@ export function useEditorExecution({
   const debugStart = () => {
     clearConsole();
     setHasRun(true);
+    // Clear any leftover plain-run diagram data so a fresh Debug session
+    // starts from the empty diagram, instead of showing the last Run's state.
+    runner.reset();
 
     try {
       const program = parseCode(runLang, code);
@@ -199,6 +206,9 @@ export function useEditorExecution({
 
   const debugStop = () => {
     stopDebugger();
+    // Clear plain-run diagram data too, so the diagram fully disappears on
+    // Stop rather than falling back to a stale Run's leftover variables.
+    runner.reset();
     setIsDebugging(false);
     clearHighlighting();
     setOutput((prev) => [...prev, 'Debugger stopped.']);
@@ -232,7 +242,11 @@ export function useEditorExecution({
     panelHighlightedLines,
     isDebugging,
     isDebugComplete,
-    currentVariables,
+    // Debug mode's currentVariables resets to {} on stop; fall back to the plain
+    // runner's (also reset to {} at the start of each run) so a run's final state
+    // stays visible instead of showing nothing once neither is actively stepping.
+    currentVariables:
+      Object.keys(currentVariables).length > 0 ? currentVariables : runner.currentVariables,
     currentCallStack,
     highlightedSourceLines,
     waitingForInput: waitingForInput || runner.waitingForInput,

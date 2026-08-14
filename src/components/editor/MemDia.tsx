@@ -12,6 +12,10 @@ interface MemDiaProps {
 // (in memdia.ts) converts the same currentVariables dict into an SVG string, and this
 // component just displays it.
 export function MemDia({ paneTitle, paneLang, currentVariables }: MemDiaProps) {
+  // currentVariables is already the right value to show at all times: Run and
+  // Debug each clear it (via useProgramRunner/useCodeDebugger reset paths) when
+  // the other mode starts or stops, so no extra "remember the last value" state
+  // is needed here — this panel just mirrors whatever it's given.
   const svg = renderMemoryDiagramFromVariables(currentVariables);
 
   return (
