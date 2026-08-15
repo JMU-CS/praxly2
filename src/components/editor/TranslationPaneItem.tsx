@@ -74,6 +74,9 @@ export function TranslationPaneItem({
   onPanelDrop,
   onPanelDragEnd,
 }: TranslationPaneItemProps) {
+  /* "Parse Tree View" is redundant — the tree is the view. */
+  const paneTitle = panel.lang === 'ast' ? LANG_LABELS.ast : `${LANG_LABELS[panel.lang]} View`;
+
   return (
     <div
       className={`flex h-full relative transition-opacity ${
@@ -101,8 +104,7 @@ export function TranslationPaneItem({
               <ArrowRightLeft size={14} className="text-indigo-400" aria-hidden="true" />
             )}
             <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-              {/* "Parse Tree View" is redundant — the tree is the view. */}
-              {panel.lang === 'ast' ? LANG_LABELS.ast : `${LANG_LABELS[panel.lang]} View`}
+              {paneTitle}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -127,6 +129,7 @@ export function TranslationPaneItem({
             <button
               onClick={() => onRemovePanel(panel.id)}
               aria-label={`Remove ${panel.lang} panel`}
+              title={`Close ${paneTitle}`}
               className={`p-1 text-slate-400 hover:text-red-400 transition-colors rounded ${focusRing}`}
             >
               <X size={14} aria-hidden="true" />

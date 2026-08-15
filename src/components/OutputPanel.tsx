@@ -75,6 +75,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
         onClick: onToggle,
         role: 'button',
         tabIndex: 0,
+        title: panelState === 'open' ? 'Click to close the console' : 'Click to open the console',
         'aria-expanded': panelState === 'open',
         'aria-controls': contentId,
         onKeyDown: (e: React.KeyboardEvent) => {

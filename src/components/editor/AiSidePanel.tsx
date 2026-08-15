@@ -319,7 +319,7 @@ export function AiSidePanel({
               <UserCircle size={18} />
             </Link>
           )}
-          <button onClick={onClose} className={iconBtn} title="Close AI panel">
+          <button onClick={onClose} className={iconBtn} title="Close AI Assistant">
             <X size={18} />
           </button>
         </div>

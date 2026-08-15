@@ -105,7 +105,7 @@ export function EditorHeader({
           onClick={onLoadDemo}
           disabled={!demoAvailable}
           aria-label="Load demo program for the current source language"
-          title="Load a demo program in the current language"
+          title="Load a demo program"
           className={`${secondaryBtn} disabled:opacity-40 disabled:cursor-not-allowed ${focusRing}`}
         >
           <FileCode size={14} aria-hidden="true" /> Demo

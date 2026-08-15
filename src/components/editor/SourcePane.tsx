@@ -75,6 +75,7 @@ export function SourcePane({
               aria-label={`Source language: ${sourceLang}. Click to change`}
               aria-expanded={showSourceLangDropdown}
               aria-haspopup="listbox"
+              title="Change the source language"
               className={`flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors uppercase ${focusRing}`}
             >
               {sourceLang === 'ast' ? LANG_LABELS.ast : sourceLang}
