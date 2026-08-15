@@ -124,15 +124,20 @@ export function AiSidePanel({
   }, [setSessions, getCachedMessages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load messages for the active chat — check cache first, fetch only if needed.
-  // The backend fetch also recovers the id of the last message, which becomes
-  // the parentMessageId for the next turn.
+  //
+  // The cache is preferred whenever it exists, and deliberately isn't gated on
+  // parentMessageId any more: a turn that failed never emits the 'complete'
+  // event that sets one, so gating on it sent exactly the conversations that
+  // errored back to the server — which returns the reply text but not the
+  // failure, so the error bubble came back empty and the fetch then overwrote
+  // the good cached copy.
   useEffect(() => {
     if (!activeId) return;
     const chat = localChats.find((c) => c.id === activeId);
     if (!chat?.sessionId || chat.messages.length > 0) return;
 
     const cached = getCachedMessages(chat.sessionId);
-    if (cached && chat.parentMessageId) {
+    if (cached) {
       setLocalChats((prev) =>
         prev.map((c) => (c.id === activeId ? { ...c, messages: cached, historyLoaded: true } : c))
       );

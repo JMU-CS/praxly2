@@ -72,6 +72,24 @@ export const AssistantMessage = () => {
     );
   }
 
+  // A finished turn with no text and no recorded error. It means the reply was
+  // never stored — a failure whose error text didn't survive the round trip —
+  // and rendering it bare leaves an unexplained empty bubble on screen.
+  //
+  // The !errorText guard is redundant against the early return above and kept
+  // deliberately: this branch must never be what a message carrying an error
+  // falls into, and that has to stay true if the branches are ever reordered.
+  if (!errorText && !isRunning && !text.trim()) {
+    return (
+      <MessagePrimitive.Root className="flex flex-col items-start">
+        <div className="max-w-[85%] rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm leading-relaxed text-muted italic">
+          No reply was recorded for this turn.
+        </div>
+        <ModelLabel model={model} />
+      </MessagePrimitive.Root>
+    );
+  }
+
   return (
     <MessagePrimitive.Root className="flex flex-col items-start">
       <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed bg-slate-800 text-slate-200 border border-slate-700">

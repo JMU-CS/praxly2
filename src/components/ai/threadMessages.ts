@@ -14,6 +14,17 @@ export interface ThreadLikeMessage {
     | undefined;
 }
 
+/**
+ * A message as the runtime is *seeded* with it, which is not the shape it reads
+ * back: here `content` is the raw string assistant-ui normalises into parts.
+ */
+export interface ThreadSeedMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  metadata?: { custom: { model: string } };
+  status?: { readonly type: 'incomplete'; readonly reason: 'error'; readonly error: string };
+}
+
 /** Shown when a run failed without a usable message of its own. */
 export const GENERIC_ERROR = 'Something went wrong talking to the AI service. Please try again.';
 
@@ -39,6 +50,27 @@ function partText(part: unknown): string {
 /** Flattens one thread message's content parts to plain text. */
 export function threadMessageText(message: ThreadLikeMessage): string {
   return message.content.map(partText).join('');
+}
+
+/**
+ * The reverse of toSimpleMessages: rebuilds a cached transcript into the shape
+ * assistant-ui seeds a thread with.
+ *
+ * A cached `error` MUST come back as an error status. It is the only thing that
+ * makes AssistantMessage render the red bubble — the reply text is usually
+ * empty on a failed turn, so an error that loses its status here renders as a
+ * blank bubble and the failure silently disappears. Assistant messages only:
+ * assistant-ui throws on a user message carrying a status.
+ */
+export function toThreadMessages(messages: readonly SimpleMessage[]): ThreadSeedMessage[] {
+  return messages.map((m) => ({
+    role: m.role,
+    content: m.text,
+    ...(m.model ? { metadata: { custom: { model: m.model } } } : {}),
+    ...(m.error && m.role === 'assistant'
+      ? { status: { type: 'incomplete', reason: 'error', error: m.error } as const }
+      : {}),
+  }));
 }
 
 /**

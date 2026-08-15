@@ -10,7 +10,7 @@ import {
 import { streamAssistant, type SimpleMessage, type LlmPanel, type TurnIds } from '../../api/llm';
 import { useAiPrefsStore, type AiUseCase } from '../../store/appStore';
 import { UserMessage, AssistantMessage, MessageSync } from './MessageComponents';
-import { threadMessageText } from './threadMessages';
+import { threadMessageText, toThreadMessages } from './threadMessages';
 import { useModelLabel } from './byok';
 
 const USE_CASES: Array<{ value: AiUseCase; label: string; title: string }> = [
@@ -73,19 +73,9 @@ export function ChatThread({
   const modelLabelRef = useRef(modelLabel);
   modelLabelRef.current = modelLabel;
 
-  const initialMessages = useRef(
-    chat.messages.map((m) => ({
-      role: m.role,
-      content: m.text,
-      ...(m.model ? { metadata: { custom: { model: m.model } } } : {}),
-      // Restores the error bubble for a turn that failed — without the status
-      // it would come back as an empty gray bubble, or not at all. Assistant
-      // messages only: assistant-ui throws on a user message carrying a status.
-      ...(m.error && m.role === 'assistant'
-        ? { status: { type: 'incomplete', reason: 'error', error: m.error } as const }
-        : {}),
-    }))
-  ).current;
+  // Captured once: the runtime owns the thread after this, and re-seeding it
+  // mid-conversation would discard whatever the user has since sent.
+  const initialMessages = useRef(toThreadMessages(chat.messages)).current;
 
   const chatId = chat.id;
 
