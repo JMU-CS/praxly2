@@ -19,9 +19,10 @@ export function AccountHeader({ profile }: { profile: AccountProfile | null }) {
           <ArrowLeft size={18} />
         </Link>
         <img src="/v2/fallen-leaf_1f342.ico" alt="" className="h-6 w-6" aria-hidden="true" />
-        <span className="text-lg text-slate-300">
+        {/* The page's only title, so it is the h1 — the styling is unchanged. */}
+        <h1 className="text-lg text-slate-300">
           Praxly <span className="font-medium text-muted">Account</span>
-        </span>
+        </h1>
       </div>
       <div className="flex items-center gap-3">
         <button

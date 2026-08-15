@@ -251,6 +251,12 @@ export default function EditorPage() {
       />
 
       <main id="main-content" className="flex-1 flex flex-row overflow-hidden min-h-0">
+        {/* The visible "Praxly" wordmark is a home link in the banner, so the
+            page has no heading of its own. This supplies the h1 — inside the
+            landmark, which is both where the skip link lands and the only way
+            it is itself contained by one. */}
+        <h1 className="sr-only">Praxly code editor</h1>
+
         <AddPanelStrip
           panels={panels.panels}
           showAiSidePanel={showAiSidePanel}
