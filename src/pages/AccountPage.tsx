@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-import { isAuthenticated } from '../api/auth';
+import { isAuthenticated, logout } from '../api/auth';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { AccountHeader } from '../components/account/AccountHeader';
 import { AccountNav, AccountNavMobile } from '../components/account/AccountNav';
 import { AiSettingsSection } from '../components/account/AiSettingsSection';
@@ -26,6 +27,8 @@ import { useAccountData } from '../hooks/useAccountData';
  */
 export default function AccountPage() {
   const [section, setSection] = useState<Section>('home');
+  // Sign out erases this browser's copy of the account, so it asks first.
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const { profile, usage, chats, setChats, loading, status, notify, dismissStatus } =
     useAccountData();
 
@@ -35,13 +38,21 @@ export default function AccountPage() {
 
   return (
     <div className="min-h-dvh bg-slate-950 text-slate-100 font-sans">
-      <AccountHeader profile={profile} />
+      <AccountHeader />
 
       <div className="mx-auto flex max-w-5xl gap-8 px-4 py-6 sm:px-6">
-        <AccountNav section={section} onSelect={setSection} />
+        <AccountNav
+          section={section}
+          onSelect={setSection}
+          onSignOut={() => setConfirmingSignOut(true)}
+        />
 
         <main className="min-w-0 flex-1">
-          <AccountNavMobile section={section} onSelect={setSection} />
+          <AccountNavMobile
+            section={section}
+            onSelect={setSection}
+            onSignOut={() => setConfirmingSignOut(true)}
+          />
 
           <StatusBanner status={status} onDismiss={dismissStatus} />
 
@@ -62,6 +73,20 @@ export default function AccountPage() {
           )}
         </main>
       </div>
+
+      {/* Names what leaving actually costs: the browser-side copy goes, the
+          server-side account does not. No setConfirmingSignOut(false) on
+          confirm — logout() navigates away. */}
+      {confirmingSignOut && (
+        <ConfirmModal
+          title="Sign out of Praxly?"
+          message="Signing out removes your account data from this browser — saved chats, your API key, and your tutor preferences. Your account and chat history are kept on the server, and signing back in restores them."
+          confirmLabel="Sign out"
+          cancelLabel="Stay signed in"
+          onConfirm={() => logout()}
+          onCancel={() => setConfirmingSignOut(false)}
+        />
+      )}
     </div>
   );
 }

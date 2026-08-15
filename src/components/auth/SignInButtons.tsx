@@ -58,14 +58,6 @@ export function SignInButtons({ compact = false }: { compact?: boolean }) {
         </p>
       )}
 
-      <button
-        onClick={() => void loginWithKeycloak()}
-        className={`flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 text-white ${size} transition-colors hover:bg-indigo-500`}
-      >
-        <LogIn size={14} />
-        Sign in with Praxly
-      </button>
-
       {googleAvailable && (
         <button
           onClick={loginWithGoogle}
@@ -75,6 +67,14 @@ export function SignInButtons({ compact = false }: { compact?: boolean }) {
           Sign in with Google
         </button>
       )}
+
+      <button
+        onClick={() => void loginWithKeycloak()}
+        className={`flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 text-white ${size} transition-colors hover:bg-indigo-500`}
+      >
+        <LogIn size={14} />
+        Sign in with Praxly
+      </button>
     </div>
   );
 }

@@ -5,8 +5,7 @@ import { cardCls, primaryBtnCls } from './styles';
  * Read-only security pane: a pointer to wherever the credentials actually live.
  *
  * Passwords belong to the identity provider, so there is no change-password
- * form here. Like Personal info, this pane is currently unreachable — its nav
- * entry and home tile are disabled (see AccountNav's NAV).
+ * form here — just the right place to go, which differs by provider.
  */
 export function SecuritySection({ profile }: { profile: AccountProfile | null }) {
   const isGoogle = profile?.provider === 'google';

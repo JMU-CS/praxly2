@@ -5,8 +5,8 @@ import { cardCls } from './styles';
  * Read-only view of the identity behind the session.
  *
  * Nothing here is editable: the school's Keycloak realm (or Google) is the
- * system of record for these fields, and this pane is currently unreachable
- * anyway — its nav entry and home tile are disabled (see AccountNav's NAV).
+ * system of record for these fields, so the pane shows what they are and says
+ * where to go to change them.
  */
 export function PersonalSection({ profile }: { profile: AccountProfile | null }) {
   const isGoogle = profile?.provider === 'google';
