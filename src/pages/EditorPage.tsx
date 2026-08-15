@@ -20,6 +20,7 @@ import { EXAMPLE_PROGRAMS, getExampleById } from '../utils/sampleCodes';
 import { getDemoForLang } from '../utils/demoPrograms';
 import { buildAiPanelContext } from '../utils/aiPanelContext';
 import { planLanguageSwitch } from '../utils/languageSwitch';
+import { resetApp } from '../utils/resetApp';
 
 import { useCodeParsing } from '../hooks/useCodeParsing';
 import { useAiSelection } from '../hooks/useAiSelection';
@@ -60,6 +61,7 @@ export default function EditorPage() {
   const [pendingExampleId, setPendingExampleId] = useState<string | null>(null);
   const [pendingDemoLoad, setPendingDemoLoad] = useState(false);
   const [pendingClear, setPendingClear] = useState(false);
+  const [pendingReset, setPendingReset] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
 
   const editorRef = useRef<HTMLDivElement>(null);
@@ -259,6 +261,10 @@ export default function EditorPage() {
         onDebugStep={exec.debugStep}
         onDebugStop={exec.debugStop}
         onTextSizeChange={setTextSize}
+        onReset={() => {
+          menus.toggleSettingsMenu();
+          setPendingReset(true);
+        }}
       />
 
       <main id="main-content" className="flex-1 flex flex-row overflow-hidden min-h-0">
@@ -377,6 +383,7 @@ export default function EditorPage() {
           pendingExampleId={pendingExampleId}
           pendingDemoLoad={pendingDemoLoad}
           pendingClear={pendingClear}
+          pendingReset={pendingReset}
           onConfirmLangSwitch={(lang) => {
             applySourceLanguage(lang, '');
             setPendingLangSwitch(null);
@@ -397,6 +404,9 @@ export default function EditorPage() {
             setPendingClear(false);
           }}
           onCancelClear={() => setPendingClear(false)}
+          // No setPendingReset(false) on confirm — resetApp reloads the page.
+          onConfirmReset={() => resetApp()}
+          onCancelReset={() => setPendingReset(false)}
         />
 
         {/* Highlight-to-chat: floating button near the editor selection. */}

@@ -12,6 +12,7 @@ import {
   Check,
   Settings,
   Type,
+  RotateCcw,
 } from 'lucide-react';
 import type { ExampleProgram } from '../../utils/sampleCodes';
 import { EXAMPLE_CATEGORIES } from '../../utils/sampleCodes';
@@ -40,6 +41,7 @@ interface EditorHeaderProps {
   onDebugStep: () => void;
   onDebugStop: () => void;
   onTextSizeChange: (size: TextSize) => void;
+  onReset: () => void;
 }
 
 const focusRing =
@@ -69,6 +71,7 @@ export function EditorHeader({
   onDebugStep,
   onDebugStop,
   onTextSizeChange,
+  onReset,
 }: EditorHeaderProps) {
   return (
     <header
@@ -222,6 +225,24 @@ export function EditorHeader({
                     A
                   </span>
                 </div>
+              </div>
+
+              {/* Escape hatch for a browser left holding state a new deployment
+                  can't read. Destructive, so it reads red and confirms first. */}
+              <div className="px-4 py-3 border-t border-b border-slate-800 text-xs font-bold uppercase tracking-widest text-slate-400">
+                Troubleshooting
+              </div>
+              <div className="px-4 pt-3 pb-4">
+                <button
+                  onClick={onReset}
+                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-300 hover:bg-red-500/10 hover:text-red-200 transition-colors ${focusRing}`}
+                >
+                  <RotateCcw size={13} aria-hidden="true" />
+                  Reset Praxly
+                </button>
+                <p className="mt-2 text-xs text-muted">
+                  Clears saved code, settings, and chats in this browser, then reloads.
+                </p>
               </div>
             </div>
           )}

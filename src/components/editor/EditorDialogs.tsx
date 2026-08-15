@@ -14,6 +14,8 @@ interface EditorDialogsProps {
   pendingDemoLoad: boolean;
   /** True while confirming emptying a non-blank editor. */
   pendingClear: boolean;
+  /** True while confirming a full reset of this browser's saved state. */
+  pendingReset: boolean;
   onConfirmLangSwitch: (lang: SupportedLang) => void;
   onCancelLangSwitch: () => void;
   onConfirmExample: (exampleId: string) => void;
@@ -22,14 +24,17 @@ interface EditorDialogsProps {
   onCancelDemo: () => void;
   onConfirmClear: () => void;
   onCancelClear: () => void;
+  onConfirmReset: () => void;
+  onCancelReset: () => void;
 }
 
-/** The editor's four "this will discard your code" confirmations. */
+/** The editor's five "this will discard your work" confirmations. */
 export function EditorDialogs({
   pendingLangSwitch,
   pendingExampleId,
   pendingDemoLoad,
   pendingClear,
+  pendingReset,
   onConfirmLangSwitch,
   onCancelLangSwitch,
   onConfirmExample,
@@ -38,6 +43,8 @@ export function EditorDialogs({
   onCancelDemo,
   onConfirmClear,
   onCancelClear,
+  onConfirmReset,
+  onCancelReset,
 }: EditorDialogsProps) {
   return (
     <>
@@ -86,6 +93,19 @@ export function EditorDialogs({
           cancelLabel="Keep my code"
           onConfirm={onConfirmClear}
           onCancel={onCancelClear}
+        />
+      )}
+
+      {/* Asks before wiping this browser's saved state (Settings → Reset).
+          The only one of these that can't be undone with the keyboard. */}
+      {pendingReset && (
+        <ConfirmModal
+          title="Reset Praxly?"
+          message="This erases everything Praxly has saved in this browser — your code, editor settings, AI chats, and API key — then reloads. You will be signed out, and this cannot be undone."
+          confirmLabel="Reset and reload"
+          cancelLabel="Cancel"
+          onConfirm={onConfirmReset}
+          onCancel={onCancelReset}
         />
       )}
     </>
