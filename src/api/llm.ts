@@ -107,7 +107,7 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
       // questions in a row and answered the older one. Restore this only
       // alongside message editing, which is what the cutoff exists for.
       parentMessageId: undefined,
-      // All non-empty panels, each labelled with its language.
+      // All non-empty panels, each labeled with its language.
       code: editorCode,
       language: primaryPanel?.language,
       // Praxly specs for every open panel's language — fills {{language_spec}}

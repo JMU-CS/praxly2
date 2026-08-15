@@ -16,9 +16,9 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
     if (draft.save()) onDone();
   };
 
-  const labelCls = 'block text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1';
+  const labelCls = 'block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1';
   const inputCls =
-    'w-full rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-500 px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors';
+    'w-full rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-muted px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors';
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -75,7 +75,7 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
               </button>
             </div>
             {draft.hint && (
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-xs text-muted">
                 Get a key at{' '}
                 <a
                   href={`https://${draft.hint}`}
@@ -91,7 +91,7 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
 
           <div>
             <label htmlFor="gate-model" className={labelCls}>
-              Model name <span className="normal-case font-normal text-slate-500">(optional)</span>
+              Model name <span className="normal-case font-normal text-muted">(optional)</span>
             </label>
             <input
               id="gate-model"
@@ -104,7 +104,7 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
               className={inputCls}
             />
             {draft.docs && (
-              <p className="mt-1 text-[11px] text-slate-500 break-words">
+              <p className="mt-1 text-xs text-muted break-words">
                 See models at{' '}
                 <a
                   href={`https://${draft.docs}`}

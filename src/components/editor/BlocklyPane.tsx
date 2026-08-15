@@ -170,7 +170,7 @@ export function BlocklyPane({
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/90 p-6">
           <p className="max-w-xs text-center text-xs text-slate-400">
             This program can't be shown as blocks.
-            <span className="mt-2 block font-mono text-[10px] text-slate-500">{loadError}</span>
+            <span className="mt-2 block font-mono text-xs text-muted">{loadError}</span>
           </p>
         </div>
       )}

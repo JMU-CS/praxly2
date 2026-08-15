@@ -14,9 +14,16 @@
 
 export type SupportedLang = 'python' | 'java' | 'csp' | 'praxis' | 'javascript' | 'blocks' | 'ast';
 
-/** Display names shared by every language picker and dialog. */
+/**
+ * Display names shared by every language picker and dialog.
+ *
+ * `ast` reads as "Parse Tree" in the UI: teachers and students recognize that,
+ * where the acronym is opaque to anyone who hasn't taken a compilers course.
+ * Spots with room for it spell out "Parse Tree (AST)" so the real term is still
+ * discoverable.
+ */
 export const LANG_LABELS: Record<SupportedLang, string> = {
-  ast: 'AST',
+  ast: 'Parse Tree',
   blocks: 'Blocks',
   csp: 'CSP',
   java: 'Java',

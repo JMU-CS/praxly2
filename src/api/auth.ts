@@ -45,7 +45,7 @@ function clearGoogleSession(): void {
 let googleAuthError: string | null = null;
 
 const AUTH_ERRORS: Record<string, string> = {
-  access_denied: 'Google sign-in was cancelled.',
+  access_denied: 'Google sign-in was canceled.',
   email_unverified: 'That Google account has no verified email address.',
   exchange_failed: "Google sign-in failed — couldn't verify the account.",
   invalid_state: 'Google sign-in expired or was tampered with. Please try again.',
@@ -116,7 +116,7 @@ function captureRedirectResult(): void {
 export async function initAuth(): Promise<void> {
   captureRedirectResult();
 
-  // A live Google session wins — initialising Keycloak as well would only add
+  // A live Google session wins — initializing Keycloak as well would only add
   // a redirect round-trip for a user who is already signed in.
   if (readGoogleSession()) return;
 
@@ -201,7 +201,7 @@ export async function getToken(): Promise<string | null> {
 
 export async function loginWithKeycloak(): Promise<void> {
   // initAuth() skips Keycloak entirely while a Google session is live, so a
-  // session that expires with the tab open can leave keycloak-js uninitialised
+  // session that expires with the tab open can leave keycloak-js uninitialized
   // — and login() throws in that state.
   if (!keycloak.didInitialize) {
     await keycloak.init({ checkLoginIframe: false }).catch(() => {});

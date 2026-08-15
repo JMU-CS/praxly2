@@ -77,7 +77,7 @@ export function AccountNav({ section, onSelect }: NavProps) {
               aria-current={section === id ? 'page' : undefined}
               className={`flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors ${
                 disabled
-                  ? 'cursor-not-allowed text-slate-600'
+                  ? 'cursor-not-allowed text-muted'
                   : section === id
                     ? 'bg-indigo-500/10 font-medium text-indigo-300'
                     : 'text-slate-300 hover:bg-slate-800'
@@ -105,7 +105,7 @@ export function AccountNavMobile({ section, onSelect }: NavProps) {
           title={disabled ? disabledNote : undefined}
           className={`whitespace-nowrap rounded-full border px-4 py-1.5 text-sm ${
             disabled
-              ? 'cursor-not-allowed border-slate-800 text-slate-600'
+              ? 'cursor-not-allowed border-slate-800 text-muted'
               : section === id
                 ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300'
                 : 'border-slate-700 text-slate-300'

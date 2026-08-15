@@ -47,14 +47,14 @@ export function EmbedOutput({
           </div>
         )}
         {output.length === 0 && !error ? (
-          <div className="text-slate-500 italic">
+          <div className="text-muted italic">
             {isDebugging ? 'No output yet — keep stepping…' : 'Run code to see output...'}
           </div>
         ) : (
           output.map((line, idx) => (
             <div key={idx} className="flex gap-4 border-b border-slate-900/40 last:border-0 py-0.5">
               <span
-                className="text-slate-500 select-none w-6 text-right flex-shrink-0"
+                className="text-muted select-none w-6 text-right flex-shrink-0"
                 aria-hidden="true"
               >
                 {idx + 1}

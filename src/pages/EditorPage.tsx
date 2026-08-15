@@ -2,7 +2,7 @@
  * The full Praxly editor: a source pane plus any number of live translation
  * panes, a console, memory diagrams, and the AI assistant.
  *
- * This file is composition only. The behaviour lives in focused hooks —
+ * This file is composition only. The behavior lives in focused hooks —
  * `useEditorExecution` (parse/run/debug), `useTranslationPanels` (which panes
  * are open), `useEditorLayout` (how big everything is), `useMemDiaPanes`,
  * `useEditorSession` (persistence) — and the panes themselves live in
@@ -59,6 +59,7 @@ export default function EditorPage() {
   const [pendingLangSwitch, setPendingLangSwitch] = useState<SupportedLang | null>(null);
   const [pendingExampleId, setPendingExampleId] = useState<string | null>(null);
   const [pendingDemoLoad, setPendingDemoLoad] = useState(false);
+  const [pendingClear, setPendingClear] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
 
   const editorRef = useRef<HTMLDivElement>(null);
@@ -93,6 +94,7 @@ export default function EditorPage() {
       openLangs: panels.panels.map((panel) => panel.lang),
       showAiChat: showAiSidePanel,
       showMemDia,
+      showOutput: layout.outputState === 'open',
     },
     !loadedViaEmbedLink
   );
@@ -176,10 +178,19 @@ export default function EditorPage() {
     loadDemo();
   };
 
-  const handleClear = () => {
+  const clearProgram = () => {
     setCode('');
     exec.setAst(null);
     exec.clearConsole({ resetHasRun: true });
+  };
+
+  const handleClear = () => {
+    // A non-blank editor is about to be discarded — confirm first.
+    if (code.trim()) {
+      setPendingClear(true);
+      return;
+    }
+    clearProgram();
   };
 
   const handleToggleMemDia = () => {
@@ -251,6 +262,12 @@ export default function EditorPage() {
       />
 
       <main id="main-content" className="flex-1 flex flex-row overflow-hidden min-h-0">
+        {/* The visible "Praxly" wordmark is a home link in the banner, so the
+            page has no heading of its own. This supplies the h1 — inside the
+            landmark, which is both where the skip link lands and the only way
+            it is itself contained by one. */}
+        <h1 className="sr-only">Praxly code editor</h1>
+
         <AddPanelStrip
           panels={panels.panels}
           showAiSidePanel={showAiSidePanel}
@@ -340,7 +357,6 @@ export default function EditorPage() {
             onSubmitInput={exec.submitInput}
             panelState={layout.outputState}
             onToggle={layout.toggleOutputState}
-            onOpen={layout.openOutput}
           />
         </div>
 
@@ -360,6 +376,7 @@ export default function EditorPage() {
           pendingLangSwitch={pendingLangSwitch}
           pendingExampleId={pendingExampleId}
           pendingDemoLoad={pendingDemoLoad}
+          pendingClear={pendingClear}
           onConfirmLangSwitch={(lang) => {
             applySourceLanguage(lang, '');
             setPendingLangSwitch(null);
@@ -375,6 +392,11 @@ export default function EditorPage() {
             setPendingDemoLoad(false);
           }}
           onCancelDemo={() => setPendingDemoLoad(false)}
+          onConfirmClear={() => {
+            clearProgram();
+            setPendingClear(false);
+          }}
+          onCancelClear={() => setPendingClear(false)}
         />
 
         {/* Highlight-to-chat: floating button near the editor selection. */}

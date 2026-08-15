@@ -54,22 +54,22 @@ function translateFromJS(src: string, target: 'python' | 'java' | 'csp' | 'praxi
 
 describe('JavaScript Lexer', () => {
   describe('Basic tokens', () => {
-    it('tokenises integer literals', () => {
+    it('tokenizes integer literals', () => {
       const toks = jsLex('42');
       expect(toks).toContainEqual(expect.objectContaining({ type: 'NUMBER', value: '42' }));
     });
 
-    it('tokenises float literals', () => {
+    it('tokenizes float literals', () => {
       const toks = jsLex('3.14');
       expect(toks).toContainEqual(expect.objectContaining({ type: 'NUMBER', value: '3.14' }));
     });
 
-    it('tokenises double-quoted strings', () => {
+    it('tokenizes double-quoted strings', () => {
       const toks = jsLex('"hello"');
       expect(toks).toContainEqual(expect.objectContaining({ type: 'STRING', value: 'hello' }));
     });
 
-    it('tokenises single-quoted strings', () => {
+    it('tokenizes single-quoted strings', () => {
       const toks = jsLex("'world'");
       expect(toks).toContainEqual(expect.objectContaining({ type: 'STRING', value: 'world' }));
     });
@@ -80,13 +80,13 @@ describe('JavaScript Lexer', () => {
       expect(toks.some((t) => t.type === 'STRING')).toBe(false);
     });
 
-    it('tokenises boolean literals', () => {
+    it('tokenizes boolean literals', () => {
       const toks = jsLex('true false');
       expect(toks).toContainEqual(expect.objectContaining({ type: 'BOOLEAN', value: 'true' }));
       expect(toks).toContainEqual(expect.objectContaining({ type: 'BOOLEAN', value: 'false' }));
     });
 
-    it('tokenises JS keywords', () => {
+    it('tokenizes JS keywords', () => {
       const toks = jsLex('let const var function class');
       const kws = toks.filter((t) => t.type === 'KEYWORD').map((t) => t.value);
       expect(kws).toContain('let');
@@ -96,7 +96,7 @@ describe('JavaScript Lexer', () => {
       expect(kws).toContain('class');
     });
 
-    it('tokenises identifiers', () => {
+    it('tokenizes identifiers', () => {
       const toks = jsLex('myVar _private $jquery');
       const ids = toks.filter((t) => t.type === 'IDENTIFIER').map((t) => t.value);
       expect(ids).toContain('myVar');
@@ -121,24 +121,24 @@ describe('JavaScript Lexer', () => {
   });
 
   describe('Operators', () => {
-    it('tokenises === as ==', () => {
+    it('tokenizes === as ==', () => {
       const toks = jsLex('a === b');
       const ops = toks.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(ops).toContain('==');
     });
 
-    it('tokenises !== as !=', () => {
+    it('tokenizes !== as !=', () => {
       const toks = jsLex('a !== b');
       const ops = toks.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(ops).toContain('!=');
     });
 
-    it('tokenises ** (exponentiation)', () => {
+    it('tokenizes ** (exponentiation)', () => {
       const toks = jsLex('2 ** 8');
       expect(toks).toContainEqual(expect.objectContaining({ type: 'OPERATOR', value: '**' }));
     });
 
-    it('tokenises compound assignment operators', () => {
+    it('tokenizes compound assignment operators', () => {
       const toks = jsLex('x += 1; y -= 2; z *= 3;');
       const ops = toks.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(ops).toContain('+=');
@@ -146,7 +146,7 @@ describe('JavaScript Lexer', () => {
       expect(ops).toContain('*=');
     });
 
-    it('tokenises increment/decrement', () => {
+    it('tokenizes increment/decrement', () => {
       const toks = jsLex('i++ --j');
       const ops = toks.filter((t) => t.type === 'OPERATOR').map((t) => t.value);
       expect(ops).toContain('++');

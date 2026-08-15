@@ -1,11 +1,11 @@
 ---
 name: add-ui-feature
-description: Add or change UI in the Praxly2 editor, embed player, or account page — panes, toolbar controls, side panels, dialogs, keyboard shortcuts, layout and resize behaviour, and example programs. Use when deciding which hook or component owns a piece of state, or where a new control belongs.
+description: Add or change UI in the Praxly2 editor, embed player, or account page — panes, toolbar controls, side panels, dialogs, keyboard shortcuts, layout and resize behavior, and example programs. Use when deciding which hook or component owns a piece of state, or where a new control belongs.
 ---
 
 # Adding a UI feature to Praxly2
 
-The three pages are **composition only**. Behaviour lives in hooks; layout lives
+The three pages are **composition only**. Behavior lives in hooks; layout lives
 in components. Before adding state to a page, find the hook that already owns
 that concern — nearly always there is one.
 
@@ -17,7 +17,7 @@ src/pages/
   EmbedPage.tsx     ~165 lines — layout switch (?to= present or not)
   AccountPage.tsx   ~ 70 lines — nav + section switch
 
-src/hooks/            ← behaviour
+src/hooks/            ← behavior
   useCodeParsing        source text → AST, AST → translation (+ source map)
   useCodeDebugger       step-through state machine
   useProgramRunner      plain (non-debug) run that can pause on input() and resume
@@ -65,7 +65,7 @@ Despite its name, `LanguageSelector.tsx` exports **no component** — only the
 - **No global store for editor state.** Zustand (`src/store/appStore.ts`) is used
   only for chat sessions, AI prefs, BYOK settings, and the editor bridge — not
   for the program, panels, or layout.
-- **Behaviour goes in a hook, not the page.** If you are about to add a
+- **Behavior goes in a hook, not the page.** If you are about to add a
   `useState` to `EditorPage.tsx`, first check whether an existing hook owns that
   concern. The page holds only `code`, `sourceLang`, the two panel toggles, the
   pending-dialog flags, and `embedCopied`.
@@ -78,7 +78,7 @@ Despite its name, `LanguageSelector.tsx` exports **no component** — only the
 | You want to…                                           | Touch                                                                |
 | ------------------------------------------------------ | -------------------------------------------------------------------- |
 | change how code runs or what the console shows         | `useEditorExecution` / `useEmbedExecution`                           |
-| change run-with-`input()` behaviour in **both** pages  | `useProgramRunner`                                                   |
+| change run-with-`input()` behavior in **both** pages   | `useProgramRunner`                                                   |
 | change pane sizing, resize limits, or the width budget | `useEditorLayout` + `components/editor/layoutConstants.ts`           |
 | add/remove/rearrange translation panels                | `useTranslationPanels` (+ `utils/panelLayout.ts` for the pure rules) |
 | change what survives a reload                          | `useEditorSession`                                                   |
@@ -133,7 +133,7 @@ expose bare background.
 Per-language _demos_ are different: they come from `examples/demo.*` via
 `src/utils/demoPrograms.ts` and are covered by the round-trip tests.
 
-**CodeMirror behaviour** — add a `StateField`/`Extension` in
+**CodeMirror behavior** — add a `StateField`/`Extension` in
 `src/utils/codemirrorConfig.ts`, then include it where the pane builds its
 extensions (`sourceExtensions` in `EditorPage`, `HighlightableCodeMirror` for
 read-only panes). Debug highlighting already works via `highlightedLinesField` +
@@ -180,7 +180,7 @@ asserting into `src/utils/` so it can be unit-tested without rendering.
 
 ## Checklist
 
-- [ ] Behaviour landed in a hook (or an existing one), not inline in the page
+- [ ] Behavior landed in a hook (or an existing one), not inline in the page
 - [ ] Pure logic extracted to `src/utils/` where it could be unit-tested
 - [ ] No new global store for editor state
 - [ ] Tailwind only; matches the dark theme and neighbouring focus rings

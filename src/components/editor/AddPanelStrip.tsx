@@ -14,15 +14,7 @@ interface AddPanelStripProps {
   onToggleMemDia: () => void;
 }
 
-const PANEL_LANGS: SupportedLang[] = [
-  'ast',
-  'blocks',
-  'csp',
-  'java',
-  'javascript',
-  'praxis',
-  'python',
-];
+const PANEL_LANGS: SupportedLang[] = ['blocks', 'csp', 'java', 'javascript', 'praxis', 'python'];
 
 const toggleButtonClasses = (active: boolean) =>
   `p-3 rounded-xl transition-all shadow-lg active:scale-90 border ${
@@ -55,7 +47,7 @@ export function AddPanelStrip({
             className={toggleButtonClasses(isOpen)}
             title={label}
           >
-            {lang === 'ast' ? <FileJson size={24} /> : <LanguageLogo lang={lang} size={24} />}
+            <LanguageLogo lang={lang} size={24} />
           </button>
         );
       })}
@@ -70,6 +62,17 @@ export function AddPanelStrip({
         title="AI Assistant"
       >
         <Bot size={24} />
+      </button>
+
+      {/* AST — a read-only rendering of the parse tree, not a source language,
+          so it sits with the tools rather than in PANEL_LANGS above. */}
+      <button
+        onClick={() => onTogglePanel('ast')}
+        aria-pressed={panels.some((panel) => panel.lang === 'ast')}
+        className={toggleButtonClasses(panels.some((panel) => panel.lang === 'ast'))}
+        title={`${LANG_LABELS.ast} (AST)`}
+      >
+        <FileJson size={24} />
       </button>
 
       {/* Memory Diagram — shows live variable state alongside each pane.

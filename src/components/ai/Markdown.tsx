@@ -35,14 +35,14 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   return (
     <div className="my-2 overflow-hidden rounded-md border border-slate-700">
       <div className="flex items-center justify-between border-b border-slate-700 bg-slate-950/80 px-2.5 py-1">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
           {language || 'code'}
         </span>
         {openCode && code.trim().length > 0 && (
           <button
             onClick={() => openCode(stripLeadingLineNumbers(code), language)}
             title="Open this code in the editor (replaces what's there)"
-            className="flex cursor-pointer items-center gap-1 text-[10px] font-semibold text-slate-400 transition-colors hover:text-indigo-300"
+            className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-400 transition-colors hover:text-indigo-300"
           >
             <SquareArrowOutUpRight size={11} />
             Open in editor
@@ -91,7 +91,7 @@ export function Markdown({ text }: { text: string }) {
             <h3 className="text-sm font-semibold text-slate-100">{children}</h3>
           ),
           h3: ({ children }) => (
-            <h4 className="text-[13px] font-semibold text-slate-100">{children}</h4>
+            <h4 className="text-xs font-semibold text-slate-100">{children}</h4>
           ),
           table: ({ children }) => (
             <div className="overflow-x-auto">

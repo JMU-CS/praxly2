@@ -293,7 +293,7 @@ export function AiSidePanel({
       />
 
       <div className="h-10 px-3 flex items-center justify-between border-b border-slate-800 bg-slate-900/80 shrink-0">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-300">
+        <span className="text-xs font-bold uppercase tracking-widest text-indigo-300">
           AI Assistant
         </span>
         <div className="flex items-center gap-0.5">
@@ -319,7 +319,7 @@ export function AiSidePanel({
               <UserCircle size={18} />
             </Link>
           )}
-          <button onClick={onClose} className={iconBtn} title="Close AI panel">
+          <button onClick={onClose} className={iconBtn} title="Close AI Assistant">
             <X size={18} />
           </button>
         </div>

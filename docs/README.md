@@ -139,7 +139,7 @@ src/
 │       ├── layoutConstants.ts   # Pixel budgets for every pane
 │       └── types.ts             # The Panel type
 │─────────────────────────────────────────────────────────────
-├── hooks/                       # All page behaviour lives here
+├── hooks/                       # All page behavior lives here
 │   ├── useCodeParsing.ts        # Source text → AST → translation + source map
 │   ├── useCodeDebugger.ts       # Step-through debug state machine
 │   ├── useProgramRunner.ts      # Plain run that pauses on input() and resumes

@@ -58,9 +58,9 @@ export function HomeSection({
                 disabled ? 'text-slate-400' : 'text-slate-100'
               }`}
             >
-              <Icon size={16} className={disabled ? 'text-slate-500' : 'text-indigo-400'} />
+              <Icon size={16} className={disabled ? 'text-muted' : 'text-indigo-400'} />
               {label}
-              {disabled && <Lock size={12} className="text-slate-500" aria-hidden="true" />}
+              {disabled && <Lock size={12} className="text-muted" aria-hidden="true" />}
             </div>
             <p className="mt-2 text-sm break-all text-slate-400">
               {disabled ? disabledNote : (detailFor(id) ?? blurb)}

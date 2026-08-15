@@ -472,7 +472,7 @@ emitters — `tsc` will list the ones you miss.
 
 **Precedence constants** (`Member: 18` down to `Sequence: 1`) live in the same
 file; pass them as `parentPrecedence` so `generateExpression` knows when to
-parenthesise.
+parenthesize.
 
 ### Example: Python Emitter
 

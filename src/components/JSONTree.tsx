@@ -4,20 +4,20 @@
  */
 
 export const JSONTree = ({ data, level = 0 }: { data: any; level?: number }) => {
-  if (data === null) return <span className="text-slate-500">null</span>;
-  if (data === undefined) return <span className="text-slate-500">undefined</span>;
+  if (data === null) return <span className="text-muted">null</span>;
+  if (data === undefined) return <span className="text-muted">undefined</span>;
 
   if (Array.isArray(data)) {
-    if (data.length === 0) return <span className="text-slate-500">[]</span>;
+    if (data.length === 0) return <span className="text-muted">[]</span>;
     return (
       <div className="ml-2">
-        <span className="text-slate-500">{'['}</span>
+        <span className="text-muted">{'['}</span>
         {data.map((item, i) => (
           <div key={i} className="ml-2 border-l border-slate-700 pl-2 my-1">
             <JSONTree data={item} level={level + 1} />
           </div>
         ))}
-        <span className="text-slate-500">{']'}</span>
+        <span className="text-muted">{']'}</span>
       </div>
     );
   }

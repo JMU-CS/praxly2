@@ -33,7 +33,7 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
       </div>
       <div className="space-y-4 p-6 max-w-md">
         <div>
-          <label htmlFor="byok-provider" className="mb-1 block text-xs font-medium text-slate-500">
+          <label htmlFor="byok-provider" className="mb-1 block text-xs font-medium text-muted">
             Model
           </label>
           <select
@@ -53,7 +53,7 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
         {draft.needsKey && (
           <>
             <div>
-              <label htmlFor="byok-key" className="mb-1 block text-xs font-medium text-slate-500">
+              <label htmlFor="byok-key" className="mb-1 block text-xs font-medium text-muted">
                 API key
               </label>
               <div className="relative">
@@ -75,7 +75,7 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
                 </button>
               </div>
               {draft.hint && (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-muted">
                   Get a key at{' '}
                   <a
                     href={`https://${draft.hint}`}
@@ -90,8 +90,8 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
             </div>
 
             <div>
-              <label htmlFor="byok-model" className="mb-1 block text-xs font-medium text-slate-500">
-                Model name <span className="font-normal text-slate-500">(optional)</span>
+              <label htmlFor="byok-model" className="mb-1 block text-xs font-medium text-muted">
+                Model name <span className="font-normal text-muted">(optional)</span>
               </label>
               <input
                 id="byok-model"
@@ -104,7 +104,7 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
                 className={inputCls}
               />
               {draft.docs && (
-                <p className="mt-1 text-xs text-slate-500 break-words">
+                <p className="mt-1 text-xs text-muted break-words">
                   See models at{' '}
                   <a
                     href={`https://${draft.docs}`}
