@@ -11,6 +11,7 @@ import { streamAssistant, type SimpleMessage, type LlmPanel, type TurnIds } from
 import { useAiPrefsStore, type AiUseCase } from '../../store/appStore';
 import { UserMessage, AssistantMessage, MessageSync } from './MessageComponents';
 import { threadMessageText } from './threadMessages';
+import { useModelLabel } from './byok';
 
 const USE_CASES: Array<{ value: AiUseCase; label: string; title: string }> = [
   { value: 'auto', label: 'Auto', title: 'Let the AI figure out what you need' },
@@ -66,9 +67,24 @@ export function ChatThread({
   sessionIdRef.current = chat.sessionId;
   const parentMessageIdRef = useRef(chat.parentMessageId);
   parentMessageIdRef.current = chat.parentMessageId;
+  // Read at run time, so a reply is labeled with the model that answered it
+  // rather than whatever is selected later.
+  const modelLabel = useModelLabel();
+  const modelLabelRef = useRef(modelLabel);
+  modelLabelRef.current = modelLabel;
 
   const initialMessages = useRef(
-    chat.messages.map((m) => ({ role: m.role, content: m.text }))
+    chat.messages.map((m) => ({
+      role: m.role,
+      content: m.text,
+      ...(m.model ? { metadata: { custom: { model: m.model } } } : {}),
+      // Restores the error bubble for a turn that failed — without the status
+      // it would come back as an empty gray bubble, or not at all. Assistant
+      // messages only: assistant-ui throws on a user message carrying a status.
+      ...(m.error && m.role === 'assistant'
+        ? { status: { type: 'incomplete', reason: 'error', error: m.error } as const }
+        : {}),
+    }))
   ).current;
 
   const chatId = chat.id;
@@ -81,6 +97,11 @@ export function ChatThread({
         const lastUser = [...messages].reverse().find((m) => m.role === 'user');
         const messageText = lastUser ? threadMessageText(lastUser) : '';
 
+        // Which model to credit under the bubble. The locally configured label
+        // covers the stream; the backend reports the model id it actually
+        // called with its 'complete' event, which lands after the last token.
+        let model = modelLabelRef.current;
+
         let last = '';
         for await (const text of streamAssistant({
           message: messageText,
@@ -90,15 +111,19 @@ export function ChatThread({
           sessionId: sessionIdRef.current,
           parentMessageId: parentMessageIdRef.current,
           onSessionId: (id) => onSessionId(chatId, id),
-          onComplete: (ids) => onTurnComplete(chatId, ids),
+          onComplete: (ids) => {
+            if (ids.model) model = ids.model;
+            onTurnComplete(chatId, ids);
+          },
         })) {
           last = text;
-          yield { content: [{ type: 'text', text }] };
+          yield { content: [{ type: 'text', text }], metadata: { custom: { model } } };
         }
 
-        if (last.trim().length === 0) {
-          yield { content: [{ type: 'text', text: '(No response — please try asking again.)' }] };
-        }
+        // One last yield so the reported model replaces the local label. Each
+        // yield carries the whole reply, so repeating it changes nothing else.
+        const finalText = last.trim() ? last : '(No response — please try asking again.)';
+        yield { content: [{ type: 'text', text: finalText }], metadata: { custom: { model } } };
       },
     }),
     [chatId, onSessionId, onTurnComplete]

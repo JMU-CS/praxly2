@@ -74,6 +74,26 @@ export function providerOptions(): typeof ALL_PROVIDER_OPTIONS {
     : ALL_PROVIDER_OPTIONS.filter((o) => o.value !== '');
 }
 
+/** Provider names as they read in prose, without the picker's parenthetical. */
+const PROVIDER_NAMES: Record<ByokProvider, string> = {
+  gemini: 'Gemini',
+  anthropic: 'Claude',
+  openai: 'ChatGPT',
+};
+
+/**
+ * How the configured model should read under a chat bubble.
+ *
+ * `model` is an optional override — when it is blank the backend picks the
+ * model for the provider, so the provider name is the most we can honestly
+ * say.
+ */
+export function useModelLabel(): string {
+  const { provider, apiKey, model } = useByokStore();
+  if (!provider || !apiKey.trim()) return 'School-provided model';
+  return model.trim() || `${PROVIDER_NAMES[provider]} default model`;
+}
+
 /**
  * Whether the panel has a usable model configuration for *this* account.
  *

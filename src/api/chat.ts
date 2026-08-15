@@ -11,7 +11,15 @@ export interface SessionMeta {
 }
 
 export interface SessionDetail extends SessionMeta {
-  messages: Array<{ id: string; role: 'user' | 'assistant'; content: string }>;
+  messages: Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    /** Model that wrote an assistant reply; null on user rows and older ones. */
+    model?: string | null;
+    /** Set on a row recording a failed turn — the sentence to show instead. */
+    error?: string | null;
+  }>;
 }
 
 /** Carries the status code so callers can tell "gone" from "try again later". */
@@ -55,5 +63,10 @@ export async function renameChatApi(id: string, title: string): Promise<void> {
 export function toSimpleMessages(messages: SessionDetail['messages']): SimpleMessage[] {
   return messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({ role: m.role, text: m.content }));
+    .map((m) => ({
+      role: m.role,
+      text: m.content,
+      ...(m.model ? { model: m.model } : {}),
+      ...(m.error ? { error: m.error } : {}),
+    }));
 }

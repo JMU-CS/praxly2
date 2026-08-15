@@ -15,6 +15,17 @@ import { languageSpecFor } from '../components/ai/languageSpecs';
 export interface SimpleMessage {
   role: 'user' | 'assistant';
   text: string;
+  /**
+   * Model that produced this assistant reply. The backend reports the model id
+   * it actually called; until that arrives (mid-stream) it is the locally
+   * configured label. Undefined on user messages.
+   */
+  model?: string;
+  /**
+   * Set when this turn failed: the message shown in place of a reply. Kept so
+   * a failure is still in the transcript after a reload.
+   */
+  error?: string;
 }
 
 /** One open editor panel: a language and its current code. */
@@ -28,6 +39,8 @@ export interface TurnIds {
   sessionId: string;
   userMessageId: string;
   assistantMessageId: string;
+  /** The model id the backend actually called, when it reported one. */
+  model?: string;
 }
 
 export interface StreamOptions {
@@ -169,6 +182,7 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
         sessionId?: string;
         userMessageId?: string;
         assistantMessageId?: string;
+        model?: string;
       };
       try {
         parsed = JSON.parse(data);
@@ -184,6 +198,7 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
           sessionId: parsed.sessionId ?? sessionId ?? '',
           userMessageId: parsed.userMessageId ?? '',
           assistantMessageId: parsed.assistantMessageId,
+          ...(parsed.model ? { model: parsed.model } : {}),
         });
       } else if (parsed.type === 'error') {
         throw new Error(

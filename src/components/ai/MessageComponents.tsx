@@ -3,7 +3,12 @@ import { TriangleAlert } from 'lucide-react';
 import { MessagePrimitive, useMessage, useThread } from '@assistant-ui/react';
 import type { SimpleMessage } from '../../api/llm';
 import { Markdown } from './Markdown';
-import { threadMessageText, toSimpleMessages } from './threadMessages';
+import {
+  threadMessageError,
+  threadMessageModel,
+  threadMessageText,
+  toSimpleMessages,
+} from './threadMessages';
 
 export const UserMessage = () => (
   <MessagePrimitive.Root className="flex justify-end">
@@ -23,24 +28,28 @@ export const TypingDots = () => (
 
 /** Message text for a run that ended in an error, or null if it didn't. */
 function useErrorText(): string | null {
-  return useMessage((m) => {
-    if (m.status?.type !== 'incomplete' || m.status.reason !== 'error') return null;
-    const { error } = m.status;
-    if (typeof error === 'string' && error.trim()) return error.trim();
-    return 'Something went wrong talking to the AI service. Please try again.';
-  });
+  return useMessage((m) => threadMessageError(m));
 }
+
+/**
+ * Which model answered, shown under the bubble so a mid-conversation model
+ * change is visible. Absent on replies stored before the backend recorded the
+ * model — no label is better than the wrong one.
+ */
+const ModelLabel = ({ model }: { model: string | undefined }) =>
+  model ? <span className="mt-0.5 px-1 text-xs text-muted">{model}</span> : null;
 
 export const AssistantMessage = () => {
   const isRunning = useMessage((m) => m.status?.type === 'running');
   const text = useMessage((m) => threadMessageText(m));
+  const model = useMessage((m) => threadMessageModel(m));
   const errorText = useErrorText();
 
   // A failed turn used to render as an empty gray bubble — the reply never
   // arrived, so there was nothing to show. Say what went wrong instead.
   if (errorText) {
     return (
-      <MessagePrimitive.Root className="flex justify-start">
+      <MessagePrimitive.Root className="flex flex-col items-start">
         <div className="min-w-0 max-w-[85%] rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm leading-relaxed text-red-200">
           {/* Anything that streamed before the failure is still worth keeping. */}
           {text.trim() && (
@@ -58,15 +67,17 @@ export const AssistantMessage = () => {
             </span>
           </div>
         </div>
+        <ModelLabel model={model} />
       </MessagePrimitive.Root>
     );
   }
 
   return (
-    <MessagePrimitive.Root className="flex justify-start">
+    <MessagePrimitive.Root className="flex flex-col items-start">
       <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed bg-slate-800 text-slate-200 border border-slate-700">
         {isRunning && !text.trim() ? <TypingDots /> : <Markdown text={text} />}
       </div>
+      <ModelLabel model={model} />
     </MessagePrimitive.Root>
   );
 };
