@@ -45,6 +45,10 @@ interface EditorHeaderProps {
 const focusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900';
 
+/** Shared look for the secondary controls (Demo, Examples, Settings, Share). */
+const secondaryBtn =
+  'flex items-center gap-2 px-3 py-[5px] text-xs font-semibold tracking-wide text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors';
+
 export function EditorHeader({
   embedCopied,
   showExamplesMenu,
@@ -75,6 +79,7 @@ export function EditorHeader({
         <Link
           to="https://praxly.cs.jmu.edu/"
           aria-label="Go to Praxly home"
+          title="Go to the Praxly home page"
           className={`p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors ${focusRing}`}
         >
           <Home size={20} aria-hidden="true" />
@@ -100,7 +105,8 @@ export function EditorHeader({
           onClick={onLoadDemo}
           disabled={!demoAvailable}
           aria-label="Load demo program for the current source language"
-          className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${focusRing}`}
+          title="Load a demo program in the current language"
+          className={`${secondaryBtn} disabled:opacity-40 disabled:cursor-not-allowed ${focusRing}`}
         >
           <FileCode size={14} aria-hidden="true" /> Demo
         </button>
@@ -112,7 +118,8 @@ export function EditorHeader({
             aria-expanded={showExamplesMenu}
             aria-haspopup="listbox"
             aria-controls="examples-listbox"
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors ${focusRing}`}
+            title="Browse example programs"
+            className={`${secondaryBtn} ${focusRing}`}
           >
             <BookOpen size={14} aria-hidden="true" /> Examples
           </button>
@@ -164,23 +171,6 @@ export function EditorHeader({
           </button>
         )}
 
-        <button
-          onClick={onShare}
-          aria-label={embedCopied ? 'Link copied to clipboard' : 'Share embed link'}
-          className={`flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${focusRing} ${
-            embedCopied
-              ? 'bg-green-600/20 text-green-400'
-              : 'text-slate-200 bg-slate-700 hover:bg-slate-600'
-          }`}
-        >
-          {embedCopied ? (
-            <Check size={14} aria-hidden="true" />
-          ) : (
-            <Share2 size={14} aria-hidden="true" />
-          )}
-          {embedCopied ? 'Copied!' : 'Share'}
-        </button>
-
         {/* Settings menu */}
         <div className="relative settings-dropdown">
           <button
@@ -188,7 +178,8 @@ export function EditorHeader({
             aria-expanded={showSettingsMenu}
             aria-haspopup="dialog"
             aria-controls="settings-dialog"
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors ${focusRing}`}
+            title="Change editor settings"
+            className={`${secondaryBtn} ${focusRing}`}
           >
             <Settings size={14} aria-hidden="true" /> Settings
           </button>
@@ -236,12 +227,29 @@ export function EditorHeader({
           )}
         </div>
 
+        <button
+          onClick={onShare}
+          aria-label={embedCopied ? 'Link copied to clipboard' : 'Share embed link'}
+          title="Create link for sharing"
+          className={`${secondaryBtn} ${focusRing} ${
+            embedCopied ? 'bg-green-600/20 text-green-400 hover:bg-green-600/20' : ''
+          }`}
+        >
+          {embedCopied ? (
+            <Check size={14} aria-hidden="true" />
+          ) : (
+            <Share2 size={14} aria-hidden="true" />
+          )}
+          {embedCopied ? 'Copied!' : 'Share'}
+        </button>
+
         {/* Debug / Run controls */}
         {!isDebugging ? (
           <>
             <button
               onClick={onDebugStart}
               aria-label="Start debugger (Shift+F5)"
+              title="Run one step at a time"
               className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 rounded-md transition-all ${focusRing}`}
             >
               <Bug size={16} aria-hidden="true" /> Debug
@@ -249,9 +257,10 @@ export function EditorHeader({
             <button
               onClick={onRun}
               aria-label="Run code (F5)"
-              className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-green-700 hover:bg-green-800 rounded-md shadow-lg shadow-green-900/20 transition-all hover:translate-y-[-1px] active:translate-y-[1px] ${focusRing}`}
+              title="Run the entire program"
+              className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-green-700 hover:bg-green-600 rounded-md shadow-lg shadow-green-900/20 transition-all ${focusRing}`}
             >
-              <Play size={16} fill="currentColor" aria-hidden="true" /> Run Code
+              <Play size={16} fill="currentColor" aria-hidden="true" /> Run
             </button>
           </>
         ) : (
@@ -261,14 +270,14 @@ export function EditorHeader({
               disabled={isDebugComplete}
               aria-label="Step through code (F10)"
               aria-disabled={isDebugComplete}
-              className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-all disabled:bg-slate-600 disabled:cursor-not-allowed disabled:hover:bg-slate-600 disabled:opacity-50 ${focusRing}`}
+              className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-all disabled:bg-slate-600 disabled:cursor-not-allowed disabled:hover:bg-slate-600 disabled:opacity-50 ${focusRing}`}
             >
               <FastForward size={16} fill="currentColor" aria-hidden="true" /> Step
             </button>
             <button
               onClick={onDebugStop}
               aria-label="Stop debugger (Shift+F5)"
-              className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-md transition-all ${focusRing}`}
+              className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-white bg-red-600 hover:bg-red-500 rounded-md transition-all ${focusRing}`}
             >
               <Square size={16} fill="currentColor" aria-hidden="true" /> Stop
             </button>

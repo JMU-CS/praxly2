@@ -328,10 +328,10 @@ async function setEditorCode(driver: WebDriver, code: string): Promise<void> {
 }
 
 /**
- * Click the "Run Code" button in the header toolbar.
+ * Click the "Run" button in the header toolbar.
  */
 async function clickRun(driver: WebDriver): Promise<void> {
-  const runBtn = await driver.findElement(By.xpath("//button[contains(., 'Run Code')]"));
+  const runBtn = await driver.findElement(By.css('button[aria-label="Run code (F5)"]'));
   await runBtn.click();
 }
 
