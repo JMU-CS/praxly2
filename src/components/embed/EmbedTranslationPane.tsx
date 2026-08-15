@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 import type { Program } from '../../language/ast';
-import type { SupportedLang } from '../LanguageSelector';
+import { LANG_LABELS, type SupportedLang } from '../LanguageSelector';
 import { HighlightableCodeMirror } from '../HighlightableCodeMirror';
 import { JSONTree } from '../JSONTree';
 
@@ -47,10 +47,10 @@ export function EmbedTranslationPane({
                 onClick={onToggleMenu}
                 aria-expanded={menuOpen}
                 aria-haspopup="listbox"
-                aria-label={`Translation language: ${showAst ? 'AST' : targetLang}. Click to change`}
+                aria-label={`Translation language: ${showAst ? LANG_LABELS.ast : targetLang}. Click to change`}
                 className="flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors text-xs font-bold uppercase"
               >
-                {showAst ? 'AST' : targetLang}
+                {showAst ? LANG_LABELS.ast : targetLang}
                 <ChevronDown size={12} aria-hidden="true" />
               </button>
               {menuOpen && (
@@ -81,7 +81,7 @@ export function EmbedTranslationPane({
                       showAst ? 'bg-indigo-600 text-white' : ''
                     }`}
                   >
-                    Show AST
+                    Show {LANG_LABELS.ast}
                   </button>
                 </div>
               )}

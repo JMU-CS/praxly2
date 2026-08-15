@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import type { Program } from '../../language/ast';
+import { LANG_LABELS } from '../LanguageSelector';
 import { JSONTree } from '../JSONTree';
 import { HighlightableCodeMirror } from '../HighlightableCodeMirror';
 import { MemDia } from './MemDia';
@@ -100,7 +101,8 @@ export function TranslationPaneItem({
               <ArrowRightLeft size={14} className="text-indigo-400" aria-hidden="true" />
             )}
             <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-              {panel.lang} View
+              {/* "Parse Tree View" is redundant — the tree is the view. */}
+              {panel.lang === 'ast' ? LANG_LABELS.ast : `${LANG_LABELS[panel.lang]} View`}
             </span>
           </div>
           <div className="flex items-center gap-1">

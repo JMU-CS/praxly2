@@ -77,7 +77,7 @@ export function SourcePane({
               aria-haspopup="listbox"
               className={`flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors uppercase ${focusRing}`}
             >
-              {sourceLang === 'ast' ? 'AST VIEW' : sourceLang}
+              {sourceLang === 'ast' ? LANG_LABELS.ast : sourceLang}
               <ChevronDown size={12} aria-hidden="true" />
             </button>
             {showSourceLangDropdown && (
