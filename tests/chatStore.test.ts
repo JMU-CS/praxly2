@@ -118,3 +118,43 @@ describe('chat store account scoping', () => {
     expect(useChatStore.getState().owner).toBeNull();
   });
 });
+
+describe('clearAccountData', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('removes every account-scoped key and resets the stores', async () => {
+    const { useChatStore, useByokStore, useAiPrefsStore, useAiConsentStore, clearAccountData } =
+      await import('../src/store/appStore');
+
+    useChatStore.getState().claimFor('google:bob');
+    useChatStore.getState().setSessions([meta('b1')]);
+    useByokStore.getState().setByok({ provider: 'openai', apiKey: 'sk-secret', model: 'gpt-x' });
+    useAiPrefsStore.getState().setRole('teacher');
+    useAiPrefsStore.getState().setLevel('advanced');
+    useAiPrefsStore.getState().setUseCase('practice');
+    useAiConsentStore.getState().accept();
+
+    for (const key of ['praxly-chat-store', 'praxly-byok', 'praxly-ai-prefs', 'praxly-ai-consent'])
+      expect(localStorage.getItem(key)).not.toBeNull();
+
+    clearAccountData();
+
+    // The keys are gone outright, not left behind holding an emptied record.
+    for (const key of ['praxly-chat-store', 'praxly-byok', 'praxly-ai-prefs', 'praxly-ai-consent'])
+      expect(localStorage.getItem(key)).toBeNull();
+
+    // And in memory the stores read as a first-visit browser would.
+    expect(useChatStore.getState().sessions).toEqual([]);
+    expect(useChatStore.getState().owner).toBeNull();
+    expect(useByokStore.getState().apiKey).toBe('');
+    expect(useByokStore.getState().provider).toBeNull();
+    // Unlike the panel's own "clear key", sign-out re-arms the onboarding gate.
+    expect(useByokStore.getState().configured).toBe(false);
+    expect(useAiPrefsStore.getState().role).toBe('student');
+    expect(useAiPrefsStore.getState().level).toBe('novice');
+    expect(useAiPrefsStore.getState().useCase).toBe('auto');
+    expect(useAiConsentStore.getState().accepted).toBe(false);
+  });
+});

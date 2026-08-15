@@ -241,3 +241,28 @@ export const useChatStore = create<ChatStore>()(
     }
   )
 );
+
+/**
+ * Wipes everything that belongs to the signed-in account: chats, the BYOK
+ * credential, the tutor profile, and the AI consent flag.
+ *
+ * Each store is reset in memory *and* its localStorage key removed, so the next
+ * person to sign in on this browser starts from defaults rather than inheriting
+ * a leftover record. Resetting first matters: a `set()` after the key is gone
+ * would write it straight back.
+ *
+ * Not included: `praxly-editor-state` and `praxly-text-size`, which describe the
+ * browser rather than the account, and so survive a sign-out like any other
+ * unsaved scratch work.
+ */
+export function clearAccountData(): void {
+  useChatStore.setState({ sessions: [], messageCache: {}, owner: null });
+  useByokStore.setState({ provider: null, apiKey: '', model: '', configured: false });
+  useAiPrefsStore.setState({ role: 'student', level: 'novice', useCase: 'auto' });
+  useAiConsentStore.setState({ accepted: false });
+
+  useChatStore.persist.clearStorage();
+  useByokStore.persist.clearStorage();
+  useAiPrefsStore.persist.clearStorage();
+  useAiConsentStore.persist.clearStorage();
+}
