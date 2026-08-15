@@ -93,6 +93,7 @@ export default function EditorPage() {
       openLangs: panels.panels.map((panel) => panel.lang),
       showAiChat: showAiSidePanel,
       showMemDia,
+      showOutput: layout.outputState === 'open',
     },
     !loadedViaEmbedLink
   );
@@ -346,7 +347,6 @@ export default function EditorPage() {
             onSubmitInput={exec.submitInput}
             panelState={layout.outputState}
             onToggle={layout.toggleOutputState}
-            onOpen={layout.openOutput}
           />
         </div>
 

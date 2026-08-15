@@ -1,6 +1,7 @@
 /**
- * Saves and restores the editor session (source text, language, and which
- * panels were open) so a reload picks up where the user left off.
+ * Saves and restores the editor session (source text, language, which panels
+ * were open, and whether the console was expanded) so a reload picks up where
+ * the user left off.
  */
 
 import { useEffect } from 'react';
@@ -18,6 +19,8 @@ export type PersistedEditorState = {
   openLangs: SupportedLang[];
   showAiChat: boolean;
   showMemDia: boolean;
+  /** Whether the console was expanded. Absent in sessions saved before this was tracked. */
+  showOutput?: boolean;
 };
 
 /** An embed link (`?code=...`) is an explicit share — it should win over,
@@ -51,7 +54,7 @@ export const restorePanels = (): Panel[] => {
  * it. Skipped for embed links — those are a one-off share, not a session.
  */
 export function usePersistEditorState(state: PersistedEditorState, enabled: boolean): void {
-  const { code, sourceLang, showAiChat, showMemDia } = state;
+  const { code, sourceLang, showAiChat, showMemDia, showOutput } = state;
   // The panel list is rebuilt on every keystroke (source maps refresh with the
   // AST), so key the effect on the languages themselves, not array identity.
   const openLangsKey = state.openLangs.join(',');
@@ -66,10 +69,11 @@ export function usePersistEditorState(state: PersistedEditorState, enabled: bool
         openLangs: openLangsKey ? (openLangsKey.split(',') as SupportedLang[]) : [],
         showAiChat,
         showMemDia,
+        showOutput,
       };
       localStorage.setItem(EDITOR_STATE_KEY, JSON.stringify(next));
     }, 250);
 
     return () => clearTimeout(id);
-  }, [code, sourceLang, openLangsKey, showAiChat, showMemDia, enabled]);
+  }, [code, sourceLang, openLangsKey, showAiChat, showMemDia, showOutput, enabled]);
 }

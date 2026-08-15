@@ -11,7 +11,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, MouseEvent, SetStateAction } from 'react';
 
+import type { OutputPanelState } from '../components/OutputPanel';
 import type { Panel } from '../components/editor/types';
+import { loadEditorState } from './useEditorSession';
 import {
   ADD_STRIP_WIDTH,
   MAX_AI_PANEL_WIDTH,
@@ -59,7 +61,10 @@ export function useEditorLayout({
   const [outputHeight, setOutputHeight] = useState(
     Math.max(176, Math.floor(window.innerHeight * 0.24))
   );
-  const [outputState, setOutputState] = useState<'open' | 'closed'>('open');
+  // Restored from the saved session so a reload keeps the console as the user left it.
+  const [outputState, setOutputState] = useState<OutputPanelState>(() =>
+    loadEditorState()?.showOutput === false ? 'closed' : 'open'
+  );
   const [aiPanelWidth, setAiPanelWidth] = useState(320);
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false);
   const [resizingIdx, setResizingIdx] = useState<ResizeTarget | null>(null);
@@ -300,8 +305,6 @@ export function useEditorLayout({
     setOutputState((prev) => (prev === 'open' ? 'closed' : 'open'));
   }, []);
 
-  const openOutput = useCallback(() => setOutputState('open'), []);
-
   return {
     isMobile,
     /** With no translation panels open the source pane takes the whole row. */
@@ -309,7 +312,6 @@ export function useEditorLayout({
     outputHeight,
     outputState,
     toggleOutputState,
-    openOutput,
     aiPanelWidth,
     isResizingAiPanel,
     startAiResize,

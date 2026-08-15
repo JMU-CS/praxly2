@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useId } from 'react';
-import { Terminal, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Terminal, AlertCircle } from 'lucide-react';
 import { ResizeHandle } from './ResizeHandle';
 import { VariableFrames, formatVariableValue } from './VariableFrames';
 import type { StackFrame } from '../language/debugger';
@@ -22,8 +22,8 @@ interface OutputPanelProps {
   inputPrompt?: string;
   onSubmitInput?: (input: string) => void;
   panelState?: OutputPanelState;
+  /** Clicking anywhere on the header bar opens/closes the panel. */
   onToggle?: () => void;
-  onOpen?: () => void;
 }
 
 const focusRing =
@@ -44,7 +44,6 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
   onSubmitInput,
   panelState = 'open',
   onToggle,
-  onOpen,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -70,24 +69,40 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     }
   };
 
+  // The whole header bar is the toggle, in both states — there is no separate button.
+  const headerBarProps = onToggle
+    ? {
+        onClick: onToggle,
+        role: 'button',
+        tabIndex: 0,
+        'aria-expanded': panelState === 'open',
+        'aria-controls': contentId,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        },
+        className: `cursor-pointer hover:bg-slate-800 transition-colors ${focusRing}`,
+      }
+    : { className: '' };
+
   if (panelState === 'closed') {
+    const { className: toggleClass, ...rest } = headerBarProps;
     return (
       <div
-        className="border-t border-slate-800 flex items-center h-7 px-2 bg-slate-900 shrink-0 cursor-pointer hover:bg-slate-800 transition-colors z-[60] relative"
-        onClick={onOpen}
-        role="button"
-        aria-label="Open Console Output panel"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && onOpen?.()}
+        className={`border-t border-slate-800 flex items-center h-7 px-2 bg-slate-900 shrink-0 z-[60] relative ${toggleClass}`}
+        {...rest}
       >
         <Terminal size={12} className="text-indigo-400 mr-2 shrink-0" aria-hidden="true" />
         <span className="text-xs font-bold uppercase tracking-widest text-muted">
           Console Output
         </span>
-        <ChevronUp size={12} className="text-muted ml-auto" aria-hidden="true" />
       </div>
     );
   }
+
+  const { className: headerToggleClass, ...headerRest } = headerBarProps;
 
   return (
     <section
@@ -101,20 +116,10 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
       )}
 
       <div className="flex-1 flex flex-col border-r border-slate-800 overflow-hidden">
-        <div className="h-8 flex items-center px-2 bg-slate-900 border-b border-slate-800 shrink-0 gap-2">
-          {onToggle && (
-            <button
-              onClick={onToggle}
-              aria-label="Close output panel"
-              aria-expanded={true}
-              aria-controls={contentId}
-              className={`p-1 text-muted hover:text-slate-300 transition-colors rounded ${focusRing}`}
-              title="Close panel"
-            >
-              <ChevronDown size={14} aria-hidden="true" />
-            </button>
-          )}
-
+        <div
+          className={`h-8 flex items-center px-2 bg-slate-900 border-b border-slate-800 shrink-0 gap-2 ${headerToggleClass}`}
+          {...headerRest}
+        >
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <Terminal size={14} className="text-indigo-400 shrink-0" aria-hidden="true" />
             <span className="text-xs font-bold uppercase tracking-widest text-slate-400 shrink-0">
