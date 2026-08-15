@@ -29,7 +29,7 @@ const MIN_SOURCE_WIDTH = 150;
 export default function EmbedPage() {
   const [searchParams] = useSearchParams();
 
-  // Layout mode comes from ?to= — absent or unrecognised means source+output.
+  // Layout mode comes from ?to= — absent or unrecognized means source+output.
   const toParam = searchParams.get('to');
   const isTranslationMode = toParam !== null && VALID_TO_LANGS.includes(toParam);
 

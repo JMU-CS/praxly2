@@ -28,12 +28,12 @@ After any parser, interpreter, or emitter change, run the browser suite too —
 | `tests/<lang>.test.ts`                                                                                                               | Everything specific to one language: lexer, parser, interpreter, and that language's emitter output. One per language (`python`, `java`, `javascript`, `csp`, `praxis`). |
 | `tests/round-trip.test.ts`                                                                                                           | Cross-language fidelity: translates each `examples/demo.*` to every target, re-parses, re-runs, and compares output.                                                     |
 | `tests/examples.test.ts`                                                                                                             | Guards that every `examples/demo.*` still parses, runs without error, and translates to all targets without throwing.                                                    |
-| `tests/control-flow.test.ts`, `blank-lines.test.ts`, `comments.test.ts`, `blocks.test.ts`, `debugger.test.ts`, `placeholder.test.ts` | Cross-cutting behaviour that isn't owned by one language.                                                                                                                |
+| `tests/control-flow.test.ts`, `blank-lines.test.ts`, `comments.test.ts`, `blocks.test.ts`, `debugger.test.ts`, `placeholder.test.ts` | Cross-cutting behavior that isn't owned by one language.                                                                                                                 |
 | `tests/bugfixes.test.ts`                                                                                                             | Regression cases for specific fixed bugs. Add a comment naming the original failure.                                                                                     |
 | `tests/chatStore.test.ts`                                                                                                            | Non-compiler modules (zustand stores, plain utils).                                                                                                                      |
 
 A new _language feature_ goes in `tests/<lang>.test.ts`. A new _AST node_ or
-interpreter behaviour usually needs a case in the relevant language file **and**
+interpreter behavior usually needs a case in the relevant language file **and**
 a demo update so `round-trip.test.ts` covers it in every target.
 
 ## The four APIs you will assert against
@@ -105,7 +105,7 @@ it('runs REPEAT n TIMES', () => {
 ```
 
 Write the source in the syntax the language actually has — check `specs/<lang>.md`
-first. A construct the parser doesn't recognise usually yields an **empty
+first. A construct the parser doesn't recognize usually yields an **empty
 program**, so the test "passes" against `[]` while proving nothing. If an
 interpreter assertion comes back empty, suspect the syntax before the
 interpreter.
@@ -128,7 +128,7 @@ on the same interpreter: translate, re-parse, re-run, compare output. Prefer
 this over eyeballing emitted text when you change an emitter.
 
 ```typescript
-it('CSP → Python preserves behaviour', () => {
+it('CSP → Python preserves behavior', () => {
   const source = 'x <- 5\nDISPLAY(x)';
   const program = new CSPParser(new CSPLexer(source).tokenize()).parse();
   const python = new Translator().translate(program, 'python');
@@ -145,7 +145,7 @@ helper at the top of `tests/debugger.test.ts` for the established shape.
 
 **Hooks and components** — there is no DOM environment configured, so test the
 extracted logic rather than rendering. The refactor deliberately put page
-behaviour in hooks and pure helpers for this reason; the pure ones are directly
+behavior in hooks and pure helpers for this reason; the pure ones are directly
 testable with no setup:
 
 - `src/utils/panelLayout.ts` — `toggleStack`, `reorderPanel`, `swapStacked`, `inSameColumn`
@@ -165,11 +165,11 @@ first — neither is currently a dependency.
 (including the loop/branch boundary); each emitter's output; then add it to the
 language's `examples/demo.*` so round-trip covers all five targets.
 
-**New expression type** — tokenisation; expression-tree shape including
+**New expression type** — tokenization; expression-tree shape including
 precedence against neighbouring operators; evaluated value; one emitter's
-output, with parenthesisation checked.
+output, with parenthesization checked.
 
-**New built-in** — parser recognises it as a `CallExpression`; interpreter
+**New built-in** — parser recognizes it as a `CallExpression`; interpreter
 returns the right value (and mutates in place where the spec says so); each
 emitter maps it to the target's equivalent. Cross-language differences belong in
 `specs/stdlib.md`.

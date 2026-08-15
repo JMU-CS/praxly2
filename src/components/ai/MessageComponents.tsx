@@ -36,7 +36,7 @@ export const AssistantMessage = () => {
   const text = useMessage((m) => threadMessageText(m));
   const errorText = useErrorText();
 
-  // A failed turn used to render as an empty grey bubble — the reply never
+  // A failed turn used to render as an empty gray bubble — the reply never
   // arrived, so there was nothing to show. Say what went wrong instead.
   if (errorText) {
     return (

@@ -25,7 +25,7 @@ The **Visitor pattern** (`src/language/visitor.ts`) is the spine. Every emitter 
 1. **One Universal AST** — parsers produce only nodes defined in `ast.ts`. Never add language-specific node types.
 2. **All AST nodes require `id: generateId()`** — the debugger and source maps depend on unique IDs.
 3. **TypeScript strict mode** — `noUnusedLocals` and `noUnusedParameters` are on. Every new `visit*` method must be listed as `abstract` in `ASTVisitor`.
-4. **No global store for editor state** — pages are composition only; behaviour lives in hooks under `src/hooks/`, pure transforms in `src/utils/`. Zustand (`src/store/appStore.ts`) covers only chat, AI prefs, BYOK, and the editor bridge.
+4. **No global store for editor state** — pages are composition only; behavior lives in hooks under `src/hooks/`, pure transforms in `src/utils/`. Zustand (`src/store/appStore.ts`) covers only chat, AI prefs, BYOK, and the editor bridge.
 5. **When adding a new `Statement` node type**: update `ast.ts`, `visitor.ts` (abstract method + dispatch case), all 4+ emitters, `interpreter.ts`, and `translator.ts` (recurse into body in `analyzeBlock`).
 
 ## Key files to read first

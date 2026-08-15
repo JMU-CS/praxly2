@@ -31,7 +31,7 @@ interface ModalOptions {
   /** When set (even to ''), an input is shown seeded with this value. */
   input?: string;
   cancellable?: boolean;
-  /** Resolves with the input value (or '' for plain dialogs); null = cancelled. */
+  /** Resolves with the input value (or '' for plain dialogs); null = canceled. */
   onDone: (result: string | null) => void;
 }
 

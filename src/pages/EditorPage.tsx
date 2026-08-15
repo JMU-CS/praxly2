@@ -2,7 +2,7 @@
  * The full Praxly editor: a source pane plus any number of live translation
  * panes, a console, memory diagrams, and the AI assistant.
  *
- * This file is composition only. The behaviour lives in focused hooks —
+ * This file is composition only. The behavior lives in focused hooks —
  * `useEditorExecution` (parse/run/debug), `useTranslationPanels` (which panes
  * are open), `useEditorLayout` (how big everything is), `useMemDiaPanes`,
  * `useEditorSession` (persistence) — and the panes themselves live in

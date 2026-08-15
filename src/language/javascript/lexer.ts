@@ -223,7 +223,7 @@ export class JavaScriptLexer {
         if (this.input.startsWith(op, this.pos)) {
           const start = this.pos;
           this.pos += op.length;
-          // Normalise strict equality to regular equality for our AST
+          // Normalize strict equality to regular equality for our AST
           const normalized = op === '===' ? '==' : op === '!==' ? '!=' : op;
           tokens.push({ type: 'OPERATOR', value: normalized, start });
           matched = true;

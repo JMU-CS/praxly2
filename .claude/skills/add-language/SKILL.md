@@ -11,7 +11,7 @@ lose time, because missing one fails silently in a different layer.
 
 Read [`specs/`](../../../specs/) for the language you are adding **before**
 writing the lexer — it is the authority on what the language accepts, and it
-must be updated in the same change if you alter behaviour.
+must be updated in the same change if you alter behavior.
 [`docs/ADDING_A_LANGUAGE.md`](../../../docs/ADDING_A_LANGUAGE.md) has longer
 code examples; this skill is the integration path.
 
@@ -58,7 +58,7 @@ lexer/parser/emitter and bypasses the emitter dispatch entirely.
 - Recursive descent, lowest precedence at the top of the call tree:
   `assignment → logicalOr → logicalAnd → equality → comparison → term → factor
 → unary → postfix → primary`.
-- Normalise operators to Universal AST spelling: logical operators become
+- Normalize operators to Universal AST spelling: logical operators become
   `'and'`/`'or'`/`'not'`; not-equal becomes `'!='`. Emitters translate back out.
 - Use `synchronize()` to skip to the next statement after a parse error.
 

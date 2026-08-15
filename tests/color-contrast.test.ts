@@ -1,5 +1,5 @@
 /**
- * Guards the UI colour contrast floor.
+ * Guards the UI color contrast floor.
  *
  * Sibling of text-size.test.ts, and the same shape: the value lives in the
  * `@theme` block in src/index.css, and this test keeps the call sites from
@@ -71,7 +71,7 @@ function oklchToLinearRgb(L: number, C: number, hDeg: number): [number, number, 
 /** WCAG relative luminance of an `oklch(L% C H)` string. */
 function luminance(oklch: string): number {
   const m = oklch.match(/oklch\(\s*([\d.]+)%\s+([\d.]+)\s+([\d.]+)\s*\)/);
-  if (!m) throw new Error(`not an oklch() colour: ${oklch}`);
+  if (!m) throw new Error(`not an oklch() color: ${oklch}`);
 
   const [r, g, b] = oklchToLinearRgb(Number(m[1]) / 100, Number(m[2]), Number(m[3])).map((c) =>
     Math.min(1, Math.max(0, c))
@@ -103,7 +103,7 @@ function palette(): Record<string, string> {
   return out;
 }
 
-describe('UI colour contrast', () => {
+describe('UI color contrast', () => {
   it('uses no slate step too dark for body text', () => {
     const offenders: string[] = [];
     const pattern = new RegExp(`\\b(${BANNED.join('|')})\\b`, 'g');
