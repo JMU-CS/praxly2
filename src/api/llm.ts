@@ -76,8 +76,15 @@ function displayableError(raw: string): string {
   return flat.length > MAX_ERROR_CHARS ? `${flat.slice(0, MAX_ERROR_CHARS - 1)}…` : flat;
 }
 
-/** BYOK headers — set only when the user configured their own provider key. */
-function byokHeaders(): Record<string, string> {
+/**
+ * BYOK headers — set only when the user configured their own provider key.
+ *
+ * Returning `{}` is what selects the school-provided model: the backend falls
+ * back to the school's LiteLLM key precisely when these headers are absent, so
+ * anything that leaks a header here silently moves a school account onto a
+ * personal key. Exported so tests can pin that.
+ */
+export function byokHeaders(): Record<string, string> {
   const { provider, apiKey, model } = useByokStore.getState();
   if (!provider || !apiKey.trim()) return {};
   return {

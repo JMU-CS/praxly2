@@ -4,9 +4,13 @@ import { useByokStore, type ByokProvider } from '../../store/appStore';
 
 /**
  * Shared bring-your-own-key logic used by both the Account page section and the
- * AI panel's onboarding gate, so the two never drift. The provider list is
- * ordered with Gemini first (the recommended default); "" means the
- * school-provided model (the fallback that needs no key).
+ * AI panel's onboarding gate, so the two never drift.
+ *
+ * "" means the school-provided model — the fallback that needs no key — and it
+ * leads the list because it is what a Praxly account opens on (see
+ * defaultDraftProvider). Google sign-ins never see it: providerOptions() drops
+ * it, leaving Gemini first, which is what they open on and the key we recommend
+ * they bring.
  */
 
 const ALL_PROVIDER_OPTIONS: Array<{
@@ -15,25 +19,25 @@ const ALL_PROVIDER_OPTIONS: Array<{
   hint?: string;
   docs?: string;
 }> = [
+  { value: '', label: 'School-provided model' },
   {
     value: 'gemini',
-    label: 'Gemini (recommended)',
+    label: 'Gemini (Google)',
     hint: 'aistudio.google.com',
     docs: 'ai.google.dev/gemini-api/docs/models',
   },
   {
-    value: 'anthropic',
-    label: 'Claude',
-    hint: 'platform.anthropic.com',
-    docs: 'platform.claude.com/docs/en/about-claude/models',
-  },
-  {
     value: 'openai',
-    label: 'ChatGPT',
+    label: 'GPT (OpenAI)',
     hint: 'platform.openai.com',
     docs: 'developers.openai.com/api/docs/models',
   },
-  { value: '', label: 'School-provided model' },
+  {
+    value: 'anthropic',
+    label: 'Claude (Anthropic)',
+    hint: 'platform.anthropic.com',
+    docs: 'platform.claude.com/docs/en/about-claude/models',
+  },
 ];
 
 /**
@@ -74,11 +78,11 @@ export function providerOptions(): typeof ALL_PROVIDER_OPTIONS {
     : ALL_PROVIDER_OPTIONS.filter((o) => o.value !== '');
 }
 
-/** Provider names as they read in prose, without the picker's parenthetical. */
+/** Model families as they read in prose, without the picker's parenthetical. */
 const PROVIDER_NAMES: Record<ByokProvider, string> = {
   gemini: 'Gemini',
   anthropic: 'Claude',
-  openai: 'ChatGPT',
+  openai: 'GPT',
 };
 
 /**
@@ -109,15 +113,30 @@ export function useByokReady(): boolean {
   return canUseSchoolModel();
 }
 
+/**
+ * Which option the model picker opens on.
+ *
+ * An explicitly saved provider wins. Failing that, a Praxly school account
+ * starts on the school-provided model — it is the option they already have, and
+ * it needs no key. Google sign-ins have no school fallback to offer, so they
+ * start on Gemini, the recommended key to bring.
+ */
+export function defaultDraftProvider(
+  configured: boolean,
+  provider: ByokProvider | null,
+  schoolModelAllowed: boolean
+): ByokProvider | '' {
+  if (configured && provider) return provider;
+  return schoolModelAllowed ? '' : 'gemini';
+}
+
 export function useByokDraft() {
   const { provider, apiKey, model, configured, setByok, clearByok } = useByokStore();
   const schoolModelAllowed = canUseSchoolModel();
   const options = providerOptions();
 
-  // Gemini is the default selection until the user has made an explicit choice,
-  // and the only sensible starting point when there is no school fallback.
-  const [draftProvider, setDraftProvider] = useState<ByokProvider | ''>(
-    configured && (provider ?? '') !== '' ? (provider ?? 'gemini') : 'gemini'
+  const [draftProvider, setDraftProvider] = useState<ByokProvider | ''>(() =>
+    defaultDraftProvider(configured, provider, schoolModelAllowed)
   );
   const [draftKey, setDraftKey] = useState(apiKey);
   const [draftModel, setDraftModel] = useState(model);

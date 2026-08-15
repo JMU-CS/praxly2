@@ -5,8 +5,9 @@ import type { ByokProvider } from '../../store/appStore';
 
 /**
  * One-time onboarding gate shown in the AI panel after sign-in, before the user
- * has chosen a model. They must pick something (Gemini is pre-selected; the
- * school-provided model is a no-key fallback) before they can start chatting.
+ * has chosen a model. They must pick something before they can start chatting —
+ * pre-selected to the school-provided model for Praxly accounts, and to Gemini
+ * for Google sign-ins, which have no school fallback and must bring a key.
  */
 export function ApiKeyGate({ onDone }: { onDone: () => void }) {
   const draft = useByokDraft();
@@ -27,9 +28,9 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
         <h3 className="text-sm font-semibold">Choose your AI model</h3>
       </div>
       <p className="text-xs text-slate-400 leading-relaxed">
-        Choose the AI model you want to use. You will need to provide a key, which you can get at
-        the link below. The key will be stored in your browser, not on our server, and will only be
-        used to make requests to the AI model.
+        Choose the AI model you want to use. You may need to provide a key, which you can get at the
+        link below. The key will be stored in your browser, not on our server, and will only be used
+        to make requests to the AI model.
       </p>
 
       <div>
