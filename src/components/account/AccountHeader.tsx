@@ -20,7 +20,7 @@ export function AccountHeader({ profile }: { profile: AccountProfile | null }) {
         </Link>
         <img src="/v2/fallen-leaf_1f342.ico" alt="" className="h-6 w-6" aria-hidden="true" />
         <span className="text-lg text-slate-300">
-          Praxly <span className="font-medium text-slate-500">Account</span>
+          Praxly <span className="font-medium text-muted">Account</span>
         </span>
       </div>
       <div className="flex items-center gap-3">

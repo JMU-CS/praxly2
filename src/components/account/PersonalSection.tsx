@@ -33,7 +33,7 @@ export function PersonalSection({ profile }: { profile: AccountProfile | null })
       <dl className="divide-y divide-slate-800">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex flex-col gap-1 px-6 py-4 sm:flex-row sm:items-center">
-            <dt className="text-xs font-medium text-slate-500 sm:w-40 sm:shrink-0">{label}</dt>
+            <dt className="text-xs font-medium text-muted sm:w-40 sm:shrink-0">{label}</dt>
             <dd className="text-sm break-all text-slate-200">{value}</dd>
           </div>
         ))}

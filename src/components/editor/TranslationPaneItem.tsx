@@ -140,9 +140,7 @@ export function TranslationPaneItem({
                 {ast ? (
                   <JSONTree data={ast} />
                 ) : (
-                  <div className="text-slate-500 text-center mt-10 italic">
-                    Valid code required...
-                  </div>
+                  <div className="text-muted text-center mt-10 italic">Valid code required...</div>
                 )}
               </div>
             ) : panel.lang === 'blocks' ? (
@@ -164,10 +162,10 @@ export function TranslationPaneItem({
               role="button"
               aria-label="Open MemDia panel"
             >
-              <span className="text-xs font-bold uppercase tracking-widest text-emerald-300/60">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-300/70">
                 MemDia
               </span>
-              <ChevronUp size={10} className="text-emerald-300/60 ml-auto" aria-hidden="true" />
+              <ChevronUp size={10} className="text-emerald-300/70 ml-auto" aria-hidden="true" />
             </div>
           )}
 
@@ -187,7 +185,7 @@ export function TranslationPaneItem({
                   onClick={onToggleMemDiaCollapse}
                   aria-label="Close MemDia panel"
                   aria-expanded={true}
-                  className={`p-0.5 text-slate-500 hover:text-emerald-300 transition-colors rounded ${focusRing}`}
+                  className={`p-0.5 text-muted hover:text-emerald-300 transition-colors rounded ${focusRing}`}
                   title="Close MemDia"
                 >
                   <ChevronDown size={12} aria-hidden="true" />

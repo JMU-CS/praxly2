@@ -13,12 +13,12 @@ export function MemDia({ paneTitle, paneLang, currentVariables }: MemDiaProps) {
     <div className="h-full bg-slate-900/80 p-3 overflow-y-auto">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">MemDia</span>
-        <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+        <span className="text-xs font-semibold uppercase tracking-widest text-muted">
           {paneTitle} ({paneLang})
         </span>
       </div>
       {variableEntries.length === 0 ? (
-        <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-500">
+        <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-muted">
           No runtime memory yet. Run or debug to populate variables for this pane.
         </div>
       ) : (
@@ -35,7 +35,7 @@ export function MemDia({ paneTitle, paneLang, currentVariables }: MemDiaProps) {
             </div>
           ))}
           {variableEntries.length > 8 && (
-            <div className="text-xs text-slate-500">+ {variableEntries.length - 8} more</div>
+            <div className="text-xs text-muted">+ {variableEntries.length - 8} more</div>
           )}
         </div>
       )}

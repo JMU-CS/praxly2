@@ -22,18 +22,18 @@ export function HistoryPanel({
     <div className="flex-1 flex flex-col min-h-0">
       <div className="p-2 border-b border-slate-800">
         <div className="flex items-center gap-2 rounded-md bg-slate-800 border border-slate-700 px-2">
-          <Search size={13} className="text-slate-500 shrink-0" />
+          <Search size={13} className="text-muted shrink-0" />
           <input
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search chats…"
-            className="flex-1 bg-transparent py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none"
+            className="flex-1 bg-transparent py-1.5 text-xs text-slate-200 placeholder-muted focus:outline-none"
           />
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
         {chats.length === 0 && (
-          <p className="text-xs text-slate-500 text-center mt-6">No chats found.</p>
+          <p className="text-xs text-muted text-center mt-6">No chats found.</p>
         )}
         {chats.map((c) => (
           <div
@@ -45,7 +45,7 @@ export function HistoryPanel({
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs text-slate-200">{c.title}</p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted">
                 {c.messages.length === 0
                   ? 'Empty'
                   : `${c.messages.length} message${c.messages.length === 1 ? '' : 's'}`}
@@ -56,7 +56,7 @@ export function HistoryPanel({
                 e.stopPropagation();
                 onDelete(c.id);
               }}
-              className="shrink-0 p-1 text-slate-500 opacity-0 group-hover:opacity-100 hover:text-red-400 transition"
+              className="shrink-0 p-1 text-muted opacity-0 group-hover:opacity-100 hover:text-red-400 transition"
               title="Delete chat"
             >
               <Trash2 size={13} />

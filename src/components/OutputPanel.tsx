@@ -81,10 +81,10 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
         onKeyDown={(e) => e.key === 'Enter' && onOpen?.()}
       >
         <Terminal size={12} className="text-indigo-400 mr-2 shrink-0" aria-hidden="true" />
-        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+        <span className="text-xs font-bold uppercase tracking-widest text-muted">
           Console Output
         </span>
-        <ChevronUp size={12} className="text-slate-500 ml-auto" aria-hidden="true" />
+        <ChevronUp size={12} className="text-muted ml-auto" aria-hidden="true" />
       </div>
     );
   }
@@ -108,7 +108,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
               aria-label="Close output panel"
               aria-expanded={true}
               aria-controls={contentId}
-              className={`p-1 text-slate-500 hover:text-slate-300 transition-colors rounded ${focusRing}`}
+              className={`p-1 text-muted hover:text-slate-300 transition-colors rounded ${focusRing}`}
               title="Close panel"
             >
               <ChevronDown size={14} aria-hidden="true" />
@@ -202,7 +202,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
           aria-label="Debug variables"
         >
           <div className="h-8 flex items-center gap-2 px-4 bg-slate-900 border-b border-slate-800 shrink-0 min-w-0">
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-500 shrink-0">
+            <span className="text-xs font-bold uppercase tracking-widest text-muted shrink-0">
               Variables
             </span>
             {callStack.length > 1 && (
@@ -221,7 +221,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             {callStack.length > 0 ? (
               <VariableFrames frames={callStack} />
             ) : Object.keys(variables).length === 0 ? (
-              <div className="text-slate-500 italic">No variables</div>
+              <div className="text-muted italic">No variables</div>
             ) : (
               Object.entries(variables).map(([name, value]) => {
                 if (typeof value === 'function' || name.startsWith('_')) return null;

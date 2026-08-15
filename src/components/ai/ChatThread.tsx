@@ -114,7 +114,7 @@ export function ChatThread({
       <ThreadPrimitive.Root className="flex-1 flex flex-col min-h-0">
         <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
           <ThreadPrimitive.Empty>
-            <p className="text-sm text-slate-500 text-center mt-6">Ask anything about your code.</p>
+            <p className="text-sm text-muted text-center mt-6">Ask anything about your code.</p>
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
         </ThreadPrimitive.Viewport>
@@ -164,7 +164,7 @@ export function ChatThread({
               rows={2}
               maxRows={5}
               maxLength={MAX_INPUT_CHARS}
-              className="flex-1 resize-none rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-500 px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="flex-1 resize-none rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-muted px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
             />
             <ComposerPrimitive.Send
               className="p-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"

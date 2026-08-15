@@ -46,7 +46,7 @@ export default function AccountPage() {
           <StatusBanner status={status} onDismiss={dismissStatus} />
 
           {loading ? (
-            <div className={`${cardCls} p-10 text-center text-sm text-slate-500`}>Loading…</div>
+            <div className={`${cardCls} p-10 text-center text-sm text-muted`}>Loading…</div>
           ) : section === 'home' ? (
             <HomeSection profile={profile} usage={usage} onNavigate={setSection} />
           ) : section === 'personal' ? (

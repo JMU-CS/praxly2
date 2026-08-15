@@ -142,7 +142,7 @@ export function EditorHeader({
                         {example.lang}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-xs text-muted mt-0.5">
                       {EXAMPLE_CATEGORIES[example.category]} - {example.description}
                     </div>
                   </button>
@@ -209,7 +209,7 @@ export function EditorHeader({
                   Text Size
                 </label>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-slate-500 select-none" aria-hidden="true">
+                  <span className="text-xs font-mono text-muted select-none" aria-hidden="true">
                     A
                   </span>
                   <input
@@ -223,7 +223,7 @@ export function EditorHeader({
                     aria-valuetext={`${textSize}px`}
                     className={`flex-1 h-1 rounded-full accent-indigo-500 cursor-pointer ${focusRing}`}
                   />
-                  <span className="text-sm font-mono text-slate-500 select-none" aria-hidden="true">
+                  <span className="text-sm font-mono text-muted select-none" aria-hidden="true">
                     A
                   </span>
                 </div>

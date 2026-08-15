@@ -28,7 +28,7 @@ interface VariableFramesProps {
 
 export function VariableFrames({ frames }: VariableFramesProps) {
   if (frames.length === 0) {
-    return <div className="text-slate-500 italic">No variables</div>;
+    return <div className="text-muted italic">No variables</div>;
   }
 
   // Innermost call first (the top of the stack), global scope last.
@@ -57,7 +57,7 @@ export function VariableFrames({ frames }: VariableFramesProps) {
             >
               <span
                 className={`text-xs font-bold uppercase tracking-widest ${
-                  isCurrent ? 'text-indigo-300' : 'text-slate-500'
+                  isCurrent ? 'text-indigo-300' : 'text-muted'
                 }`}
               >
                 {label}
@@ -70,7 +70,7 @@ export function VariableFrames({ frames }: VariableFramesProps) {
             </header>
             <div className="px-2 py-1">
               {entries.length === 0 ? (
-                <div className="text-slate-600 italic">no variables</div>
+                <div className="text-muted italic">no variables</div>
               ) : (
                 entries.map(([name, value]) => (
                   <div key={name} className="flex justify-between gap-2 py-0.5">
