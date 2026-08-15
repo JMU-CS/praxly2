@@ -152,13 +152,17 @@ export function EditorHeader({
           )}
         </div>
 
-        <button
-          onClick={onClear}
-          aria-label="Clear code"
-          className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors ${focusRing}`}
-        >
-          <Trash2 size={14} aria-hidden="true" /> Clear
-        </button>
+        {/* Clear is hidden for now; the handler and its confirmation stay wired
+            up so the button can come back by deleting this `false &&`. */}
+        {false && (
+          <button
+            onClick={onClear}
+            aria-label="Clear code"
+            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors ${focusRing}`}
+          >
+            <Trash2 size={14} aria-hidden="true" /> Clear
+          </button>
+        )}
 
         <button
           onClick={onShare}

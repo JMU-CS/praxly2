@@ -59,6 +59,7 @@ export default function EditorPage() {
   const [pendingLangSwitch, setPendingLangSwitch] = useState<SupportedLang | null>(null);
   const [pendingExampleId, setPendingExampleId] = useState<string | null>(null);
   const [pendingDemoLoad, setPendingDemoLoad] = useState(false);
+  const [pendingClear, setPendingClear] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
 
   const editorRef = useRef<HTMLDivElement>(null);
@@ -177,10 +178,19 @@ export default function EditorPage() {
     loadDemo();
   };
 
-  const handleClear = () => {
+  const clearProgram = () => {
     setCode('');
     exec.setAst(null);
     exec.clearConsole({ resetHasRun: true });
+  };
+
+  const handleClear = () => {
+    // A non-blank editor is about to be discarded — confirm first.
+    if (code.trim()) {
+      setPendingClear(true);
+      return;
+    }
+    clearProgram();
   };
 
   const handleToggleMemDia = () => {
@@ -366,6 +376,7 @@ export default function EditorPage() {
           pendingLangSwitch={pendingLangSwitch}
           pendingExampleId={pendingExampleId}
           pendingDemoLoad={pendingDemoLoad}
+          pendingClear={pendingClear}
           onConfirmLangSwitch={(lang) => {
             applySourceLanguage(lang, '');
             setPendingLangSwitch(null);
@@ -381,6 +392,11 @@ export default function EditorPage() {
             setPendingDemoLoad(false);
           }}
           onCancelDemo={() => setPendingDemoLoad(false)}
+          onConfirmClear={() => {
+            clearProgram();
+            setPendingClear(false);
+          }}
+          onCancelClear={() => setPendingClear(false)}
         />
 
         {/* Highlight-to-chat: floating button near the editor selection. */}
