@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { PolicyLinks } from '../PolicyLinks';
 
 interface AiTermsModalProps {
   onAccept: () => void;
@@ -40,9 +41,10 @@ export function AiTermsModal({ onAccept, onDecline }: AiTermsModalProps) {
           the responses you receive, and how you use the tool — will be recorded and analyzed. Do
           not share sensitive or personal information in your chats.
         </p>
-        <p className="mt-2 text-sm leading-relaxed text-slate-400">
+        <p className="mt-3 text-sm leading-relaxed text-slate-400">
           By continuing, you agree to this usage tracking.
         </p>
+        <PolicyLinks className="mt-3" />
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onDecline}

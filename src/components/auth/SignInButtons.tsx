@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LogIn } from 'lucide-react';
 import { fetchProviders, getAuthError, loginWithGoogle, loginWithKeycloak } from '../../api/auth';
+import { PolicyLinks } from '../PolicyLinks';
 
 /**
  * The sign-in choices, shared by the AI panel and the account page so both
@@ -75,6 +76,25 @@ export function SignInButtons({ compact = false }: { compact?: boolean }) {
         <LogIn size={14} />
         Sign in with Praxly
       </button>
+
+      {/* Both buttons hand the browser to a duckdns host, which reads as a
+          phishing redirect if you are not expecting it. Name it here so the
+          address bar confirms something the user was already told. */}
+      <p className="mt-3 text-center text-xs text-muted">
+        Signing in is in beta. Both options currently use{' '}
+        <strong className="font-semibold whitespace-nowrap text-slate-300">
+          torta-server.duckdns.org
+        </strong>
+        , a temporary backend for testing. Signing in will move to{' '}
+        <strong className="font-semibold whitespace-nowrap text-slate-300">
+          praxly.cs.jmu.edu
+        </strong>{' '}
+        once the server is ready.
+      </p>
+
+      {/* Before either button, not after signing in: what an account stores is
+          worth reading while it is still a choice. */}
+      <PolicyLinks className="mt-3 text-center" />
     </div>
   );
 }

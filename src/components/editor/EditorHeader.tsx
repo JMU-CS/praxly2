@@ -17,6 +17,7 @@ import {
 import type { ExampleProgram } from '../../utils/sampleCodes';
 import { EXAMPLE_CATEGORIES } from '../../utils/sampleCodes';
 import { TEXT_SIZE_MAX, TEXT_SIZE_MIN } from '../../hooks/useTextSize';
+import { PolicyLinks } from '../PolicyLinks';
 
 /** Editor font size in px (13–19, 1px steps). */
 export type TextSize = number;
@@ -243,6 +244,13 @@ export function EditorHeader({
                 <p className="mt-2 text-xs text-muted">
                   Clears saved code, settings, and chats in this browser, then reloads.
                 </p>
+              </div>
+
+              {/* The one place these links reach someone who never signs in and
+                  never opens the AI panel — and the natural neighbor for Reset,
+                  which is the other control about what Praxly has stored. */}
+              <div className="border-t border-slate-800 px-4 py-3">
+                <PolicyLinks />
               </div>
             </div>
           )}
