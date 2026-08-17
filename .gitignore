@@ -12,7 +12,8 @@ dist
 dist-ssr
 *.local
 
-# Environment / secrets (LiteLLM URL + key live here, never commit)
+# Environment / secrets (LiteLLM URL + key live here, never commit).
+# .env.production is the exception and is committed — see the file for why.
 .env
 .env.local
 

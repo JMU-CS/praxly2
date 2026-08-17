@@ -584,6 +584,8 @@ const PRAXLY_CATEGORY_HUES: Record<string, string> = {
 export function praxlyTheme(fontSizePx: number): Blockly.Theme {
   // Start from Classic so styles we don't override (e.g. variable_dynamic,
   // colour, hat) keep working, then recolour our categories and their blocks.
+  // `colour`/`colourPrimary` are Blockly's own field names — this file spells
+  // them the way the library does, and is the one place that stays British.
   const blockStyles: Record<string, { colourPrimary: string }> = {
     ...Blockly.Themes.Classic.blockStyles,
   };

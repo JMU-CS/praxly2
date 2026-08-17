@@ -233,7 +233,7 @@ const INPUT_WAIT_MS = OPTIONS.inputWaitMs; // wait for stdin prompt per line
 const STARTUP_SETTLE_MS = OPTIONS.startupSettleMs;
 const EDITOR_ACTION_DELAY_MS = Math.min(80, Math.max(20, Math.floor(INPUT_DELAY_MS / 2) || 40));
 
-// ─── ANSI colour helpers ─────────────────────────────────────────────────────
+// ─── ANSI color helpers ──────────────────────────────────────────────────────
 
 const C = {
   reset: '\x1b[0m',
@@ -275,9 +275,9 @@ function renderProgressBar(passed: number, failed: number, total: number, curren
   process.stdout.write(`\r  [${bar}] ${stats}  `);
 }
 
-// ─── Normalise output for comparison ─────────────────────────────────────────
+// ─── Normalize output for comparison ─────────────────────────────────────────
 
-function normalise(s: string = ''): string {
+function normalize(s: string = ''): string {
   return s
     .replace(/\r\n/g, '\n')
     .split('\n')
@@ -328,10 +328,10 @@ async function setEditorCode(driver: WebDriver, code: string): Promise<void> {
 }
 
 /**
- * Click the "Run Code" button in the header toolbar.
+ * Click the "Run" button in the header toolbar.
  */
 async function clickRun(driver: WebDriver): Promise<void> {
-  const runBtn = await driver.findElement(By.xpath("//button[contains(., 'Run Code')]"));
+  const runBtn = await driver.findElement(By.css('button[aria-label="Run code (F5)"]'));
   await runBtn.click();
 }
 
@@ -612,12 +612,12 @@ async function runTests(): Promise<void> {
         await driver.sleep(RUN_SETTLE_MS);
 
         // Read results
-        actualOut = normalise(await readOutputPanel(driver));
-        actualErr = normalise(await readErrorText(driver));
+        actualOut = normalize(await readOutputPanel(driver));
+        actualErr = normalize(await readErrorText(driver));
 
         // Compare
-        const normExpOut = normalise(expectedOut);
-        const normExpErr = normalise(expectedErr);
+        const normExpOut = normalize(expectedOut);
+        const normExpErr = normalize(expectedErr);
 
         if (normExpErr) {
           // This test expects a runtime/compile error

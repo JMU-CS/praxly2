@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import type { Program } from '../../language/ast';
+import { LANG_LABELS } from '../LanguageSelector';
 import { JSONTree } from '../JSONTree';
 import { HighlightableCodeMirror } from '../HighlightableCodeMirror';
 import { MemDia } from './MemDia';
@@ -73,6 +74,9 @@ export function TranslationPaneItem({
   onPanelDrop,
   onPanelDragEnd,
 }: TranslationPaneItemProps) {
+  /* "Parse Tree View" is redundant — the tree is the view. */
+  const paneTitle = panel.lang === 'ast' ? LANG_LABELS.ast : `${LANG_LABELS[panel.lang]} View`;
+
   return (
     <div
       className={`flex h-full relative transition-opacity ${
@@ -99,8 +103,8 @@ export function TranslationPaneItem({
             ) : (
               <ArrowRightLeft size={14} className="text-indigo-400" aria-hidden="true" />
             )}
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              {panel.lang} View
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              {paneTitle}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -125,6 +129,7 @@ export function TranslationPaneItem({
             <button
               onClick={() => onRemovePanel(panel.id)}
               aria-label={`Remove ${panel.lang} panel`}
+              title={`Close ${paneTitle}`}
               className={`p-1 text-slate-400 hover:text-red-400 transition-colors rounded ${focusRing}`}
             >
               <X size={14} aria-hidden="true" />
@@ -140,9 +145,7 @@ export function TranslationPaneItem({
                 {ast ? (
                   <JSONTree data={ast} />
                 ) : (
-                  <div className="text-slate-500 text-center mt-10 italic">
-                    Valid code required...
-                  </div>
+                  <div className="text-muted text-center mt-10 italic">Valid code required...</div>
                 )}
               </div>
             ) : panel.lang === 'blocks' ? (
@@ -164,10 +167,10 @@ export function TranslationPaneItem({
               role="button"
               aria-label="Open MemDia panel"
             >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300/60">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-300/70">
                 MemDia
               </span>
-              <ChevronUp size={10} className="text-emerald-300/60 ml-auto" aria-hidden="true" />
+              <ChevronUp size={10} className="text-emerald-300/70 ml-auto" aria-hidden="true" />
             </div>
           )}
 
@@ -187,12 +190,12 @@ export function TranslationPaneItem({
                   onClick={onToggleMemDiaCollapse}
                   aria-label="Close MemDia panel"
                   aria-expanded={true}
-                  className={`p-0.5 text-slate-500 hover:text-emerald-300 transition-colors rounded ${focusRing}`}
+                  className={`p-0.5 text-muted hover:text-emerald-300 transition-colors rounded ${focusRing}`}
                   title="Close MemDia"
                 >
                   <ChevronDown size={12} aria-hidden="true" />
                 </button>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
+                <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">
                   MemDia
                 </span>
               </div>

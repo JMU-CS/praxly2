@@ -8,7 +8,11 @@ export type { SessionMeta };
 interface ChatStore {
   /** Session metadata — persisted to localStorage so the list survives page refresh. */
   sessions: SessionMeta[];
-  /** In-memory message cache — survives panel close/reopen within a session. */
+  /**
+   * Message cache keyed by session id — persisted (bounded, see trimCache) so
+   * a reopened chat shows its transcript, model labels and all, without
+   * waiting on the backend.
+   */
   messageCache: Record<string, SimpleMessage[]>;
   /** Account key (see currentUserKey) the cached sessions belong to. */
   owner: string | null;
@@ -144,6 +148,34 @@ const dedupeSessions = (sessions: SessionMeta[]): SessionMeta[] => {
   return sessions.filter((s) => (seen.has(s.id) ? false : (seen.add(s.id), true)));
 };
 
+/**
+ * localStorage is a few megabytes for the whole origin, and chats can run
+ * long, so only the newest sessions' transcripts are written — enough that
+ * reopening a recent chat is instant, with the backend still the source of
+ * truth for anything older.
+ */
+const CACHE_CHAR_BUDGET = 1_000_000;
+
+/** Keeps cached transcripts for the most recent sessions, within the budget. */
+const trimCache = (
+  sessions: SessionMeta[],
+  cache: Record<string, SimpleMessage[]>
+): Record<string, SimpleMessage[]> => {
+  const kept: Record<string, SimpleMessage[]> = {};
+  let used = 0;
+  // `sessions` is newest-first: the backend sorts by updatedAt, and new
+  // sessions are prepended.
+  for (const { id } of sessions) {
+    const messages = cache[id];
+    if (!messages) continue;
+    const size = JSON.stringify(messages).length;
+    if (used + size > CACHE_CHAR_BUDGET) break;
+    used += size;
+    kept[id] = messages;
+  }
+  return kept;
+};
+
 export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => ({
@@ -181,9 +213,14 @@ export const useChatStore = create<ChatStore>()(
     }),
     {
       name: 'praxly-chat-store',
-      // Only persist session metadata — message content is re-fetched on demand.
-      // `owner` rides along so a reload can tell whose sessions these are.
-      partialize: (s) => ({ sessions: s.sessions, owner: s.owner }),
+      // Session metadata plus the recent transcripts (see trimCache). `owner`
+      // rides along so a reload can tell whose chats these are — and so
+      // claimFor wipes them when someone else signs in on this browser.
+      partialize: (s) => ({
+        sessions: s.sessions,
+        owner: s.owner,
+        messageCache: trimCache(s.sessions, s.messageCache),
+      }),
       // v1: scrub duplicate sessions that older builds persisted (they called
       // addSession from inside a React state updater, which can run twice).
       // v2: sessions written before `owner` existed can't be attributed to an
@@ -191,10 +228,41 @@ export const useChatStore = create<ChatStore>()(
       // panel re-fetches immediately.
       version: 2,
       migrate: (persisted, version) => {
-        const state = persisted as { sessions?: SessionMeta[]; owner?: string | null } | undefined;
-        if (version < 2) return { ...state, sessions: [], owner: null };
+        const state = persisted as
+          | {
+              sessions?: SessionMeta[];
+              owner?: string | null;
+              messageCache?: Record<string, SimpleMessage[]>;
+            }
+          | undefined;
+        if (version < 2) return { ...state, sessions: [], owner: null, messageCache: {} };
         return { ...state, sessions: dedupeSessions(state?.sessions ?? []) };
       },
     }
   )
 );
+
+/**
+ * Wipes everything that belongs to the signed-in account: chats, the BYOK
+ * credential, the tutor profile, and the AI consent flag.
+ *
+ * Each store is reset in memory *and* its localStorage key removed, so the next
+ * person to sign in on this browser starts from defaults rather than inheriting
+ * a leftover record. Resetting first matters: a `set()` after the key is gone
+ * would write it straight back.
+ *
+ * Not included: `praxly-editor-state` and `praxly-text-size`, which describe the
+ * browser rather than the account, and so survive a sign-out like any other
+ * unsaved scratch work.
+ */
+export function clearAccountData(): void {
+  useChatStore.setState({ sessions: [], messageCache: {}, owner: null });
+  useByokStore.setState({ provider: null, apiKey: '', model: '', configured: false });
+  useAiPrefsStore.setState({ role: 'student', level: 'novice', useCase: 'auto' });
+  useAiConsentStore.setState({ accepted: false });
+
+  useChatStore.persist.clearStorage();
+  useByokStore.persist.clearStorage();
+  useAiPrefsStore.persist.clearStorage();
+  useAiConsentStore.persist.clearStorage();
+}

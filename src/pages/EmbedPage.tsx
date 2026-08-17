@@ -29,7 +29,7 @@ const MIN_SOURCE_WIDTH = 150;
 export default function EmbedPage() {
   const [searchParams] = useSearchParams();
 
-  // Layout mode comes from ?to= — absent or unrecognised means source+output.
+  // Layout mode comes from ?to= — absent or unrecognized means source+output.
   const toParam = searchParams.get('to');
   const isTranslationMode = toParam !== null && VALID_TO_LANGS.includes(toParam);
 
@@ -101,7 +101,11 @@ export default function EmbedPage() {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
+    /* <main> + an sr-only <h1>: the embed has no chrome of its own, so
+       without them every pane sits outside a landmark on a heading-less
+       document. Both are invisible in the iframe. */
+    <main className="flex flex-col h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
+      <h1 className="sr-only">Praxly embedded code sample</h1>
       {isTranslationMode ? (
         /* Translation layout: source + translation on top, output at bottom */
         <>
@@ -159,6 +163,6 @@ export default function EmbedPage() {
           </section>
         </div>
       )}
-    </div>
+    </main>
   );
 }

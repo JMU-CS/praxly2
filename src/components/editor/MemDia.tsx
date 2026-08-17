@@ -21,10 +21,8 @@ export function MemDia({ paneTitle, paneLang, currentVariables }: MemDiaProps) {
   return (
     <div className="h-full bg-slate-900/80 p-3 overflow-hidden">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
-          MemDia
-        </span>
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+        <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">MemDia</span>
+        <span className="text-xs font-semibold uppercase tracking-widest text-muted">
           {paneTitle} ({paneLang})
         </span>
       </div>

@@ -34,7 +34,7 @@ export function ProfileSection() {
       </div>
       <div className="space-y-6 p-6 max-w-md">
         <div>
-          <span className="mb-2 block text-xs font-medium text-slate-500">I am a…</span>
+          <span className="mb-2 block text-xs font-medium text-muted">I am a…</span>
           <div className="space-y-1.5">
             {ROLE_OPTIONS.map((o) => (
               <button
@@ -43,13 +43,13 @@ export function ProfileSection() {
                 className={optionBtn(role === o.value)}
               >
                 <span className="block text-sm text-slate-200">{o.label}</span>
-                <span className="block text-[11px] text-slate-500">{o.hint}</span>
+                <span className="block text-xs text-muted">{o.hint}</span>
               </button>
             ))}
           </div>
         </div>
         <div>
-          <span className="mb-2 block text-xs font-medium text-slate-500">Experience level</span>
+          <span className="mb-2 block text-xs font-medium text-muted">Experience level</span>
           <div className="space-y-1.5">
             {LEVEL_OPTIONS.map((o) => (
               <button
@@ -58,7 +58,7 @@ export function ProfileSection() {
                 className={optionBtn(level === o.value)}
               >
                 <span className="block text-sm text-slate-200">{o.label}</span>
-                <span className="block text-[11px] text-slate-500">{o.hint}</span>
+                <span className="block text-xs text-muted">{o.hint}</span>
               </button>
             ))}
           </div>

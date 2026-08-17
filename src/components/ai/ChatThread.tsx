@@ -10,7 +10,8 @@ import {
 import { streamAssistant, type SimpleMessage, type LlmPanel, type TurnIds } from '../../api/llm';
 import { useAiPrefsStore, type AiUseCase } from '../../store/appStore';
 import { UserMessage, AssistantMessage, MessageSync } from './MessageComponents';
-import { threadMessageText } from './threadMessages';
+import { threadMessageText, toThreadMessages } from './threadMessages';
+import { useModelLabel } from './byok';
 
 const USE_CASES: Array<{ value: AiUseCase; label: string; title: string }> = [
   { value: 'auto', label: 'Auto', title: 'Let the AI figure out what you need' },
@@ -66,10 +67,15 @@ export function ChatThread({
   sessionIdRef.current = chat.sessionId;
   const parentMessageIdRef = useRef(chat.parentMessageId);
   parentMessageIdRef.current = chat.parentMessageId;
+  // Read at run time, so a reply is labeled with the model that answered it
+  // rather than whatever is selected later.
+  const modelLabel = useModelLabel();
+  const modelLabelRef = useRef(modelLabel);
+  modelLabelRef.current = modelLabel;
 
-  const initialMessages = useRef(
-    chat.messages.map((m) => ({ role: m.role, content: m.text }))
-  ).current;
+  // Captured once: the runtime owns the thread after this, and re-seeding it
+  // mid-conversation would discard whatever the user has since sent.
+  const initialMessages = useRef(toThreadMessages(chat.messages)).current;
 
   const chatId = chat.id;
 
@@ -81,6 +87,11 @@ export function ChatThread({
         const lastUser = [...messages].reverse().find((m) => m.role === 'user');
         const messageText = lastUser ? threadMessageText(lastUser) : '';
 
+        // Which model to credit under the bubble. The locally configured label
+        // covers the stream; the backend reports the model id it actually
+        // called with its 'complete' event, which lands after the last token.
+        let model = modelLabelRef.current;
+
         let last = '';
         for await (const text of streamAssistant({
           message: messageText,
@@ -90,15 +101,19 @@ export function ChatThread({
           sessionId: sessionIdRef.current,
           parentMessageId: parentMessageIdRef.current,
           onSessionId: (id) => onSessionId(chatId, id),
-          onComplete: (ids) => onTurnComplete(chatId, ids),
+          onComplete: (ids) => {
+            if (ids.model) model = ids.model;
+            onTurnComplete(chatId, ids);
+          },
         })) {
           last = text;
-          yield { content: [{ type: 'text', text }] };
+          yield { content: [{ type: 'text', text }], metadata: { custom: { model } } };
         }
 
-        if (last.trim().length === 0) {
-          yield { content: [{ type: 'text', text: '(No response — please try asking again.)' }] };
-        }
+        // One last yield so the reported model replaces the local label. Each
+        // yield carries the whole reply, so repeating it changes nothing else.
+        const finalText = last.trim() ? last : '(No response — please try asking again.)';
+        yield { content: [{ type: 'text', text: finalText }], metadata: { custom: { model } } };
       },
     }),
     [chatId, onSessionId, onTurnComplete]
@@ -114,7 +129,7 @@ export function ChatThread({
       <ThreadPrimitive.Root className="flex-1 flex flex-col min-h-0">
         <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
           <ThreadPrimitive.Empty>
-            <p className="text-sm text-slate-500 text-center mt-6">Ask anything about your code.</p>
+            <p className="text-sm text-muted text-center mt-6">Ask anything about your code.</p>
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
         </ThreadPrimitive.Viewport>
@@ -126,7 +141,7 @@ export function ChatThread({
                 key={u.value}
                 onClick={() => setUseCase(u.value)}
                 title={u.title}
-                className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                className={`flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
                   useCase === u.value
                     ? 'bg-indigo-600 text-white'
                     : 'text-slate-400 hover:text-slate-200'
@@ -139,10 +154,10 @@ export function ChatThread({
           {selection.trim().length > 0 && (
             <div className="mb-2 flex items-start gap-2 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-1.5">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-300">
                   Asking about selected code
                 </p>
-                <p className="truncate font-mono text-[11px] text-slate-300">{selection.trim()}</p>
+                <p className="truncate font-mono text-xs text-slate-300">{selection.trim()}</p>
               </div>
               <button
                 onClick={onClearSelection}
@@ -154,11 +169,17 @@ export function ChatThread({
             </div>
           )}
           <ComposerPrimitive.Root className="flex gap-2 items-end">
+            {/* The input auto-grows (react-textarea-autosize under the hood).
+                maxRows caps it at 5 lines and hands over to a scrollbar — it
+                has to be maxRows rather than a max-h class, because autosize
+                writes an inline height/overflow that a class can't override.
+                Without it a long question pushes the send button off-screen. */}
             <ComposerPrimitive.Input
               placeholder="Ask about your code… (Enter to send)"
               rows={2}
+              maxRows={5}
               maxLength={MAX_INPUT_CHARS}
-              className="flex-1 resize-none rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-500 px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="flex-1 resize-none rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-muted px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
             />
             <ComposerPrimitive.Send
               className="p-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"

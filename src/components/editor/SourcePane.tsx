@@ -68,16 +68,17 @@ export function SourcePane({
     <div className="flex shrink-0 relative group/editor z-[10]" style={{ width }}>
       <div className="flex-1 flex flex-col border-r border-slate-800 overflow-hidden">
         {/* Pane header */}
-        <div className="h-10 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-800 text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
+        <div className="h-10 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-800 text-xs font-bold uppercase tracking-widest text-slate-400 shrink-0">
           <div className="flex items-center relative h-full source-lang-dropdown">
             <button
               onClick={onToggleSourceLangDropdown}
               aria-label={`Source language: ${sourceLang}. Click to change`}
               aria-expanded={showSourceLangDropdown}
               aria-haspopup="listbox"
+              title="Change the source language"
               className={`flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors uppercase ${focusRing}`}
             >
-              {sourceLang === 'ast' ? 'AST VIEW' : sourceLang}
+              {sourceLang === 'ast' ? LANG_LABELS.ast : sourceLang}
               <ChevronDown size={12} aria-hidden="true" />
             </button>
             {showSourceLangDropdown && (
@@ -92,7 +93,10 @@ export function SourcePane({
                     role="option"
                     aria-selected={lang === sourceLang}
                     onClick={() => onSelectSourceLang(lang)}
-                    className={`flex items-center gap-2.5 w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${focusRing}`}
+                    /* Explicit text color: rows inherit the header's
+                       slate-400, which drops to 3.9:1 once hover paints
+                       slate-700 underneath it. */
+                    className={`flex items-center gap-2.5 w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-700 transition-colors ${focusRing}`}
                   >
                     <LanguageLogo lang={lang} size={14} />
                     {LANG_LABELS[lang]}
@@ -133,10 +137,10 @@ export function SourcePane({
               role="button"
               aria-label="Open MemDia panel"
             >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300/60">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-300/70">
                 MemDia
               </span>
-              <ChevronUp size={10} className="text-emerald-300/60 ml-auto" aria-hidden="true" />
+              <ChevronUp size={10} className="text-emerald-300/70 ml-auto" aria-hidden="true" />
             </div>
           )}
 
@@ -156,12 +160,12 @@ export function SourcePane({
                   onClick={onToggleMemDiaCollapse}
                   aria-label="Close MemDia panel"
                   aria-expanded={true}
-                  className={`p-0.5 text-slate-500 hover:text-emerald-300 transition-colors rounded ${focusRing}`}
+                  className={`p-0.5 text-muted hover:text-emerald-300 transition-colors rounded ${focusRing}`}
                   title="Close MemDia"
                 >
                   <ChevronDown size={12} aria-hidden="true" />
                 </button>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
+                <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">
                   MemDia
                 </span>
               </div>

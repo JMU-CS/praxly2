@@ -55,12 +55,12 @@ export function ChatHistoryCard({
         </p>
       </div>
       {chats.length === 0 ? (
-        <p className="p-6 text-sm text-slate-500">No chats yet.</p>
+        <p className="p-6 text-sm text-muted">No chats yet.</p>
       ) : (
         <ul className="divide-y divide-slate-800">
           {chats.map((chat) => (
             <li key={chat.id} className="flex items-center gap-3 px-6 py-3">
-              <MessageSquare size={16} className="shrink-0 text-slate-500" />
+              <MessageSquare size={16} className="shrink-0 text-muted" />
               {renamingId === chat.id ? (
                 <input
                   autoFocus
@@ -78,7 +78,7 @@ export function ChatHistoryCard({
                   {chat.title ?? 'Untitled chat'}
                 </span>
               )}
-              <span className="hidden text-xs text-slate-500 sm:block">
+              <span className="hidden text-xs text-muted sm:block">
                 {new Date(chat.updatedAt).toLocaleDateString()}
               </span>
               <button
@@ -86,14 +86,14 @@ export function ChatHistoryCard({
                   setRenamingId(chat.id);
                   setRenameValue(chat.title ?? '');
                 }}
-                className="rounded-full p-2 text-slate-500 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                className="rounded-full p-2 text-muted hover:bg-slate-800 hover:text-slate-200 transition-colors"
                 title="Rename chat"
               >
                 <Pencil size={14} />
               </button>
               <button
                 onClick={() => handleDelete(chat.id)}
-                className="rounded-full p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                className="rounded-full p-2 text-muted hover:bg-red-500/10 hover:text-red-400 transition-colors"
                 title="Delete chat"
               >
                 <Trash2 size={14} />

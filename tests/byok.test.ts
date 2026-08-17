@@ -1,0 +1,60 @@
+import { describe, it, expect, vi } from 'vitest';
+
+import { defaultDraftProvider, providerOptions } from '../src/components/ai/byok';
+
+// canUseSchoolModel() asks the auth layer who is signed in; stub that rather
+// than stand up a Keycloak session.
+const auth = vi.hoisted(() => ({ provider: null as 'keycloak' | 'google' | null }));
+vi.mock('../src/api/auth', () => ({ currentProvider: () => auth.provider }));
+
+/**
+ * Which option the model picker opens on. `''` is the school-provided model,
+ * offered only to Praxly (Keycloak) accounts — see canUseSchoolModel.
+ */
+describe('defaultDraftProvider', () => {
+  it('opens on the school-provided model for a Praxly account', () => {
+    expect(defaultDraftProvider(false, null, true)).toBe('');
+  });
+
+  it('opens on Gemini when there is no school fallback', () => {
+    expect(defaultDraftProvider(false, null, false)).toBe('gemini');
+  });
+
+  it('keeps a saved provider over either default', () => {
+    expect(defaultDraftProvider(true, 'anthropic', true)).toBe('anthropic');
+    expect(defaultDraftProvider(true, 'anthropic', false)).toBe('anthropic');
+  });
+
+  it('reopens on the school model for an account that saved that choice', () => {
+    // clearByok() records the school model as `configured` with no provider.
+    expect(defaultDraftProvider(true, null, true)).toBe('');
+  });
+
+  it('sends a Google account that lost its school model back to Gemini', () => {
+    expect(defaultDraftProvider(true, null, false)).toBe('gemini');
+  });
+});
+
+describe('providerOptions', () => {
+  it('leads with the school model for a Praxly account, and offers all four', () => {
+    auth.provider = 'keycloak';
+    const options = providerOptions();
+    expect(options.map((o) => o.value)).toEqual(['', 'gemini', 'openai', 'anthropic']);
+  });
+
+  it('hides the school model from a Google sign-in, leaving Gemini first', () => {
+    auth.provider = 'google';
+    const options = providerOptions();
+    expect(options.map((o) => o.value)).toEqual(['gemini', 'openai', 'anthropic']);
+  });
+
+  it('opens on the first option it shows, whichever account it is', () => {
+    // The picker must never open scrolled to an option below the top.
+    for (const provider of ['keycloak', 'google'] as const) {
+      auth.provider = provider;
+      const options = providerOptions();
+      const school = provider === 'keycloak';
+      expect(defaultDraftProvider(false, null, school)).toBe(options[0]!.value);
+    }
+  });
+});

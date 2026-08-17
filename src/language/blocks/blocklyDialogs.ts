@@ -31,7 +31,7 @@ interface ModalOptions {
   /** When set (even to ''), an input is shown seeded with this value. */
   input?: string;
   cancellable?: boolean;
-  /** Resolves with the input value (or '' for plain dialogs); null = cancelled. */
+  /** Resolves with the input value (or '' for plain dialogs); null = canceled. */
   onDone: (result: string | null) => void;
 }
 
@@ -54,7 +54,7 @@ function openModal({ message, input, cancellable, onDone }: ModalOptions): void 
     field = el(
       'input',
       'mt-3 w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm ' +
-        'text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500'
+        'text-slate-100 placeholder-muted focus:outline-none focus:border-indigo-500'
     );
     field.value = input;
     card.appendChild(field);

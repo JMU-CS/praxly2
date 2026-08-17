@@ -1,5 +1,6 @@
 import keycloak from './keycloak';
-import { useByokStore, useChatStore } from '../store/appStore';
+import { BACKEND_URL } from './backend';
+import { clearAccountData } from '../store/appStore';
 
 /**
  * One sign-in surface for the whole app, over two providers:
@@ -12,16 +13,13 @@ import { useByokStore, useChatStore } from '../store/appStore';
  * directly, so both providers stay interchangeable everywhere.
  */
 
-const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ??
-  {}) as Record<string, string | undefined>;
-
-const BACKEND_URL = env.VITE_BACKEND_URL ?? 'https://k12api.torta-server.duckdns.org';
-
 export type AuthProvider = 'keycloak' | 'google';
 
 const GOOGLE_TOKEN_KEY = 'google_token';
 const GOOGLE_EXPIRES_KEY = 'google_token_expires_at';
 const GOOGLE_NONCE_KEY = 'google_auth_nonce';
+const KC_TOKEN_KEY = 'kc_token';
+const KC_REFRESH_KEY = 'kc_refresh_token';
 
 interface GoogleSession {
   token: string;
@@ -45,17 +43,26 @@ function clearGoogleSession(): void {
   localStorage.removeItem(GOOGLE_EXPIRES_KEY);
 }
 
+function clearKeycloakSession(): void {
+  localStorage.removeItem(KC_TOKEN_KEY);
+  localStorage.removeItem(KC_REFRESH_KEY);
+}
+
 /** Error text set by the last redirect back from Google, if it failed. */
 let googleAuthError: string | null = null;
 
 const AUTH_ERRORS: Record<string, string> = {
-  access_denied: 'Google sign-in was cancelled.',
+  access_denied: 'Google sign-in was canceled.',
   email_unverified: 'That Google account has no verified email address.',
   exchange_failed: "Google sign-in failed — couldn't verify the account.",
   invalid_state: 'Google sign-in expired or was tampered with. Please try again.',
   missing_state: 'Google sign-in expired or was tampered with. Please try again.',
   missing_code: 'Google did not return an authorization code. Please try again.',
   nonce_mismatch: 'Google sign-in could not be matched to this browser. Please try again.',
+  // The backend refused to send the token back to this site's origin. Only a
+  // server-side configuration change fixes it, so point at a person rather
+  // than suggesting a retry.
+  origin_not_allowed: 'This site is not authorized for Google sign-in. Please report this.',
 };
 
 export function getAuthError(): string | null {
@@ -116,24 +123,21 @@ function captureRedirectResult(): void {
 export async function initAuth(): Promise<void> {
   captureRedirectResult();
 
-  // A live Google session wins — initialising Keycloak as well would only add
+  // A live Google session wins — initializing Keycloak as well would only add
   // a redirect round-trip for a user who is already signed in.
   if (readGoogleSession()) return;
 
-  const savedToken = localStorage.getItem('kc_token') ?? undefined;
-  const savedRefreshToken = localStorage.getItem('kc_refresh_token') ?? undefined;
+  const savedToken = localStorage.getItem(KC_TOKEN_KEY) ?? undefined;
+  const savedRefreshToken = localStorage.getItem(KC_REFRESH_KEY) ?? undefined;
 
   keycloak.onTokenExpired = () => {
     keycloak
       .updateToken(30)
       .then(() => {
-        localStorage.setItem('kc_token', keycloak.token!);
-        localStorage.setItem('kc_refresh_token', keycloak.refreshToken!);
+        localStorage.setItem(KC_TOKEN_KEY, keycloak.token!);
+        localStorage.setItem(KC_REFRESH_KEY, keycloak.refreshToken!);
       })
-      .catch(() => {
-        localStorage.removeItem('kc_token');
-        localStorage.removeItem('kc_refresh_token');
-      });
+      .catch(clearKeycloakSession);
   };
 
   try {
@@ -143,8 +147,8 @@ export async function initAuth(): Promise<void> {
       refreshToken: savedRefreshToken,
     });
     if (authenticated) {
-      localStorage.setItem('kc_token', keycloak.token!);
-      localStorage.setItem('kc_refresh_token', keycloak.refreshToken!);
+      localStorage.setItem(KC_TOKEN_KEY, keycloak.token!);
+      localStorage.setItem(KC_REFRESH_KEY, keycloak.refreshToken!);
     }
   } catch {
     // Keycloak unreachable — the app still loads, just signed out.
@@ -201,7 +205,7 @@ export async function getToken(): Promise<string | null> {
 
 export async function loginWithKeycloak(): Promise<void> {
   // initAuth() skips Keycloak entirely while a Google session is live, so a
-  // session that expires with the tab open can leave keycloak-js uninitialised
+  // session that expires with the tab open can leave keycloak-js uninitialized
   // — and login() throws in that state.
   if (!keycloak.didInitialize) {
     await keycloak.init({ checkLoginIframe: false }).catch(() => {});
@@ -223,19 +227,21 @@ export function loginWithGoogle(): void {
 }
 
 export function logout(redirectUri = window.location.origin + '/v2/editor'): void {
-  // Cached chat sessions belong to the account that just left; leaving them in
-  // localStorage would show them to whoever signs in next on this browser.
-  useChatStore.getState().clearChats();
-  // Same reasoning for the BYOK key — it's a personal credential, and the next
-  // person to sign in on this browser would otherwise spend against it. This
-  // leaves the panel on the school-provided model rather than re-onboarding.
-  useByokStore.getState().clearByok();
+  // Which provider we're leaving has to be read before the tokens are dropped.
+  const wasGoogle = readGoogleSession() !== null;
 
-  if (readGoogleSession()) {
+  // Everything account-scoped goes, whichever provider it was: cached chats,
+  // the BYOK credential, tutor preferences, the consent flag, and both sets of
+  // session tokens. Whoever signs in next on this browser gets a clean slate
+  // rather than the last person's record.
+  clearAccountData();
+  clearGoogleSession();
+  clearKeycloakSession();
+
+  if (wasGoogle) {
     // Local sign-out only: we never asked for offline access, so there is no
     // Google-side session of ours to end, and signing the user out of Google
     // itself would be far more than they asked for.
-    clearGoogleSession();
     window.location.assign(redirectUri);
     return;
   }

@@ -17,10 +17,14 @@ without a login the AI panel shows a sign-in prompt — that's expected.
 
 ## Drive it (selenium)
 
-`selenium-webdriver` + `chromedriver` are devDependencies. **chromedriver's
-major version must match the installed Chrome major** (`"/Applications/
-Google Chrome.app/Contents/MacOS/Google Chrome" --version`). Run scripts
-from the repo root so `require('selenium-webdriver')` resolves.
+`selenium-webdriver` is a devDependency; there is deliberately **no
+`chromedriver` package**. Selenium Manager (built into selenium-webdriver)
+downloads a chromedriver matching whatever Chrome is installed and caches it
+under `~/.cache/selenium`, so nothing needs re-pinning when Chrome updates.
+Don't reintroduce the `chromedriver` npm package — `npm run` puts
+`node_modules/.bin` on `PATH`, so a pinned driver shadows Selenium Manager and
+breaks on the next Chrome release. Run scripts from the repo root so
+`require('selenium-webdriver')` resolves.
 
 Gotchas learned the hard way:
 

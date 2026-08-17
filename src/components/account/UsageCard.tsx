@@ -31,14 +31,12 @@ export function UsageCard({ usage }: { usage: AccountUsage | null }) {
         ].map((stat) => (
           <div key={stat.label} className="rounded-xl bg-slate-800/50 p-4 text-center">
             <div className="text-2xl font-medium text-slate-100">{stat.value}</div>
-            <div className="mt-1 text-xs text-slate-500">{stat.label}</div>
+            <div className="mt-1 text-xs text-muted">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      <h3 className="mt-6 text-xs font-medium uppercase tracking-wide text-slate-500">
-        Last 30 days
-      </h3>
+      <h3 className="mt-6 text-xs font-medium uppercase tracking-wide text-muted">Last 30 days</h3>
       <div
         className="mt-2 flex h-24 items-end gap-[3px]"
         role="img"

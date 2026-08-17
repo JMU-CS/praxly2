@@ -15,6 +15,17 @@ import { languageSpecFor } from '../components/ai/languageSpecs';
 export interface SimpleMessage {
   role: 'user' | 'assistant';
   text: string;
+  /**
+   * Model that produced this assistant reply. The backend reports the model id
+   * it actually called; until that arrives (mid-stream) it is the locally
+   * configured label. Undefined on user messages.
+   */
+  model?: string;
+  /**
+   * Set when this turn failed: the message shown in place of a reply. Kept so
+   * a failure is still in the transcript after a reload.
+   */
+  error?: string;
 }
 
 /** One open editor panel: a language and its current code. */
@@ -28,6 +39,8 @@ export interface TurnIds {
   sessionId: string;
   userMessageId: string;
   assistantMessageId: string;
+  /** The model id the backend actually called, when it reported one. */
+  model?: string;
 }
 
 export interface StreamOptions {
@@ -47,8 +60,31 @@ export interface StreamOptions {
   onComplete?: (ids: TurnIds) => void;
 }
 
-/** BYOK headers — set only when the user configured their own provider key. */
-function byokHeaders(): Record<string, string> {
+/** Longest error text worth showing in a chat bubble. */
+const MAX_ERROR_CHARS = 300;
+
+/**
+ * Makes an error string safe to render in the chat.
+ *
+ * The backend already reduces provider failures to one sentence, but this is
+ * the last stop before the text reaches a bubble — an older backend, a proxy,
+ * or an unexpected code path can still hand us a wall of JSON. Collapsing the
+ * whitespace and capping the length keeps the bubble the size of a message.
+ */
+function displayableError(raw: string): string {
+  const flat = raw.replace(/\s+/g, ' ').trim();
+  return flat.length > MAX_ERROR_CHARS ? `${flat.slice(0, MAX_ERROR_CHARS - 1)}…` : flat;
+}
+
+/**
+ * BYOK headers — set only when the user configured their own provider key.
+ *
+ * Returning `{}` is what selects the school-provided model: the backend falls
+ * back to the school's LiteLLM key precisely when these headers are absent, so
+ * anything that leaks a header here silently moves a school account onto a
+ * personal key. Exported so tests can pin that.
+ */
+export function byokHeaders(): Record<string, string> {
   const { provider, apiKey, model } = useByokStore.getState();
   if (!provider || !apiKey.trim()) return {};
   return {
@@ -91,7 +127,7 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
       // questions in a row and answered the older one. Restore this only
       // alongside message editing, which is what the cutoff exists for.
       parentMessageId: undefined,
-      // All non-empty panels, each labelled with its language.
+      // All non-empty panels, each labeled with its language.
       code: editorCode,
       language: primaryPanel?.language,
       // Praxly specs for every open panel's language — fills {{language_spec}}
@@ -107,8 +143,20 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
   });
 
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`AI request failed (${response.status})${text ? `: ${text}` : ''}`);
+    // The backend explains itself in {"error": "..."} — surface that sentence
+    // rather than a raw JSON blob, because it lands in front of the student as
+    // the error bubble's text.
+    const raw = await response.text().catch(() => '');
+    let detail = raw;
+    try {
+      const parsed = JSON.parse(raw) as { error?: string };
+      if (parsed.error) detail = parsed.error;
+    } catch {
+      // Not JSON (a proxy error page, say) — fall back to the raw body.
+    }
+    throw new Error(
+      displayableError(detail) || `The AI service returned an error (${response.status}).`
+    );
   }
 
   const sessionId = response.headers.get('X-Session-Id');
@@ -141,6 +189,7 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
         sessionId?: string;
         userMessageId?: string;
         assistantMessageId?: string;
+        model?: string;
       };
       try {
         parsed = JSON.parse(data);
@@ -156,9 +205,12 @@ export async function* streamAssistant(opts: StreamOptions): AsyncGenerator<stri
           sessionId: parsed.sessionId ?? sessionId ?? '',
           userMessageId: parsed.userMessageId ?? '',
           assistantMessageId: parsed.assistantMessageId,
+          ...(parsed.model ? { model: parsed.model } : {}),
         });
       } else if (parsed.type === 'error') {
-        throw new Error(parsed.message ?? 'The AI service reported an error.');
+        throw new Error(
+          displayableError(parsed.message ?? '') || 'The AI service reported an error.'
+        );
       }
     }
   }

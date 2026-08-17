@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
-import { PROVIDER_OPTIONS, useByokDraft } from './byok';
+import { KEY_INPUT_PROPS, maskCls, useByokDraft } from './byok';
 import type { ByokProvider } from '../../store/appStore';
 
 /**
  * One-time onboarding gate shown in the AI panel after sign-in, before the user
- * has chosen a model. They must pick something (Gemini is pre-selected; the
- * school-provided model is a no-key fallback) before they can start chatting.
+ * has chosen a model. They must pick something before they can start chatting —
+ * pre-selected to the school-provided model for Praxly accounts, and to Gemini
+ * for Google sign-ins, which have no school fallback and must bring a key.
  */
 export function ApiKeyGate({ onDone }: { onDone: () => void }) {
   const draft = useByokDraft();
@@ -16,9 +17,9 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
     if (draft.save()) onDone();
   };
 
-  const labelCls = 'block text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1';
+  const labelCls = 'block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1';
   const inputCls =
-    'w-full rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-500 px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors';
+    'w-full rounded-md bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-muted px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors';
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -27,8 +28,9 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
         <h3 className="text-sm font-semibold">Choose your AI model</h3>
       </div>
       <p className="text-xs text-slate-400 leading-relaxed">
-        Pick a model to power the assistant. Use your own API key for the best experience, or the
-        school-provided model to get started without one. You can change this later in your account.
+        Choose the AI model you want to use. You may need to provide a key, which you can get at the
+        link below. The key will be stored in your browser, not on our server, and will only be used
+        to make requests to the AI model.
       </p>
 
       <div>
@@ -41,7 +43,7 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
           onChange={(e) => draft.setDraftProvider(e.target.value as ByokProvider | '')}
           className={inputCls}
         >
-          {PROVIDER_OPTIONS.map((o) => (
+          {draft.options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
@@ -58,13 +60,11 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
             <div className="relative">
               <input
                 id="gate-key"
-                type={showKey ? 'text' : 'password'}
+                {...KEY_INPUT_PROPS}
                 value={draft.draftKey}
                 onChange={(e) => draft.setDraftKey(e.target.value)}
                 placeholder="Paste your API key"
-                autoComplete="off"
-                spellCheck={false}
-                className={`${inputCls} pr-9`}
+                className={`${inputCls} pr-9 ${maskCls(!showKey)}`}
               />
               <button
                 type="button"
@@ -76,7 +76,7 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
               </button>
             </div>
             {draft.hint && (
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-xs text-muted">
                 Get a key at{' '}
                 <a
                   href={`https://${draft.hint}`}
@@ -92,7 +92,7 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
 
           <div>
             <label htmlFor="gate-model" className={labelCls}>
-              Model name <span className="normal-case font-normal text-slate-500">(optional)</span>
+              Model name <span className="normal-case font-normal text-muted">(optional)</span>
             </label>
             <input
               id="gate-model"
@@ -104,6 +104,19 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
               spellCheck={false}
               className={inputCls}
             />
+            {draft.docs && (
+              <p className="mt-1 text-xs text-muted break-words">
+                See models at{' '}
+                <a
+                  href={`https://${draft.docs}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-indigo-300 underline hover:text-indigo-200"
+                >
+                  {draft.docs}
+                </a>
+              </p>
+            )}
           </div>
         </>
       )}

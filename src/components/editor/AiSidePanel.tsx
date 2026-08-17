@@ -13,16 +13,12 @@ import {
   HttpError,
 } from '../../api/chat';
 import { type LlmPanel, type SimpleMessage, type TurnIds } from '../../api/llm';
-import {
-  useAiConsentStore,
-  useByokStore,
-  useChatStore,
-  type SessionMeta,
-} from '../../store/appStore';
+import { useAiConsentStore, useChatStore, type SessionMeta } from '../../store/appStore';
 import { randomId } from '../../utils/id';
 import { ChatThread, type Chat } from '../ai/ChatThread';
 import { HistoryPanel } from '../ai/HistoryPanel';
 import { ApiKeyGate } from '../ai/ApiKeyGate';
+import { useByokReady } from '../ai/byok';
 import { AiTermsModal } from '../ai/AiTermsModal';
 import { SignInButtons } from '../auth/SignInButtons';
 import { TypingDots } from '../ai/MessageComponents';
@@ -82,7 +78,8 @@ export function AiSidePanel({
   } = useChatStore();
 
   const signedIn = isAuthenticated();
-  const configured = useByokStore((s) => s.configured);
+  // Entitlement-aware: a Google sign-in with no key of its own still needs the gate.
+  const configured = useByokReady();
   const termsAccepted = useAiConsentStore((s) => s.accepted);
   const acceptTerms = useAiConsentStore((s) => s.accept);
 
@@ -127,15 +124,20 @@ export function AiSidePanel({
   }, [setSessions, getCachedMessages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load messages for the active chat — check cache first, fetch only if needed.
-  // The backend fetch also recovers the id of the last message, which becomes
-  // the parentMessageId for the next turn.
+  //
+  // The cache is preferred whenever it exists, and deliberately isn't gated on
+  // parentMessageId any more: a turn that failed never emits the 'complete'
+  // event that sets one, so gating on it sent exactly the conversations that
+  // errored back to the server — which returns the reply text but not the
+  // failure, so the error bubble came back empty and the fetch then overwrote
+  // the good cached copy.
   useEffect(() => {
     if (!activeId) return;
     const chat = localChats.find((c) => c.id === activeId);
     if (!chat?.sessionId || chat.messages.length > 0) return;
 
     const cached = getCachedMessages(chat.sessionId);
-    if (cached && chat.parentMessageId) {
+    if (cached) {
       setLocalChats((prev) =>
         prev.map((c) => (c.id === activeId ? { ...c, messages: cached, historyLoaded: true } : c))
       );
@@ -296,7 +298,7 @@ export function AiSidePanel({
       />
 
       <div className="h-10 px-3 flex items-center justify-between border-b border-slate-800 bg-slate-900/80 shrink-0">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-300">
+        <span className="text-xs font-bold uppercase tracking-widest text-indigo-300">
           AI Assistant
         </span>
         <div className="flex items-center gap-0.5">
@@ -322,7 +324,7 @@ export function AiSidePanel({
               <UserCircle size={18} />
             </Link>
           )}
-          <button onClick={onClose} className={iconBtn} title="Close AI panel">
+          <button onClick={onClose} className={iconBtn} title="Close AI Assistant">
             <X size={18} />
           </button>
         </div>

@@ -40,7 +40,6 @@ export function useAccountData() {
 
   return {
     profile,
-    setProfile,
     usage,
     chats,
     setChats,

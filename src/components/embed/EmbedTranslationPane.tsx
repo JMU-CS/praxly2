@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 import type { Program } from '../../language/ast';
-import type { SupportedLang } from '../LanguageSelector';
+import { LANG_LABELS, type SupportedLang } from '../LanguageSelector';
 import { HighlightableCodeMirror } from '../HighlightableCodeMirror';
 import { JSONTree } from '../JSONTree';
 
@@ -47,10 +47,10 @@ export function EmbedTranslationPane({
                 onClick={onToggleMenu}
                 aria-expanded={menuOpen}
                 aria-haspopup="listbox"
-                aria-label={`Translation language: ${showAst ? 'AST' : targetLang}. Click to change`}
+                aria-label={`Translation language: ${showAst ? LANG_LABELS.ast : targetLang}. Click to change`}
                 className="flex items-center gap-2 py-2 text-indigo-400 hover:text-indigo-300 transition-colors text-xs font-bold uppercase"
               >
-                {showAst ? 'AST' : targetLang}
+                {showAst ? LANG_LABELS.ast : targetLang}
                 <ChevronDown size={12} aria-hidden="true" />
               </button>
               {menuOpen && (
@@ -65,7 +65,7 @@ export function EmbedTranslationPane({
                       role="option"
                       aria-selected={lang === targetLang && !showAst}
                       onClick={() => onSelectTarget(lang)}
-                      className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${
+                      className={`block w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-700 transition-colors ${
                         targetLang === lang && !showAst ? 'bg-indigo-600 text-white' : ''
                       }`}
                     >
@@ -77,11 +77,11 @@ export function EmbedTranslationPane({
                     role="option"
                     aria-selected={showAst}
                     onClick={onSelectAst}
-                    className={`block w-full text-left px-4 py-2 text-xs hover:bg-slate-700 transition-colors ${
+                    className={`block w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-700 transition-colors ${
                       showAst ? 'bg-indigo-600 text-white' : ''
                     }`}
                   >
-                    Show AST
+                    Show {LANG_LABELS.ast}
                   </button>
                 </div>
               )}
@@ -99,9 +99,7 @@ export function EmbedTranslationPane({
               {ast ? (
                 <JSONTree data={ast} />
               ) : (
-                <div className="text-slate-500 text-center mt-10 italic">
-                  Valid code required...
-                </div>
+                <div className="text-muted text-center mt-10 italic">Valid code required...</div>
               )}
             </div>
           ) : (

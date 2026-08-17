@@ -9,7 +9,7 @@ export function BlocklyPaneLazy(props: ComponentProps<typeof BlocklyPane>) {
   return (
     <Suspense
       fallback={
-        <div className="flex h-full items-center justify-center text-xs text-slate-500">
+        <div className="flex h-full items-center justify-center text-xs text-muted">
           Loading blocks…
         </div>
       }
