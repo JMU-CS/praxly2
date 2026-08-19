@@ -261,6 +261,13 @@ export class JavaParser {
       throw new Error('Expected type in class member declaration');
     }
 
+    // Handle array types (e.g., int[] history)
+    while (this.check('PUNCTUATION', '[')) {
+      this.advance();
+      this.consume('PUNCTUATION', ']');
+      typeString += '[]';
+    }
+
     const name = this.consume('IDENTIFIER').value;
 
     if (this.check('PUNCTUATION', '(')) {

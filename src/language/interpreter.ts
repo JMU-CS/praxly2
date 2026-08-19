@@ -21,6 +21,7 @@ export class Environment {
   public values: Record<string, any> = {};
   public types: Record<string, string> = {}; // Track declared types
   public declarationOrigins: Record<string, number> = {}; // Track declaration token positions
+  public hiddenNames: Set<string> = new Set(); // Names to omit from the debugger's variable table (e.g. main's synthetic args param)
   public parent?: Environment;
   /**
    * Creates a new instance.
@@ -614,6 +615,7 @@ export class Interpreter {
           // Java's `main(String[] args)` receives an empty argument array.
           if (mainMethod.params.length > 0) {
             this.bindParams(mainMethod.params, [[]], mainEnv);
+            mainEnv.hiddenNames.add(mainMethod.params[0].name); // synthetic — never real input, whatever the student named it
           }
           this.debugCallStack.push({ name: 'main', env: mainEnv });
           try {
@@ -662,6 +664,7 @@ export class Interpreter {
     const variables: Record<string, any> = {};
     for (const [name, value] of Object.entries(env.values)) {
       if (name === 'this' || name === 'self') continue;
+      if (env.hiddenNames.has(name)) continue;
       if (value && typeof value === 'object' && value.type === 'FunctionDeclaration') continue;
       if (value instanceof JavaClass) continue;
       variables[name] = value;

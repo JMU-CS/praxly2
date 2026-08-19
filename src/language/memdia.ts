@@ -143,7 +143,7 @@ const HEAP_LEFT_MARGIN = 40; // gap between adjacent columns (stack↔heap and h
 const COLUMN_TITLE_GAP = FUNC_MIN_WIDTH / 2 + HEAP_LEFT_MARGIN / 2;
 
 const MAX_HEAP_FIELDS = 6; // cap on array cells shown before a "+N" summary cell
-const HEAP_VERTICAL_GAP = 10; // vertical gap between stacked heap entries
+const HEAP_VERTICAL_GAP = VAR_VERTICAL_GAP; // vertical gap between stacked heap entries — matches the gap between field rows inside one box
 const HEAP_ARROW_COLOR = '#ffffff';
 const REFERENCE_DOT_RADIUS = 3;
 const HEAP_OBJECT_LABEL_HEIGHT = 16; // space above a string's box for the "String" label
@@ -171,11 +171,12 @@ interface FrameState {
 interface HeapField {
   key: string;
   value: SlotValue;
+  typeLabel?: string;
 }
 
 interface HeapEntry {
   id: string;
-  kind: 'array' | 'string';
+  kind: 'array' | 'string' | 'object';
   label: string;
   fields: HeapField[];
 }
@@ -239,33 +240,6 @@ function inferArrayLabel(value: unknown[]): string {
   return `${elemType}[]`;
 }
 
-// A string element becomes its own heap-boxed reference, same as a top-level string
-// variable. Nested arrays/objects inside a cell aren't linked out to their own heap
-// entry yet — shown as a placeholder rather than crashing or misrendering.
-function previewCellValue(el: unknown, heap: Map<string, HeapEntry>): SlotValue {
-  if (typeof el === 'string') {
-    const refId = idForString(el);
-    if (!heap.has(refId)) heap.set(refId, buildStringHeapEntry(el));
-    return { kind: 'reference', text: '', refId };
-  }
-  if (Array.isArray(el) || (el !== null && typeof el === 'object')) {
-    return { kind: 'primitive', text: '[…]' };
-  }
-  return { kind: 'primitive', text: formatPrimitive(el) };
-}
-
-function buildArrayHeapEntry(value: unknown[], heap: Map<string, HeapEntry>): HeapEntry {
-  const limit = Math.min(value.length, MAX_HEAP_FIELDS);
-  const fields: HeapField[] = [];
-  for (let i = 0; i < limit; i++) {
-    fields.push({ key: String(i), value: previewCellValue(value[i], heap) });
-  }
-  if (value.length > limit) {
-    fields.push({ key: '…', value: { kind: 'primitive', text: `+${value.length - limit}` } });
-  }
-  return { id: idFor(value), kind: 'array', label: inferArrayLabel(value), fields };
-}
-
 function buildStringHeapEntry(value: string): HeapEntry {
   return {
     id: idForString(value),
@@ -275,19 +249,97 @@ function buildStringHeapEntry(value: string): HeapEntry {
   };
 }
 
-// Converts a raw variable value into what a stack slot displays. Arrays and strings
-// become a reference dot pointing at a heap entry (reusing the existing one if the
-// same array is aliased, or the same string value appears elsewhere); everything
-// else stays inline.
-function previewValue(value: unknown, heap: Map<string, HeapEntry>): SlotValue {
+// Duck-typed detection of the interpreter's JavaInstance shape — kept decoupled from
+// interpreter.ts (memdia.ts imports nothing from it) rather than importing the type.
+function isJavaInstance(value: unknown): value is {
+  klass: { name: string; fieldTypes?: Map<string, string> };
+  fields: Map<string, unknown>;
+} {
+  if (!value || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    obj['fields'] instanceof Map &&
+    obj['klass'] !== undefined &&
+    typeof (obj['klass'] as Record<string, unknown>)?.['name'] === 'string'
+  );
+}
+
+function buildArrayHeapEntry(
+  value: unknown[],
+  heap: Map<string, HeapEntry>,
+  seen: WeakSet<object>
+): HeapEntry {
+  const limit = Math.min(value.length, MAX_HEAP_FIELDS);
+  const fields: HeapField[] = [];
+  for (let i = 0; i < limit; i++) {
+    fields.push({ key: String(i), value: previewValue(value[i], heap, seen) });
+  }
+  if (value.length > limit) {
+    fields.push({ key: '…', value: { kind: 'primitive', text: `+${value.length - limit}` } });
+  }
+  return { id: idFor(value), kind: 'array', label: inferArrayLabel(value), fields };
+}
+
+function buildObjectHeapEntry(
+  instance: {
+    klass: { name: string; fieldTypes?: Map<string, string> };
+    fields: Map<string, unknown>;
+  },
+  heap: Map<string, HeapEntry>,
+  seen: WeakSet<object>
+): HeapEntry {
+  const limit = Math.min(instance.fields.size, MAX_HEAP_FIELDS);
+  const fields: HeapField[] = [];
+  let i = 0;
+  for (const [key, value] of instance.fields) {
+    if (i >= limit) break;
+    fields.push({
+      key,
+      value: previewValue(value, heap, seen),
+      typeLabel: instance.klass.fieldTypes?.get(key) ?? inferTypeLabel(value),
+    });
+    i++;
+  }
+  if (instance.fields.size > limit) {
+    fields.push({
+      key: '…',
+      value: { kind: 'primitive', text: `+${instance.fields.size - limit}` },
+    });
+  }
+  return { id: idFor(instance), kind: 'object', label: instance.klass.name, fields };
+}
+
+// Converts a raw variable/field/element value into what its slot displays. Arrays,
+// strings, and object instances become a reference dot pointing at a heap entry
+// (reusing the existing one if aliased); everything else stays inline. `seen` guards
+// against infinite recursion on circular object references (e.g. a node whose field
+// points back to an ancestor) — arrays and strings can't form cycles, only objects.
+function previewValue(
+  value: unknown,
+  heap: Map<string, HeapEntry>,
+  seen: WeakSet<object> = new WeakSet()
+): SlotValue {
   if (Array.isArray(value)) {
     const refId = idFor(value);
-    if (!heap.has(refId)) heap.set(refId, buildArrayHeapEntry(value, heap));
+    if (!heap.has(refId) && !seen.has(value)) {
+      seen.add(value);
+      heap.set(refId, buildArrayHeapEntry(value, heap, seen));
+      seen.delete(value);
+    }
     return { kind: 'reference', text: '', refId };
   }
   if (typeof value === 'string') {
     const refId = idForString(value);
     if (!heap.has(refId)) heap.set(refId, buildStringHeapEntry(value));
+    return { kind: 'reference', text: '', refId };
+  }
+  if (isJavaInstance(value)) {
+    const refId = idFor(value);
+    if (!heap.has(refId) && !seen.has(value)) {
+      seen.add(value);
+      heap.set(refId, buildObjectHeapEntry(value, heap, seen));
+      seen.delete(value);
+    }
     return { kind: 'reference', text: '', refId };
   }
   return { kind: 'primitive', text: formatPrimitive(value) };
@@ -311,6 +363,34 @@ function getFrameHeight(frame: FrameState): number {
 // Width of a single value box, sized to fit its text.
 function getRectWidthForValue(valueStr: string): number {
   return Math.max(VAR_MIN_WIDTH, valueStr.length * NAME_CHAR_WIDTH + FUNC_INNER_PADDING);
+}
+
+// Rough width estimate for a heap entry's own label text, so a sparse entry (an empty
+// array, a one-character string) still reserves enough width for its own label — the
+// label sits above the entry's content and would otherwise be free to render past
+// whatever width the content alone claims, clipping at the canvas edge.
+function estimateLabelWidth(label: string): number {
+  return label.length * NAME_CHAR_WIDTH;
+}
+
+// Total height of an object heap entry (label + field rows). Pulled out as its own
+// function because the top-level layout pass needs to know an object's height *before*
+// rendering it, to align its vertical center with the stack dot pointing at it — must
+// stay in sync with the box-height math inside renderHeapEntry's object branch.
+function getObjectEntryHeight(entry: HeapEntry): number {
+  const firstFieldHasTypeLabel =
+    entry.fields.length > 0 &&
+    entry.fields[0].value.kind === 'primitive' &&
+    !!entry.fields[0].typeLabel;
+  const slotRowOffset = FUNC_INNER_PADDING + (firstFieldHasTypeLabel ? FRAME_SLOT_TOP_PADDING : 0);
+  const boxHeight = Math.max(
+    FUNC_MIN_HEIGHT,
+    slotRowOffset +
+      entry.fields.length * VAR_RECT_HEIGHT +
+      Math.max(0, entry.fields.length - 1) * VAR_VERTICAL_GAP +
+      FUNC_INNER_PADDING
+  );
+  return HEAP_OBJECT_LABEL_HEIGHT + boxHeight;
 }
 
 // Total box width for a frame: wide enough for its longest name/value pair.
@@ -405,14 +485,17 @@ interface RenderedHeapEntry {
 }
 
 // Draws one heap entry. Strings are a single box (type label above, value inside —
-// same shape as a stack slot's value box). Arrays lay their element-type label above
-// cells side by side with index labels below, and a cell holding a string draws a
-// reference dot instead of inline text. Same shapes as the old full renderer's
-// string/array cases, just without the object/heap-to-heap cases.
+// same shape as a stack slot's value box). Objects draw their fields the same way a
+// stack frame draws slots (name left, type label above the value box, value box
+// right). Arrays lay their element-type label above cells side by side with index
+// labels below. Any of the three can draw a reference dot instead of inline
+// content — a cell/field pointing at its own heap entry. Every branch's width is
+// floored by its own label's width so a sparse entry (an empty array, a
+// one-character string) never renders its label past its own edge.
 function renderHeapEntry(entry: HeapEntry, x: number, y: number): RenderedHeapEntry {
   if (entry.kind === 'string') {
     const valueText = entry.fields[0]?.value.text ?? '""';
-    const boxW = getRectWidthForValue(valueText);
+    const boxW = Math.max(getRectWidthForValue(valueText), estimateLabelWidth(entry.label));
     const boxH = VAR_RECT_HEIGHT;
     const boxTop = y + HEAP_OBJECT_LABEL_HEIGHT;
     const centerY = boxTop + boxH / 2;
@@ -432,12 +515,81 @@ function renderHeapEntry(entry: HeapEntry, x: number, y: number): RenderedHeapEn
     };
   }
 
+  if (entry.kind === 'object') {
+    const slots: StackSlot[] = entry.fields.map((f) => ({
+      name: f.key,
+      value: f.value,
+      typeLabel: f.typeLabel,
+    }));
+    const width = Math.max(
+      getFrameWidth({ name: entry.label, slots }),
+      estimateLabelWidth(entry.label)
+    );
+    const totalHeight = getObjectEntryHeight(entry);
+    const boxHeight = totalHeight - HEAP_OBJECT_LABEL_HEIGHT;
+    const boxY = y + HEAP_OBJECT_LABEL_HEIGHT;
+    const firstSlotHasTypeLabel =
+      slots.length > 0 && slots[0].value.kind === 'primitive' && !!slots[0].typeLabel;
+    const slotRowOffset = FUNC_INNER_PADDING + (firstSlotHasTypeLabel ? FRAME_SLOT_TOP_PADDING : 0);
+    const maxNameWidth = slots.reduce((m, s) => Math.max(m, s.name.length * NAME_CHAR_WIDTH), 0);
+
+    const dotCentres: Array<{ refId: string; cx: number; cy: number }> = [];
+    const slotsSvg = slots
+      .map((slot, index) => {
+        const rowY = boxY + slotRowOffset + index * (VAR_RECT_HEIGHT + VAR_VERTICAL_GAP);
+        const centerY = rowY + VAR_RECT_HEIGHT / 2;
+        const typeText = slot.value.kind === 'reference' ? '' : (slot.typeLabel ?? '');
+        const rectW = getRectWidthForValue(slot.value.text);
+        const rectX = x + FUNC_INNER_PADDING + maxNameWidth + NAME_BOX_GAP;
+        const valueCX = rectX + rectW / 2;
+        const nameX = rectX - NAME_BOX_GAP;
+        const typeLabelY = Math.max(boxY + FUNC_INNER_PADDING - 2, rowY - 4);
+
+        let valueContent: string;
+        if (slot.value.kind === 'reference') {
+          dotCentres.push({ refId: slot.value.refId!, cx: valueCX, cy: centerY });
+          valueContent = `<circle cx="${valueCX}" cy="${centerY}" r="${REFERENCE_DOT_RADIUS}" fill="#ffffff" />`;
+        } else {
+          valueContent = `<text x="${valueCX}" y="${centerY}" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-size="14" font-family="ui-sans-serif, system-ui">${escapeXml(slot.value.text)}</text>`;
+        }
+
+        return `
+    <g>
+      <text x="${rectX}" y="${typeLabelY}" dominant-baseline="auto" fill="#aaaaaa" font-size="12" font-family="Georgia, serif">${escapeXml(typeText)}</text>
+      <text x="${nameX}" y="${centerY}" dominant-baseline="middle" text-anchor="end" fill="#ffffff" font-size="14" font-family="ui-monospace, SFMono-Regular, Consolas, monospace">${escapeXml(slot.name)}</text>
+      <rect x="${rectX}" y="${rowY}" width="${rectW}" height="${VAR_RECT_HEIGHT}" fill="none" stroke="#ffffff" stroke-width="1" />
+      ${valueContent}
+    </g>`;
+      })
+      .join('\n');
+
+    const svg = `
+  <g>
+    <text x="${x}" y="${y + HEAP_OBJECT_LABEL_HEIGHT - 4}" dominant-baseline="auto" fill="#aaaaaa" font-size="12" font-family="Georgia, serif">${escapeXml(entry.label)}</text>
+    <rect x="${x}" y="${boxY}" width="${width}" height="${boxHeight}" fill="none" stroke="#ffffff" stroke-width="1" />
+    ${slotsSvg}
+  </g>`;
+
+    const midY = boxY + boxHeight / 2;
+    return {
+      svg,
+      height: totalHeight,
+      width,
+      entryTarget: { cx: x, cy: midY },
+      entryTargetRight: { cx: x + width, cy: midY },
+      dotCentres,
+    };
+  }
+
   const cellH = VAR_RECT_HEIGHT;
   const typeLabelHeight = 14;
   const indexLabelHeight = 16;
 
   const cellWidths = entry.fields.map((f) => getRectWidthForValue(f.value.text));
-  const totalWidth = cellWidths.reduce((sum, w) => sum + w, 0);
+  const totalWidth = Math.max(
+    cellWidths.reduce((sum, w) => sum + w, 0),
+    estimateLabelWidth(entry.label)
+  );
   const cellTop = y + typeLabelHeight;
   const cellCentreY = cellTop + cellH / 2;
 
@@ -512,37 +664,118 @@ function renderMemorySnapshotSvg(
   const heapDividerX = stackColumnRight + HEAP_LEFT_MARGIN / 2;
   const heapX = stackColumnRight + HEAP_LEFT_MARGIN;
 
+  // An object field that's itself a string/array is placed beside the object rather
+  // than below it (old code's "inline" placement) — they all share one column, wide
+  // enough for the widest object, so it doesn't jump around per-object.
+  let maxObjectWidth = 0;
+  for (const entry of heap.values()) {
+    if (entry.kind !== 'object') continue;
+    const slots: StackSlot[] = entry.fields.map((f) => ({
+      name: f.key,
+      value: f.value,
+      typeLabel: f.typeLabel,
+    }));
+    maxObjectWidth = Math.max(
+      maxObjectWidth,
+      Math.max(getFrameWidth({ name: entry.label, slots }), estimateLabelWidth(entry.label))
+    );
+  }
+  const INLINE_CHILD_GAP = 24;
+  const inlineChildX =
+    heapX + (maxObjectWidth > 0 ? maxObjectWidth : HEAP_COLUMN_MIN_WIDTH) + INLINE_CHILD_GAP;
+
+  // Matches renderHeapEntry's own label-height + half-cell math for each kind. Objects
+  // never call this — they don't attempt dot-centering at all (see the top-level loop
+  // below) — so there's no object case here.
+  function heapEntryCenterOffsetFor(entry: HeapEntry): number {
+    if (entry.kind === 'string') return HEAP_OBJECT_LABEL_HEIGHT + VAR_RECT_HEIGHT / 2;
+    return 14 + VAR_RECT_HEIGHT / 2; // array
+  }
+
+  // Space an entry's own label reserves above its box (arrays use a shorter one than
+  // strings/objects). A fallback gap is measured from the *previous* entry's box
+  // bottom, but the next entry's own Y is its footprint top, not its box top — without
+  // subtracting this back out, the label height would silently add onto the intended
+  // gap, making the visible box-to-box spacing bigger than HEAP_VERTICAL_GAP.
+  function heapEntryLabelHeight(entry: HeapEntry): number {
+    return entry.kind === 'array' ? 14 : HEAP_OBJECT_LABEL_HEIGHT;
+  }
+
   // Lay out each heap entry. An entry a stack dot points to directly is placed first,
-  // aligned to that dot; whatever its own cells point to in turn (e.g. a string inside
-  // an array) is placed right after, directly below it in the same column. Placement
-  // is clamped to the running cursor so a parent-plus-children column can't overlap
-  // an earlier one.
-  let heapCursorY = MARGIN + HEADER_HEIGHT;
-  let maxHeapWidth = 0;
+  // aligned to that dot; whatever its own cells/fields point to in turn is placed right
+  // after — below it in the same column for an array's elements, or beside it in the
+  // shared inline column for an object's string/array fields. Below-placement is
+  // clamped to the running cursor so a parent-plus-children column can't overlap an
+  // earlier one; inline placement doesn't touch that cursor at all, since it shares
+  // vertical space with its parent rather than stacking after it.
+  const HEAP_START_Y = MARGIN + HEADER_HEIGHT; // level with the top of the first stack frame
+  let heapCursorY = HEAP_START_Y;
+  let inlineCursorY = HEAP_START_Y; // tracks the shared inline column separately from the main one
+  let maxHeapWidth = 0; // width of entries in the main column only — used to center the HEAP title
+  let heapRightEdge = heapX; // rightmost edge of anything placed, including inline children — used for canvas width so nothing clips
+  let heapBottomEdge = MARGIN + HEADER_HEIGHT; // deepest bottom edge of anything placed, including inline children
   const heapSvgParts: string[] = [];
   const heapTargets = new Map<
     string,
     { left: { cx: number; cy: number }; right: { cx: number; cy: number } }
   >();
   const placedRefIds = new Set<string>();
+  // Only entries sitting beside their own row (an object field) get a straight arrow —
+  // nothing sits between them and their parent. Entries stacked below something in the
+  // inline column (e.g. an inline array's own elements) still need the curved routing,
+  // same as the main column, since a box can end up between them.
+  const besideRowRefIds = new Set<string>();
   const heapInternalDots: Array<{ refId: string; cx: number; cy: number }> = [];
 
-  function placeHeapEntry(refId: string, entry: HeapEntry, alignedY: number) {
-    const rh = renderHeapEntry(entry, heapX, alignedY);
+  function placeHeapEntry(
+    refId: string,
+    entry: HeapEntry,
+    entryX: number,
+    entryY: number,
+    isInline: boolean
+  ) {
+    const rh = renderHeapEntry(entry, entryX, entryY);
     heapSvgParts.push(rh.svg);
     heapTargets.set(refId, { left: rh.entryTarget, right: rh.entryTargetRight });
     placedRefIds.add(refId);
     heapInternalDots.push(...rh.dotCentres);
-    heapCursorY = alignedY + rh.height; // raw bottom edge — no gap baked in, so the next
-    // entry only gets pushed down when it would actually overlap, never just for padding.
-    maxHeapWidth = Math.max(maxHeapWidth, rh.width);
+    heapRightEdge = Math.max(heapRightEdge, entryX + rh.width);
+    heapBottomEdge = Math.max(heapBottomEdge, entryY + rh.height);
+    if (!isInline) {
+      heapCursorY = entryY + rh.height; // raw bottom edge — no gap baked in, so the next
+      // entry only gets pushed down when it would actually overlap, never just for padding.
+      maxHeapWidth = Math.max(maxHeapWidth, rh.width);
+    } else {
+      inlineCursorY = Math.max(inlineCursorY, entryY + rh.height);
+    }
 
     for (const { refId: childRefId, cy: childDotCy } of rh.dotCentres) {
       if (placedRefIds.has(childRefId)) continue;
       const childEntry = heap.get(childRefId);
       if (!childEntry) continue;
-      const childY = Math.max(heapCursorY + HEAP_VERTICAL_GAP, childDotCy + HEAP_VERTICAL_GAP);
-      placeHeapEntry(childRefId, childEntry, childY);
+      const childIsRefKind = childEntry.kind === 'string' || childEntry.kind === 'array';
+      if (entry.kind === 'object' && childIsRefKind) {
+        // A field has its own row to itself — center exactly on it, as before.
+        const childY = childDotCy - heapEntryCenterOffsetFor(childEntry);
+        besideRowRefIds.add(childRefId);
+        placeHeapEntry(childRefId, childEntry, inlineChildX, childY, true);
+      } else if (isInline && childIsRefKind) {
+        // Chained from an already-inline entry (e.g. an inline array's own elements,
+        // which sit side by side at the same height and can't each center on their own
+        // dot without overlapping) — stack top-to-bottom in the shared inline column
+        // instead, same align-if-clear/gap-fallback rule as the main column uses.
+        const childY = Math.max(
+          inlineCursorY + HEAP_VERTICAL_GAP - heapEntryLabelHeight(childEntry),
+          childDotCy + HEAP_VERTICAL_GAP
+        );
+        placeHeapEntry(childRefId, childEntry, inlineChildX, childY, true);
+      } else {
+        const childY = Math.max(
+          heapCursorY + HEAP_VERTICAL_GAP - heapEntryLabelHeight(childEntry),
+          childDotCy + HEAP_VERTICAL_GAP
+        );
+        placeHeapEntry(childRefId, childEntry, heapX, childY, false);
+      }
     }
   }
 
@@ -550,11 +783,29 @@ function renderMemorySnapshotSvg(
     if (placedRefIds.has(refId)) continue;
     const dot = allDotCentres.find((d) => d.refId === refId);
     if (!dot) continue; // only reachable through a parent entry — placed when the parent is
-    // Matches renderHeapEntry's own label-height + half-cell math for each kind.
-    const heapEntryCenterOffset =
-      (entry.kind === 'string' ? HEAP_OBJECT_LABEL_HEIGHT : 14) + VAR_RECT_HEIGHT / 2;
-    const alignedY = Math.max(heapCursorY, dot.cy - heapEntryCenterOffset);
-    placeHeapEntry(refId, entry, alignedY);
+    let alignedY: number;
+    if (entry.kind === 'object') {
+      // Objects never center on their dot — doing so would shift an already-placed
+      // object down every time a later stack variable adds a new dot above it, which
+      // is more disorienting than useful. They just pack from the running cursor
+      // instead; the very first one needs no gap before it, since the cursor already
+      // starts level with the top of the stack frame.
+      alignedY =
+        heapCursorY === HEAP_START_Y
+          ? heapCursorY
+          : heapCursorY + HEAP_VERTICAL_GAP - heapEntryLabelHeight(entry);
+    } else {
+      // Use the exact dot-aligned position whenever it doesn't require backing up past
+      // the previous entry (any amount of natural clearance is enough, even a few px —
+      // alignment wins). Only when it would actually overlap does a real gap get added;
+      // without this, that case would otherwise land flush against the previous entry.
+      const desiredY = dot.cy - heapEntryCenterOffsetFor(entry);
+      alignedY =
+        desiredY >= heapCursorY
+          ? desiredY
+          : heapCursorY + HEAP_VERTICAL_GAP - heapEntryLabelHeight(entry);
+    }
+    placeHeapEntry(refId, entry, heapX, alignedY, false);
   }
 
   const heapColumnRight = heap.size > 0 ? heapX + maxHeapWidth : heapX + HEAP_COLUMN_MIN_WIDTH;
@@ -562,10 +813,10 @@ function renderMemorySnapshotSvg(
   const dataX = heapColumnRight + HEAP_LEFT_MARGIN;
 
   const canvasWidth = Math.max(
-    (hasData ? dataX + HEAP_COLUMN_MIN_WIDTH : heapColumnRight) + MARGIN,
+    (hasData ? dataX + HEAP_COLUMN_MIN_WIDTH : Math.max(heapColumnRight, heapRightEdge)) + MARGIN,
     260
   );
-  const canvasHeight = Math.max(MIN_CANVAS_HEIGHT, Math.max(stackY, heapCursorY) + MARGIN);
+  const canvasHeight = Math.max(MIN_CANVAS_HEIGHT, Math.max(stackY, heapBottomEdge) + MARGIN);
   const framesSvg = rendered.map((rf) => rf.svg).join('\n');
   const heapEntriesSvg = heapSvgParts.join('\n');
 
@@ -575,6 +826,7 @@ function renderMemorySnapshotSvg(
   // out to the right so the line never has to cross through another box stacked between
   // it and its target.
   const ARROW_BULGE = 56; // clears the array's width before the curve is allowed to dip toward its target
+  const ARROW_TARGET_GAP = 8; // vertical spread between multiple arrowheads sharing one target edge
 
   function curvedArrowPath(x1: number, y1: number, x2: number, y2: number): string {
     const c1x = x1 + ARROW_BULGE; // stays level with the source briefly, clearing what's directly below it
@@ -582,23 +834,56 @@ function renderMemorySnapshotSvg(
     return `M ${x1} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
   }
 
-  const stackArrowsSvg = allDotCentres
-    .map(({ refId, cx, cy }) => {
-      const target = heapTargets.get(refId);
+  type ArrowSource = {
+    refId: string;
+    cx: number;
+    cy: number;
+    side: 'left' | 'right';
+    curved: boolean;
+    yOffset: number;
+  };
+  const arrowSources: ArrowSource[] = [
+    ...allDotCentres.map((d) => ({ ...d, side: 'left' as const, curved: false, yOffset: 0 })),
+    ...heapInternalDots.map((d) => {
+      const besideRow = besideRowRefIds.has(d.refId);
+      // A beside-row child sits immediately next to its parent — nothing to cross, so a
+      // straight line into the left edge is enough (no need for the curved routing).
+      return {
+        ...d,
+        side: (besideRow ? 'left' : 'right') as 'left' | 'right',
+        curved: !besideRow,
+        yOffset: 0,
+      };
+    }),
+  ];
+
+  // When more than one arrow converges on the same target edge (e.g. two variables
+  // pointing at the same string), landing on the exact same point makes them cross like
+  // an X. Spread their endpoints evenly around the target's true center instead.
+  const targetGroups = new Map<string, ArrowSource[]>();
+  for (const s of arrowSources) {
+    if (!heapTargets.has(s.refId)) continue;
+    const key = `${s.refId}|${s.side}`;
+    if (!targetGroups.has(key)) targetGroups.set(key, []);
+    targetGroups.get(key)!.push(s);
+  }
+  for (const group of targetGroups.values()) {
+    const start = -((group.length - 1) * ARROW_TARGET_GAP) / 2;
+    group.forEach((s, i) => (s.yOffset = start + i * ARROW_TARGET_GAP));
+  }
+
+  const arrowsSvg = arrowSources
+    .map((s) => {
+      const target = heapTargets.get(s.refId);
       if (!target) return '';
-      return `<path d="M ${cx} ${cy} L ${target.left.cx} ${target.left.cy}" fill="none" stroke="${HEAP_ARROW_COLOR}" stroke-width="1" marker-end="url(#refArrow)" />`;
+      const endpoint = s.side === 'left' ? target.left : target.right;
+      const ty = endpoint.cy + s.yOffset;
+      const path = s.curved
+        ? curvedArrowPath(s.cx, s.cy, endpoint.cx, ty)
+        : `M ${s.cx} ${s.cy} L ${endpoint.cx} ${ty}`;
+      return `<path d="${path}" fill="none" stroke="${HEAP_ARROW_COLOR}" stroke-width="1" marker-end="url(#refArrow)" />`;
     })
     .join('\n');
-
-  const heapArrowsSvg = heapInternalDots
-    .map(({ refId, cx, cy }) => {
-      const target = heapTargets.get(refId);
-      if (!target) return '';
-      return `<path d="${curvedArrowPath(cx, cy, target.right.cx, target.right.cy)}" fill="none" stroke="${HEAP_ARROW_COLOR}" stroke-width="1" marker-end="url(#refArrow)" />`;
-    })
-    .join('\n');
-
-  const arrowsSvg = `${stackArrowsSvg}\n${heapArrowsSvg}`;
 
   const headerY = MARGIN + 8; // raised up a bit for more gap above the boxes below
   const dividerBottom = canvasHeight - MARGIN / 2;
