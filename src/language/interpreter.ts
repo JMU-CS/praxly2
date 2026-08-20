@@ -201,6 +201,7 @@ class JavaClass {
   methods: Map<string, MethodDeclaration> = new Map();
   ctorDecl: Constructor | undefined;
   fields: Map<string, any> = new Map();
+  fieldTypes: Map<string, string> = new Map(); // declared type per field, for display (MemDia)
   superClass?: JavaClass;
 
   /**
@@ -223,6 +224,37 @@ class JavaClass {
     if (this.methods.has(name)) return this.methods.get(name);
     if (this.superClass) return this.superClass.getMethod(name);
     return undefined;
+  }
+}
+
+/** Wraps a declared byte/short/long/float/double value from a debug snapshot so
+ *  display code (variable table, MemDia) can tell it apart from a plain int even
+ *  when the value happens to be a whole number — a bare JS number can't (12 === 12.0,
+ *  and there's nothing distinguishing a JS number that came from a short vs an int).
+ *  Only float/double ever get a trailing .0; the others print as plain integers,
+ *  same as int. Only ever appears in snapshotFrameVariables' output; never touches
+ *  live execution. */
+class TypedNumber {
+  constructor(
+    public readonly value: number,
+    public readonly declaredType: 'byte' | 'short' | 'long' | 'float' | 'double'
+  ) {}
+  toString(): string {
+    const isFloating = this.declaredType === 'float' || this.declaredType === 'double';
+    return isFloating && Number.isInteger(this.value) ? `${this.value}.0` : String(this.value);
+  }
+}
+
+/** Wraps a declared char value from a debug snapshot — char is a plain JS string
+ *  internally (see stringify's `'${val}'` vs `"${val}"` split), indistinguishable from
+ *  a real String without its declared type. MemDia needs this to render it inline as a
+ *  primitive (single-quoted) instead of a heap-boxed String reference. Only ever
+ *  appears in snapshotFrameVariables' output; never touches live execution. */
+class TypedChar {
+  readonly declaredType = 'char' as const;
+  constructor(public readonly value: string) {}
+  toString(): string {
+    return `'${this.value}'`;
   }
 }
 
@@ -667,9 +699,44 @@ export class Interpreter {
       if (env.hiddenNames.has(name)) continue;
       if (value && typeof value === 'object' && value.type === 'FunctionDeclaration') continue;
       if (value instanceof JavaClass) continue;
-      variables[name] = value;
+      variables[name] = this.tagFloatingValue(value, env.types[name]);
     }
     return variables;
+  }
+
+  /** See TypedNumber — wraps a declared byte/short/long/float/double scalar with its
+   *  type (int is left alone; it's already the default display guess). For an array,
+   *  tags the array object itself (never a copy) with a hidden, non-enumerable
+   *  property instead — an aliased array (e.g. also reachable through an object field)
+   *  must stay the exact same object, or memdia.ts's identity-based dedup would draw
+   *  it as two separate heap boxes. The tag is invisible to anything that iterates or
+   *  serializes the array (for...of, .map(), JSON.stringify, Object.keys). */
+  private tagFloatingValue(value: any, declaredType?: string): any {
+    const base = declaredType?.replace(/\[\]$/, '');
+    if (base === 'char') {
+      if (Array.isArray(value)) {
+        Object.defineProperty(value, '__declaredElementType', {
+          value: 'char',
+          enumerable: false,
+          configurable: true,
+        });
+        return value;
+      }
+      return typeof value === 'string' ? new TypedChar(value) : value;
+    }
+    const needsTag =
+      this.isFloatType(declaredType) || (this.isIntegerType(declaredType) && base !== 'int');
+    if (!needsTag) return value;
+    const type = base as 'byte' | 'short' | 'long' | 'float' | 'double';
+    if (Array.isArray(value)) {
+      Object.defineProperty(value, '__declaredElementType', {
+        value: type,
+        enumerable: false,
+        configurable: true,
+      });
+      return value;
+    }
+    return typeof value === 'number' ? new TypedNumber(value, type) : value;
   }
 
   /** Builds the event yielded to the debugger for one step at `stmt`. */
@@ -1146,6 +1213,7 @@ export class Interpreter {
               ? this.evaluate(member.initializer, this.globalEnv)
               : null
         );
+        javaClass.fieldTypes.set(member.name, member.fieldType);
       }
     }
 
@@ -1881,6 +1949,7 @@ export class Interpreter {
         let def: any = null;
         if (['int', 'byte', 'short', 'long', 'float', 'double'].includes(base)) def = 0;
         else if (base === 'boolean') def = false;
+        else if (base === 'char') def = String.fromCharCode(0);
         return new Array(size).fill(def);
       }
       case 'Identifier': {
@@ -1996,13 +2065,23 @@ export class Interpreter {
         const rightType = getDeclaredType(expr.right);
 
         switch (expr.operator) {
-          case '+':
+          case '+': {
+            // A char is a plain JS string internally, but Java promotes it to its
+            // character code for arithmetic ('A' + 1 -> 66), not concatenation —
+            // concatenation only happens when the *other* operand is a real String.
+            const leftIsChar = leftType.replace(/\[\]/g, '') === 'char';
+            const rightIsChar = rightType.replace(/\[\]/g, '') === 'char';
+            const leftIsRealString = typeof l === 'string' && !leftIsChar;
+            const rightIsRealString = typeof r === 'string' && !rightIsChar;
             // String concatenation uses the interpreter's own formatting so it
             // matches print output (null -> None, lists -> {..}, true/false).
-            if (typeof l === 'string' || typeof r === 'string') {
+            if (leftIsRealString || rightIsRealString) {
               return this.stringify(l) + this.stringify(r);
             }
-            return l + r;
+            const lNum = leftIsChar ? l.charCodeAt(0) : l;
+            const rNum = rightIsChar ? r.charCodeAt(0) : r;
+            return lNum + rNum;
+          }
           case '-':
             return l - r;
           case '*':

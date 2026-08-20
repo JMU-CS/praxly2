@@ -13,11 +13,45 @@ interface MemdiaFrame {
   slots: MemdiaSlot[];
 }
 
+const AMBIGUOUS_NUMERIC_TYPES = ['byte', 'short', 'long', 'float', 'double'];
+
+// Duck-typed: a declared byte/short/long/float/double value tagged with its type (by
+// interpreter.ts's snapshot for top-level variables, or by tagFloatingValue below for
+// object fields), so it isn't mistaken for a plain int just because its value happens
+// to be whole.
+function isTypedNumber(value: unknown): value is { value: number; declaredType: string } {
+  if (!value || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj['value'] === 'number' &&
+    AMBIGUOUS_NUMERIC_TYPES.includes(obj['declaredType'] as string)
+  );
+}
+
+// Duck-typed: a declared char value tagged the same way (by interpreter.ts's snapshot
+// for top-level variables, or by tagFloatingValue below for object fields/array cells).
+function isTypedChar(value: unknown): value is { value: string; declaredType: 'char' } {
+  if (!value || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  return typeof obj['value'] === 'string' && obj['declaredType'] === 'char';
+}
+
+// Object fields aren't pre-tagged by interpreter.ts (only top-level variables are) —
+// this applies the same tag using the field's already-known declared type instead.
+function tagFloatingValue(value: unknown, declaredType: string | undefined): unknown {
+  if (typeof value === 'string') return declaredType === 'char' ? { value, declaredType } : value;
+  if (typeof value !== 'number') return value;
+  if (!declaredType || !AMBIGUOUS_NUMERIC_TYPES.includes(declaredType)) return value;
+  return { value, declaredType };
+}
+
 // Guesses a human-readable type label for a raw JS value, for slots that don't specify one explicitly.
 function inferTypeLabel(value: unknown): string {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
   if (Array.isArray(value)) return 'array';
+  if (isTypedNumber(value)) return value.declaredType;
+  if (isTypedChar(value)) return value.declaredType;
   if (typeof value === 'number') return Number.isInteger(value) ? 'int' : 'double';
   return typeof value;
 }
@@ -122,8 +156,39 @@ const FUNC_INNER_PADDING = 20;
 const FUNC_NAME_DISTANCE = 30;
 const FRAME_SLOT_TOP_PADDING = 12;
 
-const NAME_CHAR_WIDTH = 6.5; // name labels use a proportional font; tighter than value text width
+const NAME_CHAR_WIDTH = 6.5; // fallback estimate only — see measureText below
 const NAME_BOX_GAP = 8;
+
+// SVG has no built-in way to ask "how wide will this text render," so box/column widths
+// have always had to estimate it from character count — which drifts for long text and
+// gets worse the longer the text is. A canvas (available in the live browser app) gives
+// the real rendered width instead; Node-based scripts/tests, which have no DOM, fall
+// back to the old per-character estimate.
+const NAME_FONT = '14px ui-monospace, SFMono-Regular, Consolas, monospace'; // slot/field names, array index labels
+const VALUE_FONT = '14px ui-sans-serif, system-ui'; // text inside value boxes
+const LABEL_FONT = '12px Georgia, serif'; // type labels, heap entry labels, frame titles
+
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+function measureText(
+  text: string,
+  font: string,
+  fallbackCharWidth: number = NAME_CHAR_WIDTH
+): number {
+  if (measureCtx === undefined) {
+    measureCtx =
+      typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+  }
+  if (!measureCtx) return text.length * fallbackCharWidth;
+  measureCtx.font = font;
+  return measureCtx.measureText(text).width;
+}
+
+// The widest slot/field name in a set of rows — shared by every place that lays out a
+// frame-style box (stack frames, object heap entries) so the name column's reserved
+// width always matches what the rows themselves used to position their name text.
+function maxSlotNameWidth(slots: { name: string }[]): number {
+  return slots.reduce((m, s) => Math.max(m, measureText(s.name, NAME_FONT)), 0);
+}
 
 const FUNC_MIN_HEIGHT = 80;
 const FUNC_MIN_WIDTH = 60;
@@ -222,10 +287,25 @@ function formatPrimitive(value: unknown): string {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
   if (typeof value === 'string') return `"${value}"`;
+  if (isTypedNumber(value)) {
+    const isFloating = value.declaredType === 'double' || value.declaredType === 'float';
+    return isFloating && Number.isInteger(value.value) ? `${value.value}.0` : String(value.value);
+  }
+  if (isTypedChar(value)) {
+    // The null character (Java's '\0') has no visible glyph — embedding it raw would
+    // render as blank/invisible in the SVG. Show the readable escape instead.
+    const display = value.value === '\u0000' ? '\\0' : value.value;
+    return `'${display}'`;
+  }
   return String(value);
 }
 
 function inferArrayLabel(value: unknown[]): string {
+  // interpreter.ts tags a declared byte/short/long/float/double array (a hidden,
+  // non-enumerable property on the array itself, not a copy — see TypedNumber in
+  // interpreter.ts).
+  const tagged = (value as { __declaredElementType?: string }).__declaredElementType;
+  if (tagged) return `${tagged}[]`;
   const first = value[0];
   const elemType =
     typeof first === 'number'
@@ -267,17 +347,26 @@ function isJavaInstance(value: unknown): value is {
 function buildArrayHeapEntry(
   value: unknown[],
   heap: Map<string, HeapEntry>,
-  seen: WeakSet<object>
+  seen: WeakSet<object>,
+  elementType?: string
 ): HeapEntry {
   const limit = Math.min(value.length, MAX_HEAP_FIELDS);
   const fields: HeapField[] = [];
   for (let i = 0; i < limit; i++) {
-    fields.push({ key: String(i), value: previewValue(value[i], heap, seen) });
+    fields.push({
+      key: String(i),
+      value: previewValue(tagFloatingValue(value[i], elementType), heap, seen),
+    });
   }
   if (value.length > limit) {
     fields.push({ key: '…', value: { kind: 'primitive', text: `+${value.length - limit}` } });
   }
-  return { id: idFor(value), kind: 'array', label: inferArrayLabel(value), fields };
+  return {
+    id: idFor(value),
+    kind: 'array',
+    label: elementType ? `${elementType}[]` : inferArrayLabel(value),
+    fields,
+  };
 }
 
 function buildObjectHeapEntry(
@@ -293,10 +382,11 @@ function buildObjectHeapEntry(
   let i = 0;
   for (const [key, value] of instance.fields) {
     if (i >= limit) break;
+    const typeLabel = instance.klass.fieldTypes?.get(key) ?? inferTypeLabel(value);
     fields.push({
       key,
-      value: previewValue(value, heap, seen),
-      typeLabel: instance.klass.fieldTypes?.get(key) ?? inferTypeLabel(value),
+      value: previewValue(value, heap, seen, typeLabel),
+      typeLabel,
     });
     i++;
   }
@@ -317,18 +407,26 @@ function buildObjectHeapEntry(
 function previewValue(
   value: unknown,
   heap: Map<string, HeapEntry>,
-  seen: WeakSet<object> = new WeakSet()
+  seen: WeakSet<object> = new WeakSet(),
+  declaredType?: string
 ): SlotValue {
   if (Array.isArray(value)) {
     const refId = idFor(value);
     if (!heap.has(refId) && !seen.has(value)) {
       seen.add(value);
-      heap.set(refId, buildArrayHeapEntry(value, heap, seen));
+      // A field's declared type (passed in explicitly) wins; otherwise fall back to
+      // interpreter.ts's tag on the array itself (top-level variables).
+      const elementType =
+        declaredType?.replace(/\[\]$/, '') ??
+        (value as { __declaredElementType?: string }).__declaredElementType;
+      heap.set(refId, buildArrayHeapEntry(value, heap, seen, elementType));
       seen.delete(value);
     }
     return { kind: 'reference', text: '', refId };
   }
-  if (typeof value === 'string') {
+  // A declared char is a primitive in Java, even though it's a plain JS string
+  // internally — only treat a string as a real String reference when it isn't one.
+  if (typeof value === 'string' && declaredType !== 'char') {
     const refId = idForString(value);
     if (!heap.has(refId)) heap.set(refId, buildStringHeapEntry(value));
     return { kind: 'reference', text: '', refId };
@@ -342,7 +440,7 @@ function previewValue(
     }
     return { kind: 'reference', text: '', refId };
   }
-  return { kind: 'primitive', text: formatPrimitive(value) };
+  return { kind: 'primitive', text: formatPrimitive(tagFloatingValue(value, declaredType)) };
 }
 
 // Total box height for a frame: fits all its slots, or a fixed minimum when empty.
@@ -362,7 +460,7 @@ function getFrameHeight(frame: FrameState): number {
 
 // Width of a single value box, sized to fit its text.
 function getRectWidthForValue(valueStr: string): number {
-  return Math.max(VAR_MIN_WIDTH, valueStr.length * NAME_CHAR_WIDTH + FUNC_INNER_PADDING);
+  return Math.max(VAR_MIN_WIDTH, measureText(valueStr, VALUE_FONT) + FUNC_INNER_PADDING);
 }
 
 // Rough width estimate for a heap entry's own label text, so a sparse entry (an empty
@@ -370,7 +468,7 @@ function getRectWidthForValue(valueStr: string): number {
 // label sits above the entry's content and would otherwise be free to render past
 // whatever width the content alone claims, clipping at the canvas edge.
 function estimateLabelWidth(label: string): number {
-  return label.length * NAME_CHAR_WIDTH;
+  return measureText(label, LABEL_FONT);
 }
 
 // Total height of an object heap entry (label + field rows). Pulled out as its own
@@ -395,12 +493,11 @@ function getObjectEntryHeight(entry: HeapEntry): number {
 
 // Total box width for a frame: wide enough for its longest name/value pair.
 function getFrameWidth(frame: FrameState): number {
-  let maxNameWidth = 0;
-  let maxRectWidth = 0;
-  for (const slot of frame.slots) {
-    maxNameWidth = Math.max(maxNameWidth, slot.name.length * NAME_CHAR_WIDTH);
-    maxRectWidth = Math.max(maxRectWidth, getRectWidthForValue(slot.value.text));
-  }
+  const maxNameWidth = maxSlotNameWidth(frame.slots);
+  const maxRectWidth = frame.slots.reduce(
+    (m, slot) => Math.max(m, getRectWidthForValue(slot.value.text)),
+    0
+  );
   return Math.max(
     FUNC_MIN_WIDTH,
     FUNC_INNER_PADDING + maxNameWidth + NAME_BOX_GAP + maxRectWidth + FUNC_INNER_PADDING
@@ -426,10 +523,7 @@ function renderFrame(frame: FrameState, x: number, y: number): RenderedFrame {
 
   const hasTypeLabels = frame.slots.some((s) => s.value.kind === 'primitive' && s.typeLabel);
   const slotRowOffset = FUNC_INNER_PADDING + (hasTypeLabels ? FRAME_SLOT_TOP_PADDING : 0);
-  const maxNameWidth = frame.slots.reduce(
-    (m, s) => Math.max(m, s.name.length * NAME_CHAR_WIDTH),
-    0
-  );
+  const maxNameWidth = maxSlotNameWidth(frame.slots);
 
   const dotCentres: Array<{ refId: string; cx: number; cy: number }> = [];
 
@@ -531,7 +625,7 @@ function renderHeapEntry(entry: HeapEntry, x: number, y: number): RenderedHeapEn
     const firstSlotHasTypeLabel =
       slots.length > 0 && slots[0].value.kind === 'primitive' && !!slots[0].typeLabel;
     const slotRowOffset = FUNC_INNER_PADDING + (firstSlotHasTypeLabel ? FRAME_SLOT_TOP_PADDING : 0);
-    const maxNameWidth = slots.reduce((m, s) => Math.max(m, s.name.length * NAME_CHAR_WIDTH), 0);
+    const maxNameWidth = maxSlotNameWidth(slots);
 
     const dotCentres: Array<{ refId: string; cx: number; cy: number }> = [];
     const slotsSvg = slots
@@ -645,7 +739,7 @@ function renderMemorySnapshotSvg(
   heap: Map<string, HeapEntry> = new Map(),
   hasData: boolean = false
 ): string {
-  const maxNameWidth = frames.reduce((m, f) => Math.max(m, f.name.length * NAME_CHAR_WIDTH), 0);
+  const maxNameWidth = frames.reduce((m, f) => Math.max(m, measureText(f.name, LABEL_FONT)), 0);
   const stackX = Math.max(MARGIN + FUNC_NAME_DISTANCE, maxNameWidth + 18);
 
   let stackY = MARGIN + HEADER_HEIGHT;

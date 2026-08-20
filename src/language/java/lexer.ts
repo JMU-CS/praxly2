@@ -53,6 +53,12 @@ export class JavaLexer {
         ) {
           value += this.input[this.pos++];
         }
+        // Numeric literal suffix (9000000L, 98.6f, 1.5d) — consumed into the same
+        // token so it isn't split off as a stray identifier; the parser's parseFloat()
+        // already stops at (and ignores) a trailing non-numeric character.
+        if (this.pos < this.input.length && /[lLfFdD]/.test(this.input[this.pos])) {
+          value += this.input[this.pos++];
+        }
         tokens.push({ type: 'NUMBER', value, start });
         continue;
       }
@@ -150,6 +156,8 @@ export class JavaLexer {
           'final',
           'String',
           'char',
+          'byte',
+          'short',
           'float',
           'long',
           'switch',

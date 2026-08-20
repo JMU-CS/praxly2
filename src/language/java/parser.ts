@@ -554,6 +554,8 @@ export class JavaParser {
       'String',
       'var',
       'char',
+      'byte',
+      'short',
       'float',
       'long',
       'void',
