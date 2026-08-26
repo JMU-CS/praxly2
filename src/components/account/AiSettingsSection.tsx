@@ -3,6 +3,7 @@ import { Eye, EyeOff } from 'lucide-react';
 
 import type { ByokProvider } from '../../store/appStore';
 import { KEY_INPUT_PROPS, maskCls, useByokDraft } from '../ai/byok';
+import { GetKeyCallout } from '../ai/GetKeyCallout';
 import { cardCls, inputCls, primaryBtnCls } from './styles';
 import type { Notify } from './types';
 
@@ -74,19 +75,7 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
                   {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {draft.hint && (
-                <p className="mt-1 text-xs text-muted">
-                  Get a key at{' '}
-                  <a
-                    href={`https://${draft.hint}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-indigo-300 underline hover:text-indigo-200"
-                  >
-                    {draft.hint}
-                  </a>
-                </p>
-              )}
+              {draft.hint && <GetKeyCallout host={draft.hint} />}
             </div>
 
             <div>

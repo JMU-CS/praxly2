@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
 import { KEY_INPUT_PROPS, maskCls, useByokDraft } from './byok';
+import { GetKeyCallout } from './GetKeyCallout';
 import type { ByokProvider } from '../../store/appStore';
 
 /**
@@ -75,19 +76,7 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
                 {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
-            {draft.hint && (
-              <p className="mt-1 text-xs text-muted">
-                Get a key at{' '}
-                <a
-                  href={`https://${draft.hint}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-indigo-300 underline hover:text-indigo-200"
-                >
-                  {draft.hint}
-                </a>
-              </p>
-            )}
+            {draft.hint && <GetKeyCallout host={draft.hint} />}
           </div>
 
           <div>
