@@ -51,8 +51,12 @@ export default function EditorPage() {
   const [sourceLang, setSourceLang] = useState<SupportedLang>(
     () => loadEditorState()?.sourceLang ?? 'praxis'
   );
+  // Open by default: a first visit (and a post-Reset one) has no saved session,
+  // and the panel is the main thing new users are here to find. Once they close
+  // it, the saved session keeps it closed. Embed links are the exception —
+  // they're a share of someone's code, so they start closed.
   const [showAiSidePanel, setShowAiSidePanel] = useState(
-    () => loadEditorState()?.showAiChat ?? false
+    () => loadEditorState()?.showAiChat ?? !loadedViaEmbedLink
   );
   const [showMemDia, setShowMemDia] = useState(() => loadEditorState()?.showMemDia ?? false);
 
