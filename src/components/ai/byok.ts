@@ -23,20 +23,20 @@ const ALL_PROVIDER_OPTIONS: Array<{
   {
     value: 'gemini',
     label: 'Gemini (Google)',
-    hint: 'aistudio.google.com',
+    hint: 'aistudio.google.com/api-keys',
     docs: 'ai.google.dev/gemini-api/docs/models',
   },
   {
     value: 'openai',
     label: 'GPT (OpenAI)',
-    hint: 'platform.openai.com',
+    hint: 'platform.openai.com/api-keys',
     docs: 'developers.openai.com/api/docs/models',
   },
   {
     value: 'anthropic',
     label: 'Claude (Anthropic)',
-    hint: 'platform.anthropic.com',
-    docs: 'platform.claude.com/docs/en/about-claude/models',
+    hint: 'platform.claude.com/settings/keys',
+    docs: 'platform.claude.com/docs/en/models',
   },
 ];
 
@@ -49,7 +49,7 @@ const ALL_PROVIDER_OPTIONS: Array<{
 export const MODEL_SUGGESTIONS: Record<ByokProvider, string[]> = {
   gemini: ['gemini-3.7-flash', 'gemini-3.5-flash-lite', 'gemma-4-31b-it'],
   openai: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'],
-  anthropic: ['claude-fable-5', 'claude-opus-5', 'claude-sonnet-5'],
+  anthropic: ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
 };
 
 /** The model picker's "Other" value — reveals the free-text field. */
