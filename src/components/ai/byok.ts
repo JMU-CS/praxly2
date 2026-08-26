@@ -115,6 +115,20 @@ const PROVIDER_NAMES: Record<ByokProvider, string> = {
 };
 
 /**
+ * A model id as it should read under a chat bubble.
+ *
+ * The backend reports the model LiteLLM actually called, and that id carries
+ * LiteLLM's provider-routing prefix — `gemini/gemma-4-31b-it`,
+ * `openai/gpt-5.6-sol`, `anthropic/claude-opus-5` — which a gateway can extend
+ * to more than one segment (`openrouter/anthropic/claude-opus-5`). None of it
+ * tells a student anything the picker didn't already say, so only the last
+ * segment is shown. Ids without a prefix (anything typed into the model field)
+ * pass through untouched.
+ */
+export const displayModelName = (model: string): string =>
+  model.slice(model.lastIndexOf('/') + 1).trim() || model.trim();
+
+/**
  * How the configured model should read under a chat bubble.
  *
  * `model` is an optional override — when it is blank the backend picks the
@@ -124,7 +138,7 @@ const PROVIDER_NAMES: Record<ByokProvider, string> = {
 export function useModelLabel(): string {
   const { provider, apiKey, model } = useByokStore();
   if (!provider || !apiKey.trim()) return 'School-provided model';
-  return model.trim() || `${PROVIDER_NAMES[provider]} default model`;
+  return displayModelName(model) || `${PROVIDER_NAMES[provider]} default model`;
 }
 
 /**
