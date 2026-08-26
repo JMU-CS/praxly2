@@ -29,7 +29,7 @@ src/hooks/            ← behavior
   useEditorSession      localStorage persistence (code, lang, open panels, toggles)
   useEditorMenus        header dropdowns + click-outside
   useEditorShortcuts    F5 / Shift+F5 / F10
-  useAiSelection        highlight-to-chat selection + button coords
+  useAiSelection        highlight-to-chat selection sent to the AI panel
   useOpenCodeBridge     "Open in editor" from an AI chat code block
   useEmbedLinkImport    ?code= / ?targetLang= on an editor link
   useEmbedData          ?code= (v2) and #code= (v1) on an embed link
@@ -41,7 +41,7 @@ src/hooks/            ← behavior
 
 src/components/
   editor/    SourcePane, TranslationPaneItem, TranslationPanelGrid, AddPanelStrip,
-             AiSidePanel, EditorHeader, EditorDialogs, AskAiButton, MemDia,
+             AiSidePanel, EditorHeader, EditorDialogs, MemDia,
              BlocklyPane(+Lazy), layoutConstants.ts, types.ts
   embed/     EmbedSourcePane, EmbedTranslationPane, EmbedOutput, EmbedActions,
              StdinPrompt, EmbedErrorScreen

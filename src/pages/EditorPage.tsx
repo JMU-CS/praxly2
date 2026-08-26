@@ -40,7 +40,6 @@ import { hasEmbedParam, loadEditorState, usePersistEditorState } from '../hooks/
 
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
 import { AiSidePanel } from '../components/editor/AiSidePanel';
-import { AskAiButton } from '../components/editor/AskAiButton';
 import { EditorDialogs } from '../components/editor/EditorDialogs';
 import { EditorHeader } from '../components/editor/EditorHeader';
 import { SourcePane } from '../components/editor/SourcePane';
@@ -452,9 +451,6 @@ export default function EditorPage() {
         />
 
         {/* Highlight-to-chat: floating button near the editor selection. */}
-        {aiSelection.selection && aiSelection.coords && (
-          <AskAiButton coords={aiSelection.coords} onClick={() => setShowAiSidePanel(true)} />
-        )}
       </main>
     </div>
   );
