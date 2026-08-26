@@ -1,5 +1,5 @@
 /**
- * "Open in editor" on an AI chat code block. The chat panel publishes the
+ * "Add to editor" on an AI chat code block. The chat panel publishes the
  * handler through `useEditorBridge`; only a mounted editor can service it, so
  * the registration is torn down with the page.
  */

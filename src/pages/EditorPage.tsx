@@ -185,7 +185,7 @@ export default function EditorPage() {
     exec.stopSession();
   };
 
-  // "Open in editor" on an AI chat code block. Appends: the snippet is normally
+  // "Add to editor" on an AI chat code block. Appends: the snippet is normally
   // something to add to the program the student is already working on. The
   // fence's language tag only applies when there is no program yet to keep.
   useOpenCodeBridge((newCode, lang) => appendProgram(newCode, lang));

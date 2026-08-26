@@ -1,5 +1,5 @@
 /**
- * Joining a snippet onto the end of the editor's source — the "Open in editor"
+ * Joining a snippet onto the end of the editor's source — the "Add to editor"
  * button on an AI chat code block (see useOpenCodeBridge).
  */
 
