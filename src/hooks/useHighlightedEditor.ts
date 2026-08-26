@@ -2,6 +2,9 @@
  * Wires a CodeMirror instance to debugger line highlighting: keeps the view
  * reference and re-dispatches the decoration effect whenever the highlighted
  * lines change.
+ *
+ * The view reference comes back out with it — it is the only handle on the live
+ * editor, and appending AI code needs it to move the cursor to what it added.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -20,5 +23,5 @@ export function useHighlightedEditor(highlightedLines: number[]) {
     viewRef.current = view;
   }, []);
 
-  return onCreateEditor;
+  return { onCreateEditor, viewRef };
 }
