@@ -66,6 +66,7 @@ const sessionToChat = (s: SessionMeta, messages?: SimpleMessage[]): Chat => ({
   parentMessageId: null,
   // A cache hit is the history; anything else still needs fetching.
   historyLoaded: messages !== undefined,
+  updatedAt: s.updatedAt,
 });
 
 export function AiSidePanel({
