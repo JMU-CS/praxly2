@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
-import { KEY_INPUT_PROPS, maskCls, useByokDraft } from './byok';
+import { CUSTOM_MODEL, KEY_INPUT_PROPS, maskCls, useByokDraft } from './byok';
 import { GetKeyCallout } from './GetKeyCallout';
 import type { ByokProvider } from '../../store/appStore';
 
@@ -83,16 +83,34 @@ export function ApiKeyGate({ onDone }: { onDone: () => void }) {
             <label htmlFor="gate-model" className={labelCls}>
               Model name <span className="normal-case font-normal text-muted">(optional)</span>
             </label>
-            <input
+            <select
               id="gate-model"
-              type="text"
-              value={draft.draftModel}
-              onChange={(e) => draft.setDraftModel(e.target.value)}
-              placeholder="Leave blank for the recommended model"
-              autoComplete="off"
-              spellCheck={false}
+              value={draft.modelChoice}
+              onChange={(e) => draft.chooseModel(e.target.value)}
               className={inputCls}
-            />
+            >
+              <option value="">Recommended model</option>
+              {draft.modelSuggestions.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+              <option value={CUSTOM_MODEL}>Other…</option>
+            </select>
+            {/* The list is only a shortlist, so "Other" keeps every model the
+                provider offers reachable. */}
+            {draft.modelIsCustom && (
+              <input
+                type="text"
+                value={draft.draftModel}
+                onChange={(e) => draft.setDraftModel(e.target.value)}
+                placeholder="Enter a model name"
+                aria-label="Model name"
+                autoComplete="off"
+                spellCheck={false}
+                className={`${inputCls} mt-2`}
+              />
+            )}
             {draft.docs && (
               <p className="mt-1 text-xs text-muted break-words">
                 See models at{' '}

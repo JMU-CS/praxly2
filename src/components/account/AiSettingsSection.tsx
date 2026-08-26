@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
 import type { ByokProvider } from '../../store/appStore';
-import { KEY_INPUT_PROPS, maskCls, useByokDraft } from '../ai/byok';
+import { CUSTOM_MODEL, KEY_INPUT_PROPS, maskCls, useByokDraft } from '../ai/byok';
 import { GetKeyCallout } from '../ai/GetKeyCallout';
 import { cardCls, inputCls, primaryBtnCls } from './styles';
 import type { Notify } from './types';
@@ -82,16 +82,34 @@ export function AiSettingsSection({ notify }: { notify: Notify }) {
               <label htmlFor="byok-model" className="mb-1 block text-xs font-medium text-muted">
                 Model name <span className="font-normal text-muted">(optional)</span>
               </label>
-              <input
+              <select
                 id="byok-model"
-                type="text"
-                value={draft.draftModel}
-                onChange={(e) => draft.setDraftModel(e.target.value)}
-                placeholder="Leave blank for the recommended model"
-                autoComplete="off"
-                spellCheck={false}
+                value={draft.modelChoice}
+                onChange={(e) => draft.chooseModel(e.target.value)}
                 className={inputCls}
-              />
+              >
+                <option value="">Recommended model</option>
+                {draft.modelSuggestions.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+                <option value={CUSTOM_MODEL}>Other…</option>
+              </select>
+              {/* The list is only a shortlist, so "Other" keeps every model the
+                  provider offers reachable. */}
+              {draft.modelIsCustom && (
+                <input
+                  type="text"
+                  value={draft.draftModel}
+                  onChange={(e) => draft.setDraftModel(e.target.value)}
+                  placeholder="Enter a model name"
+                  aria-label="Model name"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={`${inputCls} mt-2`}
+                />
+              )}
               {draft.docs && (
                 <p className="mt-1 text-xs text-muted break-words">
                   See models at{' '}
