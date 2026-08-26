@@ -33,7 +33,9 @@ export function HistoryPanel({
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
         {chats.length === 0 && (
-          <p className="text-xs text-muted text-center mt-6">No chats found.</p>
+          <p className="text-xs text-muted text-center mt-6">
+            {search.trim() ? 'No chats found.' : 'No chats yet — send a message to start one.'}
+          </p>
         )}
         {chats.map((c) => (
           <div
