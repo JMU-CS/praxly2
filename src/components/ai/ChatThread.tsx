@@ -36,6 +36,9 @@ export interface Chat {
    * from one still loading, and the panel waits on it forever.
    */
   historyLoaded: boolean;
+  /** When the backend last saw a message here; absent on a chat it has never
+   *  seen. The history list dates rows with it. */
+  updatedAt?: string;
 }
 
 interface ChatThreadProps {

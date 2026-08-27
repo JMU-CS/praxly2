@@ -18,6 +18,7 @@ import { encodeEmbed, copyToClipboard } from '../utils/embedCodec';
 import { getCodeMirrorExtensions } from '../utils/editorUtils';
 import { EXAMPLE_PROGRAMS, getExampleById } from '../utils/sampleCodes';
 import { getDemoForLang } from '../utils/demoPrograms';
+import { appendCode } from '../utils/appendCode';
 import { buildAiPanelContext } from '../utils/aiPanelContext';
 import { planLanguageSwitch } from '../utils/languageSwitch';
 import { resetApp } from '../utils/resetApp';
@@ -39,7 +40,6 @@ import { hasEmbedParam, loadEditorState, usePersistEditorState } from '../hooks/
 
 import { AddPanelStrip } from '../components/editor/AddPanelStrip';
 import { AiSidePanel } from '../components/editor/AiSidePanel';
-import { AskAiButton } from '../components/editor/AskAiButton';
 import { EditorDialogs } from '../components/editor/EditorDialogs';
 import { EditorHeader } from '../components/editor/EditorHeader';
 import { SourcePane } from '../components/editor/SourcePane';
@@ -51,8 +51,12 @@ export default function EditorPage() {
   const [sourceLang, setSourceLang] = useState<SupportedLang>(
     () => loadEditorState()?.sourceLang ?? 'praxis'
   );
+  // Open by default: a first visit (and a post-Reset one) has no saved session,
+  // and the panel is the main thing new users are here to find. Once they close
+  // it, the saved session keeps it closed. Embed links are the exception —
+  // they're a share of someone's code, so they start closed.
   const [showAiSidePanel, setShowAiSidePanel] = useState(
-    () => loadEditorState()?.showAiChat ?? false
+    () => loadEditorState()?.showAiChat ?? !loadedViaEmbedLink
   );
   const [showMemDia, setShowMemDia] = useState(() => loadEditorState()?.showMemDia ?? false);
 
@@ -85,7 +89,9 @@ export default function EditorPage() {
   const menus = useEditorMenus();
   const aiSelection = useAiSelection();
   const { textSize, setTextSize, fontSizePx } = useTextSize();
-  const onCreateEditor = useHighlightedEditor(exec.highlightedSourceLines);
+  const { onCreateEditor, viewRef: editorViewRef } = useHighlightedEditor(
+    exec.highlightedSourceLines
+  );
 
   usePanelSourceMaps(exec.ast, panels.setPanels, getTranslation);
   useEmbedLinkImport({ setCode, setSourceLang, setPanels: panels.setPanels });
@@ -144,9 +150,44 @@ export default function EditorPage() {
     exec.stopSession();
   };
 
-  // "Open in editor" on an AI chat code block. The fence's language tag
-  // switches the source language when it names one Praxly supports.
-  useOpenCodeBridge((newCode, lang) => replaceProgram(newCode, lang, true));
+  /**
+   * Adds a snippet to the end of the editor, keeping what is already there.
+   *
+   * The source language is left alone: appending is only coherent within one
+   * language, so a snippet the AI wrote in another one is added as text rather
+   * than switching the buffer out from under the user's program.
+   */
+  const appendProgram = (snippet: string, lang?: SupportedLang) => {
+    // Nothing to preserve, so take the snippet whole — language and all. Same
+    // for a Blocks workspace, whose "source" is JSON that text can't be
+    // appended to.
+    if (!code.trim() || sourceLang === 'blocks') {
+      replaceProgram(snippet, lang, true);
+      return;
+    }
+    const next = appendCode(code, snippet);
+    const view = editorViewRef.current;
+    if (view) {
+      // Through the view rather than straight to state, so the cursor lands on
+      // the new code and the editor scrolls to it — an append below the fold
+      // would otherwise look like nothing happened. The change comes back
+      // through onCodeChange, which keeps `code` in sync.
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: next },
+        selection: { anchor: next.length },
+        scrollIntoView: true,
+      });
+    } else {
+      setCode(next);
+    }
+    exec.clearConsole();
+    exec.stopSession();
+  };
+
+  // "Add to editor" on an AI chat code block. Appends: the snippet is normally
+  // something to add to the program the student is already working on. The
+  // fence's language tag only applies when there is no program yet to keep.
+  useOpenCodeBridge((newCode, lang) => appendProgram(newCode, lang));
 
   const loadExample = (exampleId: string) => {
     const example = getExampleById(exampleId);
@@ -414,9 +455,6 @@ export default function EditorPage() {
         />
 
         {/* Highlight-to-chat: floating button near the editor selection. */}
-        {aiSelection.selection && aiSelection.coords && (
-          <AskAiButton coords={aiSelection.coords} onClick={() => setShowAiSidePanel(true)} />
-        )}
       </main>
     </div>
   );

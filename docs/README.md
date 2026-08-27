@@ -127,7 +127,6 @@ src/
 │   └── editor/                  # Editor-specific sub-components
 │       ├── AddPanelStrip.tsx    # Left rail; PANEL_LANGS lives here
 │       ├── AiSidePanel.tsx      # AI assistant side panel
-│       ├── AskAiButton.tsx      # Floating highlight-to-chat button
 │       ├── BlocklyPane.tsx      # Blocks (Blockly) workspace panel
 │       ├── BlocklyPaneLazy.tsx  # Lazy-loaded wrapper for BlocklyPane
 │       ├── EditorDialogs.tsx    # The three "discard your code?" confirmations

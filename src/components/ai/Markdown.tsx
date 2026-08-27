@@ -6,7 +6,8 @@ import { useEditorBridge } from '../../store/appStore';
 /**
  * Renders an assistant chat message as markdown (bold, lists, headings,
  * tables, inline + fenced code). Fenced code blocks get a language header and
- * an "Open in editor" button that drops the code into the source editor.
+ * an "Add to editor" button that appends the code to the end of the source
+ * editor.
  */
 
 /**
@@ -41,11 +42,11 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
         {openCode && code.trim().length > 0 && (
           <button
             onClick={() => openCode(stripLeadingLineNumbers(code), language)}
-            title="Open this code in the editor (replaces what's there)"
+            title="Add this code to the end of the editor"
             className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-400 transition-colors hover:text-indigo-300"
           >
             <SquareArrowOutUpRight size={11} />
-            Open in editor
+            Add to editor
           </button>
         )}
       </div>

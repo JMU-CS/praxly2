@@ -23,22 +23,51 @@ const ALL_PROVIDER_OPTIONS: Array<{
   {
     value: 'gemini',
     label: 'Gemini (Google)',
-    hint: 'aistudio.google.com',
+    hint: 'aistudio.google.com/api-keys',
     docs: 'ai.google.dev/gemini-api/docs/models',
   },
   {
     value: 'openai',
     label: 'GPT (OpenAI)',
-    hint: 'platform.openai.com',
+    hint: 'platform.openai.com/api-keys',
     docs: 'developers.openai.com/api/docs/models',
   },
   {
     value: 'anthropic',
     label: 'Claude (Anthropic)',
-    hint: 'platform.anthropic.com',
-    docs: 'platform.claude.com/docs/en/about-claude/models',
+    hint: 'platform.claude.com/settings/keys',
+    docs: 'platform.claude.com/docs/en/models',
   },
 ];
+
+/**
+ * Model ids offered in the model picker, per provider. Suggestions only — the
+ * picker's "Other" option takes anything typed by hand, because a provider can
+ * ship a new model long before this list is updated. Kept short on purpose:
+ * the models a class is likely to want, not the whole catalog.
+ */
+export const MODEL_SUGGESTIONS: Record<ByokProvider, string[]> = {
+  gemini: ['gemini-3.7-flash', 'gemini-3.5-flash-lite', 'gemma-4-31b-it'],
+  openai: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'],
+  anthropic: ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
+};
+
+/** The model picker's "Other" value — reveals the free-text field. */
+export const CUSTOM_MODEL = '__custom__';
+
+/**
+ * Suggestions for the selected option. The school-provided model hides the
+ * model field entirely, and `save()` files it under Gemini, so '' follows suit.
+ */
+export const modelSuggestionsFor = (provider: ByokProvider | ''): string[] =>
+  MODEL_SUGGESTIONS[provider === '' ? 'gemini' : provider];
+
+/** True when `model` is a hand-entered id rather than one of our suggestions —
+ *  i.e. whether the picker should open with its free-text field showing. */
+export const isCustomModel = (provider: ByokProvider | '', model: string): boolean => {
+  const trimmed = model.trim();
+  return trimmed !== '' && !modelSuggestionsFor(provider).includes(trimmed);
+};
 
 /**
  * Props shared by both API-key inputs. An API key is a secret, but it is not a
@@ -86,6 +115,20 @@ const PROVIDER_NAMES: Record<ByokProvider, string> = {
 };
 
 /**
+ * A model id as it should read under a chat bubble.
+ *
+ * The backend reports the model LiteLLM actually called, and that id carries
+ * LiteLLM's provider-routing prefix — `gemini/gemma-4-31b-it`,
+ * `openai/gpt-5.6-sol`, `anthropic/claude-opus-5` — which a gateway can extend
+ * to more than one segment (`openrouter/anthropic/claude-opus-5`). None of it
+ * tells a student anything the picker didn't already say, so only the last
+ * segment is shown. Ids without a prefix (anything typed into the model field)
+ * pass through untouched.
+ */
+export const displayModelName = (model: string): string =>
+  model.slice(model.lastIndexOf('/') + 1).trim() || model.trim();
+
+/**
  * How the configured model should read under a chat bubble.
  *
  * `model` is an optional override — when it is blank the backend picks the
@@ -95,7 +138,7 @@ const PROVIDER_NAMES: Record<ByokProvider, string> = {
 export function useModelLabel(): string {
   const { provider, apiKey, model } = useByokStore();
   if (!provider || !apiKey.trim()) return 'School-provided model';
-  return model.trim() || `${PROVIDER_NAMES[provider]} default model`;
+  return displayModelName(model) || `${PROVIDER_NAMES[provider]} default model`;
 }
 
 /**
@@ -135,11 +178,37 @@ export function useByokDraft() {
   const schoolModelAllowed = canUseSchoolModel();
   const options = providerOptions();
 
-  const [draftProvider, setDraftProvider] = useState<ByokProvider | ''>(() =>
+  const [draftProvider, setDraftProviderState] = useState<ByokProvider | ''>(() =>
     defaultDraftProvider(configured, provider, schoolModelAllowed)
   );
   const [draftKey, setDraftKey] = useState(apiKey);
   const [draftModel, setDraftModel] = useState(model);
+  // Whether the model field is in free-text mode. A saved model we don't
+  // suggest opens that way, so the user sees what is actually configured.
+  const [modelIsCustom, setModelIsCustom] = useState(() =>
+    isCustomModel(defaultDraftProvider(configured, provider, schoolModelAllowed), model)
+  );
+
+  const modelSuggestions = modelSuggestionsFor(draftProvider);
+
+  /** Model ids don't carry across providers, so switching resets the field —
+   *  except back to the saved provider, which restores its saved model. */
+  const setDraftProvider = (next: ByokProvider | '') => {
+    if (next === draftProvider) return;
+    const restored = next !== '' && next === provider ? model : '';
+    setDraftProviderState(next);
+    setDraftModel(restored);
+    setModelIsCustom(isCustomModel(next, restored));
+  };
+
+  /** What the model `<select>` shows: a suggested id, '' for the provider
+   *  default, or CUSTOM_MODEL while the free-text field is open. */
+  const modelChoice = modelIsCustom ? CUSTOM_MODEL : draftModel;
+
+  const chooseModel = (choice: string) => {
+    setModelIsCustom(choice === CUSTOM_MODEL);
+    setDraftModel(choice === CUSTOM_MODEL ? '' : choice);
+  };
 
   // Without the school fallback a key is always required, whatever is selected.
   const needsKey = draftProvider !== '' || !schoolModelAllowed;
@@ -169,6 +238,10 @@ export function useByokDraft() {
     setDraftKey,
     draftModel,
     setDraftModel,
+    modelSuggestions,
+    modelChoice,
+    chooseModel,
+    modelIsCustom,
     needsKey,
     canSave,
     hint,

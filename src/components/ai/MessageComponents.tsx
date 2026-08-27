@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react';
 import { MessagePrimitive, useMessage, useThread } from '@assistant-ui/react';
 import type { SimpleMessage } from '../../api/llm';
 import { Markdown } from './Markdown';
+import { displayModelName } from './byok';
 import {
   threadMessageError,
   threadMessageModel,
@@ -35,9 +36,12 @@ function useErrorText(): string | null {
  * Which model answered, shown under the bubble so a mid-conversation model
  * change is visible. Absent on replies stored before the backend recorded the
  * model — no label is better than the wrong one.
+ *
+ * Stripping the provider prefix happens here, at the point of display, so it
+ * also covers transcripts already cached with the id the backend sent.
  */
 const ModelLabel = ({ model }: { model: string | undefined }) =>
-  model ? <span className="mt-0.5 px-1 text-xs text-muted">{model}</span> : null;
+  model ? <span className="mt-0.5 px-1 text-xs text-muted">{displayModelName(model)}</span> : null;
 
 export const AssistantMessage = () => {
   const isRunning = useMessage((m) => m.status?.type === 'running');

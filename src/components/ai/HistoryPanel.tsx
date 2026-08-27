@@ -1,5 +1,23 @@
 import { Search, Trash2 } from 'lucide-react';
 import type { Chat } from './ChatThread';
+import { formatChatDate } from '../../utils/chatDate';
+
+/**
+ * The line under a chat's title.
+ *
+ * A message count is only shown for a chat whose transcript we actually have:
+ * on a first sign-in nothing is cached yet, and counting the empty placeholder
+ * labeled every chat in the list "Empty" until it was opened. The session's
+ * date is known for all of them, so it carries the line either way.
+ */
+function chatSubtitle(chat: Chat): string {
+  const date = formatChatDate(chat.updatedAt);
+  if (!chat.historyLoaded) return date;
+
+  const n = chat.messages.length;
+  const count = n === 0 ? 'Empty' : `${n} message${n === 1 ? '' : 's'}`;
+  return date ? `${count} · ${date}` : count;
+}
 
 interface HistoryPanelProps {
   chats: Chat[];
@@ -33,7 +51,9 @@ export function HistoryPanel({
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
         {chats.length === 0 && (
-          <p className="text-xs text-muted text-center mt-6">No chats found.</p>
+          <p className="text-xs text-muted text-center mt-6">
+            {search.trim() ? 'No chats found.' : 'No chats yet — send a message to start one.'}
+          </p>
         )}
         {chats.map((c) => (
           <div
@@ -45,11 +65,7 @@ export function HistoryPanel({
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs text-slate-200">{c.title}</p>
-              <p className="text-xs text-muted">
-                {c.messages.length === 0
-                  ? 'Empty'
-                  : `${c.messages.length} message${c.messages.length === 1 ? '' : 's'}`}
-              </p>
+              <p className="text-xs text-muted">{chatSubtitle(c)}</p>
             </div>
             <button
               onClick={(e) => {

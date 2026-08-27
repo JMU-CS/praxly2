@@ -42,6 +42,17 @@ const makeNewChat = (): Chat => ({
   historyLoaded: true, // nothing to fetch — it exists only in this browser
 });
 
+/**
+ * Whether a chat belongs in Chat history.
+ *
+ * Every panel load (and every "+") opens a blank chat to type into, and it is
+ * not a conversation until something is in it — listing it put an empty "New
+ * chat" at the top of history that the user never started. A chat earns its
+ * entry once it has a backend session or a message: the first send produces
+ * both, so nothing real is hidden by this.
+ */
+const isRecorded = (chat: Chat): boolean => Boolean(chat.sessionId) || chat.messages.length > 0;
+
 const titleFrom = (text: string): string => {
   const clean = text.trim().replace(/\s+/g, ' ');
   return clean.length > 40 ? `${clean.slice(0, 40)}…` : clean || 'New chat';
@@ -55,6 +66,7 @@ const sessionToChat = (s: SessionMeta, messages?: SimpleMessage[]): Chat => ({
   parentMessageId: null,
   // A cache hit is the history; anything else still needs fetching.
   historyLoaded: messages !== undefined,
+  updatedAt: s.updatedAt,
 });
 
 export function AiSidePanel({
@@ -241,7 +253,9 @@ export function AiSidePanel({
 
   const newChat = useCallback(() => {
     const c = makeNewChat();
-    setLocalChats((prev) => [c, ...prev]);
+    // Blank drafts are dropped rather than kept: "+" pressed a few times would
+    // otherwise leave a stack of chats nobody typed in.
+    setLocalChats((prev) => [c, ...prev.filter(isRecorded)]);
     setActiveId(c.id);
     setShowHistory(false);
   }, []);
@@ -270,17 +284,19 @@ export function AiSidePanel({
     [localChats, activeId, removeSession]
   );
 
+  const recordedChats = useMemo(() => localChats.filter(isRecorded), [localChats]);
+
   // Fuse index built from chat titles only — rebuilt when the list changes,
   // not on every streamed token (titles only change on new/renamed chats).
   const fuse = useMemo(
-    () => new Fuse(localChats, { keys: ['title'], threshold: 0.4 }),
-    [localChats]
+    () => new Fuse(recordedChats, { keys: ['title'], threshold: 0.4 }),
+    [recordedChats]
   );
 
   const filteredChats = useMemo(() => {
     const q = search.trim();
-    return q ? fuse.search(q).map((r) => r.item) : localChats;
-  }, [search, fuse, localChats]);
+    return q ? fuse.search(q).map((r) => r.item) : recordedChats;
+  }, [search, fuse, recordedChats]);
 
   const iconBtn =
     'p-1 text-slate-400 hover:text-slate-100 transition-colors rounded hover:bg-slate-800';
