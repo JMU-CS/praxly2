@@ -11,7 +11,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import type { Program } from '../language/ast';
 import type { SupportedLang } from '../components/LanguageSelector';
-import { Debugger } from '../language/debugger';
+import { Debugger, type StackFrame } from '../language/debugger';
 
 interface RunnerCallbacks {
   /** Called with the cumulative program output after every step. */
@@ -27,6 +27,8 @@ export interface ProgramRunner {
   inputPrompt: string;
   /** Variables visible at the most recent step of the current (or just-finished) run. */
   currentVariables: Record<string, any>;
+  /** Call stack at the most recent step of the current (or just-finished) run. */
+  currentCallStack: StackFrame[];
   /** Runs `program` to completion, or until it pauses for input. */
   run: (program: Program, lang: SupportedLang, sourceCode: string) => void;
   /** Answers the pending `input()` call and resumes to completion. */
@@ -45,6 +47,7 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
   // Mirrors what the debugger already exposes for step-through mode, so a plain
   // Run can feed the same memory-diagram panel instead of leaving it empty.
   const [currentVariables, setCurrentVariables] = useState<Record<string, any>>({});
+  const [currentCallStack, setCurrentCallStack] = useState<StackFrame[]>([]);
 
   // The Debugger instance behind a run that paused for input(). Held in a ref
   // rather than state: nothing renders from it, and the input handler needs
@@ -68,6 +71,7 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
     // and callers (Debug starting/stopping) rely on this to stop showing a
     // previous run's leftover variables.
     setCurrentVariables({});
+    setCurrentCallStack([]);
   }, [clearInputState]);
 
   /** Steps `instance` until it finishes or parks on input(). */
@@ -83,6 +87,7 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
           // than append.
           onOutput(step.output);
           setCurrentVariables(step.variables);
+          setCurrentCallStack(step.callStack);
 
           if (step.waitingForInput) {
             pausedRunRef.current = instance;
@@ -97,6 +102,7 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
         if (step) {
           onOutput(step.output);
           setCurrentVariables(step.variables);
+          setCurrentCallStack(step.callStack);
         }
         // Clear only the input-pause bookkeeping here, not via reset() —
         // reset() also clears currentVariables, which would immediately wipe
@@ -114,6 +120,7 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
   const run = useCallback(
     (program: Program, lang: SupportedLang, sourceCode: string) => {
       setCurrentVariables({});
+      setCurrentCallStack([]);
       drain(() => {
         const instance = new Debugger();
         instance.init(program, lang, sourceCode);
@@ -139,6 +146,7 @@ export function useProgramRunner(callbacks: RunnerCallbacks): ProgramRunner {
     waitingForInput,
     inputPrompt,
     currentVariables,
+    currentCallStack,
     run,
     submitInput,
     reset,

@@ -247,7 +247,9 @@ export function useEditorExecution({
     // stays visible instead of showing nothing once neither is actively stepping.
     currentVariables:
       Object.keys(currentVariables).length > 0 ? currentVariables : runner.currentVariables,
-    currentCallStack,
+    // Same fallback as currentVariables above, for the same reason: Debug mode's
+    // currentCallStack resets to [] on stop, so fall back to the plain runner's.
+    currentCallStack: currentCallStack.length > 0 ? currentCallStack : runner.currentCallStack,
     highlightedSourceLines,
     waitingForInput: waitingForInput || runner.waitingForInput,
     inputPrompt: inputPrompt || runner.inputPrompt,

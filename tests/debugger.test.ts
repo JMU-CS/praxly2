@@ -63,7 +63,7 @@ print y
     expect(steps[steps.length - 1].output).toEqual(['10']);
   });
 
-  it('shows the function locals while inside and destroys them after return', () => {
+  it('shows the function locals while inside, then keeps a returned frame after return', () => {
     const steps = collectSteps('praxis', praxisFn);
     const bodyStep = steps.find((s) => lineOf(praxisFn, s) === 2)!;
     expect(bodyStep.variables).toMatchObject({ n: 5, result: 10, x: 5 });
@@ -71,10 +71,18 @@ print y
     const returnStep = steps.find((s) => s.nodeType === 'Return')!;
     expect(returnStep.variables).toMatchObject({ n: 5, result: 10 });
 
-    // Back at the call site: the function frame's locals are gone.
+    // Updated for the "returned frame" feature: a returned call's frame used to
+    // vanish from callStack entirely; now it lingers (returned: true, grayed out
+    // in the diagram) until a later call's return replaces it, so this checks
+    // for the lingering frame instead of asserting it's gone.
     const afterReturn = steps[steps.indexOf(returnStep) + 1];
     expect(afterReturn.variables).toEqual({ x: 5, y: 10 });
-    expect(afterReturn.callStack).toHaveLength(1);
+    expect(afterReturn.callStack).toHaveLength(2);
+    expect(afterReturn.callStack[1]).toMatchObject({
+      name: 'double_it',
+      returned: true,
+      variables: { n: 5, result: 10 },
+    });
   });
 
   it('tracks the call stack while inside the function', () => {
@@ -126,9 +134,15 @@ end twice
 print twice(inc(3))
 `;
     const steps = collectSteps('praxis', code);
+    // Updated for the "returned frame" feature: callStack's last entry isn't
+    // always the active frame anymore (a returned one can linger there), so
+    // this filters returned frames out to find the actually active one.
     const frameNames = steps
       .filter((s) => s.nodeType === 'Return')
-      .map((s) => s.callStack[s.callStack.length - 1].name);
+      .map((s) => {
+        const live = s.callStack.filter((f) => !f.returned);
+        return live[live.length - 1].name;
+      });
     expect(frameNames).toEqual(['inc', 'twice']);
     expect(steps[steps.length - 1].output).toEqual(['8']);
   });

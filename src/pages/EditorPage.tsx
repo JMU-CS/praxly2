@@ -294,7 +294,9 @@ export default function EditorPage() {
                 showMemDia={showMemDia}
                 resizingMemDiaPaneId={memDia.resizingPaneId}
                 memDiaHeight={memDia.getHeight('source')}
-                currentVariables={exec.currentVariables}
+                // currentVariables expects the full per-frame call stack, not a
+                // flattened map, so methods render as separate frame boxes — see MemDia.tsx.
+                currentVariables={exec.currentCallStack}
                 editorRef={editorRef}
                 extensions={sourceExtensions}
                 fontSize={fontSizePx}
@@ -337,7 +339,9 @@ export default function EditorPage() {
                   getMemDiaState={memDia.getState}
                   onToggleMemDia={memDia.toggle}
                   onMemDiaResizeMouseDown={memDia.startResize}
-                  currentVariables={exec.currentVariables}
+                  // currentVariables expects the full per-frame call stack, not a
+                  // flattened map, so methods render as separate frame boxes — see MemDia.tsx.
+                  currentVariables={exec.currentCallStack}
                   resizingIdx={layout.resizingIdx}
                   onResizeColumn={layout.startPaneResize}
                   onRemovePanel={panels.removePanel}

@@ -166,7 +166,12 @@ const NAME_BOX_GAP = 8;
 // back to the old per-character estimate.
 const NAME_FONT = '14px ui-monospace, SFMono-Regular, Consolas, monospace'; // slot/field names, array index labels
 const VALUE_FONT = '14px ui-sans-serif, system-ui'; // text inside value boxes
-const LABEL_FONT = '12px Georgia, serif'; // type labels, heap entry labels, frame titles
+const LABEL_FONT = '12px Georgia, serif'; // type labels, heap entry labels
+const FRAME_TITLE_FONT = '14px Georgia, serif'; // frame name titles — must match renderFrame's
+// title text's actual font-size (14), unlike LABEL_FONT's 12px, or a long name under-reserves
+// column width and clips against the SVG's left edge.
+const RETURNED_LABEL_TEXT = 'returned';
+const RETURNED_LABEL_FONT = 'italic 11px Georgia, serif'; // must match renderFrame's "returned" sub-label
 
 let measureCtx: CanvasRenderingContext2D | null | undefined;
 function measureText(
@@ -231,6 +236,9 @@ interface StackSlot {
 interface FrameState {
   name: string;
   slots: StackSlot[];
+  /** True for a call that already returned — its box is drawn dimmed, with a
+   *  small "returned" sub-label, instead of erased outright. */
+  returned?: boolean;
 }
 
 interface HeapField {
@@ -521,6 +529,16 @@ function renderFrame(frame: FrameState, x: number, y: number): RenderedFrame {
   const titleX = x - 14;
   const titleY = y + height / 2;
 
+  // A returned call's box is dimmed rather than erased — its locals are gone in
+  // reality (see interpreter.ts's lastReturnedFrame), but showing them grayed
+  // out here is what makes "eligible for garbage collection" visible at all.
+  const strokeColor = frame.returned ? '#555555' : '#ffffff';
+  const textColor = frame.returned ? '#888888' : '#ffffff';
+  const typeLabelColor = frame.returned ? '#666666' : '#aaaaaa';
+  const returnedLabel = frame.returned
+    ? `<text x="${titleX}" y="${titleY + 16}" dominant-baseline="middle" text-anchor="end" fill="#888888" font-size="11" font-style="italic" font-family="Georgia, serif">${RETURNED_LABEL_TEXT}</text>`
+    : '';
+
   const hasTypeLabels = frame.slots.some((s) => s.value.kind === 'primitive' && s.typeLabel);
   const slotRowOffset = FUNC_INNER_PADDING + (hasTypeLabels ? FRAME_SLOT_TOP_PADDING : 0);
   const maxNameWidth = maxSlotNameWidth(frame.slots);
@@ -541,16 +559,16 @@ function renderFrame(frame: FrameState, x: number, y: number): RenderedFrame {
       let valueContent: string;
       if (slot.value.kind === 'reference') {
         dotCentres.push({ refId: slot.value.refId!, cx: valueCX, cy: centerY });
-        valueContent = `<circle cx="${valueCX}" cy="${centerY}" r="${REFERENCE_DOT_RADIUS}" fill="#ffffff" />`;
+        valueContent = `<circle cx="${valueCX}" cy="${centerY}" r="${REFERENCE_DOT_RADIUS}" fill="${textColor}" />`;
       } else {
-        valueContent = `<text x="${valueCX}" y="${centerY}" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-size="14" font-family="ui-sans-serif, system-ui">${escapeXml(slot.value.text)}</text>`;
+        valueContent = `<text x="${valueCX}" y="${centerY}" dominant-baseline="middle" text-anchor="middle" fill="${textColor}" font-size="14" font-family="ui-sans-serif, system-ui">${escapeXml(slot.value.text)}</text>`;
       }
 
       return `
     <g>
-      <text x="${rectX}" y="${typeLabelY}" dominant-baseline="auto" fill="#aaaaaa" font-size="12" font-family="Georgia, serif">${escapeXml(typeText)}</text>
-      <text x="${nameX}" y="${centerY}" dominant-baseline="middle" text-anchor="end" fill="#ffffff" font-size="14" font-family="ui-monospace, SFMono-Regular, Consolas, monospace">${escapeXml(slot.name)}</text>
-      <rect x="${rectX}" y="${rowY}" width="${rectW}" height="${VAR_RECT_HEIGHT}" fill="none" stroke="#ffffff" stroke-width="1" />
+      <text x="${rectX}" y="${typeLabelY}" dominant-baseline="auto" fill="${typeLabelColor}" font-size="12" font-family="Georgia, serif">${escapeXml(typeText)}</text>
+      <text x="${nameX}" y="${centerY}" dominant-baseline="middle" text-anchor="end" fill="${textColor}" font-size="14" font-family="ui-monospace, SFMono-Regular, Consolas, monospace">${escapeXml(slot.name)}</text>
+      <rect x="${rectX}" y="${rowY}" width="${rectW}" height="${VAR_RECT_HEIGHT}" fill="none" stroke="${strokeColor}" stroke-width="1" />
       ${valueContent}
     </g>`;
     })
@@ -558,8 +576,9 @@ function renderFrame(frame: FrameState, x: number, y: number): RenderedFrame {
 
   const svg = `
   <g>
-    <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="none" stroke="#ffffff" stroke-width="1" />
-    <text x="${titleX}" y="${titleY}" dominant-baseline="middle" text-anchor="end" fill="#ffffff" font-size="14" font-family="Georgia, serif">${escapeXml(frame.name)}</text>
+    <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="none" stroke="${strokeColor}" stroke-width="1" />
+    <text x="${titleX}" y="${titleY}" dominant-baseline="middle" text-anchor="end" fill="${textColor}" font-size="14" font-family="Georgia, serif">${escapeXml(frame.name)}</text>
+    ${returnedLabel}
     ${slotsSvg}
   </g>`;
 
@@ -739,7 +758,13 @@ function renderMemorySnapshotSvg(
   heap: Map<string, HeapEntry> = new Map(),
   hasData: boolean = false
 ): string {
-  const maxNameWidth = frames.reduce((m, f) => Math.max(m, measureText(f.name, LABEL_FONT)), 0);
+  const maxNameWidth = frames.reduce((m, f) => {
+    const nameWidth = measureText(f.name, FRAME_TITLE_FONT);
+    const returnedLabelWidth = f.returned
+      ? measureText(RETURNED_LABEL_TEXT, RETURNED_LABEL_FONT)
+      : 0;
+    return Math.max(m, nameWidth, returnedLabelWidth);
+  }, 0);
   const stackX = Math.max(MARGIN + FUNC_NAME_DISTANCE, maxNameWidth + 18);
 
   let stackY = MARGIN + HEADER_HEIGHT;
@@ -1023,17 +1048,50 @@ function renderMemorySnapshotSvg(
 </svg>`;
 }
 
-// Renders a memory diagram directly from a flat variable dict (e.g. the debugger's
-// currentVariables), for callers with no Memdia instance wired up — MemDia.tsx uses
-// this to show a live diagram from data it already receives.
-export function renderMemoryDiagramFromVariables(currentVariables: Record<string, any>): string {
+// Structurally typed rather than imported from interpreter.ts: interpreter.ts
+// imports Memdia from this file, so the reverse import would be circular.
+interface CallStackFrame {
+  name: string;
+  variables: Record<string, any>;
+  returned?: boolean;
+}
+
+// Renders a memory diagram from the debugger's full call stack — one frame per
+// active function/method call, in the same box-per-frame layout renderMemorySnapshotSvg
+// already supports. Java's empty 'global' wrapper frame is dropped once 'main' is
+// also present; a lone 'global' frame (no function ever called, or a language with
+// no main-wrapper) is relabeled 'main' so a plain variables-only program still
+// looks exactly like it did before methods existed. One shared heap Map across all
+// frames so a reference aliased between two frames (e.g. an object passed into a
+// method) still dedupes to a single heap box.
+//
+// Accepts either the pre-methods flat variables map (still used by every caller
+// that never touches multi-frame state) or the debugger's per-frame call stack,
+// so adding methods didn't require widening every pass-through prop's type —
+// only the two call sites that actually track a call stack pass one.
+export function renderMemoryDiagramFromCallStack(
+  currentVariables: Record<string, any> | CallStackFrame[]
+): string {
+  const callStack: CallStackFrame[] = Array.isArray(currentVariables)
+    ? currentVariables
+    : [{ name: 'main', variables: currentVariables }];
   const heap = new Map<string, HeapEntry>();
-  const slots: StackSlot[] = Object.entries(currentVariables)
-    .slice(0, MAX_STACK_SLOTS)
-    .map(([name, value]) => ({
-      name,
-      value: previewValue(value, heap),
-      typeLabel: inferTypeLabel(value),
-    }));
-  return renderMemorySnapshotSvg([{ name: 'main', slots }], heap);
+  const nonEmpty = callStack.filter((f) => Object.keys(f.variables).length > 0);
+  const shown =
+    nonEmpty.length > 0
+      ? nonEmpty
+      : [callStack[callStack.length - 1] ?? { name: 'main', variables: {} }];
+
+  const frames: FrameState[] = shown.map((frame) => ({
+    name: frame.name === 'global' && shown.length === 1 ? 'main' : frame.name,
+    returned: frame.returned,
+    slots: Object.entries(frame.variables)
+      .slice(0, MAX_STACK_SLOTS)
+      .map(([name, value]) => ({
+        name,
+        value: previewValue(value, heap),
+        typeLabel: inferTypeLabel(value),
+      })),
+  }));
+  return renderMemorySnapshotSvg(frames, heap);
 }

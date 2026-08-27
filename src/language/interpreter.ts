@@ -129,6 +129,9 @@ export class InputPrompt extends Error {
 export interface StackFrame {
   name: string;
   variables: Record<string, any>;
+  /** Set on a frame appended by getStackFrames() for a call that already
+   *  returned — its locals are gone, kept only for display (see lastReturnedFrame). */
+  returned?: boolean;
 }
 
 /** What the step-through generator yields to the debugger after each step. */
@@ -356,6 +359,10 @@ export class Interpreter {
    *  CallExpression node id (see resolveUserCalls). `evaluate` consults the top
    *  cache so a call whose body was already stepped through isn't run twice. */
   private debugCallResults: Array<Map<string, any>> = [];
+  /** Snapshot of the most recently returned call's frame, kept around so the
+   *  diagram can keep showing it (grayed, "returned") after its real frame is
+   *  popped — until a later call also returns and replaces it. See getStackFrames. */
+  private lastReturnedFrame: StackFrame | null = null;
 
   // --- Memory-diagram (Memdia) connection state ---
   /** Diagram to report declaration/assignment/call/return events to; unset means no diagram is attached. */
@@ -616,6 +623,7 @@ export class Interpreter {
     this.seededRandom = null;
     this.debugCallStack = [];
     this.debugCallResults = [];
+    this.lastReturnedFrame = null;
 
     try {
       // First pass: register all classes and procedures
@@ -687,6 +695,11 @@ export class Interpreter {
     for (const frame of this.debugCallStack) {
       frames.push({ name: frame.name, variables: this.snapshotFrameVariables(frame.env) });
     }
+    // Appended last so the diagram draws it where it sat while active — below
+    // its caller. Consumers that need "the innermost genuinely active frame"
+    // (e.g. debugEvent's locals below) must filter out returned frames rather
+    // than assume the array's last entry is always live.
+    if (this.lastReturnedFrame) frames.push(this.lastReturnedFrame);
     return frames;
   }
 
@@ -742,13 +755,17 @@ export class Interpreter {
   /** Builds the event yielded to the debugger for one step at `stmt`. */
   private debugEvent(stmt: Statement, overrides: Partial<DebugStepEvent> = {}): DebugStepEvent {
     const callStack = this.getStackFrames();
-    const globals = callStack[0].variables;
-    const locals = callStack[callStack.length - 1].variables;
+    // A returned frame's locals are dead — excluded here so the flattened
+    // variables view (used outside the diagram, e.g. the Output panel's
+    // variable table) only ever reflects genuinely active scopes.
+    const liveFrames = callStack.filter((f) => !f.returned);
+    const globals = liveFrames[0].variables;
+    const locals = liveFrames[liveFrames.length - 1].variables;
     return {
       nodeId: stmt.id,
       nodeType: stmt.type,
       loc: stmt.loc || null,
-      variables: callStack.length > 1 ? { ...globals, ...locals } : globals,
+      variables: liveFrames.length > 1 ? { ...globals, ...locals } : globals,
       callStack,
       ...overrides,
     };
@@ -1164,7 +1181,14 @@ export class Interpreter {
       if (e instanceof ReturnException) return e.value;
       throw e;
     } finally {
-      this.debugCallStack.pop();
+      const popped = this.debugCallStack.pop();
+      if (popped) {
+        this.lastReturnedFrame = {
+          name: popped.name,
+          variables: this.snapshotFrameVariables(popped.env),
+          returned: true,
+        };
+      }
     }
   }
 

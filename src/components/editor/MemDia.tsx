@@ -1,5 +1,5 @@
 import type { SupportedLang } from '../LanguageSelector';
-import { renderMemoryDiagramFromVariables } from '../../language/memdia';
+import { renderMemoryDiagramFromCallStack } from '../../language/memdia';
 
 interface MemDiaProps {
   paneTitle: string;
@@ -8,15 +8,16 @@ interface MemDiaProps {
 }
 
 // This panel used to list each variable as plain text (`name: JSON.stringify(value)`).
-// It now renders the real box-and-value memory diagram: renderMemoryDiagramFromVariables()
-// (in memdia.ts) converts the same currentVariables dict into an SVG string, and this
-// component just displays it.
+// It now renders the real box-and-value memory diagram: renderMemoryDiagramFromCallStack()
+// (in memdia.ts) converts the debugger's per-call-frame snapshot into an SVG string —
+// one frame box per active call, matching how the debugger already tracks scope — and
+// this component just displays it.
 export function MemDia({ paneTitle, paneLang, currentVariables }: MemDiaProps) {
   // currentVariables is already the right value to show at all times: Run and
   // Debug each clear it (via useProgramRunner/useCodeDebugger reset paths) when
   // the other mode starts or stops, so no extra "remember the last value" state
   // is needed here — this panel just mirrors whatever it's given.
-  const svg = renderMemoryDiagramFromVariables(currentVariables);
+  const svg = renderMemoryDiagramFromCallStack(currentVariables);
 
   return (
     <div className="h-full bg-slate-900/80 p-3 overflow-hidden">
