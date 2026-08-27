@@ -166,12 +166,12 @@ const NAME_BOX_GAP = 8;
 // back to the old per-character estimate.
 const NAME_FONT = '14px ui-monospace, SFMono-Regular, Consolas, monospace'; // slot/field names, array index labels
 const VALUE_FONT = '14px ui-sans-serif, system-ui'; // text inside value boxes
-const LABEL_FONT = '12px Georgia, serif'; // type labels, heap entry labels
+const LABEL_FONT = '13px Georgia, serif'; // type labels, heap entry labels — 13px floor matches --text-xs
 const FRAME_TITLE_FONT = '14px Georgia, serif'; // frame name titles — must match renderFrame's
-// title text's actual font-size (14), unlike LABEL_FONT's 12px, or a long name under-reserves
+// title text's actual font-size (14), unlike LABEL_FONT's 13px, or a long name under-reserves
 // column width and clips against the SVG's left edge.
 const RETURNED_LABEL_TEXT = 'returned';
-const RETURNED_LABEL_FONT = 'italic 11px Georgia, serif'; // must match renderFrame's "returned" sub-label
+const RETURNED_LABEL_FONT = 'italic 13px Georgia, serif'; // must match renderFrame's "returned" sub-label
 
 let measureCtx: CanvasRenderingContext2D | null | undefined;
 function measureText(
@@ -536,7 +536,7 @@ function renderFrame(frame: FrameState, x: number, y: number): RenderedFrame {
   const textColor = frame.returned ? '#888888' : '#ffffff';
   const typeLabelColor = frame.returned ? '#666666' : '#aaaaaa';
   const returnedLabel = frame.returned
-    ? `<text x="${titleX}" y="${titleY + 16}" dominant-baseline="middle" text-anchor="end" fill="#888888" font-size="11" font-style="italic" font-family="Georgia, serif">${RETURNED_LABEL_TEXT}</text>`
+    ? `<text x="${titleX}" y="${titleY + 16}" dominant-baseline="middle" text-anchor="end" fill="#888888" font-size="13" font-style="italic" font-family="Georgia, serif">${RETURNED_LABEL_TEXT}</text>`
     : '';
 
   const hasTypeLabels = frame.slots.some((s) => s.value.kind === 'primitive' && s.typeLabel);
@@ -566,7 +566,7 @@ function renderFrame(frame: FrameState, x: number, y: number): RenderedFrame {
 
       return `
     <g>
-      <text x="${rectX}" y="${typeLabelY}" dominant-baseline="auto" fill="${typeLabelColor}" font-size="12" font-family="Georgia, serif">${escapeXml(typeText)}</text>
+      <text x="${rectX}" y="${typeLabelY}" dominant-baseline="auto" fill="${typeLabelColor}" font-size="13" font-family="Georgia, serif">${escapeXml(typeText)}</text>
       <text x="${nameX}" y="${centerY}" dominant-baseline="middle" text-anchor="end" fill="${textColor}" font-size="14" font-family="ui-monospace, SFMono-Regular, Consolas, monospace">${escapeXml(slot.name)}</text>
       <rect x="${rectX}" y="${rowY}" width="${rectW}" height="${VAR_RECT_HEIGHT}" fill="none" stroke="${strokeColor}" stroke-width="1" />
       ${valueContent}
@@ -614,7 +614,7 @@ function renderHeapEntry(entry: HeapEntry, x: number, y: number): RenderedHeapEn
     const centerY = boxTop + boxH / 2;
     const svg = `
   <g>
-    <text x="${x}" y="${y + HEAP_OBJECT_LABEL_HEIGHT - 4}" dominant-baseline="auto" fill="#aaaaaa" font-size="12" font-family="Georgia, serif">${escapeXml(entry.label)}</text>
+    <text x="${x}" y="${y + HEAP_OBJECT_LABEL_HEIGHT - 4}" dominant-baseline="auto" fill="#aaaaaa" font-size="13" font-family="Georgia, serif">${escapeXml(entry.label)}</text>
     <rect x="${x}" y="${boxTop}" width="${boxW}" height="${boxH}" fill="none" stroke="#ffffff" stroke-width="1" />
     <text x="${x + boxW / 2}" y="${centerY}" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-size="14" font-family="ui-sans-serif, system-ui">${escapeXml(valueText)}</text>
   </g>`;
@@ -668,7 +668,7 @@ function renderHeapEntry(entry: HeapEntry, x: number, y: number): RenderedHeapEn
 
         return `
     <g>
-      <text x="${rectX}" y="${typeLabelY}" dominant-baseline="auto" fill="#aaaaaa" font-size="12" font-family="Georgia, serif">${escapeXml(typeText)}</text>
+      <text x="${rectX}" y="${typeLabelY}" dominant-baseline="auto" fill="#aaaaaa" font-size="13" font-family="Georgia, serif">${escapeXml(typeText)}</text>
       <text x="${nameX}" y="${centerY}" dominant-baseline="middle" text-anchor="end" fill="#ffffff" font-size="14" font-family="ui-monospace, SFMono-Regular, Consolas, monospace">${escapeXml(slot.name)}</text>
       <rect x="${rectX}" y="${rowY}" width="${rectW}" height="${VAR_RECT_HEIGHT}" fill="none" stroke="#ffffff" stroke-width="1" />
       ${valueContent}
@@ -678,7 +678,7 @@ function renderHeapEntry(entry: HeapEntry, x: number, y: number): RenderedHeapEn
 
     const svg = `
   <g>
-    <text x="${x}" y="${y + HEAP_OBJECT_LABEL_HEIGHT - 4}" dominant-baseline="auto" fill="#aaaaaa" font-size="12" font-family="Georgia, serif">${escapeXml(entry.label)}</text>
+    <text x="${x}" y="${y + HEAP_OBJECT_LABEL_HEIGHT - 4}" dominant-baseline="auto" fill="#aaaaaa" font-size="13" font-family="Georgia, serif">${escapeXml(entry.label)}</text>
     <rect x="${x}" y="${boxY}" width="${width}" height="${boxHeight}" fill="none" stroke="#ffffff" stroke-width="1" />
     ${slotsSvg}
   </g>`;
@@ -725,7 +725,7 @@ function renderHeapEntry(entry: HeapEntry, x: number, y: number): RenderedHeapEn
     <g>
       <rect x="${cellX}" y="${cellTop}" width="${cw}" height="${cellH}" fill="none" stroke="#ffffff" stroke-width="1" />
       ${valueContent}
-      <text x="${cellCX}" y="${cellTop + cellH + indexLabelHeight - 2}" dominant-baseline="auto" text-anchor="middle" fill="#aaaaaa" font-size="12" font-family="ui-monospace, SFMono-Regular, Consolas, monospace">${escapeXml(field.key)}</text>
+      <text x="${cellCX}" y="${cellTop + cellH + indexLabelHeight - 2}" dominant-baseline="auto" text-anchor="middle" fill="#aaaaaa" font-size="13" font-family="ui-monospace, SFMono-Regular, Consolas, monospace">${escapeXml(field.key)}</text>
     </g>`;
       cellX += cw;
       return cellSvg;
@@ -734,7 +734,7 @@ function renderHeapEntry(entry: HeapEntry, x: number, y: number): RenderedHeapEn
 
   const svg = `
   <g>
-    <text x="${x}" y="${cellTop - 4}" dominant-baseline="auto" fill="#aaaaaa" font-size="12" font-family="Georgia, serif">${escapeXml(entry.label)}</text>
+    <text x="${x}" y="${cellTop - 4}" dominant-baseline="auto" fill="#aaaaaa" font-size="13" font-family="Georgia, serif">${escapeXml(entry.label)}</text>
     ${cellsSvg}
   </g>`;
 
@@ -927,7 +927,7 @@ function renderMemorySnapshotSvg(
     placeHeapEntry(refId, entry, heapX, alignedY, false);
   }
 
-  const heapColumnRight = heap.size > 0 ? heapX + maxHeapWidth : heapX + HEAP_COLUMN_MIN_WIDTH;
+  const heapColumnRight = heap.size > 0 ? heapX + maxHeapWidth : heapX;
   const dataDividerX = heapColumnRight + HEAP_LEFT_MARGIN / 2;
   const dataX = heapColumnRight + HEAP_LEFT_MARGIN;
 
@@ -1024,6 +1024,11 @@ function renderMemorySnapshotSvg(
   const heapHasContent = heap.size > 0;
   const heapTitleX = heapHasContent ? heapX + maxHeapWidth / 2 : heapDividerX + COLUMN_TITLE_GAP;
 
+  const heapHeaderSvg = heapHasContent
+    ? `<text x="${heapTitleX}" y="${headerY}" text-anchor="middle" fill="#ffffff" ${headerAttrs}>HEAP</text>
+  ${divider(heapDividerX)}`
+    : '';
+
   const dataHeaderSvg = hasData
     ? `<text x="${dataDividerX + COLUMN_TITLE_GAP}" y="${headerY}" text-anchor="middle" fill="#ffffff" ${headerAttrs}>DATA</text>
   ${divider(dataDividerX)}`
@@ -1039,8 +1044,7 @@ function renderMemorySnapshotSvg(
     </marker>
   </defs>
   <text x="${stackTitleX}" y="${headerY}" text-anchor="middle" fill="#ffffff" ${headerAttrs}>STACK</text>
-  <text x="${heapTitleX}" y="${headerY}" text-anchor="middle" fill="#ffffff" ${headerAttrs}>HEAP</text>
-  ${divider(heapDividerX)}
+  ${heapHeaderSvg}
   ${dataHeaderSvg}
   ${framesSvg}
   ${heapEntriesSvg}
@@ -1069,12 +1073,25 @@ interface CallStackFrame {
 // that never touches multi-frame state) or the debugger's per-frame call stack,
 // so adding methods didn't require widening every pass-through prop's type —
 // only the two call sites that actually track a call stack pass one.
+// Shown instead of the full STACK/HEAP layout when callStack is genuinely
+// empty — before any Run, or right after Debug is initialized but before its
+// first Step. A real (even mostly-empty) frame always exists from the first
+// step onward, so this only ever appears in that "nothing has happened yet" window.
+// Blank, but sized to the same 260×MIN_CANVAS_HEIGHT baseline as a normal
+// near-empty diagram, so the panel doesn't visibly shrink.
+function renderPlaceholderSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="${MIN_CANVAS_HEIGHT}" viewBox="0 0 260 ${MIN_CANVAS_HEIGHT}"></svg>`;
+}
+
 export function renderMemoryDiagramFromCallStack(
   currentVariables: Record<string, any> | CallStackFrame[]
 ): string {
   const callStack: CallStackFrame[] = Array.isArray(currentVariables)
     ? currentVariables
     : [{ name: 'main', variables: currentVariables }];
+  if (callStack.length === 0) {
+    return renderPlaceholderSvg();
+  }
   const heap = new Map<string, HeapEntry>();
   const nonEmpty = callStack.filter((f) => Object.keys(f.variables).length > 0);
   const shown =

@@ -56,7 +56,9 @@ export function useEditorExecution({
     highlightedSourceLines,
     setHighlightedSourceLines,
     currentVariables,
+    setCurrentVariables,
     currentCallStack,
+    setCurrentCallStack,
     waitingForInput,
     inputPrompt,
     initDebugger,
@@ -101,11 +103,19 @@ export function useEditorExecution({
   }, [setHighlightedSourceLines]);
 
   /** Empties the console. Pass `resetHasRun` to bring the first-run hint back. */
-  const clearConsole = useCallback((options: { resetHasRun?: boolean } = {}) => {
-    setOutput([]);
-    setError(null);
-    if (options.resetHasRun) setHasRun(false);
-  }, []);
+  const clearConsole = useCallback(
+    (options: { resetHasRun?: boolean } = {}) => {
+      setOutput([]);
+      setError(null);
+      // Clears the diagram everywhere console text also clears (fresh Run/Debug,
+      // a replaced/appended program) but not on a language switch, which calls
+      // stopSession() alone and — like the console text — leaves the diagram up.
+      setCurrentVariables({});
+      setCurrentCallStack([]);
+      if (options.resetHasRun) setHasRun(false);
+    },
+    [setCurrentVariables, setCurrentCallStack]
+  );
 
   const resetRunner = runner.reset;
 
@@ -206,9 +216,6 @@ export function useEditorExecution({
 
   const debugStop = () => {
     stopDebugger();
-    // Clear plain-run diagram data too, so the diagram fully disappears on
-    // Stop rather than falling back to a stale Run's leftover variables.
-    runner.reset();
     setIsDebugging(false);
     clearHighlighting();
     setOutput((prev) => [...prev, 'Debugger stopped.']);

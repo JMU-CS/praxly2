@@ -106,8 +106,6 @@ export const useCodeDebugger = (
     setHighlightedSourceLines([]);
     setHighlightedTranslationLines([]);
     setIsDebugComplete(false);
-    setCurrentVariables({});
-    setCurrentCallStack([]);
     setWaitingForInput(false);
     setInputPrompt('');
   }, []);
@@ -135,6 +133,7 @@ export const useCodeDebugger = (
     currentVariables,
     setCurrentVariables,
     currentCallStack,
+    setCurrentCallStack,
     waitingForInput,
     inputPrompt,
     initDebugger,
