@@ -228,6 +228,12 @@ class JavaClass {
     if (this.superClass) return this.superClass.getMethod(name);
     return undefined;
   }
+
+  hasField(name: string): boolean {
+    if (this.fieldTypes.has(name)) return true;
+    if (this.superClass) return this.superClass.hasField(name);
+    return false;
+  }
 }
 
 /** Wraps a declared byte/short/long/float/double value from a debug snapshot so
@@ -1527,7 +1533,7 @@ export class Interpreter {
     if (args.length !== params.length) {
       throw new Error(`Expected ${params.length} arguments but got ${args.length}`);
     }
-    params.forEach((param, i) => targetEnv.define(param.name, args[i]));
+    params.forEach((param, i) => targetEnv.define(param.name, args[i], param.paramType));
   }
 
   private instantiateClass(klass: JavaClass, args: any[], env: Environment): JavaInstance {
@@ -2212,6 +2218,32 @@ export class Interpreter {
         }
         const obj = this.evaluate(expr.object, env);
         if (obj instanceof JavaInstance) {
+          // Field access is resolved against the DECLARED type, not the runtime
+          // object — matches javac rejecting c.rank when c is declared Object even
+          // though a Card is actually assigned to it. Only checked for a plain
+          // variable/parameter with a tracked declared type; this.x, chained calls,
+          // and method-call results still fall back to today's runtime lookup.
+          if (expr.object.type === 'Identifier') {
+            const declaredTypeName = env.getType(expr.object.name);
+            if (declaredTypeName && declaredTypeName !== obj.klass.name) {
+              const declaredClass = this.classes.get(declaredTypeName);
+              // Only flag an error when the declared type is something we can be
+              // confident actually has zero fields matching this name: a known
+              // user class, or literally 'Object'. Anything else unresolvable
+              // (e.g. 'auto'/'var' from inferred-type declarations in other
+              // dialects) means we don't have enough information, so fall
+              // through to the permissive runtime lookup instead of risking a
+              // false positive on code that was never actually invalid.
+              const fieldMissing = declaredClass
+                ? !declaredClass.hasField(expr.property.name)
+                : declaredTypeName === 'Object';
+              if (fieldMissing) {
+                throw new Error(
+                  `Undefined field '${expr.property.name}': '${expr.object.name}' is declared as type ${declaredTypeName}, which has no such field`
+                );
+              }
+            }
+          }
           return obj.getField(expr.property.name);
         }
         if ((typeof obj === 'string' || Array.isArray(obj)) && expr.property.name === 'length') {

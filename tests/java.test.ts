@@ -956,6 +956,53 @@ public class Main {
   });
 });
 
+describe('Java field access type-checking', () => {
+  const runJava = (src: string): string[] =>
+    new Interpreter().interpret(new JavaParser(new JavaLexer(src).tokenize()).parse(), src);
+
+  it('rejects a field access that only exists on the runtime type, not the declared type', () => {
+    const out = runJava(`public class Card {
+  public int rank;
+  public int suit;
+
+  public Card(int rank, int suit) {
+    this.rank = rank;
+    this.suit = suit;
+  }
+}
+public class Main {
+  public static void printCard(Object c) {
+    System.out.println(c.rank);
+  }
+  public static void main(String[] args) {
+    Card card = new Card(8, 1);
+    printCard(card);
+  }
+}`);
+    expect(out.join('\n')).toMatch(/undefined field 'rank': 'c' is declared as type object/i);
+  });
+
+  it('still allows a field inherited from the declared (super) type', () => {
+    const out = runJava(`public class Animal {
+  public String name;
+  public Animal(String name) { this.name = name; }
+}
+public class Dog extends Animal {
+  public Dog(String name) { super(name); }
+}
+public class Main {
+  public static void printName(Animal a) {
+    System.out.println(a.name);
+  }
+  public static void main(String[] args) {
+    Dog d = new Dog("Rex");
+    printName(d);
+  }
+}`);
+    expect(out).toEqual(['Rex']);
+  });
+});
+
 describe('Java Main class unwrapping in translations', () => {
   const diceProgram = `public class Main {
   static int bonus = 7;
