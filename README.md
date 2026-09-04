@@ -21,13 +21,13 @@ Praxly2 is a modern TypeScript rewrite of [Praxly](https://github.com/JMU-CS/pra
 
 Install dependencies:
 
-```
+```sh
 npm install
 ```
 
 Start the development server:
 
-```
+```sh
 npm run dev
 ```
 
