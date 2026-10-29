@@ -14,6 +14,25 @@ import type {
 } from './ast';
 import { lvalueName } from './ast';
 
+/**
+ * Property names that must never be reachable through a program's `obj[key]`
+ * or `obj.key` access. Reading `"x"["constructor"]["constructor"]` hands back
+ * the host `Function` constructor, and writing `arr["__proto__"]` /
+ * `obj.prototype` reaches a built-in prototype — either one lets interpreted
+ * code (which may arrive from an untrusted share/embed link) break out of the
+ * AST walker and run arbitrary JavaScript on the page's origin. Student
+ * programs have no legitimate reason to touch these keys, so we reject them
+ * rather than try to make them safe.
+ */
+const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/** Throws if `key` is one of the keys that can escape the interpreter. */
+function assertSafeKey(key: unknown): void {
+  if (FORBIDDEN_KEYS.has(String(key))) {
+    throw new Error(`Access to property '${String(key)}' is not allowed`);
+  }
+}
+
 export class Environment {
   public values: Record<string, any> = {};
   public types: Record<string, string> = {}; // Track declared types
@@ -1573,11 +1592,13 @@ export class Interpreter {
           if (obj instanceof JavaInstance) {
             obj.setField(fieldName, value);
           } else {
+            assertSafeKey(fieldName);
             obj[fieldName] = value;
           }
         } else if (target.type === 'IndexExpression') {
           const obj = this.evaluate((target as any).object, env);
           const idx = this.evaluate((target as any).index, env);
+          assertSafeKey(idx);
           obj[idx] = value;
         } else if (varName) {
           // Identifier target — define the variable with type info. May target an
@@ -1813,10 +1834,14 @@ export class Interpreter {
         const obj = this.evaluate(target.object, env);
         const fieldName = target.property.name;
         if (obj instanceof JavaInstance) obj.setField(fieldName, value);
-        else obj[fieldName] = value;
+        else {
+          assertSafeKey(fieldName);
+          obj[fieldName] = value;
+        }
       } else if (target.type === 'IndexExpression') {
         const obj = this.evaluate(target.object, env);
         const idx = this.evaluate(target.index, env);
+        assertSafeKey(idx);
         obj[idx] = value;
       } else {
         // Mirror the statement-position Identifier branch: define-if-new (and
@@ -2065,6 +2090,7 @@ export class Interpreter {
       case 'IndexExpression': {
         const indexObj = this.evaluate(expr.object, env);
         const idxValue = this.evaluate(expr.index, env);
+        assertSafeKey(idxValue);
         return indexObj[idxValue];
       }
 
